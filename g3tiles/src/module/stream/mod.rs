@@ -30,3 +30,6 @@ pub(crate) type ConnectedStream = (
     Box<dyn AsyncWrite + Unpin + Send + Sync>,
 );
 pub(crate) type StreamConnectResult = Result<ConnectedStream, StreamConnectError>;
+
+mod transit;
+pub(crate) use transit::StreamTransitTask;

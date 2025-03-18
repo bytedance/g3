@@ -18,12 +18,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use log::debug;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncWrite};
 
+use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
-use g3_io_ext::{
-    AsyncStream, LimitedCopy, LimitedCopyConfig, LimitedCopyError, LimitedStream, OnceBufReader,
-};
+use g3_io_ext::{AsyncStream, IdleInterval, LimitedCopyConfig, LimitedStream, OnceBufReader};
 use g3_openssl::SslStream;
 use g3_types::limit::GaugeSemaphorePermit;
 
@@ -31,7 +30,7 @@ use super::CommonTaskContext;
 use crate::backend::ArcBackend;
 use crate::config::server::ServerConfig;
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
-use crate::module::stream::StreamRelayTaskCltWrapperStats;
+use crate::module::stream::{StreamRelayTaskCltWrapperStats, StreamTransitTask};
 use crate::serve::openssl_proxy::OpensslHost;
 use crate::serve::{ServerTaskError, ServerTaskNotes, ServerTaskResult, ServerTaskStage};
 
@@ -151,8 +150,8 @@ impl OpensslRelayTask {
     async fn relay<S, UR, UW>(
         &mut self,
         mut ssl_stream: SslStream<OnceBufReader<LimitedStream<S>>>,
-        mut ups_r: UR,
-        mut ups_w: UW,
+        ups_r: UR,
+        ups_w: UW,
     ) -> ServerTaskResult<()>
     where
         S: AsyncRead + AsyncWrite + Unpin,
@@ -160,65 +159,9 @@ impl OpensslRelayTask {
         UW: AsyncWrite + Unpin,
     {
         self.reset_clt_limit_and_stats(&mut ssl_stream);
-        let (mut clt_r, mut clt_w) = ssl_stream.into_split();
+        let (clt_r, clt_w) = ssl_stream.into_split();
 
-        let copy_config = LimitedCopyConfig::default();
-        let mut clt_to_ups = LimitedCopy::new(&mut clt_r, &mut ups_w, &copy_config);
-        let mut ups_to_clt = LimitedCopy::new(&mut ups_r, &mut clt_w, &copy_config);
-
-        let task_idle_max_count = self
-            .host
-            .config
-            .task_idle_max_count
-            .unwrap_or(self.ctx.server_config.task_idle_max_count);
-        let mut idle_interval = self.ctx.idle_wheel.register();
-        let mut idle_count = 0;
-        loop {
-            tokio::select! {
-                biased;
-
-                r = &mut clt_to_ups => {
-                    let _ = ups_to_clt.write_flush().await;
-                    return match r {
-                        Ok(_) => {
-                            let _ = ups_w.shutdown().await;
-                            Err(ServerTaskError::ClosedByClient)
-                        }
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::ClientTcpReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
-                    };
-                }
-                r = &mut ups_to_clt => {
-                    let _ = clt_to_ups.write_flush().await;
-                    return match r {
-                        Ok(_) => {
-                            let _ = clt_w.shutdown().await;
-                            Err(ServerTaskError::ClosedByUpstream)
-                        },
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::UpstreamReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
-                    };
-                }
-                n = idle_interval.tick() => {
-                    if clt_to_ups.is_idle() && ups_to_clt.is_idle() {
-                        idle_count += n;
-
-                        if idle_count >= task_idle_max_count {
-                            return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
-                        }
-                    } else {
-                        idle_count = 0;
-
-                        clt_to_ups.reset_active();
-                        ups_to_clt.reset_active();
-                    }
-
-                    if self.ctx.server_quit_policy.force_quit() {
-                        return Err(ServerTaskError::CanceledAsServerQuit)
-                    }
-                }
-            };
-        }
+        self.transit_transparent(clt_r, clt_w, ups_r, ups_w).await
     }
 
     fn reset_clt_limit_and_stats<S>(
@@ -249,5 +192,44 @@ impl OpensslRelayTask {
             .get_mut()
             .inner_mut()
             .reset_stats(Arc::new(clt_wrapper_stats));
+    }
+}
+
+impl StreamTransitTask for OpensslRelayTask {
+    fn copy_config(&self) -> LimitedCopyConfig {
+        self.ctx.server_config.tcp_copy
+    }
+
+    fn idle_check_interval(&self) -> IdleInterval {
+        self.ctx.idle_wheel.register()
+    }
+
+    fn max_idle_count(&self) -> usize {
+        self.host
+            .config
+            .task_idle_max_count
+            .unwrap_or(self.ctx.server_config.task_idle_max_count)
+    }
+
+    fn log_client_shutdown(&self) {
+        self.get_log_context()
+            .log_client_shutdown(&self.ctx.task_logger);
+    }
+
+    fn log_upstream_shutdown(&self) {
+        self.get_log_context()
+            .log_upstream_shutdown(&self.ctx.task_logger);
+    }
+
+    fn log_periodic(&self) {
+        self.get_log_context().log_periodic(&self.ctx.task_logger);
+    }
+
+    fn log_flush_interval(&self) -> Option<Duration> {
+        None
+    }
+
+    fn quit_policy(&self) -> &ServerQuitPolicy {
+        self.ctx.server_quit_policy.as_ref()
     }
 }
