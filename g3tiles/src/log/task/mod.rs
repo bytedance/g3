@@ -48,8 +48,8 @@ pub(crate) fn get_shared_logger(name: &str, server_type: &str, server_name: &Nod
 }
 
 pub(crate) enum TaskEvent {
-    // Created,
-    // Connected,
+    Created,
+    Connected,
     Periodic,
     ClientShutdown,
     UpstreamShutdown,
@@ -59,8 +59,8 @@ pub(crate) enum TaskEvent {
 impl TaskEvent {
     pub(crate) fn as_str(&self) -> &'static str {
         match self {
-            // TaskEvent::Created => "Created",
-            // TaskEvent::Connected => "Connected",
+            TaskEvent::Created => "Created",
+            TaskEvent::Connected => "Connected",
             TaskEvent::Periodic => "Periodic",
             TaskEvent::ClientShutdown => "ClientShutdown",
             TaskEvent::UpstreamShutdown => "UpstreamShutdown",

@@ -17,6 +17,9 @@ The following common keys are supported:
 * :ref:`tls_ticketer <conf_server_common_tls_ticketer>`
 * :ref:`task_idle_check_duration <conf_server_common_task_idle_check_duration>`
 * :ref:`task_idle_max_count <conf_server_common_task_idle_max_count>`
+* :ref:`flush_task_log_on_created <conf_server_common_flush_task_log_on_created>`
+* :ref:`flush_task_log_on_connected <conf_server_common_flush_task_log_on_connected>`
+* :ref:`task_log_flush_interval <conf_server_common_task_log_flush_interval>`
 * :ref:`extra_metrics_tags <conf_server_common_extra_metrics_tags>`
 
 listen

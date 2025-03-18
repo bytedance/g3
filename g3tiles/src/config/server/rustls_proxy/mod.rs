@@ -54,6 +54,9 @@ pub(crate) struct RustlsProxyServerConfig {
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
     pub(crate) task_idle_check_duration: Duration,
     pub(crate) task_idle_max_count: usize,
+    pub(crate) flush_task_log_on_created: bool,
+    pub(crate) flush_task_log_on_connected: bool,
+    pub(crate) task_log_flush_interval: Option<Duration>,
     pub(crate) tcp_copy: LimitedCopyConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) tls_ticketer: Option<TlsTicketConfig>,
@@ -75,6 +78,9 @@ impl RustlsProxyServerConfig {
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
             task_idle_check_duration: IDLE_CHECK_DEFAULT_DURATION,
             task_idle_max_count: IDLE_CHECK_DEFAULT_MAX_COUNT,
+            flush_task_log_on_created: false,
+            flush_task_log_on_connected: false,
+            task_log_flush_interval: None,
             tcp_copy: Default::default(),
             tcp_misc_opts: Default::default(),
             tls_ticketer: None,
@@ -164,6 +170,20 @@ impl RustlsProxyServerConfig {
             "task_idle_max_count" => {
                 self.task_idle_max_count = g3_yaml::value::as_usize(v)
                     .context(format!("invalid usize value for key {k}"))?;
+                Ok(())
+            }
+            "flush_task_log_on_created" => {
+                self.flush_task_log_on_created = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            "flush_task_log_on_connected" => {
+                self.flush_task_log_on_connected = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            "task_log_flush_interval" => {
+                let interval = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                self.task_log_flush_interval = Some(interval);
                 Ok(())
             }
             "tcp_copy_buffer_size" => {

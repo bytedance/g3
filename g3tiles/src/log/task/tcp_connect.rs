@@ -30,6 +30,33 @@ pub(crate) struct TaskLogForTcpConnect<'a> {
 }
 
 impl TaskLogForTcpConnect<'_> {
+    pub(crate) fn log_created(&self, logger: &Logger) {
+        slog_info!(logger, "";
+            "task_type" => "TcpConnect",
+            "task_id" => LtUuid(&self.task_notes.id),
+            "task_event" => TaskEvent::Created.as_str(),
+            "stage" => self.task_notes.stage.brief(),
+            "start_at" => LtDateTime(&self.task_notes.start_at),
+            "server_addr" => self.task_notes.server_addr(),
+            "client_addr" => self.task_notes.client_addr(),
+            "wait_time" => LtDuration(self.task_notes.wait_time),
+        )
+    }
+
+    pub(crate) fn log_connected(&self, logger: &Logger) {
+        slog_info!(logger, "";
+            "task_type" => "TcpConnect",
+            "task_id" => LtUuid(&self.task_notes.id),
+            "task_event" => TaskEvent::Connected.as_str(),
+            "stage" => self.task_notes.stage.brief(),
+            "start_at" => LtDateTime(&self.task_notes.start_at),
+            "server_addr" => self.task_notes.server_addr(),
+            "client_addr" => self.task_notes.client_addr(),
+            "wait_time" => LtDuration(self.task_notes.wait_time),
+            "ready_time" => LtDuration(self.task_notes.ready_time),
+        )
+    }
+
     pub(crate) fn log_periodic(&self, logger: &Logger) {
         slog_info!(logger, "";
             "task_type" => "TcpConnect",
