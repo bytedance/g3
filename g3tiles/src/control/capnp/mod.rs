@@ -20,6 +20,7 @@ mod common;
 use common::set_operation_result;
 mod proc;
 
+mod backend;
 mod server;
 
 pub fn stop_working_thread() {

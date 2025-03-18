@@ -85,6 +85,10 @@ impl Backend for DummyCloseBackend {
         Ok(())
     }
 
+    fn alive_connection(&self) -> u64 {
+        0
+    }
+
     async fn stream_connect(&self, _task_notes: &ServerTaskNotes) -> StreamConnectResult {
         Err(StreamConnectError::UpstreamNotResolved)
     }

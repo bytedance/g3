@@ -4,6 +4,8 @@ using Types = import "types.capnp";
 
 using Server = import "server.capnp";
 
+using Backend = import "backend.capnp";
+
 interface ProcControl {
   #
 
@@ -24,4 +26,5 @@ interface ProcControl {
 
   reloadBackend @9 (name :Text) -> (result :Types.OperationResult);
   listBackend @10 () -> (result :List(Text));
+  getBackend @13 (name: Text) -> (backend :Types.FetchResult(Backend.BackendControl));
 }

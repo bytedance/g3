@@ -24,6 +24,7 @@ use g3tiles_proto::proc_capnp::proc_control;
 mod common;
 mod proc;
 
+mod backend;
 mod server;
 
 fn build_cli_args() -> Command {
@@ -39,6 +40,7 @@ fn build_cli_args() -> Command {
         .subcommand(proc::commands::reload_discover())
         .subcommand(proc::commands::reload_backend())
         .subcommand(server::command())
+        .subcommand(backend::command())
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -74,6 +76,7 @@ async fn main() -> anyhow::Result<()> {
                 proc::COMMAND_RELOAD_DISCOVER => proc::reload_discover(&proc_control, args).await,
                 proc::COMMAND_RELOAD_BACKEND => proc::reload_backend(&proc_control, args).await,
                 server::COMMAND => server::run(&proc_control, args).await,
+                backend::COMMAND => backend::run(&proc_control, args).await,
                 _ => Err(CommandError::Cli(anyhow!(
                     "unsupported command {subcommand}"
                 ))),

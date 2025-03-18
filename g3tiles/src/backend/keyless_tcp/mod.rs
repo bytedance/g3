@@ -207,6 +207,10 @@ impl Backend for KeylessTcpBackend {
         Ok(())
     }
 
+    fn alive_connection(&self) -> u64 {
+        self.pool_handle.alive_connection()
+    }
+
     async fn keyless(&self, req: KeylessRequest) -> KeylessResponse {
         let err = KeylessInternalErrorResponse::new(req.header());
         if !self.config.wait_new_channel && self.stats.alive_channel() <= 0 {

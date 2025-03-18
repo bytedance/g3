@@ -18,6 +18,7 @@ use clap::ArgMatches;
 
 use g3_ctl::CommandResult;
 
+use g3tiles_proto::backend_capnp::backend_control;
 use g3tiles_proto::proc_capnp::proc_control;
 use g3tiles_proto::server_capnp::server_control;
 
@@ -198,4 +199,14 @@ pub(crate) async fn get_server(
     req.get().set_name(name);
     let rsp = req.send().promise.await?;
     parse_fetch_result(rsp.get()?.get_server()?)
+}
+
+pub(crate) async fn get_backend(
+    client: &proc_control::Client,
+    name: &str,
+) -> CommandResult<backend_control::Client> {
+    let mut req = client.get_backend_request();
+    req.get().set_name(name);
+    let rsp = req.send().promise.await?;
+    parse_fetch_result(rsp.get()?.get_backend()?)
 }

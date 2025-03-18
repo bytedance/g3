@@ -28,3 +28,7 @@ pub mod proc_capnp {
 pub mod server_capnp {
     include!(concat!(env!("OUT_DIR"), "/server_capnp.rs"));
 }
+
+pub mod backend_capnp {
+    include!(concat!(env!("OUT_DIR"), "/backend_capnp.rs"));
+}

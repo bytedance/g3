@@ -55,6 +55,7 @@ enum KeylessPoolCmd {
 #[derive(Clone)]
 pub(crate) struct KeylessConnectionPoolHandle {
     cmd_sender: mpsc::Sender<KeylessPoolCmd>,
+    stats: Arc<ConnectionPoolStats>,
 }
 
 impl KeylessConnectionPoolHandle {
@@ -68,6 +69,10 @@ impl KeylessConnectionPoolHandle {
 
     pub(crate) fn request_new_connection(&self) {
         let _ = self.cmd_sender.try_send(KeylessPoolCmd::NewConnection);
+    }
+
+    pub(crate) fn alive_connection(&self) -> u64 {
+        self.stats.alive_count() as u64
     }
 }
 
@@ -123,11 +128,12 @@ where
             keyless_request_receiver,
             graceful_close_wait,
         );
+        let stats = pool.stats.clone();
         let (cmd_sender, cmd_receiver) = mpsc::channel(CMD_CHANNEL_SIZE);
         tokio::spawn(async move {
             pool.into_running(cmd_receiver).await;
         });
-        KeylessConnectionPoolHandle { cmd_sender }
+        KeylessConnectionPoolHandle { cmd_sender, stats }
     }
 
     async fn into_running(mut self, mut cmd_receiver: mpsc::Receiver<KeylessPoolCmd>) {
