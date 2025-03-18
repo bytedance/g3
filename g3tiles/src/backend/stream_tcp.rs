@@ -179,6 +179,11 @@ impl Backend for StreamTcpBackend {
         Ok(())
     }
 
+    fn alive_connection(&self) -> u64 {
+        // TODO add alive connection stats
+        0
+    }
+
     async fn stream_connect(&self, task_notes: &ServerTaskNotes) -> StreamConnectResult {
         let Some(next_addr) = self.select_peer(task_notes) else {
             return Err(StreamConnectError::UpstreamNotResolved);

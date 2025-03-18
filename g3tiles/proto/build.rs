@@ -20,6 +20,7 @@ fn main() {
         .file("schema/types.capnp")
         .file("schema/proc.capnp")
         .file("schema/server.capnp")
+        .file("schema/backend.capnp")
         .run()
         .unwrap();
 }

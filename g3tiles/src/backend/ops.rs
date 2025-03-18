@@ -69,6 +69,13 @@ pub async fn load_all() -> anyhow::Result<()> {
     Ok(())
 }
 
+pub(crate) fn get_backend(name: &NodeName) -> anyhow::Result<ArcBackend> {
+    match registry::get(name) {
+        Some(backend) => Ok(backend),
+        None => Err(anyhow!("no backend named {name} found")),
+    }
+}
+
 pub(crate) async fn reload(
     name: &NodeName,
     position: Option<YamlDocPosition>,

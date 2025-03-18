@@ -35,7 +35,7 @@ mod stream_tcp;
 
 mod ops;
 pub use ops::load_all;
-pub(crate) use ops::{reload, update_dependency_to_discover};
+pub(crate) use ops::{get_backend, reload, update_dependency_to_discover};
 
 mod registry;
 pub(crate) use registry::{get_names, get_or_insert_default};
@@ -52,6 +52,8 @@ pub(crate) trait Backend {
 
     fn discover(&self) -> &NodeName;
     fn update_discover(&self) -> anyhow::Result<()>;
+
+    fn alive_connection(&self) -> u64;
 
     async fn stream_connect(&self, _task_notes: &ServerTaskNotes) -> StreamConnectResult {
         Err(StreamConnectError::UpstreamNotResolved) // TODO

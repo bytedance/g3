@@ -19,6 +19,7 @@ use capnp_rpc::pry;
 
 use g3_types::metrics::NodeName;
 
+use g3tiles_proto::backend_capnp::backend_control;
 use g3tiles_proto::proc_capnp::proc_control;
 use g3tiles_proto::server_capnp::server_control;
 use g3tiles_proto::types_capnp::fetch_result;
@@ -183,6 +184,19 @@ impl proc_control::Server for ProcControlImpl {
         for (i, name) in set.iter().enumerate() {
             builder.set(i as u32, name.as_str());
         }
+        Promise::ok(())
+    }
+
+    fn get_backend(
+        &mut self,
+        params: proc_control::GetBackendParams,
+        mut results: proc_control::GetBackendResults,
+    ) -> Promise<(), capnp::Error> {
+        let backend = pry!(pry!(pry!(params.get()).get_name()).to_str());
+        pry!(set_fetch_result::<backend_control::Owned>(
+            results.get().init_backend(),
+            super::backend::BackendControlImpl::new_client(backend),
+        ));
         Promise::ok(())
     }
 }
