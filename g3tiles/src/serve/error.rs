@@ -41,8 +41,6 @@ pub(crate) enum ServerTaskError {
     UpstreamReadFailed(io::Error),
     #[error("write to upstream: {0:?}")]
     UpstreamWriteFailed(io::Error),
-    #[error("closed by upstream")]
-    ClosedByUpstream,
     #[error("closed by client")]
     ClosedByClient,
     #[error("canceled as server quit")]
@@ -67,7 +65,6 @@ impl ServerTaskError {
             ServerTaskError::UpstreamNotConnected(_) => "UpstreamNotConnected",
             ServerTaskError::UpstreamReadFailed(_) => "UpstreamReadFailed",
             ServerTaskError::UpstreamWriteFailed(_) => "UpstreamWriteFailed",
-            ServerTaskError::ClosedByUpstream => "ClosedByUpstream",
             ServerTaskError::ClosedByClient => "ClosedByClient",
             ServerTaskError::CanceledAsServerQuit => "CanceledAsServerQuit",
             ServerTaskError::Idle(_, _) => "Idle",

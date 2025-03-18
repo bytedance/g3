@@ -41,6 +41,26 @@ UUID of the task.
 
 The *task_id* will appear in other logs such as escape log if they have any association with this task.
 
+task_event
+----------
+
+**optional**, **type**: string
+
+Show the event that trigger this log.
+
+The event can be
+
+  - Created: task created
+  - Connected: connected to upstream
+  - Periodic: periodic log
+  - ClientShutdown: client shutdown the connection gracefully first
+  - UpstreamShutdown: upstream shutdown the connection gracefully first
+  - Finished: task finished
+
+This field can be omitted if the value is *finished*.
+
+.. versionadded:: 0.3.8
+
 stage
 -----
 

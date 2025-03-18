@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
 use std::sync::Arc;
 
 use slog::Logger;
@@ -33,11 +32,4 @@ pub(crate) struct CommonTaskContext {
     pub idle_wheel: Arc<IdleWheel>,
     pub cc_info: ClientConnectionInfo,
     pub task_logger: Logger,
-}
-
-impl CommonTaskContext {
-    #[inline]
-    pub(super) fn client_addr(&self) -> SocketAddr {
-        self.cc_info.client_addr()
-    }
 }
