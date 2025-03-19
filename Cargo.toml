@@ -130,7 +130,7 @@ mime = "0.3"
 percent-encoding = "2.1"
 http = "1.2"
 h2 = "0.4"
-h3-quinn = "0.0.8"
+h3-quinn = "0.0.9"
 h3 = "0.0.7"
 #
 log = "0.4"
@@ -164,8 +164,8 @@ flume = { version = "0.11", default-features = false }
 c-ares = { version = "11.0", default-features = false }
 c-ares-resolver = { version = "10.0", default-features = false }
 c-ares-sys = { version = "10.0", default-features = false }
-hickory-proto = { version = "0.25.0-alpha.4", default-features = false }
-hickory-client = { version = "0.25.0-alpha.4", default-features = false }
+hickory-proto = { version = "0.25", default-features = false }
+hickory-client = { version = "0.25", default-features = false }
 #
 capnp-rpc = "0.20"
 capnp = "0.20"
