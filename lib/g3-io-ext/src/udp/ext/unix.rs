@@ -31,7 +31,7 @@ use super::UdpSocketExt;
 
 #[derive(Default)]
 struct RawSocketAddr {
-    buf: [u8; mem::size_of::<libc::sockaddr_in6>()],
+    buf: [u8; size_of::<libc::sockaddr_in6>()],
 }
 
 impl RawSocketAddr {
@@ -40,8 +40,8 @@ impl RawSocketAddr {
             let p = &*(self.buf.as_ptr() as *mut libc::sockaddr);
 
             let size = match p.sa_family as libc::c_int {
-                libc::AF_INET => mem::size_of::<libc::sockaddr_in>(),
-                libc::AF_INET6 => mem::size_of::<libc::sockaddr_in6>(),
+                libc::AF_INET => size_of::<libc::sockaddr_in>(),
+                libc::AF_INET6 => size_of::<libc::sockaddr_in6>(),
                 _ => self.buf.len(),
             };
 
