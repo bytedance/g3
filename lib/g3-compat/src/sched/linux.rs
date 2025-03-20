@@ -47,7 +47,7 @@ impl CpuAffinityImpl {
         let r = unsafe {
             libc::sched_setaffinity(
                 0,
-                mem::size_of::<libc::cpu_set_t>() as libc::size_t,
+                size_of::<libc::cpu_set_t>() as libc::size_t,
                 &self.cpu_set,
             )
         };

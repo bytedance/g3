@@ -49,7 +49,7 @@ impl CpuAffinityImpl {
                 libc::CPU_LEVEL_WHICH,
                 libc::CPU_WHICH_TID,
                 -1,
-                mem::size_of::<libc::cpuset_t>() as libc::size_t,
+                size_of::<libc::cpuset_t>() as libc::size_t,
                 &self.cpu_set,
             )
         };
