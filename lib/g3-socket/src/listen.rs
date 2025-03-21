@@ -15,7 +15,7 @@
  */
 
 use std::io;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 
 use socket2::Socket;
 
@@ -33,4 +33,48 @@ pub(super) fn set_addr_reuse(socket: &Socket, addr: SocketAddr) -> io::Result<()
         socket.set_reuse_address(true)?; // this is like REUSE_ADDR+REUSE_PORT on unix
     }
     Ok(())
+}
+
+pub(super) fn set_only_v6(socket: &Socket, addr: SocketAddr) -> io::Result<()> {
+    match addr.ip() {
+        IpAddr::V4(_) => Ok(()),
+        IpAddr::V6(v6) => {
+            if v6.is_unspecified() {
+                socket.set_only_v6(true)
+            } else {
+                Ok(())
+            }
+        }
+    }
+}
+
+pub(super) fn set_udp_recv_pktinfo(
+    socket: &Socket,
+    addr: SocketAddr,
+    ipv6_only: bool,
+) -> io::Result<()> {
+    match addr.ip() {
+        IpAddr::V4(v4) => {
+            if !v4.is_unspecified() {
+                return Ok(());
+            }
+
+            crate::sockopt::set_recv_ip_pktinfo(socket, true)
+        }
+        IpAddr::V6(v6) => {
+            if !v6.is_unspecified() {
+                return Ok(());
+            }
+
+            if !ipv6_only {
+                if let Err(e) = crate::sockopt::set_recv_ip_pktinfo(socket, true) {
+                    if e.kind() != io::ErrorKind::InvalidInput {
+                        // the socket may already been ipv6 only so skip this error
+                        return Err(e);
+                    }
+                }
+            }
+            crate::sockopt::set_recv_ipv6_pktinfo(socket, true)
+        }
+    }
 }

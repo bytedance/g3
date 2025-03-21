@@ -18,21 +18,7 @@ use std::io;
 use std::mem::MaybeUninit;
 use std::os::unix::io::AsRawFd;
 
-use libc::{c_int, c_void, socklen_t};
-
-unsafe fn setsockopt<T>(fd: c_int, level: c_int, name: c_int, value: T) -> io::Result<()>
-where
-    T: Copy,
-{
-    unsafe {
-        let payload = &value as *const T as *const c_void;
-        let ret = libc::setsockopt(fd, level, name, payload, size_of::<T>() as socklen_t);
-        if ret == -1 {
-            return Err(io::Error::last_os_error());
-        }
-        Ok(())
-    }
-}
+use libc::{c_int, socklen_t};
 
 unsafe fn getsockopt<T>(fd: c_int, level: c_int, name: c_int) -> io::Result<T>
 where
@@ -51,7 +37,7 @@ where
 
 pub(crate) fn set_bind_address_no_port<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<()> {
     unsafe {
-        setsockopt(
+        super::setsockopt(
             fd.as_raw_fd(),
             libc::IPPROTO_IP,
             libc::IP_BIND_ADDRESS_NO_PORT,
@@ -65,7 +51,7 @@ pub(crate) fn set_incoming_cpu<T: AsRawFd>(fd: &T, cpu_id: usize) -> io::Result<
     let cpu_id = i32::try_from(cpu_id)
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "out of range cpu id"))?;
     unsafe {
-        setsockopt(
+        super::setsockopt(
             fd.as_raw_fd(),
             libc::SOL_SOCKET,
             libc::SO_INCOMING_CPU,

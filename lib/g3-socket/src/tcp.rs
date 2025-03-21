@@ -31,7 +31,7 @@ pub fn new_std_listener(config: &TcpListenConfig) -> io::Result<std::net::TcpLis
     let socket = new_tcp_socket(AddressFamily::from(&addr))?;
     super::listen::set_addr_reuse(&socket, addr)?;
     if config.is_ipv6only() {
-        socket.set_only_v6(true)?;
+        super::listen::set_only_v6(&socket, addr)?;
     }
     #[cfg(target_os = "linux")]
     if config.transparent() {
