@@ -1,0 +1,87 @@
+/*
+ * Copyright 2025 ByteDance and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::{io, mem};
+
+use windows_sys::Win32::Networking::WinSock;
+
+use super::{RecvAncillaryBuffer, RecvAncillaryData};
+
+const fn cmsg_align(len: usize) -> usize {
+    (len + mem::align_of::<usize>() - 1) & !(mem::align_of::<usize>() - 1)
+}
+
+const fn cmsg_len(length: usize) -> usize {
+    cmsg_align(mem::size_of::<WinSock::CMSGHDR>()) + length
+}
+
+const CMSG_HDR_SIZE: usize = cmsg_len(0);
+
+impl RecvAncillaryBuffer {
+    #[allow(clippy::single_match)]
+    pub fn parse<T: RecvAncillaryData>(&self, total_size: usize, data: &mut T) -> io::Result<()> {
+        let mut offset = 0usize;
+
+        while offset + CMSG_HDR_SIZE <= total_size {
+            let buf = &self.buf[offset..];
+            let hdr = unsafe { (buf.as_ptr() as *const WinSock::CMSGHDR).as_ref().unwrap() };
+            offset += hdr.cmsg_len;
+            if offset > total_size {
+                // too much payload data
+                break;
+            }
+
+            let payload = &buf[CMSG_HDR_SIZE..hdr.cmsg_len];
+
+            match hdr.cmsg_level {
+                WinSock::SOL_SOCKET => {}
+                WinSock::IPPROTO_IP => match hdr.cmsg_type {
+                    WinSock::IP_PKTINFO => {
+                        let pktinfo: &WinSock::IN_PKTINFO = unsafe {
+                            (payload.as_ptr() as *const WinSock::IN_PKTINFO)
+                                .as_ref()
+                                .unwrap()
+                        };
+
+                        data.set_recv_interface(pktinfo.ipi_ifindex);
+                        let ip4 =
+                            Ipv4Addr::from(u32::from_be(unsafe { pktinfo.ipi_addr.S_un.S_addr }));
+                        data.set_recv_dst_addr(IpAddr::V4(ip4));
+                    }
+                    _ => {}
+                },
+                WinSock::IPPROTO_IPV6 => match hdr.cmsg_type {
+                    WinSock::IPV6_PKTINFO => {
+                        let pktinfo: &WinSock::IN6_PKTINFO = unsafe {
+                            (payload.as_ptr() as *const WinSock::IN6_PKTINFO)
+                                .as_ref()
+                                .unwrap()
+                        };
+
+                        data.set_recv_interface(pktinfo.ipi6_ifindex);
+                        let ip6 = Ipv6Addr::from(unsafe { pktinfo.ipi6_addr.u.Byte });
+                        data.set_recv_dst_addr(IpAddr::V6(ip6));
+                    }
+                    _ => {}
+                },
+                _ => {}
+            }
+        }
+
+        Ok(())
+    }
+}
