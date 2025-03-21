@@ -14,17 +14,12 @@
  * limitations under the License.
  */
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
-mod linux;
-#[cfg(any(target_os = "linux", target_os = "android"))]
-pub(crate) use linux::{get_incoming_cpu, set_bind_address_no_port, set_incoming_cpu};
-
-#[cfg(target_os = "freebsd")]
-mod freebsd;
-#[cfg(target_os = "freebsd")]
-pub(crate) use freebsd::set_tcp_reuseport_lb_numa_current_domain;
+#[cfg(unix)]
+mod unix;
+#[cfg(unix)]
+pub(crate) use unix::*;
 
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
-pub(crate) use windows::set_reuse_unicastport;
+pub(crate) use windows::*;

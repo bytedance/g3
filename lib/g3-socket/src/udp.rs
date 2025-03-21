@@ -114,10 +114,11 @@ pub fn new_std_bind_listen(config: &UdpListenConfig) -> io::Result<UdpSocket> {
     let socket = new_udp_socket(AddressFamily::from(&addr), config.socket_buffer())?;
     super::listen::set_addr_reuse(&socket, addr)?;
     if config.is_ipv6only() {
-        socket.set_only_v6(true)?;
+        super::listen::set_only_v6(&socket, addr)?;
     }
     let bind_addr = SockAddr::from(addr);
     socket.bind(&bind_addr)?;
+    super::listen::set_udp_recv_pktinfo(&socket, addr, config.is_ipv6only())?;
     RawSocket::from(&socket).set_udp_misc_opts(config.socket_misc_opts())?;
     Ok(UdpSocket::from(socket))
 }
@@ -126,10 +127,11 @@ pub fn new_std_rebind_listen(config: &UdpListenConfig, addr: SocketAddr) -> io::
     let socket = new_udp_socket(AddressFamily::from(&addr), config.socket_buffer())?;
     super::listen::set_addr_reuse(&socket, addr)?;
     if config.is_ipv6only() {
-        socket.set_only_v6(true)?;
+        super::listen::set_only_v6(&socket, addr)?;
     }
     let bind_addr = SockAddr::from(addr);
     socket.bind(&bind_addr)?;
+    super::listen::set_udp_recv_pktinfo(&socket, addr, config.is_ipv6only())?;
     RawSocket::from(&socket).set_udp_misc_opts(config.socket_misc_opts())?;
     Ok(UdpSocket::from(socket))
 }
@@ -219,5 +221,31 @@ mod tests {
             assert!(port_real <= port_end);
             v.push(socket);
         }
+    }
+
+    #[test]
+    fn listen() {
+        let mut config = UdpListenConfig::default();
+
+        let socket = new_std_bind_listen(&config).unwrap();
+        let local_addr = socket.local_addr().unwrap();
+        assert_ne!(local_addr.port(), 0);
+        assert!(local_addr.ip().is_unspecified());
+        drop(socket);
+
+        config.set_ipv6_only(true);
+        let socket = new_std_bind_listen(&config).unwrap();
+        let local_addr = socket.local_addr().unwrap();
+        assert_ne!(local_addr.port(), 0);
+        assert!(local_addr.ip().is_unspecified());
+        drop(socket);
+
+        config.set_socket_address(SocketAddr::from_str("0.0.0.0:0").unwrap());
+        config.set_ipv6_only(false);
+        let socket = new_std_bind_listen(&config).unwrap();
+        let local_addr = socket.local_addr().unwrap();
+        assert_ne!(local_addr.port(), 0);
+        assert!(local_addr.ip().is_unspecified());
+        drop(socket);
     }
 }

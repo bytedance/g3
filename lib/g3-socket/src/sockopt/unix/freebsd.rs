@@ -19,25 +19,11 @@ use std::os::unix::io::AsRawFd;
 
 use libc::{c_int, c_void, socklen_t};
 
-unsafe fn setsockopt<T>(fd: c_int, level: c_int, name: c_int, value: T) -> io::Result<()>
-where
-    T: Copy,
-{
-    unsafe {
-        let payload = &value as *const T as *const c_void;
-        let ret = libc::setsockopt(fd, level, name, payload, size_of::<T>() as socklen_t);
-        if ret == -1 {
-            return Err(io::Error::last_os_error());
-        }
-        Ok(())
-    }
-}
-
 pub(crate) fn set_tcp_reuseport_lb_numa_current_domain<T: AsRawFd>(fd: &T) -> io::Result<()> {
     const TCP_REUSPORT_LB_NUMA_CURDOM: i32 = -1;
 
     unsafe {
-        setsockopt(
+        super::setsockopt(
             fd.as_raw_fd(),
             libc::IPPROTO_TCP,
             libc::TCP_REUSPORT_LB_NUMA,

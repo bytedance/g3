@@ -49,9 +49,17 @@ impl UdpListenConfig {
         }
     }
 
-    pub fn check(&self) -> anyhow::Result<()> {
+    pub fn check(&mut self) -> anyhow::Result<()> {
         if self.address.port() == 0 {
             return Err(anyhow!("no listen port is set"));
+        }
+        match self.address.ip() {
+            IpAddr::V4(_) => self.ipv6only = false,
+            IpAddr::V6(v6) => {
+                if !v6.is_unspecified() {
+                    self.ipv6only = false;
+                }
+            }
         }
 
         Ok(())
