@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#[cfg(unix)]
-use std::io::IoSliceMut;
 use std::io::{self, IoSlice};
 use std::net::SocketAddr;
 use std::task::{Context, Poll};
@@ -41,11 +39,11 @@ pub trait UdpSocketExt {
     fn try_sendmsg(&self, iov: &[IoSlice<'_>], target: Option<SocketAddr>) -> io::Result<usize>;
 
     #[cfg(unix)]
-    fn poll_recvmsg(
+    fn poll_recvmsg<const C: usize>(
         &self,
         cx: &mut Context<'_>,
-        iov: &mut [IoSliceMut<'_>],
-    ) -> Poll<io::Result<(usize, Option<SocketAddr>)>>;
+        hdr: &mut RecvMsgHdr<'_, C>,
+    ) -> Poll<io::Result<()>>;
 
     #[cfg(any(
         target_os = "linux",

@@ -17,13 +17,11 @@
 use std::cell::UnsafeCell;
 use std::io::{IoSlice, IoSliceMut};
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
-use std::os::fd::AsFd;
+use std::os::fd::{AsFd, AsRawFd};
 use std::task::{Context, Poll, ready};
 use std::{io, mem, ptr};
 
-use rustix::net::{
-    RecvAncillaryBuffer, RecvFlags, SendAncillaryBuffer, SendFlags, recvmsg, sendmsg, sendmsg_addr,
-};
+use rustix::net::{SendAncillaryBuffer, SendFlags, sendmsg, sendmsg_addr};
 use tokio::io::Interest;
 use tokio::net::UdpSocket;
 
@@ -284,28 +282,38 @@ impl UdpSocketExt for UdpSocket {
         })
     }
 
-    fn poll_recvmsg(
+    fn poll_recvmsg<const C: usize>(
         &self,
         cx: &mut Context<'_>,
-        iov: &mut [IoSliceMut<'_>],
-    ) -> Poll<io::Result<(usize, Option<SocketAddr>)>> {
-        let fd = self.as_fd();
-        let mut control = RecvAncillaryBuffer::default();
+        hdr: &mut RecvMsgHdr<'_, C>,
+    ) -> Poll<io::Result<()>> {
+        let mut msghdr = unsafe { hdr.to_msghdr() };
+
+        let raw_fd = self.as_raw_fd();
+        let mut recvmsg = || {
+            let r = unsafe {
+                libc::recvmsg(raw_fd, ptr::from_mut(&mut msghdr), libc::MSG_DONTWAIT as _)
+            };
+            if r < 0 {
+                Err(io::Error::last_os_error())
+            } else {
+                Ok(r as usize)
+            }
+        };
 
         loop {
             ready!(self.poll_recv_ready(cx))?;
-            match self.try_io(Interest::READABLE, || {
-                recvmsg(fd, iov, &mut control, RecvFlags::DONTWAIT).map_err(io::Error::from)
-            }) {
-                Ok(res) => {
-                    let addr = res.address.and_then(|v| SocketAddr::try_from(v).ok());
-                    return Poll::Ready(Ok((res.bytes, addr)));
+            match self.try_io(Interest::READABLE, &mut recvmsg) {
+                Ok(nr) => {
+                    hdr.n_recv = nr;
+                    return Poll::Ready(Ok(()));
                 }
                 Err(e) => {
                     if e.kind() == io::ErrorKind::WouldBlock {
                         continue;
+                    } else {
+                        return Poll::Ready(Err(e));
                     }
-                    return Poll::Ready(Err(e));
                 }
             }
         }
@@ -324,7 +332,6 @@ impl UdpSocketExt for UdpSocket {
         msgs: &mut [SendMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
         use smallvec::SmallVec;
-        use std::os::fd::AsRawFd;
 
         let mut msgvec: SmallVec<[_; 32]> = SmallVec::with_capacity(msgs.len());
         for m in msgs.iter_mut() {
@@ -374,7 +381,6 @@ impl UdpSocketExt for UdpSocket {
         msgs: &mut [SendMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
         use smallvec::SmallVec;
-        use std::os::fd::AsRawFd;
 
         let mut msgvec: SmallVec<[_; 32]> = SmallVec::with_capacity(msgs.len());
         for m in msgs.iter_mut() {
@@ -427,7 +433,6 @@ impl UdpSocketExt for UdpSocket {
         hdr_v: &mut [RecvMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
         use smallvec::SmallVec;
-        use std::os::fd::AsRawFd;
 
         let mut msgvec: SmallVec<[_; 32]> = SmallVec::with_capacity(hdr_v.len());
         for m in hdr_v.iter_mut() {
@@ -482,7 +487,6 @@ impl UdpSocketExt for UdpSocket {
         hdr_v: &mut [RecvMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
         use smallvec::SmallVec;
-        use std::os::fd::AsRawFd;
 
         let mut msgvec: SmallVec<[_; 32]> = SmallVec::with_capacity(hdr_v.len());
         for m in hdr_v.iter_mut() {
@@ -630,12 +634,12 @@ mod tests {
         assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
 
         let mut recv_msg2 = [0u8; 16];
-        let mut recv_iov = [IoSliceMut::new(&mut recv_msg2)];
-        let (len, addr) = poll_fn(|cx| s_sock.poll_recvmsg(cx, &mut recv_iov))
+        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg2)]);
+        poll_fn(|cx| s_sock.poll_recvmsg(cx, &mut hdr))
             .await
             .unwrap();
-        assert_eq!(len, msg_2.len());
-        assert_eq!(addr, Some(c_addr));
-        assert_eq!(&recv_iov[0][..len], msg_2);
+        assert_eq!(hdr.n_recv, msg_2.len());
+        assert_eq!(hdr.addr(), Some(c_addr));
+        assert_eq!(&recv_msg2[..msg_2.len()], msg_2);
     }
 }
