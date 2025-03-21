@@ -17,8 +17,6 @@
 use std::io;
 use std::os::unix::io::AsRawFd;
 
-use libc::{c_int, c_void, socklen_t};
-
 pub(crate) fn set_tcp_reuseport_lb_numa_current_domain<T: AsRawFd>(fd: &T) -> io::Result<()> {
     const TCP_REUSPORT_LB_NUMA_CURDOM: i32 = -1;
 

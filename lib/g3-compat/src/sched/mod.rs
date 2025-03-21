@@ -26,8 +26,6 @@ use std::str::FromStr;
 mod os;
 use os::CpuAffinityImpl;
 
-const MAX_CPU_ID: usize = CpuAffinityImpl::max_cpu_id();
-
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 struct CpuId(usize);
 
@@ -45,22 +43,39 @@ impl FromStr for CpuId {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct CpuAffinity {
     os_impl: CpuAffinityImpl,
     cpu_id_list: Vec<usize>,
+    max_cpu_id: usize,
+}
+
+impl Default for CpuAffinity {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CpuAffinity {
+    pub fn new() -> Self {
+        let os_impl = CpuAffinityImpl::default();
+        let max_cpu_id = os_impl.max_cpu_id();
+        CpuAffinity {
+            os_impl,
+            cpu_id_list: Vec::new(),
+            max_cpu_id,
+        }
+    }
+
     pub fn cpu_id_list(&self) -> &[usize] {
         &self.cpu_id_list
     }
 
     pub fn add_id(&mut self, id: usize) -> io::Result<()> {
-        if id > MAX_CPU_ID {
+        if id > self.max_cpu_id {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
-                format!("invalid CPU ID, the max allowed is {MAX_CPU_ID}"),
+                format!("invalid CPU ID, the max allowed is {}", self.max_cpu_id),
             ));
         }
         self.os_impl.add_id(id)?;

@@ -20,7 +20,7 @@ use std::io;
 pub struct CpuAffinityImpl {}
 
 impl CpuAffinityImpl {
-    pub const fn max_cpu_id() -> usize {
+    pub const fn max_cpu_id(&self) -> usize {
         size_of::<u64>()
     }
 

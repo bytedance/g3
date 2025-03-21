@@ -20,7 +20,7 @@ pub struct CpuAffinityImpl {
     cpu_set: *mut libc::cpuset_t,
 }
 
-unsafe impl Send for CpuAffinity {}
+unsafe impl Send for CpuAffinityImpl {}
 
 impl Clone for CpuAffinityImpl {
     fn clone(&self) -> Self {
@@ -41,7 +41,7 @@ impl Default for CpuAffinityImpl {
         if cpu_set.is_null() {
             panic!("failed to create cpuset_t");
         }
-        CpuAffinity { cpu_set }
+        CpuAffinityImpl { cpu_set }
     }
 }
 
@@ -55,7 +55,7 @@ impl Drop for CpuAffinityImpl {
 }
 
 impl CpuAffinityImpl {
-    pub const fn max_cpu_id(&self) -> usize {
+    pub fn max_cpu_id(&self) -> usize {
         let bytes = unsafe { libc::_cpuset_size(self.cpu_set) };
         (bytes << 3) - 1
     }
@@ -87,7 +87,7 @@ impl CpuAffinityImpl {
     }
 }
 
-extern "C" {
+unsafe extern "C" {
     pub fn _sched_setaffinity(
         pid: libc::pid_t,
         tid: libc::lwpid_t,
