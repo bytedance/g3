@@ -30,10 +30,14 @@ impl Default for CpuAffinityImpl {
     }
 }
 
+pub const fn max_cpu_id() -> usize {
+    let bytes = size_of::<libc::cpuset_t>();
+    (bytes << 3) - 1
+}
+
 impl CpuAffinityImpl {
-    pub const fn max_cpu_id() -> usize {
-        let bytes = size_of::<libc::cpuset_t>();
-        (bytes << 3) - 1
+    pub const fn max_cpu_id(&self) -> usize {
+        max_cpu_id()
     }
 
     pub(super) fn add_id(&mut self, id: usize) -> io::Result<()> {
