@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2025 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,28 @@
  * limitations under the License.
  */
 
-mod sockopt;
+use std::net::IpAddr;
+use std::time::Duration;
 
-mod raw;
-pub use raw::RawSocket;
+#[cfg(unix)]
+mod unix;
+#[cfg(windows)]
+mod windows;
 
-mod listen;
+const CMSG_RECV_BUFFER_SIZE: usize = 10240; // see rfc3542 20.1
 
-pub mod tcp;
-pub mod udp;
-pub mod util;
+pub trait RecvAncillaryData {
+    fn set_recv_interface(&mut self, ifindex: u32);
+    fn set_recv_dst_addr(&mut self, addr: IpAddr);
+    fn set_timestamp(&mut self, ts: Duration);
+}
 
-mod bind;
-pub use bind::BindAddr;
+pub struct RecvAncillaryBuffer {
+    buf: [u8; CMSG_RECV_BUFFER_SIZE],
+}
 
-mod connect;
-pub use connect::{TcpConnectInfo, UdpConnectInfo};
-
-pub mod cmsg;
+impl RecvAncillaryBuffer {
+    pub fn as_bytes(&self) -> &[u8] {
+        self.buf.as_slice()
+    }
+}
