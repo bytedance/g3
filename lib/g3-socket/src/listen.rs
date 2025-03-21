@@ -35,12 +35,12 @@ pub(super) fn set_addr_reuse(socket: &Socket, addr: SocketAddr) -> io::Result<()
     Ok(())
 }
 
-pub(super) fn set_only_v6(socket: &Socket, addr: SocketAddr) -> io::Result<()> {
+pub(super) fn set_only_v6(socket: &Socket, addr: SocketAddr, enable: bool) -> io::Result<()> {
     match addr.ip() {
         IpAddr::V4(_) => Ok(()),
         IpAddr::V6(v6) => {
             if v6.is_unspecified() {
-                socket.set_only_v6(true)
+                socket.set_only_v6(enable)
             } else {
                 Ok(())
             }
@@ -51,7 +51,7 @@ pub(super) fn set_only_v6(socket: &Socket, addr: SocketAddr) -> io::Result<()> {
 pub(super) fn set_udp_recv_pktinfo(
     socket: &Socket,
     addr: SocketAddr,
-    ipv6_only: bool,
+    ipv6_only: Option<bool>,
 ) -> io::Result<()> {
     match addr.ip() {
         IpAddr::V4(v4) => {
@@ -66,12 +66,15 @@ pub(super) fn set_udp_recv_pktinfo(
                 return Ok(());
             }
 
-            if !ipv6_only {
-                if let Err(e) = crate::sockopt::set_recv_ip_pktinfo(socket, true) {
-                    if e.kind() != io::ErrorKind::InvalidInput {
-                        // the socket may already been ipv6 only so skip this error
-                        return Err(e);
-                    }
+            match ipv6_only {
+                Some(true) => {}
+                Some(false) => {
+                    #[cfg(any(target_os = "linux", target_os = "android", target_os = "windows"))]
+                    crate::sockopt::set_recv_ip_pktinfo(socket, true)?;
+                }
+                None => {
+                    // ipv6_only default to true on Windows/FreeBSD/NetBSD, default to false on Linux
+                    // FIXME should we try? or just let the users change the listen config?
                 }
             }
             crate::sockopt::set_recv_ipv6_pktinfo(socket, true)

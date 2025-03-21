@@ -113,8 +113,8 @@ pub fn new_std_bind_listen(config: &UdpListenConfig) -> io::Result<UdpSocket> {
     let addr = config.address();
     let socket = new_udp_socket(AddressFamily::from(&addr), config.socket_buffer())?;
     super::listen::set_addr_reuse(&socket, addr)?;
-    if config.is_ipv6only() {
-        super::listen::set_only_v6(&socket, addr)?;
+    if let Some(enable) = config.is_ipv6only() {
+        super::listen::set_only_v6(&socket, addr, enable)?;
     }
     let bind_addr = SockAddr::from(addr);
     socket.bind(&bind_addr)?;
@@ -126,8 +126,8 @@ pub fn new_std_bind_listen(config: &UdpListenConfig) -> io::Result<UdpSocket> {
 pub fn new_std_rebind_listen(config: &UdpListenConfig, addr: SocketAddr) -> io::Result<UdpSocket> {
     let socket = new_udp_socket(AddressFamily::from(&addr), config.socket_buffer())?;
     super::listen::set_addr_reuse(&socket, addr)?;
-    if config.is_ipv6only() {
-        super::listen::set_only_v6(&socket, addr)?;
+    if let Some(enable) = config.is_ipv6only() {
+        super::listen::set_only_v6(&socket, addr, enable)?;
     }
     let bind_addr = SockAddr::from(addr);
     socket.bind(&bind_addr)?;
@@ -227,6 +227,13 @@ mod tests {
     fn listen() {
         let mut config = UdpListenConfig::default();
 
+        let socket = new_std_bind_listen(&config).unwrap();
+        let local_addr = socket.local_addr().unwrap();
+        assert_ne!(local_addr.port(), 0);
+        assert!(local_addr.ip().is_unspecified());
+        drop(socket);
+
+        config.set_ipv6_only(false);
         let socket = new_std_bind_listen(&config).unwrap();
         let local_addr = socket.local_addr().unwrap();
         assert_ne!(local_addr.port(), 0);

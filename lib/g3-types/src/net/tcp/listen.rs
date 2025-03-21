@@ -25,7 +25,7 @@ const MINIMAL_LISTEN_BACKLOG: u32 = 8;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TcpListenConfig {
     address: SocketAddr,
-    ipv6only: bool,
+    ipv6only: Option<bool>,
     #[cfg(target_os = "linux")]
     transparent: bool,
     #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
@@ -46,7 +46,7 @@ impl TcpListenConfig {
     pub fn new(address: SocketAddr) -> Self {
         TcpListenConfig {
             address,
-            ipv6only: false,
+            ipv6only: None,
             #[cfg(target_os = "linux")]
             transparent: false,
             #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
@@ -72,7 +72,7 @@ impl TcpListenConfig {
     }
 
     #[inline]
-    pub fn is_ipv6only(&self) -> bool {
+    pub fn is_ipv6only(&self) -> Option<bool> {
         self.ipv6only
     }
 
@@ -110,7 +110,7 @@ impl TcpListenConfig {
 
     #[inline]
     pub fn set_ipv6_only(&mut self, ipv6only: bool) {
-        self.ipv6only = ipv6only;
+        self.ipv6only = Some(ipv6only);
     }
 
     #[cfg(target_os = "linux")]
