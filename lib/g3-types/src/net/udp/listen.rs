@@ -24,7 +24,7 @@ use crate::net::{SocketBufferConfig, UdpMiscSockOpts};
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UdpListenConfig {
     address: SocketAddr,
-    ipv6only: bool,
+    ipv6only: Option<bool>,
     buf_conf: SocketBufferConfig,
     misc_opts: UdpMiscSockOpts,
     instance: usize,
@@ -41,7 +41,7 @@ impl UdpListenConfig {
     pub fn new(address: SocketAddr) -> Self {
         UdpListenConfig {
             address,
-            ipv6only: false,
+            ipv6only: None,
             buf_conf: SocketBufferConfig::default(),
             misc_opts: UdpMiscSockOpts::default(),
             instance: 1,
@@ -54,10 +54,10 @@ impl UdpListenConfig {
             return Err(anyhow!("no listen port is set"));
         }
         match self.address.ip() {
-            IpAddr::V4(_) => self.ipv6only = false,
+            IpAddr::V4(_) => self.ipv6only = None,
             IpAddr::V6(v6) => {
                 if !v6.is_unspecified() {
-                    self.ipv6only = false;
+                    self.ipv6only = None;
                 }
             }
         }
@@ -81,7 +81,7 @@ impl UdpListenConfig {
     }
 
     #[inline]
-    pub fn is_ipv6only(&self) -> bool {
+    pub fn is_ipv6only(&self) -> Option<bool> {
         self.ipv6only
     }
 
@@ -112,7 +112,7 @@ impl UdpListenConfig {
 
     #[inline]
     pub fn set_ipv6_only(&mut self, ipv6only: bool) {
-        self.ipv6only = ipv6only;
+        self.ipv6only = Some(ipv6only);
     }
 
     pub fn set_instance(&mut self, instance: usize) {
