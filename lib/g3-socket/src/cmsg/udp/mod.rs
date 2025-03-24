@@ -37,13 +37,17 @@ pub struct RecvAncillaryBuffer {
 
 impl Default for RecvAncillaryBuffer {
     fn default() -> Self {
-        RecvAncillaryBuffer {
-            buf: [0u8; CMSG_RECV_BUFFER_SIZE],
-        }
+        RecvAncillaryBuffer::new()
     }
 }
 
 impl RecvAncillaryBuffer {
+    pub const fn new() -> Self {
+        RecvAncillaryBuffer {
+            buf: [0u8; CMSG_RECV_BUFFER_SIZE],
+        }
+    }
+
     pub fn as_bytes(&self) -> &[u8] {
         self.buf.as_slice()
     }

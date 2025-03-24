@@ -27,6 +27,8 @@ pub use unix::{RecvMsgHdr, SendMsgHdr};
 
 #[cfg(windows)]
 mod windows;
+#[cfg(windows)]
+pub use windows::RecvMsgHdr;
 
 pub trait UdpSocketExt {
     fn poll_sendmsg(
@@ -38,7 +40,6 @@ pub trait UdpSocketExt {
 
     fn try_sendmsg(&self, iov: &[IoSlice<'_>], target: Option<SocketAddr>) -> io::Result<usize>;
 
-    #[cfg(unix)]
     fn poll_recvmsg<const C: usize>(
         &self,
         cx: &mut Context<'_>,
