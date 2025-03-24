@@ -137,9 +137,9 @@ where
             }
             HttpBodyType::Chunked => {
                 let next_chunk_size = preview_state.chunked_next_size;
+                reader.consume(preview_state.consume_size);
                 if next_chunk_size > 0 {
                     let head = format!("{next_chunk_size:x}\r\n");
-                    reader.consume(preview_state.consume_size);
                     let body_reader = HttpBodyReader::new_chunked_after_preview(
                         reader,
                         body_type,
