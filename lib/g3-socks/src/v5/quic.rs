@@ -28,7 +28,7 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::sync::{broadcast, oneshot};
 use tokio::time::sleep_until;
 
-use g3_io_ext::{QuinnUdpPollHelper, UdpSocketExt};
+use g3_io_ext::{QuinnUdpPollHelper, RecvMsgHdr, UdpSocketExt};
 use g3_types::net::Host;
 
 use super::udp_io::{UDP_HEADER_LEN_IPV4, UDP_HEADER_LEN_IPV6};
@@ -135,7 +135,6 @@ impl SocksHeaderBuffer {
         }
     }
 
-    #[cfg(unix)]
     const fn new(addr: SocketAddr) -> Self {
         match addr {
             SocketAddr::V4(_) => SocksHeaderBuffer::V4([0u8; UDP_HEADER_LEN_IPV4]),
@@ -171,6 +170,46 @@ pub struct Socks5UdpSocket {
 }
 
 unsafe impl Sync for Socks5UdpSocket {}
+
+impl Socks5UdpSocket {
+    fn set_meta(&self, meta: &mut RecvMeta, hdr: &RecvMsgHdr<2>) -> io::Result<()> {
+        let mut len = hdr.n_recv;
+        let socks_header = &hdr.iov[0];
+        let socks_header_len = socks_header.as_ref().len();
+        if len <= socks_header_len {
+            meta.len = 0;
+            meta.stride = 0;
+            meta.addr = self.quic_peer_addr;
+            meta.ecn = None;
+            meta.dst_ip = None;
+            return Ok(());
+        }
+
+        let (off, ups) = UdpInput::parse_header(socks_header.as_ref()).map_err(io::Error::other)?;
+        assert_eq!(socks_header_len, off);
+        let ip = match ups.host() {
+            Host::Ip(ip) => *ip,
+            Host::Domain(_) => {
+                // invalid reply packet, default to use the peer ip
+                self.quic_peer_addr.ip()
+            }
+        };
+        let port = ups.port();
+        let port = if port == 0 {
+            self.quic_peer_addr.port()
+        } else {
+            port
+        };
+
+        len -= off;
+        meta.len = len;
+        meta.stride = len;
+        meta.addr = SocketAddr::new(ip, port);
+        meta.ecn = None;
+        meta.dst_ip = None;
+        Ok(())
+    }
+}
 
 impl AsyncUdpSocket for Socks5UdpSocket {
     fn create_io_poller(self: Arc<Self>) -> Pin<Box<dyn UdpPoller>> {
@@ -208,7 +247,6 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         bufs: &mut [IoSliceMut<'_>],
         meta: &mut [RecvMeta],
     ) -> Poll<io::Result<usize>> {
-        use g3_io_ext::RecvMsgHdr;
         use smallvec::{SmallVec, smallvec};
 
         let ctl_close_receiver = unsafe { &mut *self.ctl_close_receiver.get() };
@@ -238,50 +276,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         match ready!(self.io.poll_batch_recvmsg(cx, &mut hdr_v)) {
             Ok(count) => {
                 for (h, m) in hdr_v.iter_mut().take(count).zip(meta.iter_mut()) {
-                    let mut len = h.n_recv;
-                    let socks_header = &h.iov[0];
-                    let socks_header_len = socks_header.as_ref().len();
-                    if len <= socks_header_len {
-                        // ignore invalid packets
-                        *m = RecvMeta {
-                            len: 0,
-                            addr: self.quic_peer_addr,
-                            stride: 0,
-                            ecn: None,
-                            dst_ip: None,
-                        };
-                        continue;
-                    }
-
-                    let (off, ups) =
-                        UdpInput::parse_header(socks_header.as_ref()).map_err(io::Error::other)?;
-                    if socks_header_len != off {
-                        return Poll::Ready(Err(io::Error::other(
-                            "the first buf is not the expected socks5 udp header",
-                        )));
-                    }
-                    let ip = match ups.host() {
-                        Host::Ip(ip) => *ip,
-                        Host::Domain(_) => {
-                            // invalid reply packet, default to use the peer ip
-                            self.quic_peer_addr.ip()
-                        }
-                    };
-                    let port = ups.port();
-                    let port = if port == 0 {
-                        self.quic_peer_addr.port()
-                    } else {
-                        port
-                    };
-
-                    len -= off;
-                    *m = RecvMeta {
-                        len,
-                        stride: len,
-                        addr: SocketAddr::new(ip, port),
-                        ecn: None,
-                        dst_ip: None,
-                    };
+                    self.set_meta(m, h)?;
                 }
                 Poll::Ready(Ok(count))
             }
@@ -289,7 +284,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         }
     }
 
-    #[cfg(target_os = "dragonfly")]
+    #[cfg(any(windows, target_os = "dragonfly"))]
     fn poll_recv(
         &self,
         cx: &mut Context,
@@ -316,120 +311,13 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         };
         let mut recv_socks_header = SocksHeaderBuffer::new(self.quic_peer_addr);
 
-        let mut iov = [
+        let mut hdr = RecvMsgHdr::new([
             IoSliceMut::new(recv_socks_header.as_mut()),
             IoSliceMut::new(buf),
-        ];
+        ]);
 
-        let (mut len, _) = ready!(self.io.poll_recvmsg(cx, &mut iov))?;
-        let socks_header_len = recv_socks_header.as_ref().len();
-        if len <= socks_header_len {
-            meta[0] = RecvMeta {
-                len: 0,
-                stride: 0,
-                addr: self.quic_peer_addr,
-                ecn: None,
-                dst_ip: None,
-            };
-            return Poll::Ready(Ok(1));
-        }
-
-        let (off, ups) =
-            UdpInput::parse_header(recv_socks_header.as_ref()).map_err(io::Error::other)?;
-        assert_eq!(socks_header_len, off);
-        let ip = match ups.host() {
-            Host::Ip(ip) => *ip,
-            Host::Domain(_) => {
-                // invalid reply packet, default to use the peer ip
-                self.quic_peer_addr.ip()
-            }
-        };
-        let port = ups.port();
-        let port = if port == 0 {
-            self.quic_peer_addr.port()
-        } else {
-            port
-        };
-
-        len -= off;
-        meta[0] = RecvMeta {
-            len,
-            stride: len,
-            addr: SocketAddr::new(ip, port),
-            ecn: None,
-            dst_ip: None,
-        };
-        Poll::Ready(Ok(1))
-    }
-
-    #[cfg(windows)]
-    fn poll_recv(
-        &self,
-        cx: &mut Context,
-        bufs: &mut [IoSliceMut<'_>],
-        meta: &mut [RecvMeta],
-    ) -> Poll<io::Result<usize>> {
-        use tokio::io::ReadBuf;
-
-        // logics from quinn-udp::fallback.rs
-        let ctl_close_receiver = unsafe { &mut *self.ctl_close_receiver.get() };
-        match Pin::new(ctl_close_receiver).poll(cx) {
-            Poll::Pending => {}
-            Poll::Ready(Ok(Some(e))) => {
-                return Poll::Ready(Err(io::Error::other(format!("ctl socket closed: {e:?}"))));
-            }
-            Poll::Ready(Ok(None)) => {
-                return Poll::Ready(Err(io::Error::other("ctl socket closed")));
-            }
-            Poll::Ready(Err(_)) => {
-                return Poll::Ready(Err(io::Error::other("ctl socket closed")));
-            }
-        }
-
-        let Some(buf) = bufs.get_mut(0) else {
-            return Poll::Ready(Ok(0));
-        };
-        let mut read_buf = ReadBuf::new(buf.as_mut());
-        ready!(self.io.poll_recv(cx, &mut read_buf))?;
-        let mut len = read_buf.filled().len();
-        if len <= self.send_socks_header.as_ref().len() {
-            // the send and recv header length shoule be the same
-            meta[0] = RecvMeta {
-                len: 0,
-                stride: 0,
-                addr: self.quic_peer_addr,
-                ecn: None,
-                dst_ip: None,
-            };
-            return Poll::Ready(Ok(1));
-        }
-
-        let (off, ups) = UdpInput::parse_header(buf.as_ref()).map_err(io::Error::other)?;
-        let ip = match ups.host() {
-            Host::Ip(ip) => *ip,
-            Host::Domain(_) => {
-                // invalid reply packet, default to use the peer ip
-                self.quic_peer_addr.ip()
-            }
-        };
-        let port = ups.port();
-        let port = if port == 0 {
-            self.quic_peer_addr.port()
-        } else {
-            port
-        };
-
-        // TODO use IoSliceMut::advance instead of copy
-        buf.copy_within(off..len, 0);
-        len -= off;
-
-        meta[0] = RecvMeta {
-            len,
-            stride: len,
-            addr: SocketAddr::new(ip, port),
-            ecn: None,
-            dst_ip: None,
-        };
+        ready!(self.io.poll_recvmsg(cx, &mut hdr))?;
+        self.set_meta(&mut meta[0], &hdr)?;
         Poll::Ready(Ok(1))
     }
 
