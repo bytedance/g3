@@ -48,6 +48,27 @@ pub(super) fn set_only_v6(socket: &Socket, addr: SocketAddr, enable: bool) -> io
     }
 }
 
+#[cfg(unix)]
+pub(super) fn set_udp_recv_pktinfo(socket: &Socket, addr: SocketAddr) -> io::Result<()> {
+    match addr.ip() {
+        IpAddr::V4(v4) => {
+            if !v4.is_unspecified() {
+                return Ok(());
+            }
+
+            crate::sockopt::set_recv_ip_pktinfo(socket, true)
+        }
+        IpAddr::V6(v6) => {
+            if !v6.is_unspecified() {
+                return Ok(());
+            }
+
+            crate::sockopt::set_recv_ipv6_pktinfo(socket, true)
+        }
+    }
+}
+
+#[cfg(windows)]
 pub(super) fn set_udp_recv_pktinfo(
     socket: &Socket,
     addr: SocketAddr,
@@ -69,12 +90,10 @@ pub(super) fn set_udp_recv_pktinfo(
             match ipv6_only {
                 Some(true) => {}
                 Some(false) => {
-                    #[cfg(any(target_os = "linux", target_os = "android", target_os = "windows"))]
                     crate::sockopt::set_recv_ip_pktinfo(socket, true)?;
                 }
                 None => {
-                    // ipv6_only default to true on Windows/FreeBSD/NetBSD, default to false on Linux
-                    // FIXME should we try? or just let the users change the listen config?
+                    // ipv6_only default to true on Windows
                 }
             }
             crate::sockopt::set_recv_ipv6_pktinfo(socket, true)

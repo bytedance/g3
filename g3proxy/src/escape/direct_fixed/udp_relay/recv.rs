@@ -121,7 +121,7 @@ where
         let mut r = Vec::with_capacity(count);
         for h in hdr_v.into_iter().take(count) {
             let iov = &h.iov[0];
-            let addr = h.addr().unwrap_or_else(|| match bind_addr {
+            let addr = h.src_addr().unwrap_or_else(|| match bind_addr {
                 SocketAddr::V4(_) => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
                 SocketAddr::V6(_) => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
             });
