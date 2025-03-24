@@ -118,6 +118,9 @@ pub fn new_std_bind_listen(config: &UdpListenConfig) -> io::Result<UdpSocket> {
     }
     let bind_addr = SockAddr::from(addr);
     socket.bind(&bind_addr)?;
+    #[cfg(unix)]
+    super::listen::set_udp_recv_pktinfo(&socket, addr)?;
+    #[cfg(windows)]
     super::listen::set_udp_recv_pktinfo(&socket, addr, config.is_ipv6only())?;
     RawSocket::from(&socket).set_udp_misc_opts(config.socket_misc_opts())?;
     Ok(UdpSocket::from(socket))
@@ -131,6 +134,9 @@ pub fn new_std_rebind_listen(config: &UdpListenConfig, addr: SocketAddr) -> io::
     }
     let bind_addr = SockAddr::from(addr);
     socket.bind(&bind_addr)?;
+    #[cfg(unix)]
+    super::listen::set_udp_recv_pktinfo(&socket, addr)?;
+    #[cfg(windows)]
     super::listen::set_udp_recv_pktinfo(&socket, addr, config.is_ipv6only())?;
     RawSocket::from(&socket).set_udp_misc_opts(config.socket_misc_opts())?;
     Ok(UdpSocket::from(socket))

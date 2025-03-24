@@ -14,16 +14,23 @@
  * limitations under the License.
  */
 
-use std::cell::UnsafeCell;
+use std::cell::{RefCell, UnsafeCell};
 use std::io::{IoSlice, IoSliceMut};
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::os::fd::{AsFd, AsRawFd};
 use std::task::{Context, Poll, ready};
+use std::time::Duration;
 use std::{io, mem, ptr};
 
 use rustix::net::{SendAncillaryBuffer, SendFlags, sendmsg, sendmsg_addr};
 use tokio::io::Interest;
 use tokio::net::UdpSocket;
+
+use g3_socket::cmsg::udp::{RecvAncillaryBuffer, RecvAncillaryData};
+
+thread_local! {
+    static RECV_ANCILLARY_BUFFERS: RefCell<Vec<RecvAncillaryBuffer>> = const { RefCell::new(Vec::new()) };
+}
 
 use super::UdpSocketExt;
 
@@ -165,6 +172,20 @@ pub struct RecvMsgHdr<'a, const C: usize> {
     pub iov: [IoSliceMut<'a>; C],
     pub n_recv: usize,
     c_addr: UnsafeCell<RawSocketAddr>,
+    dst_ip: Option<IpAddr>,
+    interface_id: Option<u32>,
+}
+
+impl<const C: usize> RecvAncillaryData for RecvMsgHdr<'_, C> {
+    fn set_recv_interface(&mut self, id: u32) {
+        self.interface_id = Some(id);
+    }
+
+    fn set_recv_dst_addr(&mut self, addr: IpAddr) {
+        self.dst_ip = Some(addr);
+    }
+
+    fn set_timestamp(&mut self, _ts: Duration) {}
 }
 
 impl<'a, const C: usize> RecvMsgHdr<'a, C> {
@@ -173,18 +194,32 @@ impl<'a, const C: usize> RecvMsgHdr<'a, C> {
             iov,
             n_recv: 0,
             c_addr: UnsafeCell::new(RawSocketAddr::default()),
+            dst_ip: None,
+            interface_id: None,
         }
     }
 
-    pub fn addr(&self) -> Option<SocketAddr> {
+    pub fn src_addr(&self) -> Option<SocketAddr> {
         let c_addr = unsafe { &*self.c_addr.get() };
         c_addr.to_std()
+    }
+
+    pub fn dst_addr(&self, local_addr: SocketAddr) -> SocketAddr {
+        self.dst_ip
+            .map(|ip| SocketAddr::new(ip, local_addr.port()))
+            .unwrap_or(local_addr)
+    }
+
+    #[inline]
+    pub fn interface_id(&self) -> Option<u32> {
+        self.interface_id
     }
 
     /// # Safety
     ///
     /// `self` should not be dropped before the returned value
-    pub unsafe fn to_msghdr(&self) -> libc::msghdr {
+    pub unsafe fn to_msghdr(&self, control_buf: &mut RecvAncillaryBuffer) -> libc::msghdr {
+        let control_buf = control_buf.as_bytes();
         unsafe {
             let c_addr = &mut *self.c_addr.get();
             let (c_addr, c_addr_len) = c_addr.get_ptr_and_size();
@@ -194,6 +229,8 @@ impl<'a, const C: usize> RecvMsgHdr<'a, C> {
             h.msg_namelen = c_addr_len as _;
             h.msg_iov = self.iov.as_ptr() as _;
             h.msg_iovlen = C as _;
+            h.msg_control = control_buf.as_ptr() as _;
+            h.msg_controllen = control_buf.len() as _;
             h
         }
     }
@@ -202,7 +239,8 @@ impl<'a, const C: usize> RecvMsgHdr<'a, C> {
     ///
     /// `self` should not be dropped before the returned value
     #[cfg(target_os = "macos")]
-    unsafe fn to_msghdr_x(&self) -> super::macos::msghdr_x {
+    unsafe fn to_msghdr_x(&self, control_buf: &mut RecvAncillaryBuffer) -> super::macos::msghdr_x {
+        let control_buf = control_buf.as_bytes();
         unsafe {
             let c_addr = &mut *self.c_addr.get();
             let (c_addr, c_addr_len) = c_addr.get_ptr_and_size();
@@ -212,6 +250,8 @@ impl<'a, const C: usize> RecvMsgHdr<'a, C> {
             h.msg_namelen = c_addr_len as _;
             h.msg_iov = self.iov.as_ptr() as _;
             h.msg_iovlen = C as _;
+            h.msg_control = control_buf.as_ptr() as _;
+            h.msg_controllen = control_buf.len() as _;
             h
         }
     }
@@ -287,36 +327,44 @@ impl UdpSocketExt for UdpSocket {
         cx: &mut Context<'_>,
         hdr: &mut RecvMsgHdr<'_, C>,
     ) -> Poll<io::Result<()>> {
-        let mut msghdr = unsafe { hdr.to_msghdr() };
-
-        let raw_fd = self.as_raw_fd();
-        let mut recvmsg = || {
-            let r = unsafe {
-                libc::recvmsg(raw_fd, ptr::from_mut(&mut msghdr), libc::MSG_DONTWAIT as _)
-            };
-            if r < 0 {
-                Err(io::Error::last_os_error())
-            } else {
-                Ok(r as usize)
+        RECV_ANCILLARY_BUFFERS.with_borrow_mut(|buffers| {
+            if buffers.is_empty() {
+                buffers.push(RecvAncillaryBuffer::default());
             }
-        };
+            let control_buf = &mut buffers[0];
 
-        loop {
-            ready!(self.poll_recv_ready(cx))?;
-            match self.try_io(Interest::READABLE, &mut recvmsg) {
-                Ok(nr) => {
-                    hdr.n_recv = nr;
-                    return Poll::Ready(Ok(()));
+            let mut msghdr = unsafe { hdr.to_msghdr(control_buf) };
+
+            let raw_fd = self.as_raw_fd();
+            let mut recvmsg = || {
+                let r = unsafe {
+                    libc::recvmsg(raw_fd, ptr::from_mut(&mut msghdr), libc::MSG_DONTWAIT as _)
+                };
+                if r < 0 {
+                    Err(io::Error::last_os_error())
+                } else {
+                    Ok(r as usize)
                 }
-                Err(e) => {
-                    if e.kind() == io::ErrorKind::WouldBlock {
-                        continue;
-                    } else {
-                        return Poll::Ready(Err(e));
+            };
+
+            loop {
+                ready!(self.poll_recv_ready(cx))?;
+                match self.try_io(Interest::READABLE, &mut recvmsg) {
+                    Ok(nr) => {
+                        hdr.n_recv = nr;
+                        control_buf.parse(msghdr.msg_controllen as _, hdr)?;
+                        return Poll::Ready(Ok(()));
+                    }
+                    Err(e) => {
+                        if e.kind() == io::ErrorKind::WouldBlock {
+                            continue;
+                        } else {
+                            return Poll::Ready(Err(e));
+                        }
                     }
                 }
             }
-        }
+        })
     }
 
     #[cfg(any(
@@ -434,50 +482,67 @@ impl UdpSocketExt for UdpSocket {
     ) -> Poll<io::Result<usize>> {
         use smallvec::SmallVec;
 
-        let mut msgvec: SmallVec<[_; 32]> = SmallVec::with_capacity(hdr_v.len());
-        for m in hdr_v.iter_mut() {
-            msgvec.push(libc::mmsghdr {
-                msg_hdr: unsafe { m.to_msghdr() },
-                msg_len: 0,
-            });
-        }
+        RECV_ANCILLARY_BUFFERS.with_borrow_mut(|buffers| {
+            if buffers.len() < hdr_v.len() {
+                buffers.resize_with(hdr_v.len(), RecvAncillaryBuffer::default);
+            }
 
-        let raw_fd = self.as_raw_fd();
-        let mut recvmmsg = || {
-            let r = unsafe {
-                libc::recvmmsg(
-                    raw_fd,
-                    msgvec.as_mut_ptr(),
-                    msgvec.len() as _,
-                    libc::MSG_DONTWAIT as _,
-                    ptr::null_mut(),
-                )
+            let mut msgvec: SmallVec<[_; 32]> = SmallVec::with_capacity(hdr_v.len());
+            for (i, m) in hdr_v.iter_mut().enumerate() {
+                let control_buf = &mut buffers[i];
+                msgvec.push(libc::mmsghdr {
+                    msg_hdr: unsafe { m.to_msghdr(control_buf) },
+                    msg_len: 0,
+                });
+            }
+
+            let raw_fd = self.as_raw_fd();
+            let mut recvmmsg = || {
+                let r = unsafe {
+                    libc::recvmmsg(
+                        raw_fd,
+                        msgvec.as_mut_ptr(),
+                        msgvec.len() as _,
+                        libc::MSG_DONTWAIT as _,
+                        ptr::null_mut(),
+                    )
+                };
+                if r < 0 {
+                    Err(io::Error::last_os_error())
+                } else {
+                    Ok(r as usize)
+                }
             };
-            if r < 0 {
-                Err(io::Error::last_os_error())
-            } else {
-                Ok(r as usize)
-            }
-        };
 
-        loop {
-            ready!(self.poll_recv_ready(cx))?;
-            match self.try_io(Interest::READABLE, &mut recvmmsg) {
-                Ok(count) => {
-                    for (m, h) in hdr_v.iter_mut().take(count).zip(msgvec) {
-                        m.n_recv = h.msg_len as usize;
+            loop {
+                ready!(self.poll_recv_ready(cx))?;
+                match self.try_io(Interest::READABLE, &mut recvmmsg) {
+                    Ok(count) => {
+                        for (m, h) in hdr_v.iter_mut().take(count).zip(msgvec) {
+                            m.n_recv = h.msg_len as usize;
+                            if h.msg_hdr.msg_control.is_null() {
+                                continue;
+                            }
+                            let control_buf = unsafe {
+                                std::slice::from_raw_parts(
+                                    h.msg_hdr.msg_control as *const u8,
+                                    h.msg_hdr.msg_controllen as _,
+                                )
+                            };
+                            RecvAncillaryBuffer::parse_buf(control_buf, m)?;
+                        }
+                        return Poll::Ready(Ok(count));
                     }
-                    return Poll::Ready(Ok(count));
-                }
-                Err(e) => {
-                    if e.kind() == io::ErrorKind::WouldBlock {
-                        continue;
-                    } else {
-                        return Poll::Ready(Err(e));
+                    Err(e) => {
+                        if e.kind() == io::ErrorKind::WouldBlock {
+                            continue;
+                        } else {
+                            return Poll::Ready(Err(e));
+                        }
                     }
                 }
             }
-        }
+        })
     }
 
     #[cfg(target_os = "macos")]
@@ -488,53 +553,72 @@ impl UdpSocketExt for UdpSocket {
     ) -> Poll<io::Result<usize>> {
         use smallvec::SmallVec;
 
-        let mut msgvec: SmallVec<[_; 32]> = SmallVec::with_capacity(hdr_v.len());
-        for m in hdr_v.iter_mut() {
-            msgvec.push(unsafe { m.to_msghdr_x() });
-        }
+        RECV_ANCILLARY_BUFFERS.with_borrow_mut(|buffers| {
+            if buffers.len() < hdr_v.len() {
+                buffers.resize_with(hdr_v.len(), RecvAncillaryBuffer::default);
+            }
 
-        let raw_fd = self.as_raw_fd();
-        let mut recvmsg_x = || {
-            let r = unsafe {
-                super::macos::recvmsg_x(
-                    raw_fd,
-                    msgvec.as_mut_ptr(),
-                    msgvec.len() as _,
-                    libc::MSG_DONTWAIT as _,
-                )
+            let mut msgvec: SmallVec<[_; 32]> = SmallVec::with_capacity(hdr_v.len());
+            for (i, m) in hdr_v.iter_mut().enumerate() {
+                let control_buf = &mut buffers[i];
+                msgvec.push(unsafe { m.to_msghdr_x(control_buf) });
+            }
+
+            let raw_fd = self.as_raw_fd();
+            let mut recvmsg_x = || {
+                let r = unsafe {
+                    super::macos::recvmsg_x(
+                        raw_fd,
+                        msgvec.as_mut_ptr(),
+                        msgvec.len() as _,
+                        libc::MSG_DONTWAIT as _,
+                    )
+                };
+                if r < 0 {
+                    Err(io::Error::last_os_error())
+                } else {
+                    Ok(r as usize)
+                }
             };
-            if r < 0 {
-                Err(io::Error::last_os_error())
-            } else {
-                Ok(r as usize)
-            }
-        };
 
-        loop {
-            ready!(self.poll_recv_ready(cx))?;
-            match self.try_io(Interest::READABLE, &mut recvmsg_x) {
-                Ok(count) => {
-                    for (m, h) in hdr_v.iter_mut().take(count).zip(msgvec) {
-                        m.n_recv = h.msg_datalen;
+            loop {
+                ready!(self.poll_recv_ready(cx))?;
+                match self.try_io(Interest::READABLE, &mut recvmsg_x) {
+                    Ok(count) => {
+                        for (m, h) in hdr_v.iter_mut().take(count).zip(msgvec) {
+                            m.n_recv = h.msg_datalen;
+                            if h.msg_control.is_null() {
+                                continue;
+                            }
+                            let control_buf = unsafe {
+                                std::slice::from_raw_parts(
+                                    h.msg_control as *const u8,
+                                    h.msg_controllen as usize,
+                                )
+                            };
+                            RecvAncillaryBuffer::parse_buf(control_buf, m)?;
+                        }
+                        return Poll::Ready(Ok(count));
                     }
-                    return Poll::Ready(Ok(count));
-                }
-                Err(e) => {
-                    if e.kind() == io::ErrorKind::WouldBlock {
-                        continue;
-                    } else {
-                        return Poll::Ready(Err(e));
+                    Err(e) => {
+                        if e.kind() == io::ErrorKind::WouldBlock {
+                            continue;
+                        } else {
+                            return Poll::Ready(Err(e));
+                        }
                     }
                 }
             }
-        }
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use g3_types::net::UdpListenConfig;
     use std::future::poll_fn;
+    use std::str::FromStr;
 
     #[cfg(any(
         target_os = "linux",
@@ -584,9 +668,9 @@ mod tests {
             .unwrap();
         assert_eq!(count, 2);
         assert_eq!(hdr_v[0].n_recv, msg_1.len());
-        assert_eq!(hdr_v[0].addr(), Some(c_addr));
+        assert_eq!(hdr_v[0].src_addr(), Some(c_addr));
         assert_eq!(hdr_v[1].n_recv, msg_2.len());
-        assert_eq!(hdr_v[1].addr(), Some(c_addr));
+        assert_eq!(hdr_v[1].src_addr(), Some(c_addr));
 
         assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
         assert_eq!(&recv_msg2[..msg_2.len()], msg_2);
@@ -629,7 +713,7 @@ mod tests {
             .unwrap();
         assert_eq!(count, 1);
         assert_eq!(hdr_v[0].n_recv, msg_1.len());
-        assert_eq!(hdr_v[0].addr(), Some(c_addr));
+        assert_eq!(hdr_v[0].src_addr(), Some(c_addr));
 
         assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
 
@@ -639,7 +723,214 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(hdr.n_recv, msg_2.len());
-        assert_eq!(hdr.addr(), Some(c_addr));
+        assert_eq!(hdr.src_addr(), Some(c_addr));
+        assert_eq!(&recv_msg2[..msg_2.len()], msg_2);
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+    ))]
+    #[tokio::test]
+    async fn recv_ancillary_v4() {
+        let listen_config = UdpListenConfig::new(SocketAddr::from_str("0.0.0.0:0").unwrap());
+        let s_sock = g3_socket::udp::new_std_bind_listen(&listen_config).unwrap();
+        let s_sock = UdpSocket::from_std(s_sock).unwrap();
+        let s_addr = s_sock.local_addr().unwrap();
+        assert!(s_addr.ip().is_unspecified());
+        assert_ne!(s_addr.port(), 0);
+        let target_s_addr = SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), s_addr.port());
+
+        let c_sock = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let c_addr = c_sock.local_addr().unwrap();
+        c_sock.connect(&s_addr).await.unwrap();
+
+        let msg_1 = b"abcd";
+        let msg_2 = b"test";
+
+        let mut msgs = [
+            SendMsgHdr::new([IoSlice::new(msg_1)], None),
+            SendMsgHdr::new([IoSlice::new(msg_2)], None),
+        ];
+
+        #[cfg(not(target_os = "macos"))]
+        let count = poll_fn(|cx| c_sock.poll_batch_sendmsg(cx, &mut msgs))
+            .await
+            .unwrap();
+        #[cfg(target_os = "macos")]
+        let count = poll_fn(|cx| c_sock.poll_batch_sendmsg_x(cx, &mut msgs))
+            .await
+            .unwrap();
+        assert_eq!(count, 2);
+        assert_eq!(msgs[0].n_send, msg_1.len());
+        assert_eq!(msgs[1].n_send, msg_2.len());
+
+        let mut recv_msg1 = [0u8; 16];
+        let mut hdr_v = [RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg1)])];
+        let count = poll_fn(|cx| s_sock.poll_batch_recvmsg(cx, &mut hdr_v))
+            .await
+            .unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(hdr_v[0].n_recv, msg_1.len());
+        assert_eq!(hdr_v[0].src_addr(), Some(c_addr));
+        assert_eq!(hdr_v[0].dst_addr(s_addr), target_s_addr);
+        assert!(hdr_v[0].interface_id().is_some());
+
+        assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
+
+        let mut recv_msg2 = [0u8; 16];
+        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg2)]);
+        poll_fn(|cx| s_sock.poll_recvmsg(cx, &mut hdr))
+            .await
+            .unwrap();
+        assert_eq!(hdr.n_recv, msg_2.len());
+        assert_eq!(hdr.src_addr(), Some(c_addr));
+        assert_eq!(hdr.dst_addr(s_addr), target_s_addr);
+        assert!(hdr.interface_id().is_some());
+        assert_eq!(&recv_msg2[..msg_2.len()], msg_2);
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+    ))]
+    #[tokio::test]
+    async fn recv_ancillary_v6() {
+        let mut listen_config = UdpListenConfig::new(SocketAddr::from_str("[::]:0").unwrap());
+        listen_config.set_ipv6_only(true);
+        let s_sock = g3_socket::udp::new_std_bind_listen(&listen_config).unwrap();
+        let s_sock = UdpSocket::from_std(s_sock).unwrap();
+        let s_addr = s_sock.local_addr().unwrap();
+        assert!(s_addr.ip().is_unspecified());
+        assert_ne!(s_addr.port(), 0);
+        let target_s_addr = SocketAddr::new(IpAddr::from_str("::1").unwrap(), s_addr.port());
+
+        let c_sock = UdpSocket::bind("[::1]:0").await.unwrap();
+        let c_addr = c_sock.local_addr().unwrap();
+        c_sock.connect(&s_addr).await.unwrap();
+
+        let msg_1 = b"abcd";
+        let msg_2 = b"test";
+
+        let mut msgs = [
+            SendMsgHdr::new([IoSlice::new(msg_1)], None),
+            SendMsgHdr::new([IoSlice::new(msg_2)], None),
+        ];
+
+        #[cfg(not(target_os = "macos"))]
+        let count = poll_fn(|cx| c_sock.poll_batch_sendmsg(cx, &mut msgs))
+            .await
+            .unwrap();
+        #[cfg(target_os = "macos")]
+        let count = poll_fn(|cx| c_sock.poll_batch_sendmsg_x(cx, &mut msgs))
+            .await
+            .unwrap();
+        assert_eq!(count, 2);
+        assert_eq!(msgs[0].n_send, msg_1.len());
+        assert_eq!(msgs[1].n_send, msg_2.len());
+
+        let mut recv_msg1 = [0u8; 16];
+        let mut hdr_v = [RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg1)])];
+        let count = poll_fn(|cx| s_sock.poll_batch_recvmsg(cx, &mut hdr_v))
+            .await
+            .unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(hdr_v[0].n_recv, msg_1.len());
+        assert_eq!(hdr_v[0].src_addr(), Some(c_addr));
+        assert_eq!(hdr_v[0].dst_addr(s_addr), target_s_addr);
+        assert!(hdr_v[0].interface_id().is_some());
+
+        assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
+
+        let mut recv_msg2 = [0u8; 16];
+        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg2)]);
+        poll_fn(|cx| s_sock.poll_recvmsg(cx, &mut hdr))
+            .await
+            .unwrap();
+        assert_eq!(hdr.n_recv, msg_2.len());
+        assert_eq!(hdr.src_addr(), Some(c_addr));
+        assert_eq!(hdr.dst_addr(s_addr), target_s_addr);
+        assert!(hdr.interface_id().is_some());
+        assert_eq!(&recv_msg2[..msg_2.len()], msg_2);
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+    ))]
+    #[tokio::test]
+    async fn recv_ancillary_mapped_v4() {
+        let mut listen_config = UdpListenConfig::new(SocketAddr::from_str("[::]:0").unwrap());
+        listen_config.set_ipv6_only(false);
+        let s_sock = g3_socket::udp::new_std_bind_listen(&listen_config).unwrap();
+        let s_sock = UdpSocket::from_std(s_sock).unwrap();
+        let s_addr = s_sock.local_addr().unwrap();
+        assert!(s_addr.ip().is_unspecified());
+        assert_ne!(s_addr.port(), 0);
+        let target_s_addr = SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), s_addr.port());
+        let expect_s_addr =
+            SocketAddr::new(IpAddr::from_str("::ffff:127.0.0.1").unwrap(), s_addr.port());
+
+        let c_sock = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let c_addr = c_sock.local_addr().unwrap();
+        let expect_c_addr =
+            SocketAddr::new(IpAddr::from_str("::ffff:127.0.0.1").unwrap(), c_addr.port());
+        c_sock.connect(&target_s_addr).await.unwrap();
+
+        let msg_1 = b"abcd";
+        let msg_2 = b"test";
+
+        let mut msgs = [
+            SendMsgHdr::new([IoSlice::new(msg_1)], None),
+            SendMsgHdr::new([IoSlice::new(msg_2)], None),
+        ];
+
+        #[cfg(not(target_os = "macos"))]
+        let count = poll_fn(|cx| c_sock.poll_batch_sendmsg(cx, &mut msgs))
+            .await
+            .unwrap();
+        #[cfg(target_os = "macos")]
+        let count = poll_fn(|cx| c_sock.poll_batch_sendmsg_x(cx, &mut msgs))
+            .await
+            .unwrap();
+        assert_eq!(count, 2);
+        assert_eq!(msgs[0].n_send, msg_1.len());
+        assert_eq!(msgs[1].n_send, msg_2.len());
+
+        let mut recv_msg1 = [0u8; 16];
+        let mut hdr_v = [RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg1)])];
+        let count = poll_fn(|cx| s_sock.poll_batch_recvmsg(cx, &mut hdr_v))
+            .await
+            .unwrap();
+        assert_eq!(count, 1);
+        assert_eq!(hdr_v[0].n_recv, msg_1.len());
+        assert_eq!(hdr_v[0].src_addr(), Some(expect_c_addr));
+        assert_eq!(hdr_v[0].dst_addr(s_addr), expect_s_addr);
+        assert!(hdr_v[0].interface_id().is_some());
+
+        assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
+
+        let mut recv_msg2 = [0u8; 16];
+        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg2)]);
+        poll_fn(|cx| s_sock.poll_recvmsg(cx, &mut hdr))
+            .await
+            .unwrap();
+        assert_eq!(hdr.n_recv, msg_2.len());
+        assert_eq!(hdr.src_addr(), Some(expect_c_addr));
+        assert_eq!(hdr.dst_addr(s_addr), expect_s_addr);
+        assert!(hdr.interface_id().is_some());
         assert_eq!(&recv_msg2[..msg_2.len()], msg_2);
     }
 }
