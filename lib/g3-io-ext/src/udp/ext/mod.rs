@@ -80,3 +80,171 @@ pub trait UdpSocketExt {
         hdr_v: &mut [RecvMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>>;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use g3_types::net::UdpListenConfig;
+    use std::future::poll_fn;
+    use std::io::IoSliceMut;
+    use std::net::IpAddr;
+    use std::str::FromStr;
+    use tokio::net::UdpSocket;
+
+    #[tokio::test]
+    async fn msg_connect() {
+        let s_sock = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let s_addr = s_sock.local_addr().unwrap();
+
+        let c_sock = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let c_addr = c_sock.local_addr().unwrap();
+        c_sock.connect(&s_addr).await.unwrap();
+
+        let msg_1 = b"abcd";
+
+        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &[IoSlice::new(msg_1)], None))
+            .await
+            .unwrap();
+        assert_eq!(nw, msg_1.len());
+
+        let mut recv_msg1 = [0u8; 16];
+        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg1)]);
+        poll_fn(|cx| s_sock.poll_recvmsg(cx, &mut hdr))
+            .await
+            .unwrap();
+        assert_eq!(hdr.n_recv, msg_1.len());
+        assert_eq!(hdr.src_addr(), Some(c_addr));
+
+        assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
+    }
+
+    #[tokio::test]
+    async fn msg_no_connect() {
+        let s_sock = UdpSocket::bind("[::1]:0").await.unwrap();
+        let s_addr = s_sock.local_addr().unwrap();
+
+        let c_sock = UdpSocket::bind("[::1]:0").await.unwrap();
+        let c_addr = c_sock.local_addr().unwrap();
+
+        let msg_1 = b"abcd";
+
+        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &[IoSlice::new(msg_1)], Some(s_addr)))
+            .await
+            .unwrap();
+        assert_eq!(nw, msg_1.len());
+
+        let mut recv_msg1 = [0u8; 16];
+        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg1)]);
+        poll_fn(|cx| s_sock.poll_recvmsg(cx, &mut hdr))
+            .await
+            .unwrap();
+        assert_eq!(hdr.n_recv, msg_1.len());
+        assert_eq!(hdr.src_addr(), Some(c_addr));
+        assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
+    }
+
+    #[tokio::test]
+    async fn recv_ancillary_v4() {
+        let listen_config = UdpListenConfig::new(SocketAddr::from_str("0.0.0.0:0").unwrap());
+        let s_sock = g3_socket::udp::new_std_bind_listen(&listen_config).unwrap();
+        let s_sock = UdpSocket::from_std(s_sock).unwrap();
+        let s_addr = s_sock.local_addr().unwrap();
+        assert!(s_addr.ip().is_unspecified());
+        assert_ne!(s_addr.port(), 0);
+        let target_s_addr = SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), s_addr.port());
+
+        let c_sock = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let c_addr = c_sock.local_addr().unwrap();
+        c_sock.connect(&s_addr).await.unwrap();
+
+        let msg_1 = b"abcd";
+
+        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &[IoSlice::new(msg_1)], None))
+            .await
+            .unwrap();
+        assert_eq!(nw, msg_1.len());
+
+        let mut recv_msg1 = [0u8; 16];
+        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg1)]);
+        poll_fn(|cx| s_sock.poll_recvmsg(cx, &mut hdr))
+            .await
+            .unwrap();
+        assert_eq!(hdr.n_recv, msg_1.len());
+        assert_eq!(hdr.src_addr(), Some(c_addr));
+        assert_eq!(hdr.dst_addr(s_addr), target_s_addr);
+        assert!(hdr.interface_id().is_some());
+        assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
+    }
+
+    #[tokio::test]
+    async fn recv_ancillary_v6() {
+        let mut listen_config = UdpListenConfig::new(SocketAddr::from_str("[::]:0").unwrap());
+        listen_config.set_ipv6_only(true);
+        let s_sock = g3_socket::udp::new_std_bind_listen(&listen_config).unwrap();
+        let s_sock = UdpSocket::from_std(s_sock).unwrap();
+        let s_addr = s_sock.local_addr().unwrap();
+        assert!(s_addr.ip().is_unspecified());
+        assert_ne!(s_addr.port(), 0);
+        let target_s_addr = SocketAddr::new(IpAddr::from_str("::1").unwrap(), s_addr.port());
+
+        let c_sock = UdpSocket::bind("[::1]:0").await.unwrap();
+        let c_addr = c_sock.local_addr().unwrap();
+        c_sock.connect(&s_addr).await.unwrap();
+
+        let msg_1 = b"abcd";
+
+        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &[IoSlice::new(msg_1)], None))
+            .await
+            .unwrap();
+        assert_eq!(nw, msg_1.len());
+
+        let mut recv_msg1 = [0u8; 16];
+        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg1)]);
+        poll_fn(|cx| s_sock.poll_recvmsg(cx, &mut hdr))
+            .await
+            .unwrap();
+        assert_eq!(hdr.n_recv, msg_1.len());
+        assert_eq!(hdr.src_addr(), Some(c_addr));
+        assert_eq!(hdr.dst_addr(s_addr), target_s_addr);
+        assert!(hdr.interface_id().is_some());
+        assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
+    }
+
+    #[tokio::test]
+    async fn recv_ancillary_mapped_v4() {
+        let mut listen_config = UdpListenConfig::new(SocketAddr::from_str("[::]:0").unwrap());
+        listen_config.set_ipv6_only(false);
+        let s_sock = g3_socket::udp::new_std_bind_listen(&listen_config).unwrap();
+        let s_sock = UdpSocket::from_std(s_sock).unwrap();
+        let s_addr = s_sock.local_addr().unwrap();
+        assert!(s_addr.ip().is_unspecified());
+        assert_ne!(s_addr.port(), 0);
+        let target_s_addr = SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), s_addr.port());
+        let expect_s_addr =
+            SocketAddr::new(IpAddr::from_str("::ffff:127.0.0.1").unwrap(), s_addr.port());
+
+        let c_sock = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let c_addr = c_sock.local_addr().unwrap();
+        let expect_c_addr =
+            SocketAddr::new(IpAddr::from_str("::ffff:127.0.0.1").unwrap(), c_addr.port());
+        c_sock.connect(&target_s_addr).await.unwrap();
+
+        let msg_1 = b"abcd";
+
+        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &[IoSlice::new(msg_1)], None))
+            .await
+            .unwrap();
+        assert_eq!(nw, msg_1.len());
+
+        let mut recv_msg1 = [0u8; 16];
+        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg1)]);
+        poll_fn(|cx| s_sock.poll_recvmsg(cx, &mut hdr))
+            .await
+            .unwrap();
+        assert_eq!(hdr.n_recv, msg_1.len());
+        assert_eq!(hdr.src_addr(), Some(expect_c_addr));
+        assert_eq!(hdr.dst_addr(s_addr), expect_s_addr);
+        assert!(hdr.interface_id().is_some());
+        assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
+    }
+}
