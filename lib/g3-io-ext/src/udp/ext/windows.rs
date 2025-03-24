@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-use std::cell::{RefCell, UnsafeCell};
-use std::io::{IoSlice, IoSliceMut};
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
+use std::cell::RefCell;
+use std::io::IoSlice;
+use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::os::windows::io::AsRawSocket;
 use std::sync::LazyLock;
 use std::task::{Context, Poll, ready};
-use std::time::Duration;
 use std::{io, ptr};
 
 use tokio::io::Interest;
@@ -28,16 +27,16 @@ use tokio::net::UdpSocket;
 use windows_sys::Win32::Networking::WinSock;
 
 use g3_socket::RawSocket;
-use g3_socket::cmsg::udp::{RecvAncillaryBuffer, RecvAncillaryData};
+use g3_socket::cmsg::udp::RecvAncillaryBuffer;
 
-use super::UdpSocketExt;
+use super::{RecvMsgHdr, UdpSocketExt};
 
 thread_local! {
     static RECV_ANCILLARY_BUFFER: RefCell<RecvAncillaryBuffer> = const { RefCell::new(RecvAncillaryBuffer::new()) };
 }
 
 #[derive(Default)]
-struct RawSocketAddr {
+pub(super) struct RawSocketAddr {
     buf: [u8; size_of::<WinSock::SOCKADDR_IN6>()],
 }
 
@@ -81,57 +80,16 @@ impl RawSocketAddr {
     }
 }
 
-pub struct RecvMsgHdr<'a, const C: usize> {
-    pub iov: [IoSliceMut<'a>; C],
-    pub n_recv: usize,
-    c_addr: UnsafeCell<RawSocketAddr>,
-    dst_ip: Option<IpAddr>,
-    interface_id: Option<u32>,
-}
-
-impl<const C: usize> RecvAncillaryData for RecvMsgHdr<'_, C> {
-    fn set_recv_interface(&mut self, id: u32) {
-        self.interface_id = Some(id);
-    }
-
-    fn set_recv_dst_addr(&mut self, addr: IpAddr) {
-        self.dst_ip = Some(addr);
-    }
-
-    fn set_timestamp(&mut self, _ts: Duration) {}
-}
-
-impl<'a, const C: usize> RecvMsgHdr<'a, C> {
-    pub fn new(iov: [IoSliceMut<'a>; C]) -> Self {
-        RecvMsgHdr {
-            iov,
-            n_recv: 0,
-            c_addr: UnsafeCell::new(RawSocketAddr::default()),
-            dst_ip: None,
-            interface_id: None,
-        }
-    }
-
+impl<const C: usize> RecvMsgHdr<'_, C> {
     pub fn src_addr(&self) -> Option<SocketAddr> {
         let c_addr = unsafe { &*self.c_addr.get() };
         c_addr.to_std()
     }
 
-    pub fn dst_addr(&self, local_addr: SocketAddr) -> SocketAddr {
-        self.dst_ip
-            .map(|ip| SocketAddr::new(ip, local_addr.port()))
-            .unwrap_or(local_addr)
-    }
-
-    #[inline]
-    pub fn interface_id(&self) -> Option<u32> {
-        self.interface_id
-    }
-
     /// # Safety
     ///
     /// `self` should not be dropped before the returned value
-    pub unsafe fn to_msghdr(&self, control_buf: &mut RecvAncillaryBuffer) -> WinSock::WSAMSG {
+    unsafe fn to_msghdr(&self, control_buf: &mut RecvAncillaryBuffer) -> WinSock::WSAMSG {
         let control_buf = control_buf.as_bytes();
         unsafe {
             let c_addr = &mut *self.c_addr.get();

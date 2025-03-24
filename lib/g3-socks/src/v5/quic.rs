@@ -181,7 +181,7 @@ impl Socks5UdpSocket {
             meta.stride = 0;
             meta.addr = self.quic_peer_addr;
             meta.ecn = None;
-            meta.dst_ip = None;
+            meta.dst_ip = hdr.dst_ip();
             return Ok(());
         }
 
@@ -206,7 +206,7 @@ impl Socks5UdpSocket {
         meta.stride = len;
         meta.addr = SocketAddr::new(ip, port);
         meta.ecn = None;
-        meta.dst_ip = None;
+        meta.dst_ip = hdr.dst_ip();
         Ok(())
     }
 }
