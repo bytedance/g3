@@ -18,10 +18,10 @@ use std::cell::RefCell;
 use std::io::IoSlice;
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
 use std::os::windows::io::AsRawSocket;
-use std::sync::LazyLock;
 use std::task::{Context, Poll, ready};
 use std::{io, ptr};
 
+use once_cell::sync::OnceCell;
 use tokio::io::Interest;
 use tokio::net::UdpSocket;
 use windows_sys::Win32::Networking::WinSock;
@@ -33,6 +33,7 @@ use super::{RecvMsgHdr, UdpSocketExt};
 
 thread_local! {
     static RECV_ANCILLARY_BUFFER: RefCell<RecvAncillaryBuffer> = const { RefCell::new(RecvAncillaryBuffer::new()) };
+    static WSARECVMSG_PTR: OnceCell<WinSock::LPFN_WSARECVMSG> = const { OnceCell::new() };
 }
 
 #[derive(Default)]
@@ -144,63 +145,60 @@ impl UdpSocketExt for UdpSocket {
         cx: &mut Context<'_>,
         hdr: &mut RecvMsgHdr<'_, C>,
     ) -> Poll<io::Result<()>> {
-        let wsa_recvmsg_ptr = WSARECVMSG_PTR.expect("valid function pointer for WSARecvMsg");
+        WSARECVMSG_PTR.with(|v| {
+            let wsa_recvmsg_ptr = v.get_or_try_init(|| get_wsa_recvmsg_ptr(self))?;
 
-        RECV_ANCILLARY_BUFFER.with_borrow_mut(|control_buf| {
-            let mut msghdr = unsafe { hdr.to_msghdr(control_buf) };
-
-            let raw_fd = self.as_raw_socket() as usize;
-            let mut recvmsg = || {
-                let mut len = 0;
-                let r = unsafe {
-                    (wsa_recvmsg_ptr)(
-                        raw_fd,
-                        ptr::from_mut(&mut msghdr),
-                        ptr::from_mut(&mut len),
-                        ptr::null_mut(),
-                        None,
-                    )
-                };
-                if r != 0 {
-                    Err(io::Error::last_os_error())
-                } else {
-                    Ok(len as usize)
-                }
+            let Some(wsa_recvmsg_ptr) = wsa_recvmsg_ptr else {
+                return Poll::Ready(Err(io::Error::other(
+                    "WSARECVMSG function is not available",
+                )));
             };
 
-            loop {
-                ready!(self.poll_recv_ready(cx))?;
-                match self.try_io(Interest::READABLE, &mut recvmsg) {
-                    Ok(nr) => {
-                        hdr.n_recv = nr;
-                        control_buf.parse(msghdr.Control.len as _, hdr)?;
-                        return Poll::Ready(Ok(()));
+            RECV_ANCILLARY_BUFFER.with_borrow_mut(|control_buf| {
+                let mut msghdr = unsafe { hdr.to_msghdr(control_buf) };
+
+                let raw_fd = self.as_raw_socket() as usize;
+                let mut recvmsg = || {
+                    let mut len = 0;
+                    let r = unsafe {
+                        (wsa_recvmsg_ptr)(
+                            raw_fd,
+                            ptr::from_mut(&mut msghdr),
+                            ptr::from_mut(&mut len),
+                            ptr::null_mut(),
+                            None,
+                        )
+                    };
+                    if r != 0 {
+                        Err(io::Error::last_os_error())
+                    } else {
+                        Ok(len as usize)
                     }
-                    Err(e) => {
-                        if e.kind() == io::ErrorKind::WouldBlock {
-                            continue;
-                        } else {
-                            return Poll::Ready(Err(e));
+                };
+
+                loop {
+                    ready!(self.poll_recv_ready(cx))?;
+                    match self.try_io(Interest::READABLE, &mut recvmsg) {
+                        Ok(nr) => {
+                            hdr.n_recv = nr;
+                            control_buf.parse(msghdr.Control.len as _, hdr)?;
+                            return Poll::Ready(Ok(()));
+                        }
+                        Err(e) => {
+                            if e.kind() == io::ErrorKind::WouldBlock {
+                                continue;
+                            } else {
+                                return Poll::Ready(Err(e));
+                            }
                         }
                     }
                 }
-            }
+            })
         })
     }
 }
 
-static WSARECVMSG_PTR: LazyLock<WinSock::LPFN_WSARECVMSG> = LazyLock::new(|| {
-    let s = unsafe { WinSock::socket(WinSock::AF_INET as _, WinSock::SOCK_DGRAM as _, 0) };
-    if s == WinSock::INVALID_SOCKET {
-        println!(
-            "ignoring WSARecvMsg function pointer due to socket creation error: {}",
-            io::Error::last_os_error()
-        );
-        return None;
-    }
-
-    // Detect if OS expose WSARecvMsg API based on
-    // https://github.com/Azure/mio-uds-windows/blob/a3c97df82018086add96d8821edb4aa85ec1b42b/src/stdnet/ext.rs#L601
+fn get_wsa_recvmsg_ptr<T: AsRawSocket>(socket: &T) -> io::Result<WinSock::LPFN_WSARECVMSG> {
     let guid = WinSock::WSAID_WSARECVMSG;
     let mut wsa_recvmsg_ptr = None;
     let mut len = 0;
@@ -208,7 +206,7 @@ static WSARECVMSG_PTR: LazyLock<WinSock::LPFN_WSARECVMSG> = LazyLock::new(|| {
     // Safety: Option handles the NULL pointer with a None value
     let rc = unsafe {
         WinSock::WSAIoctl(
-            s as _,
+            socket.as_raw_socket() as _,
             WinSock::SIO_GET_EXTENSION_FUNCTION_POINTER,
             &guid as *const _ as *const _,
             size_of_val(&guid) as u32,
@@ -220,18 +218,13 @@ static WSARECVMSG_PTR: LazyLock<WinSock::LPFN_WSARECVMSG> = LazyLock::new(|| {
         )
     };
     if rc == -1 {
-        println!(
-            "ignoring WSARecvMsg function pointer due to ioctl error: {}",
-            io::Error::last_os_error()
-        );
+        return Err(io::Error::last_os_error());
     } else if len as usize != size_of::<WinSock::LPFN_WSARECVMSG>() {
-        println!("ignoring WSARecvMsg function pointer due to pointer size mismatch");
-        wsa_recvmsg_ptr = None;
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "invalid WSARecvMsg function pointer: size mismatch",
+        ));
     }
 
-    unsafe {
-        WinSock::closesocket(s);
-    }
-
-    wsa_recvmsg_ptr
-});
+    Ok(wsa_recvmsg_ptr)
+}
