@@ -21,7 +21,7 @@ use std::os::windows::io::AsRawSocket;
 use std::task::{Context, Poll, ready};
 use std::{io, ptr};
 
-use once_cell::sync::OnceCell;
+use once_cell::unsync::OnceCell;
 use tokio::io::Interest;
 use tokio::net::UdpSocket;
 use windows_sys::Win32::Networking::WinSock;

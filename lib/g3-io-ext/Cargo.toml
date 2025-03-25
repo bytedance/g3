@@ -20,7 +20,6 @@ ahash.workspace = true
 smallvec.workspace = true
 arc-swap.workspace = true
 quinn = { workspace = true, optional = true }
-once_cell.workspace = true
 g3-socket.workspace = true
 g3-types.workspace = true
 g3-resolver = { workspace = true, optional = true }
@@ -32,6 +31,7 @@ libc.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true, features = ["Win32_Networking_WinSock", "Win32_System_IO"] }
+once_cell.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros"] }
