@@ -20,6 +20,7 @@ ahash.workspace = true
 smallvec.workspace = true
 arc-swap.workspace = true
 quinn = { workspace = true, optional = true }
+once_cell.workspace = true
 g3-socket.workspace = true
 g3-types.workspace = true
 g3-resolver = { workspace = true, optional = true }

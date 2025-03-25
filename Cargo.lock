@@ -1261,6 +1261,7 @@ dependencies = [
  "governor",
  "libc",
  "memchr",
+ "once_cell",
  "pin-project-lite",
  "quinn",
  "rustix 1.0.3",
