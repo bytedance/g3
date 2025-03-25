@@ -20,10 +20,11 @@ trait TestConfig {
     fn name(&self) -> &str;
 
     fn version(&self) -> usize;
-    fn diff_action(&self, other: &AnyTestConfig) -> bool;
+    fn same_as(&self, other: &AnyTestConfig) -> bool;
 
     fn reload(&self);
 
+    #[allow(unused)]
     async fn run(&self);
 }
 
@@ -38,7 +39,7 @@ impl TestConfig for ConfigA {
         1
     }
 
-    fn diff_action(&self, _other: &AnyTestConfig) -> bool {
+    fn same_as(&self, _other: &AnyTestConfig) -> bool {
         false
     }
 
@@ -50,12 +51,12 @@ impl TestConfig for ConfigA {
 #[derive(AnyConfig)]
 #[def_fn(name, &str)]
 #[def_fn(version, usize)]
-#[def_fn(diff_action, &AnyTestConfig, bool)]
+#[def_fn(same_as, &AnyTestConfig, bool)]
 #[def_fn(reload)]
 #[def_async_fn(run)]
 pub(crate) enum AnyTestConfig {
     Variant1(ConfigA),
-    /// Variant 2
+    // Variant 2
     Variant2(ConfigA),
 }
 
@@ -68,5 +69,5 @@ fn test_any() {
     any_config.reload();
 
     let any_config2 = AnyTestConfig::Variant2(ConfigA {});
-    assert_eq!(any_config.diff_action(&any_config2), false);
+    assert!(!any_config.same_as(&any_config2));
 }
