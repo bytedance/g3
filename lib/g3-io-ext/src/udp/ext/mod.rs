@@ -65,6 +65,9 @@ pub trait UdpSocketExt {
         msgs: &mut [SendMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>>;
 
+    /// Do a batch sendmsg via macOS private method sendmsg_x
+    ///
+    /// Only work for connected socket
     #[cfg(target_os = "macos")]
     fn poll_batch_sendmsg_x<const C: usize>(
         &self,
