@@ -24,7 +24,6 @@ pub trait SocketAddrExt: Sized {
 
 impl SocketAddrExt for SocketAddr {
     #[inline]
-    #[must_use = "this returns the result of the operation, without modifying the original"]
     fn to_canonical(&self) -> Self {
         match self {
             SocketAddr::V4(_) => *self,
