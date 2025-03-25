@@ -19,3 +19,6 @@ pub use option::OptionExt;
 
 mod duration;
 pub use duration::DurationExt;
+
+mod net;
+pub use net::SocketAddrExt;

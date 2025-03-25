@@ -138,6 +138,7 @@ impl<'a, const C: usize> RecvMsgHdr<'a, C> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use g3_types::ext::SocketAddrExt;
     use g3_types::net::UdpListenConfig;
     use std::future::poll_fn;
     use std::str::FromStr;
@@ -207,7 +208,7 @@ mod tests {
 
         let c_sock = UdpSocket::bind("127.0.0.1:0").await.unwrap();
         let c_addr = c_sock.local_addr().unwrap();
-        c_sock.connect(&s_addr).await.unwrap();
+        c_sock.connect(&target_s_addr).await.unwrap();
 
         let msg_1 = b"abcd";
 
@@ -241,7 +242,7 @@ mod tests {
 
         let c_sock = UdpSocket::bind("[::1]:0").await.unwrap();
         let c_addr = c_sock.local_addr().unwrap();
-        c_sock.connect(&s_addr).await.unwrap();
+        c_sock.connect(&target_s_addr).await.unwrap();
 
         let msg_1 = b"abcd";
 
@@ -272,8 +273,6 @@ mod tests {
         assert!(s_addr.ip().is_unspecified());
         assert_ne!(s_addr.port(), 0);
         let target_s_addr = SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), s_addr.port());
-        let expect_s_addr =
-            SocketAddr::new(IpAddr::from_str("::ffff:127.0.0.1").unwrap(), s_addr.port());
 
         let c_sock = UdpSocket::bind("127.0.0.1:0").await.unwrap();
         let c_addr = c_sock.local_addr().unwrap();
@@ -295,7 +294,7 @@ mod tests {
             .unwrap();
         assert_eq!(hdr.n_recv, msg_1.len());
         assert_eq!(hdr.src_addr(), Some(expect_c_addr));
-        assert_eq!(hdr.dst_addr(s_addr), expect_s_addr);
+        assert_eq!(hdr.dst_addr(s_addr).to_canonical(), target_s_addr);
         assert!(hdr.interface_id().is_some());
         assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
     }
