@@ -26,7 +26,7 @@ use tokio::sync::broadcast;
 use g3_compat::CpuAffinity;
 use g3_io_ext::LimitedTcpListener;
 use g3_socket::RawSocket;
-use g3_socket::util::native_socket_addr;
+use g3_types::ext::SocketAddrExt;
 use g3_types::net::TcpListenConfig;
 
 use crate::listen::ListenStats;
@@ -149,8 +149,8 @@ where
                                 self.listen_stats.add_accepted();
                                 self.run_task(
                                     stream,
-                                    native_socket_addr(peer_addr),
-                                    native_socket_addr(local_addr),
+                                    peer_addr.to_canonical(),
+                                    local_addr.to_canonical(),
                                 );
                                 Ok(())
                             }

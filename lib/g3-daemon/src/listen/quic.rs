@@ -26,8 +26,8 @@ use tokio::runtime::Handle;
 use tokio::sync::{broadcast, watch};
 
 use g3_socket::RawSocket;
-use g3_socket::util::native_socket_addr;
 use g3_types::acl::{AclAction, AclNetworkRule};
+use g3_types::ext::SocketAddrExt;
 use g3_types::net::UdpListenConfig;
 
 use crate::listen::ListenStats;
@@ -209,10 +209,8 @@ where
             .local_ip()
             .map(|ip| SocketAddr::new(ip, listen_addr.port()))
             .unwrap_or(listen_addr);
-        let mut cc_info = ClientConnectionInfo::new(
-            native_socket_addr(peer_addr),
-            native_socket_addr(local_addr),
-        );
+        let mut cc_info =
+            ClientConnectionInfo::new(peer_addr.to_canonical(), local_addr.to_canonical());
 
         let server = self.server.clone();
         let listen_stats = self.listen_stats.clone();
