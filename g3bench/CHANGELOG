@@ -1,4 +1,14 @@
 
+v0.9.4:
+ - BUG FIX: fix https proxy support for h2 target
+ - Feature: allow to set max openssl async job size for each worker thread
+ - Feature: allow to bind to interface in dns target
+ - Feature: support multi-threaded worker
+ - Feature: allow to verify all keyless action result
+ - Feature: add global no summary cli arg
+ - Feature: return non-zero error code if there are failed requests
+ - Feature: wait h1 connection shutdown synchronously
+
 v0.9.3:
  - Feature: add openssl variant info to version message
  - Feature: support use aws-lc-rs as rustls crypto backend
