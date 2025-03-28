@@ -114,6 +114,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         g3tiles::control::QuitActor::tokio_spawn_run();
 
         g3tiles::signal::register().context("failed to setup signal handler")?;
+        g3_daemon::control::panic::set_hook(&args.daemon_config);
 
         match load_and_spawn().await {
             Ok(_) => g3_daemon::control::upgrade::finish(),

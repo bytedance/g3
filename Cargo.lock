@@ -1046,6 +1046,7 @@ dependencies = [
  "quinn",
  "rand",
  "rustc-hash",
+ "rustix 1.0.3",
  "serde_json",
  "slog",
  "tokio",
