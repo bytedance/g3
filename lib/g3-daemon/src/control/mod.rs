@@ -22,8 +22,11 @@ pub use local::LocalController;
 
 pub mod quit;
 pub use quit::QuitAction;
+
 pub mod upgrade;
 pub use upgrade::UpgradeAction;
+
+pub mod panic;
 
 pub mod capnp;
 

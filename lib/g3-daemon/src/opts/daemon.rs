@@ -21,8 +21,10 @@ use clap::{Arg, ArgAction, ArgMatches, Command, ValueHint, value_parser};
 const ARGS_VERBOSE: &str = "verbose";
 const ARGS_DAEMON: &str = "daemon";
 const ARGS_SYSTEMD: &str = "systemd";
+const ARGS_MONITORED: &str = "monitored";
 const ARGS_PID_FILE: &str = "pid-file";
 const ARGS_TEST_CONFIG: &str = "test-config";
+const ARGS_PANIC_QUIT: &str = "panic-quit";
 
 pub trait DaemonArgsExt {
     fn append_daemon_args(self) -> Self;
@@ -32,10 +34,12 @@ pub trait DaemonArgsExt {
 pub struct DaemonArgs {
     pub(crate) with_systemd: bool,
     pub(crate) daemon_mode: bool,
+    pub(crate) monitored: bool,
     pub verbose_level: u8,
     pub process_name: &'static str,
     pub pid_file: Option<PathBuf>,
     pub test_config: bool,
+    pub(crate) panic_quit: bool,
 }
 
 impl DaemonArgs {
@@ -43,10 +47,12 @@ impl DaemonArgs {
         DaemonArgs {
             with_systemd: false,
             daemon_mode: false,
+            monitored: false,
             verbose_level: 0,
             process_name,
             pid_file: None,
             test_config: false,
+            panic_quit: false,
         }
     }
 
@@ -71,7 +77,7 @@ impl DaemonArgs {
     }
 
     pub fn need_daemon_controller(&self) -> bool {
-        self.daemon_mode || self.with_systemd
+        self.daemon_mode || self.with_systemd || self.monitored
     }
 
     pub fn parse_clap(&mut self, args: &ArgMatches) -> anyhow::Result<()> {
@@ -87,8 +93,14 @@ impl DaemonArgs {
         if args.get_flag(ARGS_SYSTEMD) {
             self.set_with_systemd();
         }
+        if args.get_flag(ARGS_MONITORED) {
+            self.monitored = true;
+        }
         if let Some(pid_file) = args.get_one::<PathBuf>(ARGS_PID_FILE) {
             self.pid_file = Some(pid_file.to_path_buf());
+        }
+        if args.get_flag(ARGS_PANIC_QUIT) {
+            self.panic_quit = true;
         }
         Ok(())
     }
@@ -102,7 +114,7 @@ impl DaemonArgsExt for Command {
                 .num_args(0)
                 .action(ArgAction::Count)
                 .short('v')
-                .long("verbose"),
+                .long(ARGS_VERBOSE),
         )
         .arg(
             Arg::new(ARGS_DAEMON)
@@ -110,14 +122,21 @@ impl DaemonArgsExt for Command {
                 .action(ArgAction::SetTrue)
                 .requires(ARGS_PID_FILE)
                 .short('d')
-                .long("daemon"),
+                .long(ARGS_DAEMON),
         )
         .arg(
             Arg::new(ARGS_SYSTEMD)
                 .help("Run with systemd")
                 .action(ArgAction::SetTrue)
                 .short('s')
-                .long("systemd"),
+                .long(ARGS_SYSTEMD),
+        )
+        .arg(
+            Arg::new(ARGS_MONITORED)
+                .help("Run in monitored mode")
+                .action(ArgAction::SetTrue)
+                .short('m')
+                .long(ARGS_MONITORED),
         )
         .arg(
             Arg::new(ARGS_PID_FILE)
@@ -127,14 +146,20 @@ impl DaemonArgsExt for Command {
                 .value_hint(ValueHint::FilePath)
                 .value_parser(value_parser!(PathBuf))
                 .short('p')
-                .long("pid-file"),
+                .long(ARGS_PID_FILE),
         )
         .arg(
             Arg::new(ARGS_TEST_CONFIG)
                 .help("Test the format of config file and exit")
                 .action(ArgAction::SetTrue)
                 .short('t')
-                .long("test-config"),
+                .long(ARGS_TEST_CONFIG),
+        )
+        .arg(
+            Arg::new(ARGS_PANIC_QUIT)
+                .help("Quit the process if panic")
+                .action(ArgAction::SetTrue)
+                .long(ARGS_PANIC_QUIT),
         )
     }
 }
