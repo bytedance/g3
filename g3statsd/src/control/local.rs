@@ -32,12 +32,15 @@ impl UniqueController {
     }
 
     pub(super) async fn abort_gracefully() {
-        debug!("stopping all inputs");
-        crate::input::stop_all().await;
-        debug!("stopped all inputs");
+        debug!("stopping all importers");
+        crate::import::stop_all().await;
+        debug!("stopped all importers");
 
-        // TODO flush and stop all collects
-        // TODO flush and stop all outputs
+        debug!("stopping all collectors");
+        crate::collect::stop_all().await;
+        debug!("stopped all collectors");
+
+        // TODO flush and stop all exporters
 
         UniqueController::abort_immediately().await
     }

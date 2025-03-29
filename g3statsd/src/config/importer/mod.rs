@@ -29,42 +29,42 @@ pub(crate) use registry::{clear, get_all};
 pub(crate) mod dummy;
 pub(crate) mod statsd;
 
-const CONFIG_KEY_INPUT_TYPE: &str = "type";
-const CONFIG_KEY_INPUT_NAME: &str = "name";
+const CONFIG_KEY_IMPORTER_TYPE: &str = "type";
+const CONFIG_KEY_IMPORTER_NAME: &str = "name";
 
-pub(crate) enum InputConfigDiffAction {
+pub(crate) enum ImporterConfigDiffAction {
     NoAction,
     SpawnNew,
     ReloadOnlyConfig,
     ReloadAndRespawn,
 }
 
-pub(crate) trait InputConfig {
+pub(crate) trait ImporterConfig {
     fn name(&self) -> &NodeName;
     fn position(&self) -> Option<YamlDocPosition>;
-    fn input_type(&self) -> &'static str;
+    fn importer_type(&self) -> &'static str;
 
-    fn diff_action(&self, new: &AnyInputConfig) -> InputConfigDiffAction;
+    fn diff_action(&self, new: &AnyImporterConfig) -> ImporterConfigDiffAction;
 }
 
 #[derive(Clone, Debug, AnyConfig)]
 #[def_fn(name, &NodeName)]
 #[def_fn(position, Option<YamlDocPosition>)]
-#[def_fn(input_type, &'static str)]
-#[def_fn(diff_action, &Self, InputConfigDiffAction)]
-pub(crate) enum AnyInputConfig {
-    Dummy(dummy::DummyInputConfig),
-    StatsD(statsd::StatsdInputConfig),
+#[def_fn(importer_type, &'static str)]
+#[def_fn(diff_action, &Self, ImporterConfigDiffAction)]
+pub(crate) enum AnyImporterConfig {
+    Dummy(dummy::DummyImporterConfig),
+    StatsD(statsd::StatsdImporterConfig),
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
     let parser = HybridParser::new(conf_dir, g3_daemon::opts::config_file_extension());
     parser.foreach_map(v, |map, position| {
-        let input = load_input(map, position)?;
-        if let Some(old_input) = registry::add(input) {
+        let importer = load_importer(map, position)?;
+        if let Some(importer) = registry::add(importer) {
             Err(anyhow!(
-                "input with name {} already exists",
-                old_input.name()
+                "importer with name {} already exists",
+                importer.name()
             ))
         } else {
             Ok(())
@@ -73,33 +73,33 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<AnyInputConfig> {
+pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<AnyImporterConfig> {
     let doc = g3_yaml::load_doc(position)?;
     if let Yaml::Hash(map) = doc {
-        let input = load_input(&map, Some(position.clone()))?;
-        registry::add(input.clone());
-        Ok(input)
+        let importer = load_importer(&map, Some(position.clone()))?;
+        registry::add(importer.clone());
+        Ok(importer)
     } else {
         Err(anyhow!("yaml doc {position} is not a map"))
     }
 }
 
-fn load_input(
+fn load_importer(
     map: &yaml::Hash,
     position: Option<YamlDocPosition>,
-) -> anyhow::Result<AnyInputConfig> {
-    let input_type = g3_yaml::hash_get_required_str(map, CONFIG_KEY_INPUT_TYPE)?;
-    match g3_yaml::key::normalize(input_type).as_str() {
+) -> anyhow::Result<AnyImporterConfig> {
+    let importer_type = g3_yaml::hash_get_required_str(map, CONFIG_KEY_IMPORTER_TYPE)?;
+    match g3_yaml::key::normalize(importer_type).as_str() {
         "dummy" => {
-            let input = dummy::DummyInputConfig::parse(map, position)
-                .context("failed to load this Dummy input")?;
-            Ok(AnyInputConfig::Dummy(input))
+            let importer = dummy::DummyImporterConfig::parse(map, position)
+                .context("failed to load this Dummy importer")?;
+            Ok(AnyImporterConfig::Dummy(importer))
         }
         "statsd" => {
-            let input = statsd::StatsdInputConfig::parse(map, position)
-                .context("failed to load this StatsD input")?;
-            Ok(AnyInputConfig::StatsD(input))
+            let importer = statsd::StatsdImporterConfig::parse(map, position)
+                .context("failed to load this StatsD importer")?;
+            Ok(AnyImporterConfig::StatsD(importer))
         }
-        _ => Err(anyhow!("unsupported input type {}", input_type)),
+        _ => Err(anyhow!("unsupported importer type {}", importer_type)),
     }
 }

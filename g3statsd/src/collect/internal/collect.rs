@@ -23,41 +23,41 @@ use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
 use super::InternalEmitter;
-use crate::collect::{ArcCollect, Collect, CollectInternal};
-use crate::config::collect::internal::InternalCollectConfig;
-use crate::config::collect::{AnyCollectConfig, CollectConfig};
+use crate::collect::{ArcCollector, Collector, CollectorInternal};
+use crate::config::collector::internal::InternalCollectorConfig;
+use crate::config::collector::{AnyCollectorConfig, CollectorConfig};
 
-pub(crate) struct InternalCollect {
-    config: Arc<InternalCollectConfig>,
+pub(crate) struct InternalCollector {
+    config: Arc<InternalCollectorConfig>,
 
-    reload_sender: broadcast::Sender<Arc<InternalCollectConfig>>,
+    reload_sender: broadcast::Sender<Arc<InternalCollectorConfig>>,
     reload_version: usize,
 }
 
-impl InternalCollect {
+impl InternalCollector {
     fn new(
-        config: InternalCollectConfig,
-        reload_sender: broadcast::Sender<Arc<InternalCollectConfig>>,
+        config: InternalCollectorConfig,
+        reload_sender: broadcast::Sender<Arc<InternalCollectorConfig>>,
         reload_version: usize,
     ) -> Self {
-        InternalCollect {
+        InternalCollector {
             config: Arc::new(config),
             reload_sender,
             reload_version,
         }
     }
 
-    pub(crate) fn prepare_initial(config: InternalCollectConfig) -> anyhow::Result<ArcCollect> {
-        let server = InternalCollect::new(config, broadcast::Sender::new(4), 1);
+    pub(crate) fn prepare_initial(config: InternalCollectorConfig) -> anyhow::Result<ArcCollector> {
+        let server = InternalCollector::new(config, broadcast::Sender::new(4), 1);
         let emitter = InternalEmitter::new(server.reload_sender.subscribe());
         let config = server.config.clone();
         tokio::spawn(emitter.into_running(config));
         Ok(Arc::new(server))
     }
 
-    fn prepare_reload(&self, config: AnyCollectConfig) -> anyhow::Result<InternalCollect> {
-        if let AnyCollectConfig::Internal(config) = config {
-            Ok(InternalCollect::new(
+    fn prepare_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<InternalCollector> {
+        if let AnyCollectorConfig::Internal(config) = config {
+            Ok(InternalCollector::new(
                 config,
                 self.reload_sender.clone(),
                 self.reload_version + 1,
@@ -65,16 +65,16 @@ impl InternalCollect {
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
-                self.config.collect_type(),
-                config.collect_type()
+                self.config.collector_type(),
+                config.collector_type()
             ))
         }
     }
 }
 
-impl CollectInternal for InternalCollect {
-    fn _clone_config(&self) -> AnyCollectConfig {
-        AnyCollectConfig::Internal((*self.config).clone())
+impl CollectorInternal for InternalCollector {
+    fn _clone_config(&self) -> AnyCollectorConfig {
+        AnyCollectorConfig::Internal((*self.config).clone())
     }
 
     fn _depend_on_collector(&self, _name: &NodeName) -> bool {
@@ -87,25 +87,31 @@ impl CollectInternal for InternalCollect {
 
     fn _update_next_collectors_in_place(&self) {}
 
-    fn _reload_with_old_notifier(&self, config: AnyCollectConfig) -> anyhow::Result<ArcCollect> {
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyCollectorConfig,
+    ) -> anyhow::Result<ArcCollector> {
         let mut server = self.prepare_reload(config)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyCollectConfig) -> anyhow::Result<ArcCollect> {
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyCollectorConfig,
+    ) -> anyhow::Result<ArcCollector> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }
 
-    fn _start_runtime(&self, _input: &ArcCollect) -> anyhow::Result<()> {
+    fn _start_runtime(&self, _collector: &ArcCollector) -> anyhow::Result<()> {
         Ok(())
     }
 
     fn _abort_runtime(&self) {}
 }
 
-impl BaseServer for InternalCollect {
+impl BaseServer for InternalCollector {
     #[inline]
     fn name(&self) -> &NodeName {
         self.config.name()
@@ -113,7 +119,7 @@ impl BaseServer for InternalCollect {
 
     #[inline]
     fn server_type(&self) -> &'static str {
-        self.config.collect_type()
+        self.config.collector_type()
     }
 
     #[inline]
@@ -122,4 +128,4 @@ impl BaseServer for InternalCollect {
     }
 }
 
-impl Collect for InternalCollect {}
+impl Collector for InternalCollector {}

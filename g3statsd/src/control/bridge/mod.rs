@@ -15,4 +15,4 @@
  */
 
 mod reload;
-pub(super) use reload::{reload_collect, reload_input};
+pub(super) use reload::{reload_collector, reload_importer};

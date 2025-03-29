@@ -20,26 +20,26 @@ use yaml_rust::{Yaml, yaml};
 use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
-use super::{AnyInputConfig, InputConfig, InputConfigDiffAction};
+use super::{AnyCollectorConfig, CollectorConfig, CollectorConfigDiffAction};
 
-const INPUT_CONFIG_TYPE: &str = "Dummy";
+const COLLECTOR_CONFIG_TYPE: &str = "Dummy";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct DummyInputConfig {
+pub(crate) struct DummyCollectorConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
 }
 
-impl DummyInputConfig {
+impl DummyCollectorConfig {
     pub(crate) fn with_name(name: &NodeName, position: Option<YamlDocPosition>) -> Self {
-        DummyInputConfig {
+        DummyCollectorConfig {
             name: name.clone(),
             position,
         }
     }
 
     fn new(position: Option<YamlDocPosition>) -> Self {
-        DummyInputConfig {
+        DummyCollectorConfig {
             name: NodeName::default(),
             position,
         }
@@ -49,18 +49,18 @@ impl DummyInputConfig {
         map: &yaml::Hash,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
-        let mut input = DummyInputConfig::new(position);
+        let mut collector = DummyCollectorConfig::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| input.set(k, v))?;
+        g3_yaml::foreach_kv(map, |k, v| collector.set(k, v))?;
 
-        input.check()?;
-        Ok(input)
+        collector.check()?;
+        Ok(collector)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
-            super::CONFIG_KEY_INPUT_TYPE => Ok(()),
-            super::CONFIG_KEY_INPUT_NAME => {
+            super::CONFIG_KEY_COLLECTOR_TYPE => Ok(()),
+            super::CONFIG_KEY_COLLECTOR_NAME => {
                 self.name = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
@@ -76,7 +76,7 @@ impl DummyInputConfig {
     }
 }
 
-impl InputConfig for DummyInputConfig {
+impl CollectorConfig for DummyCollectorConfig {
     fn name(&self) -> &NodeName {
         &self.name
     }
@@ -85,15 +85,15 @@ impl InputConfig for DummyInputConfig {
         self.position.clone()
     }
 
-    fn input_type(&self) -> &'static str {
-        INPUT_CONFIG_TYPE
+    fn collector_type(&self) -> &'static str {
+        COLLECTOR_CONFIG_TYPE
     }
 
-    fn diff_action(&self, new: &AnyInputConfig) -> InputConfigDiffAction {
-        let AnyInputConfig::Dummy(_new) = new else {
-            return InputConfigDiffAction::SpawnNew;
+    fn diff_action(&self, new: &AnyCollectorConfig) -> CollectorConfigDiffAction {
+        let AnyCollectorConfig::Dummy(_new) = new else {
+            return CollectorConfigDiffAction::SpawnNew;
         };
 
-        InputConfigDiffAction::NoAction
+        CollectorConfigDiffAction::NoAction
     }
 }

@@ -24,51 +24,51 @@ use g3_daemon::listen::ReceiveUdpServer;
 use g3_daemon::server::{BaseServer, ServerReloadCommand};
 use g3_types::metrics::NodeName;
 
-use crate::config::input::dummy::DummyInputConfig;
-use crate::config::input::{AnyInputConfig, InputConfig};
-use crate::input::{ArcInput, Input, InputInternal};
+use crate::config::importer::dummy::DummyImporterConfig;
+use crate::config::importer::{AnyImporterConfig, ImporterConfig};
+use crate::import::{ArcImporter, Importer, ImporterInternal};
 
-pub(crate) struct DummyInput {
-    config: DummyInputConfig,
+pub(crate) struct DummyImporter {
+    config: DummyImporterConfig,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
 }
 
-impl DummyInput {
-    fn new(config: DummyInputConfig) -> Self {
-        let reload_sender = crate::input::new_reload_notify_channel();
+impl DummyImporter {
+    fn new(config: DummyImporterConfig) -> Self {
+        let reload_sender = crate::import::new_reload_notify_channel();
 
-        DummyInput {
+        DummyImporter {
             config,
             reload_sender,
         }
     }
 
-    pub(crate) fn prepare_initial(config: DummyInputConfig) -> anyhow::Result<ArcInput> {
-        let server = DummyInput::new(config);
+    pub(crate) fn prepare_initial(config: DummyImporterConfig) -> anyhow::Result<ArcImporter> {
+        let server = DummyImporter::new(config);
         Ok(Arc::new(server))
     }
 
-    pub(crate) fn prepare_default(name: &NodeName) -> ArcInput {
-        let config = DummyInputConfig::with_name(name, None);
-        Arc::new(DummyInput::new(config))
+    pub(crate) fn prepare_default(name: &NodeName) -> ArcImporter {
+        let config = DummyImporterConfig::with_name(name, None);
+        Arc::new(DummyImporter::new(config))
     }
 
-    fn prepare_reload(&self, config: AnyInputConfig) -> anyhow::Result<DummyInput> {
-        if let AnyInputConfig::Dummy(config) = config {
-            Ok(DummyInput::new(config))
+    fn prepare_reload(&self, config: AnyImporterConfig) -> anyhow::Result<DummyImporter> {
+        if let AnyImporterConfig::Dummy(config) = config {
+            Ok(DummyImporter::new(config))
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
-                self.config.input_type(),
-                config.input_type()
+                self.config.importer_type(),
+                config.importer_type()
             ))
         }
     }
 }
 
-impl InputInternal for DummyInput {
-    fn _clone_config(&self) -> AnyInputConfig {
-        AnyInputConfig::Dummy(self.config.clone())
+impl ImporterInternal for DummyImporter {
+    fn _clone_config(&self) -> AnyImporterConfig {
+        AnyImporterConfig::Dummy(self.config.clone())
     }
 
     fn _reload_config_notify_runtime(&self) {
@@ -76,26 +76,26 @@ impl InputInternal for DummyInput {
         let _ = self.reload_sender.send(cmd);
     }
 
-    fn _reload_with_old_notifier(&self, config: AnyInputConfig) -> anyhow::Result<ArcInput> {
+    fn _reload_with_old_notifier(&self, config: AnyImporterConfig) -> anyhow::Result<ArcImporter> {
         Err(anyhow!(
-            "this {} input doesn't support reload with old notifier",
-            config.input_type()
+            "this {} importer doesn't support reload with old notifier",
+            config.importer_type()
         ))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyInputConfig) -> anyhow::Result<ArcInput> {
-        let server = self.prepare_reload(config)?;
-        Ok(Arc::new(server))
+    fn _reload_with_new_notifier(&self, config: AnyImporterConfig) -> anyhow::Result<ArcImporter> {
+        let importer = self.prepare_reload(config)?;
+        Ok(Arc::new(importer))
     }
 
-    fn _start_runtime(&self, _input: &ArcInput) -> anyhow::Result<()> {
+    fn _start_runtime(&self, _importer: &ArcImporter) -> anyhow::Result<()> {
         Ok(())
     }
 
     fn _abort_runtime(&self) {}
 }
 
-impl BaseServer for DummyInput {
+impl BaseServer for DummyImporter {
     #[inline]
     fn name(&self) -> &NodeName {
         self.config.name()
@@ -103,7 +103,7 @@ impl BaseServer for DummyInput {
 
     #[inline]
     fn server_type(&self) -> &'static str {
-        self.config.input_type()
+        self.config.importer_type()
     }
 
     #[inline]
@@ -112,7 +112,7 @@ impl BaseServer for DummyInput {
     }
 }
 
-impl ReceiveUdpServer for DummyInput {
+impl ReceiveUdpServer for DummyImporter {
     fn receive_packet(
         &self,
         _packet: &[u8],
@@ -123,4 +123,4 @@ impl ReceiveUdpServer for DummyInput {
     }
 }
 
-impl Input for DummyInput {}
+impl Importer for DummyImporter {}
