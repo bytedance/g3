@@ -26,28 +26,28 @@ use g3_daemon::server::{BaseServer, ServerReloadCommand};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::NodeName;
 
-use crate::config::input::statsd::StatsdInputConfig;
-use crate::config::input::{AnyInputConfig, InputConfig};
-use crate::input::{ArcInput, Input, InputInternal, WrapArcInput};
+use crate::config::importer::statsd::StatsdImporterConfig;
+use crate::config::importer::{AnyImporterConfig, ImporterConfig};
+use crate::import::{ArcImporter, Importer, ImporterInternal, WrapArcImporter};
 
-pub(crate) struct StatsdInput {
-    config: StatsdInputConfig,
+pub(crate) struct StatsdImporter {
+    config: StatsdImporterConfig,
     ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
 
     reload_version: usize,
 }
 
-impl StatsdInput {
-    fn new(config: StatsdInputConfig, reload_version: usize) -> Self {
-        let reload_sender = crate::input::new_reload_notify_channel();
+impl StatsdImporter {
+    fn new(config: StatsdImporterConfig, reload_version: usize) -> Self {
+        let reload_sender = crate::import::new_reload_notify_channel();
 
         let ingress_net_filter = config
             .ingress_net_filter
             .as_ref()
             .map(|builder| builder.build());
 
-        StatsdInput {
+        StatsdImporter {
             config,
             ingress_net_filter,
             reload_sender,
@@ -55,19 +55,19 @@ impl StatsdInput {
         }
     }
 
-    pub(crate) fn prepare_initial(config: StatsdInputConfig) -> anyhow::Result<ArcInput> {
-        let server = StatsdInput::new(config, 1);
+    pub(crate) fn prepare_initial(config: StatsdImporterConfig) -> anyhow::Result<ArcImporter> {
+        let server = StatsdImporter::new(config, 1);
         Ok(Arc::new(server))
     }
 
-    fn prepare_reload(&self, config: AnyInputConfig) -> anyhow::Result<StatsdInput> {
-        if let AnyInputConfig::StatsD(config) = config {
-            Ok(StatsdInput::new(config, self.reload_version + 1))
+    fn prepare_reload(&self, config: AnyImporterConfig) -> anyhow::Result<StatsdImporter> {
+        if let AnyImporterConfig::StatsD(config) = config {
+            Ok(StatsdImporter::new(config, self.reload_version + 1))
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
-                self.config.input_type(),
-                config.input_type()
+                self.config.importer_type(),
+                config.importer_type()
             ))
         }
     }
@@ -89,9 +89,9 @@ impl StatsdInput {
     }
 }
 
-impl InputInternal for StatsdInput {
-    fn _clone_config(&self) -> AnyInputConfig {
-        AnyInputConfig::StatsD(self.config.clone())
+impl ImporterInternal for StatsdImporter {
+    fn _clone_config(&self) -> AnyImporterConfig {
+        AnyImporterConfig::StatsD(self.config.clone())
     }
 
     fn _reload_config_notify_runtime(&self) {
@@ -99,20 +99,22 @@ impl InputInternal for StatsdInput {
         let _ = self.reload_sender.send(cmd);
     }
 
-    fn _reload_with_old_notifier(&self, config: AnyInputConfig) -> anyhow::Result<ArcInput> {
+    fn _reload_with_old_notifier(&self, config: AnyImporterConfig) -> anyhow::Result<ArcImporter> {
         let mut server = self.prepare_reload(config)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyInputConfig) -> anyhow::Result<ArcInput> {
+    fn _reload_with_new_notifier(&self, config: AnyImporterConfig) -> anyhow::Result<ArcImporter> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }
 
-    fn _start_runtime(&self, input: &ArcInput) -> anyhow::Result<()> {
-        let runtime =
-            ReceiveUdpRuntime::new(WrapArcInput(input.clone()), self.config.listen.clone());
+    fn _start_runtime(&self, importer: &ArcImporter) -> anyhow::Result<()> {
+        let runtime = ReceiveUdpRuntime::new(
+            WrapArcImporter(importer.clone()),
+            self.config.listen.clone(),
+        );
         runtime.run_all_instances(self.config.listen_in_worker, &self.reload_sender)
     }
 
@@ -121,7 +123,7 @@ impl InputInternal for StatsdInput {
     }
 }
 
-impl BaseServer for StatsdInput {
+impl BaseServer for StatsdImporter {
     #[inline]
     fn name(&self) -> &NodeName {
         self.config.name()
@@ -129,7 +131,7 @@ impl BaseServer for StatsdInput {
 
     #[inline]
     fn server_type(&self) -> &'static str {
-        self.config.input_type()
+        self.config.importer_type()
     }
 
     #[inline]
@@ -138,7 +140,7 @@ impl BaseServer for StatsdInput {
     }
 }
 
-impl ReceiveUdpServer for StatsdInput {
+impl ReceiveUdpServer for StatsdImporter {
     fn receive_packet(
         &self,
         packet: &[u8],
@@ -154,4 +156,4 @@ impl ReceiveUdpServer for StatsdInput {
     }
 }
 
-impl Input for StatsdInput {}
+impl Importer for StatsdImporter {}

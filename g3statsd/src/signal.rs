@@ -33,9 +33,10 @@ async fn do_reload() {
     if let Err(e) = crate::collect::spawn_all().await {
         error!("failed to reload all collectors: {e}");
     }
-    if let Err(e) = crate::input::spawn_all().await {
-        error!("failed to reload all inputs: {e}");
+    if let Err(e) = crate::import::spawn_all().await {
+        error!("failed to reload all importers: {e}");
     }
+    // TODO reload all exporters
 
     info!("reload finished");
 }

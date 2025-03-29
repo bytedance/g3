@@ -32,22 +32,22 @@ pub(crate) use registry::clear;
 pub(crate) mod dummy;
 pub(crate) mod internal;
 
-const CONFIG_KEY_COLLECT_TYPE: &str = "type";
-const CONFIG_KEY_COLLECT_NAME: &str = "name";
+const CONFIG_KEY_COLLECTOR_TYPE: &str = "type";
+const CONFIG_KEY_COLLECTOR_NAME: &str = "name";
 
-pub(crate) enum CollectConfigDiffAction {
+pub(crate) enum CollectorConfigDiffAction {
     NoAction,
     SpawnNew,
     ReloadOnlyConfig,
     ReloadAndRespawn,
 }
 
-pub(crate) trait CollectConfig {
+pub(crate) trait CollectorConfig {
     fn name(&self) -> &NodeName;
     fn position(&self) -> Option<YamlDocPosition>;
-    fn collect_type(&self) -> &'static str;
+    fn collector_type(&self) -> &'static str;
 
-    fn diff_action(&self, new: &AnyCollectConfig) -> CollectConfigDiffAction;
+    fn diff_action(&self, new: &AnyCollectorConfig) -> CollectorConfigDiffAction;
 
     fn dependent_collector(&self) -> Option<BTreeSet<NodeName>> {
         None
@@ -57,22 +57,22 @@ pub(crate) trait CollectConfig {
 #[derive(Clone, Debug, AnyConfig)]
 #[def_fn(name, &NodeName)]
 #[def_fn(position, Option<YamlDocPosition>)]
-#[def_fn(collect_type, &'static str)]
+#[def_fn(collector_type, &'static str)]
 #[def_fn(dependent_collector, Option<BTreeSet<NodeName>>)]
-#[def_fn(diff_action, &Self, CollectConfigDiffAction)]
-pub(crate) enum AnyCollectConfig {
-    Dummy(dummy::DummyCollectConfig),
-    Internal(internal::InternalCollectConfig),
+#[def_fn(diff_action, &Self, CollectorConfigDiffAction)]
+pub(crate) enum AnyCollectorConfig {
+    Dummy(dummy::DummyCollectorConfig),
+    Internal(internal::InternalCollectorConfig),
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
     let parser = HybridParser::new(conf_dir, g3_daemon::opts::config_file_extension());
     parser.foreach_map(v, |map, position| {
-        let collect = load_collect(map, position)?;
-        if let Some(old_collect) = registry::add(collect) {
+        let collector = load_collector(map, position)?;
+        if let Some(old_collector) = registry::add(collector) {
             Err(anyhow!(
-                "collect with name {} already exists",
-                old_collect.name()
+                "collector with name {} already exists",
+                old_collector.name()
             ))
         } else {
             Ok(())
@@ -82,45 +82,45 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
     Ok(())
 }
 
-pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<AnyCollectConfig> {
+pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<AnyCollectorConfig> {
     let doc = g3_yaml::load_doc(position)?;
     if let Yaml::Hash(map) = doc {
-        let collect = load_collect(&map, Some(position.clone()))?;
-        let old_collect = registry::add(collect.clone());
+        let collector = load_collector(&map, Some(position.clone()))?;
+        let old_collector = registry::add(collector.clone());
         if let Err(e) = build_topology_map() {
             // rollback
-            match old_collect {
-                Some(collect) => {
-                    registry::add(collect);
+            match old_collector {
+                Some(collector) => {
+                    registry::add(collector);
                 }
-                None => registry::del(collect.name()),
+                None => registry::del(collector.name()),
             }
             Err(e)
         } else {
-            Ok(collect)
+            Ok(collector)
         }
     } else {
         Err(anyhow!("yaml doc {position} is not a map"))
     }
 }
 
-fn load_collect(
+fn load_collector(
     map: &yaml::Hash,
     position: Option<YamlDocPosition>,
-) -> anyhow::Result<AnyCollectConfig> {
-    let collect_type = g3_yaml::hash_get_required_str(map, CONFIG_KEY_COLLECT_TYPE)?;
-    match g3_yaml::key::normalize(collect_type).as_str() {
+) -> anyhow::Result<AnyCollectorConfig> {
+    let collector_type = g3_yaml::hash_get_required_str(map, CONFIG_KEY_COLLECTOR_TYPE)?;
+    match g3_yaml::key::normalize(collector_type).as_str() {
         "dummy" => {
-            let collect = dummy::DummyCollectConfig::parse(map, position)
-                .context("failed to load this Dummy collect")?;
-            Ok(AnyCollectConfig::Dummy(collect))
+            let collector = dummy::DummyCollectorConfig::parse(map, position)
+                .context("failed to load this Dummy collector")?;
+            Ok(AnyCollectorConfig::Dummy(collector))
         }
         "internal" => {
-            let collect = internal::InternalCollectConfig::parse(map, position)
-                .context("failed to load this Internal collect")?;
-            Ok(AnyCollectConfig::Internal(collect))
+            let collector = internal::InternalCollectorConfig::parse(map, position)
+                .context("failed to load this Internal collector")?;
+            Ok(AnyCollectorConfig::Internal(collector))
         }
-        _ => Err(anyhow!("unsupported collect type {}", collect_type)),
+        _ => Err(anyhow!("unsupported collector type {}", collector_type)),
     }
 }
 
@@ -137,7 +137,7 @@ fn build_topology_map() -> anyhow::Result<TopoMap> {
     Ok(topo_map)
 }
 
-pub(crate) fn get_all_sorted() -> anyhow::Result<Vec<Arc<AnyCollectConfig>>> {
+pub(crate) fn get_all_sorted() -> anyhow::Result<Vec<Arc<AnyCollectorConfig>>> {
     let topo_map = build_topology_map()?;
     let sorted_nodes = topo_map.sorted_nodes();
     let mut sorted_conf = Vec::with_capacity(sorted_nodes.len());

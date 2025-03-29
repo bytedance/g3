@@ -22,12 +22,12 @@ use g3_types::metrics::NodeName;
 use g3_types::net::UdpListenConfig;
 use g3_yaml::YamlDocPosition;
 
-use super::{AnyInputConfig, InputConfig, InputConfigDiffAction};
+use super::{AnyImporterConfig, ImporterConfig, ImporterConfigDiffAction};
 
-const INPUT_CONFIG_TYPE: &str = "StatsD";
+const IMPORTER_CONFIG_TYPE: &str = "StatsD";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct StatsdInputConfig {
+pub(crate) struct StatsdImporterConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) listen: UdpListenConfig,
@@ -35,9 +35,9 @@ pub(crate) struct StatsdInputConfig {
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
 }
 
-impl StatsdInputConfig {
+impl StatsdImporterConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
-        StatsdInputConfig {
+        StatsdImporterConfig {
             name: NodeName::default(),
             position,
             listen: UdpListenConfig::default(),
@@ -50,18 +50,18 @@ impl StatsdInputConfig {
         map: &yaml::Hash,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
-        let mut input = StatsdInputConfig::new(position);
+        let mut importer = StatsdImporterConfig::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| input.set(k, v))?;
+        g3_yaml::foreach_kv(map, |k, v| importer.set(k, v))?;
 
-        input.check()?;
-        Ok(input)
+        importer.check()?;
+        Ok(importer)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
-            super::CONFIG_KEY_INPUT_TYPE => Ok(()),
-            super::CONFIG_KEY_INPUT_NAME => {
+            super::CONFIG_KEY_IMPORTER_TYPE => Ok(()),
+            super::CONFIG_KEY_IMPORTER_NAME => {
                 self.name = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
@@ -96,7 +96,7 @@ impl StatsdInputConfig {
     }
 }
 
-impl InputConfig for StatsdInputConfig {
+impl ImporterConfig for StatsdImporterConfig {
     fn name(&self) -> &NodeName {
         &self.name
     }
@@ -105,23 +105,23 @@ impl InputConfig for StatsdInputConfig {
         self.position.clone()
     }
 
-    fn input_type(&self) -> &'static str {
-        INPUT_CONFIG_TYPE
+    fn importer_type(&self) -> &'static str {
+        IMPORTER_CONFIG_TYPE
     }
 
-    fn diff_action(&self, new: &AnyInputConfig) -> InputConfigDiffAction {
-        let AnyInputConfig::StatsD(new) = new else {
-            return InputConfigDiffAction::SpawnNew;
+    fn diff_action(&self, new: &AnyImporterConfig) -> ImporterConfigDiffAction {
+        let AnyImporterConfig::StatsD(new) = new else {
+            return ImporterConfigDiffAction::SpawnNew;
         };
 
         if self.eq(new) {
-            return InputConfigDiffAction::NoAction;
+            return ImporterConfigDiffAction::NoAction;
         }
 
         if self.listen != new.listen {
-            return InputConfigDiffAction::ReloadAndRespawn;
+            return ImporterConfigDiffAction::ReloadAndRespawn;
         }
 
-        InputConfigDiffAction::ReloadOnlyConfig
+        ImporterConfigDiffAction::ReloadOnlyConfig
     }
 }

@@ -14,5 +14,5 @@
  * limitations under the License.
  */
 
-mod input;
-pub(super) use input::StatsdInput;
+mod import;
+pub(super) use import::StatsdImporter;

@@ -19,18 +19,18 @@ use std::sync::Arc;
 use tokio::sync::broadcast;
 use tokio::time::Instant;
 
-use crate::config::collect::internal::InternalCollectConfig;
+use crate::config::collector::internal::InternalCollectorConfig;
 
 pub(super) struct InternalEmitter {
-    reload_receiver: broadcast::Receiver<Arc<InternalCollectConfig>>,
+    reload_receiver: broadcast::Receiver<Arc<InternalCollectorConfig>>,
 }
 
 impl InternalEmitter {
-    pub(super) fn new(reload_receiver: broadcast::Receiver<Arc<InternalCollectConfig>>) -> Self {
+    pub(super) fn new(reload_receiver: broadcast::Receiver<Arc<InternalCollectorConfig>>) -> Self {
         InternalEmitter { reload_receiver }
     }
 
-    pub(super) async fn into_running(mut self, mut config: Arc<InternalCollectConfig>) {
+    pub(super) async fn into_running(mut self, mut config: Arc<InternalCollectorConfig>) {
         let mut interval = tokio::time::interval(config.emit_interval);
 
         let mut last_instant = Instant::now();
