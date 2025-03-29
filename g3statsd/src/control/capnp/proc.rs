@@ -70,12 +70,12 @@ impl proc_control::Server for ProcControlImpl {
         })
     }
 
-    fn list_input(
+    fn list_importer(
         &mut self,
-        _params: proc_control::ListInputParams,
-        mut results: proc_control::ListInputResults,
+        _params: proc_control::ListImporterParams,
+        mut results: proc_control::ListImporterResults,
     ) -> Promise<(), capnp::Error> {
-        let set = crate::input::get_names();
+        let set = crate::import::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
             builder.set(i as u32, name.as_str());
@@ -83,23 +83,23 @@ impl proc_control::Server for ProcControlImpl {
         Promise::ok(())
     }
 
-    fn reload_input(
+    fn reload_importer(
         &mut self,
-        params: proc_control::ReloadInputParams,
-        mut results: proc_control::ReloadInputResults,
+        params: proc_control::ReloadImporterParams,
+        mut results: proc_control::ReloadImporterResults,
     ) -> Promise<(), capnp::Error> {
         let name = pry!(pry!(pry!(params.get()).get_name()).to_string());
         Promise::from_future(async move {
-            let r = crate::control::bridge::reload_input(name, None).await;
+            let r = crate::control::bridge::reload_importer(name, None).await;
             set_operation_result(results.get().init_result(), r);
             Ok(())
         })
     }
 
-    fn list_collect(
+    fn list_collector(
         &mut self,
-        _params: proc_control::ListCollectParams,
-        mut results: proc_control::ListCollectResults,
+        _params: proc_control::ListCollectorParams,
+        mut results: proc_control::ListCollectorResults,
     ) -> Promise<(), capnp::Error> {
         let set = crate::collect::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
@@ -109,14 +109,14 @@ impl proc_control::Server for ProcControlImpl {
         Promise::ok(())
     }
 
-    fn reload_collect(
+    fn reload_collector(
         &mut self,
-        params: proc_control::ReloadCollectParams,
-        mut results: proc_control::ReloadCollectResults,
+        params: proc_control::ReloadCollectorParams,
+        mut results: proc_control::ReloadCollectorResults,
     ) -> Promise<(), capnp::Error> {
         let name = pry!(pry!(pry!(params.get()).get_name()).to_string());
         Promise::from_future(async move {
-            let r = crate::control::bridge::reload_collect(name, None).await;
+            let r = crate::control::bridge::reload_collector(name, None).await;
             set_operation_result(results.get().init_result(), r);
             Ok(())
         })

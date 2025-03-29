@@ -22,83 +22,89 @@ use foldhash::fast::FixedState;
 
 use g3_types::metrics::NodeName;
 
-use super::ArcCollect;
-use crate::config::collect::AnyCollectConfig;
+use super::ArcCollector;
+use crate::config::collector::AnyCollectorConfig;
 
-static RUNTIME_COLLECT_REGISTRY: Mutex<HashMap<NodeName, ArcCollect, FixedState>> =
+static RUNTIME_COLLECTOR_REGISTRY: Mutex<HashMap<NodeName, ArcCollector, FixedState>> =
     Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
-pub(super) fn add(name: NodeName, collect: ArcCollect) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_COLLECT_REGISTRY.lock().unwrap();
-    collect._start_runtime(&collect)?;
-    if let Some(old_collect) = ht.insert(name, collect) {
-        old_collect._abort_runtime();
+pub(super) fn add(name: NodeName, collector: ArcCollector) -> anyhow::Result<()> {
+    let mut ht = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
+    collector._start_runtime(&collector)?;
+    if let Some(old_collector) = ht.insert(name, collector) {
+        old_collector._abort_runtime();
     }
     Ok(())
 }
 
 pub(super) fn del(name: &NodeName) {
-    let mut ht = RUNTIME_COLLECT_REGISTRY.lock().unwrap();
-    if let Some(old_collect) = ht.remove(name) {
-        old_collect._abort_runtime();
+    let mut ht = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
+    if let Some(old_collector) = ht.remove(name) {
+        old_collector._abort_runtime();
     }
 }
 
 pub(crate) fn get_names() -> HashSet<NodeName> {
     let mut names = HashSet::new();
-    let ht = RUNTIME_COLLECT_REGISTRY.lock().unwrap();
+    let ht = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
     for name in ht.keys() {
         names.insert(name.clone());
     }
     names
 }
 
-pub(super) fn get_config(name: &NodeName) -> Option<AnyCollectConfig> {
-    let ht = RUNTIME_COLLECT_REGISTRY.lock().unwrap();
+pub(super) fn get_config(name: &NodeName) -> Option<AnyCollectorConfig> {
+    let ht = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
     ht.get(name).map(|collect| collect._clone_config())
 }
 
-pub(super) fn reload_only_config(name: &NodeName, config: AnyCollectConfig) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_COLLECT_REGISTRY.lock().unwrap();
-    let Some(old_collect) = ht.get(name) else {
-        return Err(anyhow!("no collect with name {name} found"));
+pub(super) fn reload_only_config(
+    name: &NodeName,
+    config: AnyCollectorConfig,
+) -> anyhow::Result<()> {
+    let mut ht = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
+    let Some(old_collector) = ht.get(name) else {
+        return Err(anyhow!("no collector with name {name} found"));
     };
 
-    let collect = old_collect._reload_with_old_notifier(config)?;
-    if let Some(_old_collect) = ht.insert(name.clone(), Arc::clone(&collect)) {
+    let collector = old_collector._reload_with_old_notifier(config)?;
+    if let Some(_old_collector) = ht.insert(name.clone(), Arc::clone(&collector)) {
         // do not abort the runtime, as it's reused
     }
-    collect._reload_config_notify_runtime();
+    collector._reload_config_notify_runtime();
     Ok(())
 }
 
-pub(super) fn reload_and_respawn(name: &NodeName, config: AnyCollectConfig) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_COLLECT_REGISTRY.lock().unwrap();
-    let Some(old_collect) = ht.get(name) else {
-        return Err(anyhow!("no collect with name {name} found"));
+pub(super) fn reload_and_respawn(
+    name: &NodeName,
+    config: AnyCollectorConfig,
+) -> anyhow::Result<()> {
+    let mut ht = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
+    let Some(old_collector) = ht.get(name) else {
+        return Err(anyhow!("no collector with name {name} found"));
     };
 
-    let collect = old_collect._reload_with_new_notifier(config)?;
-    collect._start_runtime(&collect)?;
-    if let Some(old_collect) = ht.insert(name.clone(), collect) {
-        old_collect._abort_runtime();
+    let collector = old_collector._reload_with_new_notifier(config)?;
+    collector._start_runtime(&collector)?;
+    if let Some(old_collector) = ht.insert(name.clone(), collector) {
+        old_collector._abort_runtime();
     }
     Ok(())
 }
 
 pub(crate) fn foreach<F>(mut f: F)
 where
-    F: FnMut(&NodeName, &ArcCollect),
+    F: FnMut(&NodeName, &ArcCollector),
 {
-    let ht = RUNTIME_COLLECT_REGISTRY.lock().unwrap();
-    for (name, collect) in ht.iter() {
-        f(name, collect)
+    let ht = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
+    for (name, collector) in ht.iter() {
+        f(name, collector)
     }
 }
 
-pub(crate) fn get_or_insert_default(name: &NodeName) -> ArcCollect {
-    let mut ht = RUNTIME_COLLECT_REGISTRY.lock().unwrap();
+pub(crate) fn get_or_insert_default(name: &NodeName) -> ArcCollector {
+    let mut ht = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
     ht.entry(name.clone())
-        .or_insert_with(|| super::dummy::DummyCollect::prepare_default(name))
+        .or_insert_with(|| super::dummy::DummyCollector::prepare_default(name))
         .clone()
 }

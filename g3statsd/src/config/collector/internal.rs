@@ -22,20 +22,20 @@ use yaml_rust::{Yaml, yaml};
 use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
-use super::{AnyCollectConfig, CollectConfig, CollectConfigDiffAction};
+use super::{AnyCollectorConfig, CollectorConfig, CollectorConfigDiffAction};
 
-const COLLECT_CONFIG_TYPE: &str = "Internal";
+const COLLECTOR_CONFIG_TYPE: &str = "Internal";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct InternalCollectConfig {
+pub(crate) struct InternalCollectorConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) emit_interval: Duration,
 }
 
-impl InternalCollectConfig {
+impl InternalCollectorConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
-        InternalCollectConfig {
+        InternalCollectorConfig {
             name: NodeName::default(),
             position,
             emit_interval: Duration::from_secs(1),
@@ -46,18 +46,18 @@ impl InternalCollectConfig {
         map: &yaml::Hash,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
-        let mut input = InternalCollectConfig::new(position);
+        let mut collector = InternalCollectorConfig::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| input.set(k, v))?;
+        g3_yaml::foreach_kv(map, |k, v| collector.set(k, v))?;
 
-        input.check()?;
-        Ok(input)
+        collector.check()?;
+        Ok(collector)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
-            super::CONFIG_KEY_COLLECT_TYPE => Ok(()),
-            super::CONFIG_KEY_COLLECT_NAME => {
+            super::CONFIG_KEY_COLLECTOR_TYPE => Ok(()),
+            super::CONFIG_KEY_COLLECTOR_NAME => {
                 self.name = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
@@ -78,7 +78,7 @@ impl InternalCollectConfig {
     }
 }
 
-impl CollectConfig for InternalCollectConfig {
+impl CollectorConfig for InternalCollectorConfig {
     fn name(&self) -> &NodeName {
         &self.name
     }
@@ -87,15 +87,15 @@ impl CollectConfig for InternalCollectConfig {
         self.position.clone()
     }
 
-    fn collect_type(&self) -> &'static str {
-        COLLECT_CONFIG_TYPE
+    fn collector_type(&self) -> &'static str {
+        COLLECTOR_CONFIG_TYPE
     }
 
-    fn diff_action(&self, new: &AnyCollectConfig) -> CollectConfigDiffAction {
-        let AnyCollectConfig::Internal(_new) = new else {
-            return CollectConfigDiffAction::SpawnNew;
+    fn diff_action(&self, new: &AnyCollectorConfig) -> CollectorConfigDiffAction {
+        let AnyCollectorConfig::Internal(_new) = new else {
+            return CollectorConfigDiffAction::SpawnNew;
         };
 
-        CollectConfigDiffAction::ReloadOnlyConfig
+        CollectorConfigDiffAction::ReloadOnlyConfig
     }
 }

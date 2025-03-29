@@ -10,9 +10,9 @@ interface ProcControl {
   cancelShutdown @2 () -> (result :Types.OperationResult);
   releaseController @3 () -> (result :Types.OperationResult);
 
-  reloadInput @4 (name :Text) -> (result :Types.OperationResult);
-  listInput @5 () -> (result :List(Text));
+  reloadImporter @4 (name :Text) -> (result :Types.OperationResult);
+  listImporter @5 () -> (result :List(Text));
 
-  reloadCollect @6 (name :Text) -> (result :Types.OperationResult);
-  listCollect @7 () -> (result :List(Text));
+  reloadCollector @6 (name :Text) -> (result :Types.OperationResult);
+  listCollector @7 () -> (result :List(Text));
 }

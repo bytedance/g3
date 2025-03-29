@@ -23,7 +23,7 @@ use g3_daemon::listen::ReceiveUdpServer;
 use g3_daemon::server::{BaseServer, ReloadServer, ServerReloadCommand};
 use g3_types::metrics::NodeName;
 
-use crate::config::input::AnyInputConfig;
+use crate::config::importer::AnyImporterConfig;
 
 mod registry;
 pub(crate) use registry::get_names;
@@ -35,26 +35,26 @@ pub use ops::{spawn_all, stop_all};
 mod dummy;
 mod statsd;
 
-pub(crate) trait InputInternal {
-    fn _clone_config(&self) -> AnyInputConfig;
+pub(crate) trait ImporterInternal {
+    fn _clone_config(&self) -> AnyImporterConfig;
 
     fn _reload_config_notify_runtime(&self);
 
-    fn _reload_with_old_notifier(&self, config: AnyInputConfig) -> anyhow::Result<ArcInput>;
-    fn _reload_with_new_notifier(&self, config: AnyInputConfig) -> anyhow::Result<ArcInput>;
+    fn _reload_with_old_notifier(&self, config: AnyImporterConfig) -> anyhow::Result<ArcImporter>;
+    fn _reload_with_new_notifier(&self, config: AnyImporterConfig) -> anyhow::Result<ArcImporter>;
 
-    fn _start_runtime(&self, server: &ArcInput) -> anyhow::Result<()>;
+    fn _start_runtime(&self, server: &ArcImporter) -> anyhow::Result<()>;
     fn _abort_runtime(&self);
 }
 
-pub(crate) trait Input: InputInternal + ReceiveUdpServer + BaseServer {}
+pub(crate) trait Importer: ImporterInternal + ReceiveUdpServer + BaseServer {}
 
-pub(crate) type ArcInput = Arc<dyn Input + Send + Sync>;
+pub(crate) type ArcImporter = Arc<dyn Importer + Send + Sync>;
 
 #[derive(Clone)]
-struct WrapArcInput(ArcInput);
+struct WrapArcImporter(ArcImporter);
 
-impl BaseServer for WrapArcInput {
+impl BaseServer for WrapArcImporter {
     fn name(&self) -> &NodeName {
         self.0.name()
     }
@@ -68,13 +68,13 @@ impl BaseServer for WrapArcInput {
     }
 }
 
-impl ReloadServer for WrapArcInput {
+impl ReloadServer for WrapArcImporter {
     fn reload(&self) -> Self {
-        WrapArcInput(registry::get_or_insert_default(self.name()))
+        WrapArcImporter(registry::get_or_insert_default(self.name()))
     }
 }
 
-impl ReceiveUdpServer for WrapArcInput {
+impl ReceiveUdpServer for WrapArcImporter {
     fn receive_packet(
         &self,
         packet: &[u8],

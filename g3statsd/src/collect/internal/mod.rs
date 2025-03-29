@@ -18,4 +18,4 @@ mod emit;
 use emit::InternalEmitter;
 
 mod collect;
-pub(super) use collect::InternalCollect;
+pub(super) use collect::InternalCollector;

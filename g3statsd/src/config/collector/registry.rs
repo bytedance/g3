@@ -21,35 +21,35 @@ use foldhash::fast::FixedState;
 
 use g3_types::metrics::NodeName;
 
-use super::AnyCollectConfig;
+use super::AnyCollectorConfig;
 
-static INITIAL_COLLECT_CONFIG_REGISTRY: Mutex<
-    HashMap<NodeName, Arc<AnyCollectConfig>, FixedState>,
+static INITIAL_COLLECTOR_CONFIG_REGISTRY: Mutex<
+    HashMap<NodeName, Arc<AnyCollectorConfig>, FixedState>,
 > = Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub(crate) fn clear() {
-    let mut ht = INITIAL_COLLECT_CONFIG_REGISTRY.lock().unwrap();
+    let mut ht = INITIAL_COLLECTOR_CONFIG_REGISTRY.lock().unwrap();
     ht.clear();
 }
 
-pub(super) fn add(collect: AnyCollectConfig) -> Option<AnyCollectConfig> {
-    let name = collect.name().clone();
-    let collect = Arc::new(collect);
-    let mut ht = INITIAL_COLLECT_CONFIG_REGISTRY.lock().unwrap();
-    ht.insert(name, collect).map(|v| v.as_ref().clone())
+pub(super) fn add(collector: AnyCollectorConfig) -> Option<AnyCollectorConfig> {
+    let name = collector.name().clone();
+    let collector = Arc::new(collector);
+    let mut ht = INITIAL_COLLECTOR_CONFIG_REGISTRY.lock().unwrap();
+    ht.insert(name, collector).map(|v| v.as_ref().clone())
 }
 
 pub(super) fn del(name: &NodeName) {
-    let mut ht = INITIAL_COLLECT_CONFIG_REGISTRY.lock().unwrap();
+    let mut ht = INITIAL_COLLECTOR_CONFIG_REGISTRY.lock().unwrap();
     ht.remove(name);
 }
 
-pub(super) fn get(name: &NodeName) -> Option<Arc<AnyCollectConfig>> {
-    let ht = INITIAL_COLLECT_CONFIG_REGISTRY.lock().unwrap();
+pub(super) fn get(name: &NodeName) -> Option<Arc<AnyCollectorConfig>> {
+    let ht = INITIAL_COLLECTOR_CONFIG_REGISTRY.lock().unwrap();
     ht.get(name).cloned()
 }
 
 pub(super) fn get_all_names() -> Vec<NodeName> {
-    let ht = INITIAL_COLLECT_CONFIG_REGISTRY.lock().unwrap();
+    let ht = INITIAL_COLLECTOR_CONFIG_REGISTRY.lock().unwrap();
     ht.keys().cloned().collect()
 }

@@ -35,5 +35,5 @@ macro_rules! impl_reload {
     };
 }
 
-impl_reload!(reload_input, input);
-impl_reload!(reload_collect, collect);
+impl_reload!(reload_importer, import);
+impl_reload!(reload_collector, collect);

@@ -21,45 +21,45 @@ use anyhow::anyhow;
 use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
-use super::{ArcCollect, Collect, CollectInternal};
-use crate::config::collect::dummy::DummyCollectConfig;
-use crate::config::collect::{AnyCollectConfig, CollectConfig};
+use super::{ArcCollector, Collector, CollectorInternal};
+use crate::config::collector::dummy::DummyCollectorConfig;
+use crate::config::collector::{AnyCollectorConfig, CollectorConfig};
 
-pub(crate) struct DummyCollect {
-    config: DummyCollectConfig,
+pub(crate) struct DummyCollector {
+    config: DummyCollectorConfig,
 }
 
-impl DummyCollect {
-    fn new(config: DummyCollectConfig) -> Self {
-        DummyCollect { config }
+impl DummyCollector {
+    fn new(config: DummyCollectorConfig) -> Self {
+        DummyCollector { config }
     }
 
-    pub(crate) fn prepare_initial(config: DummyCollectConfig) -> anyhow::Result<ArcCollect> {
-        let server = DummyCollect::new(config);
+    pub(crate) fn prepare_initial(config: DummyCollectorConfig) -> anyhow::Result<ArcCollector> {
+        let server = DummyCollector::new(config);
         Ok(Arc::new(server))
     }
 
-    pub(crate) fn prepare_default(name: &NodeName) -> ArcCollect {
-        let config = DummyCollectConfig::with_name(name, None);
-        Arc::new(DummyCollect::new(config))
+    pub(crate) fn prepare_default(name: &NodeName) -> ArcCollector {
+        let config = DummyCollectorConfig::with_name(name, None);
+        Arc::new(DummyCollector::new(config))
     }
 
-    fn prepare_reload(&self, config: AnyCollectConfig) -> anyhow::Result<DummyCollect> {
-        if let AnyCollectConfig::Dummy(config) = config {
-            Ok(DummyCollect::new(config))
+    fn prepare_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<DummyCollector> {
+        if let AnyCollectorConfig::Dummy(config) = config {
+            Ok(DummyCollector::new(config))
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
-                self.config.collect_type(),
-                config.collect_type()
+                self.config.collector_type(),
+                config.collector_type()
             ))
         }
     }
 }
 
-impl CollectInternal for DummyCollect {
-    fn _clone_config(&self) -> AnyCollectConfig {
-        AnyCollectConfig::Dummy(self.config.clone())
+impl CollectorInternal for DummyCollector {
+    fn _clone_config(&self) -> AnyCollectorConfig {
+        AnyCollectorConfig::Dummy(self.config.clone())
     }
 
     fn _depend_on_collector(&self, _name: &NodeName) -> bool {
@@ -70,26 +70,32 @@ impl CollectInternal for DummyCollect {
 
     fn _update_next_collectors_in_place(&self) {}
 
-    fn _reload_with_old_notifier(&self, config: AnyCollectConfig) -> anyhow::Result<ArcCollect> {
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyCollectorConfig,
+    ) -> anyhow::Result<ArcCollector> {
         Err(anyhow!(
-            "this {} collect doesn't support reload with old notifier",
-            config.collect_type()
+            "this {} collector doesn't support reload with old notifier",
+            config.collector_type()
         ))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyCollectConfig) -> anyhow::Result<ArcCollect> {
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyCollectorConfig,
+    ) -> anyhow::Result<ArcCollector> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }
 
-    fn _start_runtime(&self, _input: &ArcCollect) -> anyhow::Result<()> {
+    fn _start_runtime(&self, _collector: &ArcCollector) -> anyhow::Result<()> {
         Ok(())
     }
 
     fn _abort_runtime(&self) {}
 }
 
-impl BaseServer for DummyCollect {
+impl BaseServer for DummyCollector {
     #[inline]
     fn name(&self) -> &NodeName {
         self.config.name()
@@ -97,7 +103,7 @@ impl BaseServer for DummyCollect {
 
     #[inline]
     fn server_type(&self) -> &'static str {
-        self.config.collect_type()
+        self.config.collector_type()
     }
 
     #[inline]
@@ -106,4 +112,4 @@ impl BaseServer for DummyCollect {
     }
 }
 
-impl Collect for DummyCollect {}
+impl Collector for DummyCollector {}

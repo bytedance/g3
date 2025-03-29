@@ -20,26 +20,26 @@ use yaml_rust::{Yaml, yaml};
 use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
-use super::{AnyCollectConfig, CollectConfig, CollectConfigDiffAction};
+use super::{AnyImporterConfig, ImporterConfig, ImporterConfigDiffAction};
 
-const COLLECT_CONFIG_TYPE: &str = "Dummy";
+const IMPORTER_CONFIG_TYPE: &str = "Dummy";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct DummyCollectConfig {
+pub(crate) struct DummyImporterConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
 }
 
-impl DummyCollectConfig {
+impl DummyImporterConfig {
     pub(crate) fn with_name(name: &NodeName, position: Option<YamlDocPosition>) -> Self {
-        DummyCollectConfig {
+        DummyImporterConfig {
             name: name.clone(),
             position,
         }
     }
 
     fn new(position: Option<YamlDocPosition>) -> Self {
-        DummyCollectConfig {
+        DummyImporterConfig {
             name: NodeName::default(),
             position,
         }
@@ -49,18 +49,18 @@ impl DummyCollectConfig {
         map: &yaml::Hash,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
-        let mut input = DummyCollectConfig::new(position);
+        let mut importer = DummyImporterConfig::new(position);
 
-        g3_yaml::foreach_kv(map, |k, v| input.set(k, v))?;
+        g3_yaml::foreach_kv(map, |k, v| importer.set(k, v))?;
 
-        input.check()?;
-        Ok(input)
+        importer.check()?;
+        Ok(importer)
     }
 
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
-            super::CONFIG_KEY_COLLECT_TYPE => Ok(()),
-            super::CONFIG_KEY_COLLECT_NAME => {
+            super::CONFIG_KEY_IMPORTER_TYPE => Ok(()),
+            super::CONFIG_KEY_IMPORTER_NAME => {
                 self.name = g3_yaml::value::as_metrics_name(v)?;
                 Ok(())
             }
@@ -76,7 +76,7 @@ impl DummyCollectConfig {
     }
 }
 
-impl CollectConfig for DummyCollectConfig {
+impl ImporterConfig for DummyImporterConfig {
     fn name(&self) -> &NodeName {
         &self.name
     }
@@ -85,15 +85,15 @@ impl CollectConfig for DummyCollectConfig {
         self.position.clone()
     }
 
-    fn collect_type(&self) -> &'static str {
-        COLLECT_CONFIG_TYPE
+    fn importer_type(&self) -> &'static str {
+        IMPORTER_CONFIG_TYPE
     }
 
-    fn diff_action(&self, new: &AnyCollectConfig) -> CollectConfigDiffAction {
-        let AnyCollectConfig::Dummy(_new) = new else {
-            return CollectConfigDiffAction::SpawnNew;
+    fn diff_action(&self, new: &AnyImporterConfig) -> ImporterConfigDiffAction {
+        let AnyImporterConfig::Dummy(_new) = new else {
+            return ImporterConfigDiffAction::SpawnNew;
         };
 
-        CollectConfigDiffAction::NoAction
+        ImporterConfigDiffAction::NoAction
     }
 }
