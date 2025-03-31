@@ -229,6 +229,7 @@ impl UdpSocketExt for UdpSocket {
             target_os = "dragonfly",
             target_os = "netbsd",
             target_os = "openbsd",
+            target_os = "illumos",
         ))]
         let flags: SendFlags = SendFlags::DONTWAIT | SendFlags::NOSIGNAL;
         #[cfg(target_os = "macos")]
@@ -264,6 +265,7 @@ impl UdpSocketExt for UdpSocket {
             target_os = "dragonfly",
             target_os = "netbsd",
             target_os = "openbsd",
+            target_os = "illumos",
         ))]
         let flags: SendFlags = SendFlags::DONTWAIT | SendFlags::NOSIGNAL;
         #[cfg(target_os = "macos")]
@@ -331,6 +333,7 @@ impl UdpSocketExt for UdpSocket {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "solaris",
     ))]
     fn poll_batch_sendmsg<const C: usize>(
         &self,
@@ -432,6 +435,7 @@ impl UdpSocketExt for UdpSocket {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "solaris",
     ))]
     fn poll_batch_recvmsg<const C: usize>(
         &self,
@@ -588,6 +592,7 @@ mod tests {
         target_os = "netbsd",
         target_os = "openbsd",
         target_os = "macos",
+        target_os = "solaris",
     ))]
     #[tokio::test]
     async fn batch_msg_connect() {
@@ -643,6 +648,7 @@ mod tests {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "solaris",
     ))]
     #[tokio::test]
     async fn batch_msg_no_connect() {
@@ -695,6 +701,7 @@ mod tests {
         target_os = "netbsd",
         target_os = "openbsd",
         target_os = "macos",
+        target_os = "solaris",
     ))]
     #[tokio::test]
     async fn recv_ancillary_v4() {
@@ -762,6 +769,7 @@ mod tests {
         target_os = "netbsd",
         target_os = "openbsd",
         target_os = "macos",
+        target_os = "solaris",
     ))]
     #[tokio::test]
     async fn recv_ancillary_v6() {
@@ -830,6 +838,7 @@ mod tests {
         target_os = "netbsd",
         target_os = "openbsd",
         target_os = "macos",
+        target_os = "solaris",
     ))]
     #[tokio::test]
     async fn recv_ancillary_mapped_v4() {
