@@ -26,6 +26,7 @@ use g3_io_ext::{AsyncUdpSend, UdpRelayRemoteError, UdpRelayRemoteSend};
     target_os = "netbsd",
     target_os = "openbsd",
     target_os = "macos",
+    target_os = "solaris",
 ))]
 use g3_io_ext::{SendMsgHdr, UdpRelayPacket};
 use g3_socks::v5::SocksUdpHeader;
@@ -86,6 +87,7 @@ where
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "solaris",
     ))]
     fn poll_send_packets(
         &mut self,

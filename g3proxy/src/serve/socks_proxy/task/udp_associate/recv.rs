@@ -27,6 +27,7 @@ use g3_io_ext::{AsyncUdpRecv, UdpRelayClientError, UdpRelayClientRecv};
     target_os = "netbsd",
     target_os = "openbsd",
     target_os = "macos",
+    target_os = "solaris",
 ))]
 use g3_io_ext::{RecvMsgHdr, UdpRelayPacket, UdpRelayPacketMeta};
 use g3_socks::v5::UdpInput;
@@ -242,6 +243,7 @@ where
         target_os = "netbsd",
         target_os = "openbsd",
         target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_recv_packets(
         &mut self,

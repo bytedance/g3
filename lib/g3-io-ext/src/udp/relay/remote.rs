@@ -71,6 +71,7 @@ pub trait UdpRelayRemoteRecv {
         target_os = "netbsd",
         target_os = "openbsd",
         target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_recv_packets(
         &mut self,

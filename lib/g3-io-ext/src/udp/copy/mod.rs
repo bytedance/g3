@@ -157,6 +157,7 @@ impl<T: UdpCopyClientRecv + ?Sized> UdpCopyRecv for ClientRecv<'_, T> {
         target_os = "netbsd",
         target_os = "openbsd",
         target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_recv_packets(
         &mut self,
@@ -194,6 +195,7 @@ impl<T: UdpCopyRemoteRecv + ?Sized> UdpCopyRecv for RemoteRecv<'_, T> {
         target_os = "netbsd",
         target_os = "openbsd",
         target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_recv_packets(
         &mut self,
@@ -256,6 +258,7 @@ impl<T: UdpCopyClientSend + ?Sized> UdpCopySend for ClientSend<'_, T> {
         target_os = "netbsd",
         target_os = "openbsd",
         target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_send_packets(
         &mut self,
@@ -288,6 +291,7 @@ impl<T: UdpCopyRemoteSend + ?Sized> UdpCopySend for RemoteSend<'_, T> {
         target_os = "netbsd",
         target_os = "openbsd",
         target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_send_packets(
         &mut self,

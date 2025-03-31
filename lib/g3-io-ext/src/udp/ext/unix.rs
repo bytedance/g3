@@ -230,6 +230,7 @@ impl UdpSocketExt for UdpSocket {
             target_os = "netbsd",
             target_os = "openbsd",
             target_os = "illumos",
+            target_os = "solaris",
         ))]
         let flags: SendFlags = SendFlags::DONTWAIT | SendFlags::NOSIGNAL;
         #[cfg(target_os = "macos")]
@@ -266,6 +267,7 @@ impl UdpSocketExt for UdpSocket {
             target_os = "netbsd",
             target_os = "openbsd",
             target_os = "illumos",
+            target_os = "solaris",
         ))]
         let flags: SendFlags = SendFlags::DONTWAIT | SendFlags::NOSIGNAL;
         #[cfg(target_os = "macos")]

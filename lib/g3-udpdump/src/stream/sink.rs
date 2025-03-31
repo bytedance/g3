@@ -53,6 +53,7 @@ impl Sinker {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "solaris",
     ))]
     async fn send_udp(&self, packets: &[Vec<u8>]) -> io::Result<()> {
         use g3_io_ext::{SendMsgHdr, UdpSocketExt};
@@ -88,7 +89,7 @@ impl Sinker {
         Ok(())
     }
 
-    #[cfg(any(windows, target_os = "dragonfly"))]
+    #[cfg(any(windows, target_os = "dragonfly", target_os = "illumos"))]
     async fn send_udp(&self, packets: &[Vec<u8>]) -> io::Result<()> {
         for pkt in packets {
             self.socket.send(pkt.as_slice()).await?;
