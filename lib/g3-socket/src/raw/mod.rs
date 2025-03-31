@@ -66,6 +66,7 @@ impl RawSocket {
         if let Some(ttl) = misc_opts.time_to_live {
             socket.set_ttl(ttl)?;
         }
+        #[cfg(not(target_os = "illumos"))]
         if let Some(tos) = misc_opts.type_of_service {
             socket.set_tos(tos as u32)?;
         }
@@ -93,6 +94,7 @@ impl RawSocket {
         if let Some(ttl) = misc_opts.time_to_live {
             socket.set_ttl(ttl)?;
         }
+        #[cfg(not(target_os = "illumos"))]
         if let Some(tos) = misc_opts.type_of_service {
             socket.set_tos(tos as u32)?;
         }

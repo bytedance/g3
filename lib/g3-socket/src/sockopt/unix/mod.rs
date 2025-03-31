@@ -55,7 +55,12 @@ pub(crate) fn set_recv_ipv6_pktinfo<T: AsRawFd>(fd: &T, enable: bool) -> io::Res
     }
 }
 
-#[cfg(any(target_os = "linux", target_os = "android", target_os = "macos"))]
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos",
+    target_os = "illumos"
+))]
 pub(crate) fn set_recv_ip_pktinfo<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<()> {
     unsafe {
         setsockopt(
@@ -91,6 +96,7 @@ pub(crate) fn set_recv_ip_pktinfo<T: AsRawFd>(fd: &T, enable: bool) -> io::Resul
     target_os = "linux",
     target_os = "android",
     target_os = "macos",
+    target_os = "illumos",
     target_os = "freebsd",
     target_os = "openbsd",
     target_os = "dragonfly"

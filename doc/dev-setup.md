@@ -264,6 +264,15 @@ cargo build --vendored-openssl
   The `datasize-cur` limit in `/etc/login.conf` for login class `staff` need to be increased if the compilation failed
   with error *out of memory*.
 
+### OmniOS
+
+```shell
+# install rust toolchain
+pkg install rust
+pkg install pkg-config
+# install capnproto / c-ares from source
+```
+
 ## Development Libraries
 
 For *g3proxy*:
