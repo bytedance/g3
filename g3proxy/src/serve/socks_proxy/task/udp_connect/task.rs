@@ -54,6 +54,15 @@ pub(crate) struct SocksProxyUdpConnectTask {
     udp_listen_addr: Option<SocketAddr>,
     udp_client_addr: Option<SocketAddr>,
     max_idle_count: usize,
+    started: bool,
+}
+
+impl Drop for SocksProxyUdpConnectTask {
+    fn drop(&mut self) {
+        if self.started {
+            self.post_stop();
+        }
+    }
 }
 
 impl SocksProxyUdpConnectTask {
@@ -75,6 +84,7 @@ impl SocksProxyUdpConnectTask {
             udp_listen_addr: None,
             udp_client_addr,
             max_idle_count,
+            started: false,
         }
     }
 
@@ -111,11 +121,10 @@ impl SocksProxyUdpConnectTask {
                     .log(&self.ctx.task_logger, &ServerTaskError::ClosedByClient),
                 Err(e) => self.get_log_context().log(&self.ctx.task_logger, &e),
             }
-            self.pre_stop();
         });
     }
 
-    fn pre_start(&self) {
+    fn pre_start(&mut self) {
         self.ctx.server_stats.task_udp_connect.add_task();
         self.ctx.server_stats.task_udp_connect.inc_alive_task();
 
@@ -127,9 +136,11 @@ impl SocksProxyUdpConnectTask {
         if self.ctx.server_config.flush_task_log_on_created {
             self.get_log_context().log_created(&self.ctx.task_logger);
         }
+
+        self.started = true;
     }
 
-    fn pre_stop(&mut self) {
+    fn post_stop(&mut self) {
         self.ctx.server_stats.task_udp_connect.dec_alive_task();
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {

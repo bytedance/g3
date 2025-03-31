@@ -192,16 +192,11 @@ impl KeyServerStats {
         self.extra_metrics_tags.load_full()
     }
 
-    pub(crate) fn add_task(&self) {
+    #[must_use]
+    pub(crate) fn add_task(self: &Arc<Self>) -> KeyServerAliveTaskGuard {
         self.task_total.fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn inc_alive_task(&self) {
         self.task_alive_count.fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn dec_alive_task(&self) {
-        self.task_alive_count.fetch_sub(1, Ordering::Relaxed);
+        KeyServerAliveTaskGuard(self.clone())
     }
 
     pub(crate) fn is_online(&self) -> bool {
@@ -214,6 +209,14 @@ impl KeyServerStats {
 
     pub(crate) fn get_alive_count(&self) -> i32 {
         self.task_alive_count.load(Ordering::Relaxed)
+    }
+}
+
+pub(crate) struct KeyServerAliveTaskGuard(Arc<KeyServerStats>);
+
+impl Drop for KeyServerAliveTaskGuard {
+    fn drop(&mut self) {
+        self.0.task_alive_count.fetch_sub(1, Ordering::Relaxed);
     }
 }
 

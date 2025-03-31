@@ -25,7 +25,7 @@ use g3_io_ext::{IdleInterval, LimitedCopyConfig, LimitedReader, LimitedWriter};
 use g3_types::net::UpstreamAddr;
 
 use super::common::CommonTaskContext;
-use super::stats::TcpStreamTaskCltWrapperStats;
+use super::stats::{TcpStreamServerAliveTaskGuard, TcpStreamTaskCltWrapperStats};
 use crate::audit::AuditContext;
 use crate::auth::User;
 use crate::inspect::{StreamInspectContext, StreamTransitTask};
@@ -40,6 +40,7 @@ pub(super) struct TcpStreamTask {
     task_notes: ServerTaskNotes,
     task_stats: Arc<TcpStreamTaskStats>,
     audit_ctx: AuditContext,
+    _alive_guard: Option<TcpStreamServerAliveTaskGuard>,
 }
 
 impl TcpStreamTask {
@@ -56,6 +57,7 @@ impl TcpStreamTask {
             task_notes,
             task_stats: Arc::new(TcpStreamTaskStats::default()),
             audit_ctx,
+            _alive_guard: None,
         }
     }
 
@@ -84,19 +86,14 @@ impl TcpStreamTask {
                 .log(&self.ctx.task_logger, &ServerTaskError::Finished),
             Err(e) => self.get_log_context().log(&self.ctx.task_logger, &e),
         };
-        self.pre_stop();
     }
 
-    fn pre_start(&self) {
-        self.ctx.server_stats.add_task();
-        self.ctx.server_stats.inc_alive_task();
+    fn pre_start(&mut self) {
+        self._alive_guard = Some(self.ctx.server_stats.add_task());
+
         if self.ctx.server_config.flush_task_log_on_created {
             self.get_log_context().log_created(&self.ctx.task_logger);
         }
-    }
-
-    fn pre_stop(&self) {
-        self.ctx.server_stats.dec_alive_task();
     }
 
     async fn run<CR, CW>(&mut self, clt_r: CR, clt_w: CW) -> ServerTaskResult<()>

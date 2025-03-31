@@ -21,4 +21,4 @@ mod task;
 use task::{CommonTaskContext, KeylessForwardTask};
 
 mod stats;
-pub(crate) use stats::KeylessProxyServerStats;
+pub(crate) use stats::{KeylessProxyServerAliveTaskGuard, KeylessProxyServerStats};

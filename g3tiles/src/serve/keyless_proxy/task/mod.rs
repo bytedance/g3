@@ -23,6 +23,7 @@ use tokio::sync::mpsc;
 
 use g3_io_ext::LimitedBufReadExt;
 
+use super::KeylessProxyServerAliveTaskGuard;
 use crate::config::server::ServerConfig;
 use crate::log::task::keyless::TaskLogForKeyless;
 use crate::module::keyless::{KeylessRequest, KeylessResponse};
@@ -38,6 +39,7 @@ pub(super) struct KeylessForwardTask {
     ctx: CommonTaskContext,
     stats: Arc<KeylessTaskStats>,
     task_notes: ServerTaskNotes,
+    _alive_guard: Option<KeylessProxyServerAliveTaskGuard>,
 }
 
 impl KeylessForwardTask {
@@ -47,6 +49,7 @@ impl KeylessForwardTask {
             ctx,
             stats: Arc::new(KeylessTaskStats::default()),
             task_notes,
+            _alive_guard: None,
         }
     }
 
@@ -67,23 +70,16 @@ impl KeylessForwardTask {
         if let Err(e) = self.run(clt_r, clt_w).await {
             self.get_log_context().log(&self.ctx.task_logger, &e);
         }
-
-        self.pre_stop();
     }
 
-    fn pre_start(&self) {
+    fn pre_start(&mut self) {
         debug!(
             "KeylessProxy: new client from {} to {} server {}",
             self.ctx.client_addr(),
             self.ctx.server_config.server_type(),
             self.ctx.server_config.name(),
         );
-        self.ctx.server_stats.add_task();
-        self.ctx.server_stats.inc_alive_task();
-    }
-
-    fn pre_stop(&self) {
-        self.ctx.server_stats.dec_alive_task();
+        self._alive_guard = Some(self.ctx.server_stats.add_task());
     }
 
     pub(super) async fn run<R, W>(&mut self, clt_r: R, mut clt_w: W) -> ServerTaskResult<()>

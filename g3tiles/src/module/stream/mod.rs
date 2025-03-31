@@ -19,7 +19,8 @@ use tokio::io::{AsyncRead, AsyncWrite};
 mod stats;
 pub(crate) use stats::{
     StreamAcceptTaskCltWrapperStats, StreamBackendDurationRecorder, StreamBackendDurationStats,
-    StreamBackendStats, StreamRelayTaskCltWrapperStats, StreamServerStats,
+    StreamBackendStats, StreamRelayTaskCltWrapperStats, StreamServerAliveTaskGuard,
+    StreamServerStats,
 };
 
 mod error;

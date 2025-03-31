@@ -21,7 +21,7 @@ use log::{info, warn};
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
-use g3_daemon::listen::ListenStats;
+use g3_daemon::listen::{ListenAliveGuard, ListenStats};
 use g3_io_ext::LimitedTcpListener;
 use g3_types::ext::SocketAddrExt;
 use g3_types::net::TcpListenConfig;
@@ -31,6 +31,7 @@ use super::{KeyServer, ServerReloadCommand};
 pub(super) struct KeyServerRuntime {
     server: Arc<KeyServer>,
     listen_stats: Arc<ListenStats>,
+    _alive_guard: Option<ListenAliveGuard>,
 }
 
 impl KeyServerRuntime {
@@ -38,12 +39,13 @@ impl KeyServerRuntime {
         KeyServerRuntime {
             server: Arc::clone(server),
             listen_stats: server.get_listen_stats(),
+            _alive_guard: None,
         }
     }
 
-    fn pre_start(&self) {
+    fn pre_start(&mut self) {
         info!("started SRT {}", self.server.name());
-        self.listen_stats.add_running_runtime();
+        self._alive_guard = Some(self.listen_stats.add_running_runtime());
     }
 
     fn pre_stop(&self) {
@@ -52,7 +54,6 @@ impl KeyServerRuntime {
 
     fn post_stop(&self) {
         info!("stopped SRT {}", self.server.name());
-        self.listen_stats.del_running_runtime();
     }
 
     async fn run(
@@ -126,7 +127,7 @@ impl KeyServerRuntime {
     }
 
     pub(super) fn into_running(
-        self,
+        mut self,
         listen_config: &TcpListenConfig,
         server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
     ) -> anyhow::Result<()> {

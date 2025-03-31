@@ -71,10 +71,6 @@ impl StreamServerStats {
         self.conn_total.fetch_add(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn add_task(&self) {
-        self.task_total.fetch_add(1, Ordering::Relaxed);
-    }
-
     #[inline]
     pub(crate) fn add_read(&self, size: u64) {
         self.tcp.add_in_bytes(size);
@@ -85,12 +81,19 @@ impl StreamServerStats {
         self.tcp.add_out_bytes(size);
     }
 
-    pub(crate) fn inc_alive_task(&self) {
+    #[must_use]
+    pub(crate) fn add_task(self: &Arc<Self>) -> StreamServerAliveTaskGuard {
+        self.task_total.fetch_add(1, Ordering::Relaxed);
         self.task_alive_count.fetch_add(1, Ordering::Relaxed);
+        StreamServerAliveTaskGuard(self.clone())
     }
+}
 
-    pub(crate) fn dec_alive_task(&self) {
-        self.task_alive_count.fetch_sub(1, Ordering::Relaxed);
+pub(crate) struct StreamServerAliveTaskGuard(Arc<StreamServerStats>);
+
+impl Drop for StreamServerAliveTaskGuard {
+    fn drop(&mut self) {
+        self.0.task_alive_count.fetch_sub(1, Ordering::Relaxed);
     }
 }
 

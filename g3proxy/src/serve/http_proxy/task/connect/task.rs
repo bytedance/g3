@@ -52,6 +52,16 @@ pub(crate) struct HttpProxyConnectTask {
     task_stats: Arc<TcpStreamTaskStats>,
     audit_ctx: AuditContext,
     http_version: Version,
+    started: bool,
+}
+
+impl Drop for HttpProxyConnectTask {
+    fn drop(&mut self) {
+        if self.started {
+            self.post_stop();
+            self.started = false;
+        }
+    }
 }
 
 impl HttpProxyConnectTask {
@@ -71,6 +81,7 @@ impl HttpProxyConnectTask {
             task_stats: Arc::new(TcpStreamTaskStats::default()),
             audit_ctx,
             http_version: req.inner.version,
+            started: false,
         }
     }
 
@@ -141,11 +152,9 @@ impl HttpProxyConnectTask {
         match self.run_connect(clt_w).await {
             Ok(()) => {
                 self.back_to_http = false;
-                // no pre_stop, as we will continue
             }
             Err(e) => {
                 self.get_log_context().log(&self.ctx.task_logger, &e);
-                self.pre_stop();
             }
         }
     }
@@ -329,7 +338,7 @@ impl HttpProxyConnectTask {
         self.back_to_http
     }
 
-    fn pre_start(&self) {
+    fn pre_start(&mut self) {
         self.ctx.server_stats.task_http_connect.add_task();
         self.ctx.server_stats.task_http_connect.inc_alive_task();
 
@@ -343,9 +352,11 @@ impl HttpProxyConnectTask {
         if self.ctx.server_config.flush_task_log_on_created {
             self.get_log_context().log_created(&self.ctx.task_logger);
         }
+
+        self.started = true;
     }
 
-    fn pre_stop(&mut self) {
+    fn post_stop(&mut self) {
         self.ctx.server_stats.task_http_connect.dec_alive_task();
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
@@ -389,7 +400,6 @@ impl HttpProxyConnectTask {
                             .log(&self.ctx.task_logger, &ServerTaskError::Finished),
                         Err(e) => self.get_log_context().log(&self.ctx.task_logger, &e),
                     }
-                    self.pre_stop();
                 }
                 None => unreachable!(),
             }

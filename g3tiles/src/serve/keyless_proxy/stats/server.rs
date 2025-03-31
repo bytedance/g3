@@ -71,16 +71,19 @@ impl KeylessProxyServerStats {
         self.conn_total.fetch_add(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn add_task(&self) {
+    #[must_use]
+    pub(crate) fn add_task(self: &Arc<Self>) -> KeylessProxyServerAliveTaskGuard {
         self.task_total.fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn inc_alive_task(&self) {
         self.task_alive_count.fetch_add(1, Ordering::Relaxed);
+        KeylessProxyServerAliveTaskGuard(self.clone())
     }
+}
 
-    pub(crate) fn dec_alive_task(&self) {
-        self.task_alive_count.fetch_sub(1, Ordering::Relaxed);
+pub(crate) struct KeylessProxyServerAliveTaskGuard(Arc<KeylessProxyServerStats>);
+
+impl Drop for KeylessProxyServerAliveTaskGuard {
+    fn drop(&mut self) {
+        self.0.task_alive_count.fetch_sub(1, Ordering::Relaxed);
     }
 }
 

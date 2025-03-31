@@ -21,7 +21,8 @@ use crate::module::keyless::{KeylessRequest, KeylessResponse};
 
 mod stats;
 pub(crate) use stats::{
-    KeylessBackendStats, KeylessUpstreamDurationRecorder, KeylessUpstreamDurationStats,
+    KeylessBackendAliveChannelGuard, KeylessBackendStats, KeylessUpstreamDurationRecorder,
+    KeylessUpstreamDurationStats,
 };
 
 mod pool;

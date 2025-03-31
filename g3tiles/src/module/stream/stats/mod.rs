@@ -15,7 +15,7 @@
  */
 
 mod server;
-pub(crate) use server::StreamServerStats;
+pub(crate) use server::{StreamServerAliveTaskGuard, StreamServerStats};
 
 mod task;
 pub(crate) use task::{StreamAcceptTaskCltWrapperStats, StreamRelayTaskCltWrapperStats};

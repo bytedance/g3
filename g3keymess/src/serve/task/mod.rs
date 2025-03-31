@@ -31,8 +31,8 @@ use g3_slog_types::{LtDateTime, LtUuid};
 use crate::config::server::KeyServerConfig;
 use crate::protocol::{KeylessAction, KeylessErrorResponse, KeylessRequest, KeylessResponse};
 use crate::serve::{
-    KeyServerDurationRecorder, KeyServerRequestStats, KeyServerStats, ServerReloadCommand,
-    ServerTaskError,
+    KeyServerAliveTaskGuard, KeyServerDurationRecorder, KeyServerRequestStats, KeyServerStats,
+    ServerReloadCommand, ServerTaskError,
 };
 
 mod multiplex;
@@ -161,21 +161,13 @@ pub(crate) struct KeylessTask {
     #[cfg(feature = "openssl-async-job")]
     allow_openssl_async_job: bool,
     allow_dispatch: bool,
-}
-
-impl Drop for KeylessTask {
-    fn drop(&mut self) {
-        self.ctx.server_stats.dec_alive_task();
-    }
+    _alive_guard: KeyServerAliveTaskGuard,
 }
 
 impl KeylessTask {
     pub(crate) fn new(ctx: KeylessTaskContext) -> Self {
-        ctx.server_stats.add_task();
-        ctx.server_stats.inc_alive_task();
-
+        let alive_guard = ctx.server_stats.add_task();
         let started = Utc::now();
-
         KeylessTask {
             id: g3_daemon::server::task::generate_uuid(&started),
             ctx,
@@ -184,6 +176,7 @@ impl KeylessTask {
             #[cfg(feature = "openssl-async-job")]
             allow_openssl_async_job: false,
             allow_dispatch: false,
+            _alive_guard: alive_guard,
         }
     }
 

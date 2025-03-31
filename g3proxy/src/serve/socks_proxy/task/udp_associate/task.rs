@@ -54,6 +54,16 @@ pub(crate) struct SocksProxyUdpAssociateTask {
     udp_listen_addr: Option<SocketAddr>,
     udp_client_addr: Option<SocketAddr>,
     max_idle_count: usize,
+    started: bool,
+}
+
+impl Drop for SocksProxyUdpAssociateTask {
+    fn drop(&mut self) {
+        if self.started {
+            self.post_stop();
+            self.started = false;
+        }
+    }
 }
 
 impl SocksProxyUdpAssociateTask {
@@ -75,6 +85,7 @@ impl SocksProxyUdpAssociateTask {
             udp_listen_addr: None,
             udp_client_addr,
             max_idle_count,
+            started: false,
         }
     }
 
@@ -111,11 +122,10 @@ impl SocksProxyUdpAssociateTask {
                     .log(&self.ctx.task_logger, &ServerTaskError::ClosedByClient),
                 Err(e) => self.get_log_context().log(&self.ctx.task_logger, &e),
             }
-            self.pre_stop();
         });
     }
 
-    fn pre_start(&self) {
+    fn pre_start(&mut self) {
         self.ctx.server_stats.task_udp_associate.add_task();
         self.ctx.server_stats.task_udp_associate.inc_alive_task();
 
@@ -127,9 +137,11 @@ impl SocksProxyUdpAssociateTask {
         if self.ctx.server_config.flush_task_log_on_created {
             self.get_log_context().log_created(&self.ctx.task_logger);
         }
+
+        self.started = true;
     }
 
-    fn pre_stop(&mut self) {
+    fn post_stop(&mut self) {
         self.ctx.server_stats.task_udp_associate.dec_alive_task();
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {

@@ -17,5 +17,5 @@
 mod server;
 mod wrapper;
 
-pub(crate) use server::TcpStreamServerStats;
+pub(crate) use server::{TcpStreamServerAliveTaskGuard, TcpStreamServerStats};
 pub(crate) use wrapper::TcpStreamTaskCltWrapperStats;

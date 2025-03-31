@@ -359,11 +359,11 @@ where
                     untrusted_task.run(&mut clt_r, clt_w).await;
                     if untrusted_task.should_close() {
                         // close read end
-                        let _ = req.stream_sender.send(None).await;
+                        let _ = req.stream_sender.try_send(None);
                         LoopAction::Break
                     } else {
                         // reopen read end
-                        if req.stream_sender.send(clt_r).await.is_err() {
+                        if req.stream_sender.try_send(clt_r).is_err() {
                             // read end has closed, impossible as reader should be waiting this channel
                             LoopAction::Break
                         } else {
@@ -412,11 +412,11 @@ where
                     .await;
                 if forward_task.should_close() {
                     // close read end
-                    let _ = req.stream_sender.send(None).await;
+                    let _ = req.stream_sender.try_send(None);
                     LoopAction::Break
                 } else {
                     // reopen read end
-                    if req.stream_sender.send(clt_r).await.is_err() {
+                    if req.stream_sender.try_send(clt_r).is_err() {
                         // read end has closed, impossible as reader should be waiting this channel
                         LoopAction::Break
                     } else {

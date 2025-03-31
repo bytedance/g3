@@ -38,7 +38,7 @@ pub fn emit_listen_stats(
     client
         .gauge_with_tags(
             METRIC_NAME_LISTEN_INSTANCE_COUNT,
-            stats.get_running_runtime_count(),
+            stats.running_runtime_count(),
             &common_tags,
         )
         .send();
