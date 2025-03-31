@@ -23,8 +23,14 @@ use yaml_rust::{Yaml, yaml};
 
 use g3_types::collection::SelectivePickPolicy;
 use g3_types::metrics::{NodeName, StaticMetricsTags};
-#[cfg(any(target_os = "linux", target_os = "android"))]
-use g3_types::net::InterfaceName;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos",
+    target_os = "illumos",
+    target_os = "solaris"
+))]
+use g3_types::net::Interface;
 use g3_types::net::{
     HappyEyeballsConfig, Host, TcpKeepAliveConfig, TcpMiscSockOpts, WeightedUpstreamAddr,
 };
@@ -42,8 +48,14 @@ pub(crate) struct DivertTcpEscaperConfig {
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) proxy_nodes: Vec<WeightedUpstreamAddr>,
     pub(crate) proxy_pick_policy: SelectivePickPolicy,
-    #[cfg(any(target_os = "linux", target_os = "android"))]
-    pub(crate) bind_interface: Option<InterfaceName>,
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "illumos",
+        target_os = "solaris"
+    ))]
+    pub(crate) bind_interface: Option<Interface>,
     pub(crate) bind_v4: Option<Ipv4Addr>,
     pub(crate) bind_v6: Option<Ipv6Addr>,
     pub(crate) no_ipv4: bool,
@@ -65,7 +77,13 @@ impl DivertTcpEscaperConfig {
             shared_logger: None,
             proxy_nodes: Vec::with_capacity(1),
             proxy_pick_policy: SelectivePickPolicy::Random,
-            #[cfg(any(target_os = "linux", target_os = "android"))]
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "illumos",
+                target_os = "solaris"
+            ))]
             bind_interface: None,
             bind_v4: None,
             bind_v6: None,
@@ -124,9 +142,15 @@ impl DivertTcpEscaperConfig {
                 self.proxy_pick_policy = g3_yaml::value::as_selective_pick_policy(v)?;
                 Ok(())
             }
-            #[cfg(any(target_os = "linux", target_os = "android"))]
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "illumos",
+                target_os = "solaris"
+            ))]
             "bind_interface" => {
-                let interface = g3_yaml::value::as_interface_name(v)
+                let interface = g3_yaml::value::as_interface(v)
                     .context(format!("invalid interface name value for key {k}"))?;
                 self.bind_interface = Some(interface);
                 Ok(())

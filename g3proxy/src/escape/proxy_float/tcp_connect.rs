@@ -62,14 +62,26 @@ impl ProxyFloatEscaper {
             SocketAddr::V4(_) => self.config.bind_v4,
             SocketAddr::V6(_) => self.config.bind_v6,
         };
-        #[cfg(any(target_os = "linux", target_os = "android"))]
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "illumos",
+            target_os = "solaris"
+        ))]
         let bind = bind_ip.map(BindAddr::Ip).unwrap_or_else(|| {
             self.config
                 .bind_interface
                 .map(BindAddr::Interface)
                 .unwrap_or_default()
         });
-        #[cfg(not(any(target_os = "linux", target_os = "android")))]
+        #[cfg(not(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "illumos",
+            target_os = "solaris"
+        )))]
         let bind = bind_ip.map(BindAddr::Ip).unwrap_or_default();
         tcp_notes.bind = bind;
         tcp_notes.next = Some(peer_addr);

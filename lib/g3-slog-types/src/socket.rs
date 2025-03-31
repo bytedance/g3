@@ -32,8 +32,14 @@ impl Value for LtBindAddr {
         match self.0 {
             BindAddr::None => serializer.emit_none(key),
             BindAddr::Ip(ip) => LtIpAddr(ip).serialize(_record, key, serializer),
-            #[cfg(any(target_os = "linux", target_os = "android"))]
-            BindAddr::Interface(name) => serializer.emit_str(key, name.as_str()),
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "illumos",
+                target_os = "solaris"
+            ))]
+            BindAddr::Interface(name) => serializer.emit_str(key, name.name()),
         }
     }
 }

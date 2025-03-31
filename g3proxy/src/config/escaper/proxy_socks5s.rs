@@ -26,8 +26,14 @@ use yaml_rust::{Yaml, yaml};
 use g3_types::auth::{Password, Username};
 use g3_types::collection::SelectivePickPolicy;
 use g3_types::metrics::{NodeName, StaticMetricsTags};
-#[cfg(any(target_os = "linux", target_os = "android"))]
-use g3_types::net::InterfaceName;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos",
+    target_os = "illumos",
+    target_os = "solaris"
+))]
+use g3_types::net::Interface;
 use g3_types::net::{
     HappyEyeballsConfig, Host, OpensslClientConfigBuilder, SocksAuth, TcpKeepAliveConfig,
     TcpMiscSockOpts, UdpMiscSockOpts, WeightedUpstreamAddr,
@@ -48,8 +54,14 @@ pub(crate) struct ProxySocks5sEscaperConfig {
     pub(crate) proxy_pick_policy: SelectivePickPolicy,
     proxy_username: Username,
     proxy_password: Password,
-    #[cfg(any(target_os = "linux", target_os = "android"))]
-    pub(crate) bind_interface: Option<InterfaceName>,
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "illumos",
+        target_os = "solaris"
+    ))]
+    pub(crate) bind_interface: Option<Interface>,
     pub(crate) bind_v4: Option<Ipv4Addr>,
     pub(crate) bind_v6: Option<Ipv6Addr>,
     pub(crate) no_ipv4: bool,
@@ -80,7 +92,13 @@ impl ProxySocks5sEscaperConfig {
             proxy_pick_policy: SelectivePickPolicy::Random,
             proxy_username: Username::empty(),
             proxy_password: Password::empty(),
-            #[cfg(any(target_os = "linux", target_os = "android"))]
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "illumos",
+                target_os = "solaris"
+            ))]
             bind_interface: None,
             bind_v4: None,
             bind_v6: None,
@@ -156,9 +174,15 @@ impl ProxySocks5sEscaperConfig {
                     .context(format!("invalid password value for key {k}"))?;
                 Ok(())
             }
-            #[cfg(any(target_os = "linux", target_os = "android"))]
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "illumos",
+                target_os = "solaris"
+            ))]
             "bind_interface" => {
-                let interface = g3_yaml::value::as_interface_name(v)
+                let interface = g3_yaml::value::as_interface(v)
                     .context(format!("invalid interface name value for key {k}"))?;
                 self.bind_interface = Some(interface);
                 Ok(())

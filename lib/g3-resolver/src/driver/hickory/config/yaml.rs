@@ -71,9 +71,15 @@ impl HickoryDriverConfig {
                 self.bind_addr = BindAddr::Ip(ip);
                 Ok(())
             }
-            #[cfg(any(target_os = "linux", target_os = "android"))]
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "illumos",
+                target_os = "solaris"
+            ))]
             "bind_interface" => {
-                let interface = g3_yaml::value::as_interface_name(v)
+                let interface = g3_yaml::value::as_interface(v)
                     .context(format!("invalid interface name value for key {k}"))?;
                 self.bind_addr = BindAddr::Interface(interface);
                 Ok(())

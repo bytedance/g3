@@ -81,9 +81,11 @@ The string should be a network address in CIDR format, or just an ip address.
 interface name
 ==============
 
-**yaml value**: str
+**yaml value**: str | u32
 
-The string should be a network interface name.
+The string should be a network interface name or index.
+
+.. versionchanged:: 1.11.4 support interface index
 
 .. _conf_value_egress_area:
 
