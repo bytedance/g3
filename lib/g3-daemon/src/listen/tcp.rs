@@ -29,7 +29,7 @@ use g3_socket::RawSocket;
 use g3_types::ext::SocketAddrExt;
 use g3_types::net::TcpListenConfig;
 
-use crate::listen::ListenStats;
+use crate::listen::{ListenAliveGuard, ListenStats};
 use crate::server::{BaseServer, ClientConnectionInfo, ReloadServer, ServerReloadCommand};
 
 #[async_trait]
@@ -40,13 +40,7 @@ pub trait AcceptTcpServer: BaseServer {
 #[derive(Clone)]
 pub struct ListenTcpRuntime<S> {
     server: S,
-    server_type: &'static str,
-    server_version: usize,
-    worker_id: Option<usize>,
-    #[cfg(target_os = "linux")]
-    follow_incoming_cpu: bool,
     listen_stats: Arc<ListenStats>,
-    instance_id: usize,
 }
 
 impl<S> ListenTcpRuntime<S>
@@ -54,21 +48,75 @@ where
     S: AcceptTcpServer + ReloadServer + Clone + Send + Sync + 'static,
 {
     pub fn new(server: S, listen_stats: Arc<ListenStats>) -> Self {
-        let server_type = server.server_type();
-        let server_version = server.version();
         ListenTcpRuntime {
             server,
+            listen_stats,
+        }
+    }
+
+    fn create_instance(&self) -> ListenTcpRuntimeInstance<S> {
+        let server_type = self.server.server_type();
+        let server_version = self.server.version();
+        ListenTcpRuntimeInstance {
+            server: self.server.clone(),
             server_type,
             server_version,
             worker_id: None,
             #[cfg(target_os = "linux")]
             follow_incoming_cpu: false,
-            listen_stats,
+            listen_stats: self.listen_stats.clone(),
             instance_id: 0,
+            _alive_guard: None,
         }
     }
 
-    fn pre_start(&self) {
+    pub fn run_all_instances(
+        &self,
+        listen_config: &TcpListenConfig,
+        listen_in_worker: bool,
+        server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
+    ) -> anyhow::Result<()> {
+        let mut instance_count = listen_config.instance();
+        if listen_in_worker {
+            let worker_count = crate::runtime::worker::worker_count();
+            if worker_count > 0 {
+                instance_count = worker_count;
+            }
+        }
+
+        for i in 0..instance_count {
+            let mut runtime = self.create_instance();
+            runtime.instance_id = i;
+
+            let listener = g3_socket::tcp::new_std_listener(listen_config)?;
+            runtime.into_running(
+                listener,
+                listen_in_worker,
+                listen_config.follow_cpu_affinity(),
+                server_reload_sender.subscribe(),
+            );
+        }
+        Ok(())
+    }
+}
+
+pub struct ListenTcpRuntimeInstance<S> {
+    server: S,
+    server_type: &'static str,
+    server_version: usize,
+    worker_id: Option<usize>,
+    #[cfg(target_os = "linux")]
+    follow_incoming_cpu: bool,
+    listen_stats: Arc<ListenStats>,
+    instance_id: usize,
+    _alive_guard: Option<ListenAliveGuard>,
+}
+
+impl<S> ListenTcpRuntimeInstance<S>
+where
+    S: AcceptTcpServer + ReloadServer + Clone + Send + Sync + 'static,
+{
+    fn pre_start(&mut self) {
         info!(
             "started {} SRT[{}_v{}#{}]",
             self.server_type,
@@ -76,7 +124,7 @@ where
             self.server_version,
             self.instance_id,
         );
-        self.listen_stats.add_running_runtime();
+        self._alive_guard = Some(self.listen_stats.add_running_runtime());
     }
 
     fn pre_stop(&self) {
@@ -97,7 +145,6 @@ where
             self.server_version,
             self.instance_id,
         );
-        self.listen_stats.del_running_runtime();
     }
 
     async fn run(
@@ -266,34 +313,5 @@ where
                 }
             }
         });
-    }
-
-    pub fn run_all_instances(
-        &self,
-        listen_config: &TcpListenConfig,
-        listen_in_worker: bool,
-        server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
-    ) -> anyhow::Result<()> {
-        let mut instance_count = listen_config.instance();
-        if listen_in_worker {
-            let worker_count = crate::runtime::worker::worker_count();
-            if worker_count > 0 {
-                instance_count = worker_count;
-            }
-        }
-
-        for i in 0..instance_count {
-            let mut runtime = self.clone();
-            runtime.instance_id = i;
-
-            let listener = g3_socket::tcp::new_std_listener(listen_config)?;
-            runtime.into_running(
-                listener,
-                listen_in_worker,
-                listen_config.follow_cpu_affinity(),
-                server_reload_sender.subscribe(),
-            );
-        }
-        Ok(())
     }
 }

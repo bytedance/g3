@@ -74,6 +74,16 @@ pub(crate) struct HttpProxyForwardTask<'a> {
     tcp_notes: TcpConnectTaskNotes,
     task_stats: Arc<HttpForwardTaskStats>,
     max_idle_count: usize,
+    started: bool,
+}
+
+impl Drop for HttpProxyForwardTask<'_> {
+    fn drop(&mut self) {
+        if self.started {
+            self.post_stop();
+            self.started = false;
+        }
+    }
 }
 
 impl<'a> HttpProxyForwardTask<'a> {
@@ -112,6 +122,7 @@ impl<'a> HttpProxyForwardTask<'a> {
             tcp_notes: TcpConnectTaskNotes::default(),
             task_stats: Arc::new(HttpForwardTaskStats::default()),
             max_idle_count,
+            started: false,
         }
     }
 
@@ -259,10 +270,9 @@ impl<'a> HttpProxyForwardTask<'a> {
                 self.get_log_context().log(&self.ctx.task_logger, &e);
             }
         }
-        self.pre_stop();
     }
 
-    fn pre_start(&self) {
+    fn pre_start(&mut self) {
         self.ctx.server_stats.task_http_forward.add_task();
         self.ctx.server_stats.task_http_forward.inc_alive_task();
 
@@ -276,9 +286,11 @@ impl<'a> HttpProxyForwardTask<'a> {
         if self.ctx.server_config.flush_task_log_on_created {
             self.get_log_context().log_created(&self.ctx.task_logger);
         }
+
+        self.started = true;
     }
 
-    fn pre_stop(&mut self) {
+    fn post_stop(&mut self) {
         self.ctx.server_stats.task_http_forward.dec_alive_task();
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {

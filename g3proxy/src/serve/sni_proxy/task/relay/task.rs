@@ -35,7 +35,7 @@ use crate::auth::User;
 use crate::inspect::{StreamInspectContext, StreamInspection, StreamTransitTask};
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
 use crate::module::tcp_connect::{TcpConnectTaskConf, TcpConnectTaskNotes};
-use crate::serve::tcp_stream::TcpStreamTaskCltWrapperStats;
+use crate::serve::tcp_stream::{TcpStreamServerAliveTaskGuard, TcpStreamTaskCltWrapperStats};
 use crate::serve::{ServerTaskError, ServerTaskNotes, ServerTaskResult, ServerTaskStage};
 
 pub(crate) struct TcpStreamTask {
@@ -46,6 +46,7 @@ pub(crate) struct TcpStreamTask {
     task_notes: ServerTaskNotes,
     task_stats: Arc<TcpStreamTaskStats>,
     audit_ctx: AuditContext,
+    _alive_guard: Option<TcpStreamServerAliveTaskGuard>,
 }
 
 impl TcpStreamTask {
@@ -66,6 +67,7 @@ impl TcpStreamTask {
             task_notes,
             task_stats: Arc::new(TcpStreamTaskStats::with_clt_stats(pre_handshake_stats)),
             audit_ctx,
+            _alive_guard: None,
         }
     }
 
@@ -97,19 +99,14 @@ impl TcpStreamTask {
                 .log(&self.ctx.task_logger, &ServerTaskError::Finished),
             Err(e) => self.get_log_context().log(&self.ctx.task_logger, &e),
         };
-        self.pre_stop();
     }
 
-    fn pre_start(&self) {
-        self.ctx.server_stats.add_task();
-        self.ctx.server_stats.inc_alive_task();
+    fn pre_start(&mut self) {
+        self._alive_guard = Some(self.ctx.server_stats.add_task());
+
         if self.ctx.server_config.flush_task_log_on_created {
             self.get_log_context().log_created(&self.ctx.task_logger);
         }
-    }
-
-    fn pre_stop(&self) {
-        self.ctx.server_stats.dec_alive_task();
     }
 
     async fn run<R, W>(

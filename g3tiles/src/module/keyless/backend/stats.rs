@@ -95,12 +95,9 @@ impl KeylessBackendStats {
         self.conn_established.load(Ordering::Relaxed)
     }
 
-    pub(crate) fn inc_alive_channel(&self) {
+    pub(crate) fn inc_alive_channel(self: &Arc<Self>) -> KeylessBackendAliveChannelGuard {
         self.alive_channel.fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn dec_alive_channel(&self) {
-        self.alive_channel.fetch_sub(1, Ordering::Relaxed);
+        KeylessBackendAliveChannelGuard(self.clone())
     }
 
     pub(crate) fn alive_channel(&self) -> i32 {
@@ -161,6 +158,14 @@ impl KeylessBackendStats {
 
     pub(crate) fn response_drop(&self) -> u64 {
         self.response_drop.load(Ordering::Relaxed)
+    }
+}
+
+pub(crate) struct KeylessBackendAliveChannelGuard(Arc<KeylessBackendStats>);
+
+impl Drop for KeylessBackendAliveChannelGuard {
+    fn drop(&mut self) {
+        self.0.alive_channel.fetch_sub(1, Ordering::Relaxed);
     }
 }
 

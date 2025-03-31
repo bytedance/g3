@@ -198,7 +198,7 @@ where
         let pool_stats = self.stats.clone();
         let idle_timeout = self.config.idle_timeout();
         tokio::spawn(async move {
-            pool_stats.add_connection();
+            let alive_guard = pool_stats.add_connection();
             match connector
                 .new_connection(
                     keyless_request_receiver,
@@ -211,12 +211,12 @@ where
                     if let Err(e) = connection.run(idle_timeout).await {
                         debug!("connection closed with error: {e}");
                     }
-                    pool_stats.del_connection();
+                    drop(alive_guard);
                     let _ = connection_close_sender.try_send(connection_id);
                 }
                 Err(e) => {
                     debug!("failed to create new connection: {e}");
-                    pool_stats.del_connection();
+                    drop(alive_guard);
                 }
             }
         });

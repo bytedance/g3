@@ -16,7 +16,6 @@
 
 use std::sync::Arc;
 
-use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_http::HttpBodyReader;
@@ -25,7 +24,6 @@ use g3_io_ext::{LimitedCopy, LimitedCopyError};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpRProxyRequest};
 use super::{CommonTaskContext, UntrustedCltReadWrapperStats};
-use crate::config::server::ServerConfig;
 use crate::module::http_forward::HttpProxyClientResponse;
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
@@ -33,6 +31,16 @@ pub(crate) struct HttpRProxyUntrustedTask<'a> {
     ctx: Arc<CommonTaskContext>,
     req: &'a HttpProxyClientRequest,
     should_close: bool,
+    started: bool,
+}
+
+impl Drop for HttpRProxyUntrustedTask<'_> {
+    fn drop(&mut self) {
+        if self.started {
+            self.post_stop();
+            self.started = false;
+        }
+    }
 }
 
 impl<'a> HttpRProxyUntrustedTask<'a> {
@@ -44,22 +52,18 @@ impl<'a> HttpRProxyUntrustedTask<'a> {
             ctx: Arc::clone(ctx),
             req: &req.inner,
             should_close: !req.inner.keep_alive(),
+            started: false,
         }
     }
 
-    fn pre_start(&self) {
-        debug!(
-            "HttpRProxy/UNTRUSTED: new client from {} to {} server {}, using escaper {}",
-            self.ctx.client_addr(),
-            self.ctx.server_config.server_type(),
-            self.ctx.server_config.name(),
-            self.ctx.server_config.escaper
-        );
+    fn pre_start(&mut self) {
         self.ctx.server_stats.task_http_untrusted.add_task();
         self.ctx.server_stats.task_http_untrusted.inc_alive_task();
+
+        self.started = true;
     }
 
-    fn pre_stop(&self) {
+    fn post_stop(&self) {
         self.ctx.server_stats.task_http_untrusted.dec_alive_task();
     }
 
@@ -88,17 +92,15 @@ impl<'a> HttpRProxyUntrustedTask<'a> {
 
             if !self.should_close {
                 if let Some(limit_config) = &self.ctx.server_config.untrusted_read_limit {
-                    self.pre_start();
-
                     br.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
                     let buffer_stats =
                         UntrustedCltReadWrapperStats::new_obj(&self.ctx.server_stats);
                     br.reset_buffer_stats(buffer_stats);
+
+                    self.pre_start();
                     if self.drain_body(br).await.is_err() {
                         self.should_close = true;
                     }
-
-                    self.pre_stop();
                 }
             }
         } else {

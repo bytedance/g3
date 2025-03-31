@@ -15,7 +15,7 @@
  */
 
 mod stats;
-pub use stats::{ListenSnapshot, ListenStats};
+pub use stats::{ListenAliveGuard, ListenSnapshot, ListenStats};
 
 mod tcp;
 pub use tcp::{AcceptTcpServer, ListenTcpRuntime};

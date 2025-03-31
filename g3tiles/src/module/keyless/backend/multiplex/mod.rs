@@ -21,7 +21,9 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::{broadcast, oneshot};
 
 use super::{KeylessForwardRequest, KeylessUpstreamConnection};
-use crate::module::keyless::{KeylessBackendStats, KeylessUpstreamDurationRecorder};
+use crate::module::keyless::{
+    KeylessBackendAliveChannelGuard, KeylessBackendStats, KeylessUpstreamDurationRecorder,
+};
 
 mod state;
 use state::StreamSharedState;
@@ -57,6 +59,7 @@ pub(crate) struct MultiplexedUpstreamConnection<R, W> {
     w: W,
     req_receiver: flume::Receiver<KeylessForwardRequest>,
     quit_notifier: broadcast::Receiver<()>,
+    alive_channel_guard: KeylessBackendAliveChannelGuard,
 }
 
 impl<R, W> MultiplexedUpstreamConnection<R, W> {
@@ -69,7 +72,7 @@ impl<R, W> MultiplexedUpstreamConnection<R, W> {
         req_receiver: flume::Receiver<KeylessForwardRequest>,
         quit_notifier: broadcast::Receiver<()>,
     ) -> Self {
-        stats.inc_alive_channel();
+        let alive_channel_guard = stats.inc_alive_channel();
         MultiplexedUpstreamConnection {
             config,
             stats,
@@ -78,6 +81,7 @@ impl<R, W> MultiplexedUpstreamConnection<R, W> {
             w: ups_w,
             req_receiver,
             quit_notifier,
+            alive_channel_guard,
         }
     }
 }
@@ -110,11 +114,11 @@ where
         );
 
         let reader = self.r;
-        let backend_stats = self.stats;
+        let alive_channel_guard = self.alive_channel_guard;
         tokio::spawn(async move {
             recv_task.into_running(reader).await;
             // Only consider the channel off if recv closed.
-            backend_stats.dec_alive_channel();
+            drop(alive_channel_guard);
         });
         // The connection is considered off if we no longer need to send request over it,
         // but there may be pending responses on the wire, so let's quit early here to let

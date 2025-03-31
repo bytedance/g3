@@ -15,4 +15,4 @@
  */
 
 mod server;
-pub(crate) use server::KeylessProxyServerStats;
+pub(crate) use server::{KeylessProxyServerAliveTaskGuard, KeylessProxyServerStats};

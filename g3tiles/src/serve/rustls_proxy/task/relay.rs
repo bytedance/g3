@@ -28,7 +28,9 @@ use g3_types::limit::GaugeSemaphorePermit;
 use super::CommonTaskContext;
 use crate::backend::ArcBackend;
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
-use crate::module::stream::{StreamRelayTaskCltWrapperStats, StreamTransitTask};
+use crate::module::stream::{
+    StreamRelayTaskCltWrapperStats, StreamServerAliveTaskGuard, StreamTransitTask,
+};
 use crate::serve::rustls_proxy::RustlsHost;
 use crate::serve::{ServerTaskError, ServerTaskNotes, ServerTaskResult, ServerTaskStage};
 
@@ -38,7 +40,8 @@ pub(crate) struct RustlsRelayTask {
     backend: ArcBackend,
     task_notes: ServerTaskNotes,
     task_stats: Arc<TcpStreamTaskStats>,
-    alive_permit: Option<GaugeSemaphorePermit>,
+    _alive_permit: Option<GaugeSemaphorePermit>,
+    _alive_guard: Option<StreamServerAliveTaskGuard>,
 }
 
 impl RustlsRelayTask {
@@ -59,7 +62,8 @@ impl RustlsRelayTask {
             task_stats: Arc::new(TcpStreamTaskStats::with_clt_stats(
                 pre_handshake_stats.as_ref().clone(),
             )),
-            alive_permit,
+            _alive_permit: alive_permit,
+            _alive_guard: None,
         }
     }
 
@@ -81,23 +85,14 @@ impl RustlsRelayTask {
         if let Err(e) = self.run(tls_stream).await {
             self.get_log_context().log(&self.ctx.task_logger, &e)
         }
-        self.pre_stop();
     }
 
-    fn pre_start(&self) {
-        self.ctx.server_stats.add_task();
-        self.ctx.server_stats.inc_alive_task();
+    fn pre_start(&mut self) {
+        self._alive_guard = Some(self.ctx.server_stats.add_task());
 
         if self.ctx.server_config.flush_task_log_on_created {
             self.get_log_context().log_created(&self.ctx.task_logger);
         }
-    }
-
-    fn pre_stop(&mut self) {
-        if let Some(permit) = self.alive_permit.take() {
-            drop(permit);
-        }
-        self.ctx.server_stats.dec_alive_task();
     }
 
     async fn run<S>(&mut self, tls_stream: TlsStream<LimitedStream<S>>) -> ServerTaskResult<()>

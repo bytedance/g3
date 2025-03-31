@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
 use std::sync::atomic::{AtomicIsize, AtomicU64, Ordering};
 
 use g3_io_ext::haproxy::ProxyProtocolReadError;
@@ -63,18 +64,18 @@ impl ListenStats {
         self.id
     }
 
-    pub fn add_running_runtime(&self) {
+    #[must_use]
+    pub fn add_running_runtime(self: &Arc<Self>) -> ListenAliveGuard {
         self.runtime_count.fetch_add(1, Ordering::Relaxed);
+        ListenAliveGuard(self.clone())
     }
-    pub fn del_running_runtime(&self) {
-        self.runtime_count.fetch_sub(1, Ordering::Relaxed);
-    }
-    pub fn get_running_runtime_count(&self) -> isize {
+
+    pub fn running_runtime_count(&self) -> isize {
         self.runtime_count.load(Ordering::Relaxed)
     }
     #[inline]
     pub fn is_running(&self) -> bool {
-        self.get_running_runtime_count() > 0
+        self.running_runtime_count() > 0
     }
 
     pub fn add_accepted(&self) {
@@ -120,5 +121,13 @@ impl ListenStats {
             | ProxyProtocolReadError::InvalidSrcAddr
             | ProxyProtocolReadError::InvalidDstAddr => self.add_dropped(),
         }
+    }
+}
+
+pub struct ListenAliveGuard(Arc<ListenStats>);
+
+impl Drop for ListenAliveGuard {
+    fn drop(&mut self) {
+        self.0.runtime_count.fetch_sub(1, Ordering::Relaxed);
     }
 }
