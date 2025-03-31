@@ -240,6 +240,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         target_os = "netbsd",
         target_os = "openbsd",
         target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_recv(
         &self,
@@ -284,7 +285,7 @@ impl AsyncUdpSocket for Socks5UdpSocket {
         }
     }
 
-    #[cfg(any(windows, target_os = "dragonfly"))]
+    #[cfg(any(windows, target_os = "dragonfly", target_os = "illumos"))]
     fn poll_recv(
         &self,
         cx: &mut Context,

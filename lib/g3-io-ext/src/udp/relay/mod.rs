@@ -175,6 +175,7 @@ impl<T: UdpRelayClientRecv + ?Sized> UdpRelayRecv for ClientRecv<'_, T> {
         target_os = "netbsd",
         target_os = "openbsd",
         target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_recv_packets(
         &mut self,
@@ -213,6 +214,7 @@ impl<T: UdpRelayRemoteRecv + ?Sized> UdpRelayRecv for RemoteRecv<'_, T> {
         target_os = "netbsd",
         target_os = "openbsd",
         target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_recv_packets(
         &mut self,
@@ -275,6 +277,7 @@ impl<T: UdpRelayClientSend + ?Sized> UdpRelaySend for ClientSend<'_, T> {
         target_os = "netbsd",
         target_os = "openbsd",
         target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_send_packets(
         &mut self,

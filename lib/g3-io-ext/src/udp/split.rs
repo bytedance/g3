@@ -32,6 +32,7 @@ use super::{AsyncUdpRecv, AsyncUdpSend, UdpSocketExt};
     target_os = "netbsd",
     target_os = "openbsd",
     target_os = "macos",
+    target_os = "solaris",
 ))]
 use super::{RecvMsgHdr, SendMsgHdr};
 
@@ -107,6 +108,7 @@ impl AsyncUdpSend for SendHalf {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "solaris",
     ))]
     fn poll_batch_sendmsg<const C: usize>(
         &mut self,
@@ -160,6 +162,7 @@ impl AsyncUdpRecv for RecvHalf {
         target_os = "netbsd",
         target_os = "openbsd",
         target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_batch_recvmsg<const C: usize>(
         &mut self,

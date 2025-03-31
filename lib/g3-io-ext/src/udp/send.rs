@@ -31,6 +31,7 @@ use tokio::time::{Instant, Sleep};
     target_os = "netbsd",
     target_os = "openbsd",
     target_os = "macos",
+    target_os = "solaris",
 ))]
 use super::SendMsgHdr;
 use crate::limit::{DatagramLimitAction, DatagramLimiter};
@@ -59,6 +60,7 @@ pub trait AsyncUdpSend {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "solaris",
     ))]
     fn poll_batch_sendmsg<const C: usize>(
         &mut self,
@@ -286,6 +288,7 @@ where
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "solaris",
     ))]
     fn poll_batch_sendmsg<const C: usize>(
         &mut self,
