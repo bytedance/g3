@@ -71,7 +71,7 @@ pub use udp::{UdpListenConfig, UdpMiscSockOpts};
 pub use upstream::{UpstreamAddr, UpstreamHostRef, WeightedUpstreamAddr};
 
 #[cfg(unix)]
-pub use interface::InterfaceName;
+pub use interface::Interface;
 
 #[cfg(feature = "http")]
 pub use self::http::*;

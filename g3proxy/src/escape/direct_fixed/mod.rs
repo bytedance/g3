@@ -133,13 +133,25 @@ impl DirectFixedEscaper {
             AddressFamily::Ipv6 => &self.config.bind6,
         };
         match vec.len() {
-            #[cfg(any(target_os = "linux", target_os = "android"))]
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "illumos",
+                target_os = "solaris"
+            ))]
             0 => self
                 .config
                 .bind_interface
                 .map(BindAddr::Interface)
                 .unwrap_or_default(),
-            #[cfg(not(any(target_os = "linux", target_os = "android")))]
+            #[cfg(not(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "illumos",
+                target_os = "solaris"
+            )))]
             0 => BindAddr::None,
             1 => BindAddr::Ip(vec[0]),
             n => {

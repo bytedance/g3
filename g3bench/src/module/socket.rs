@@ -23,11 +23,23 @@ use clap::{Arg, ArgMatches, Command, value_parser};
 use tokio::net::TcpStream;
 
 use g3_socket::{BindAddr, TcpConnectInfo, UdpConnectInfo};
-#[cfg(any(target_os = "linux", target_os = "android"))]
-use g3_types::net::InterfaceName;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos",
+    target_os = "illumos",
+    target_os = "solaris"
+))]
+use g3_types::net::Interface;
 
 const SOCKET_ARG_LOCAL_ADDRESS: &str = "local-address";
-#[cfg(any(target_os = "linux", target_os = "android"))]
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos",
+    target_os = "illumos",
+    target_os = "solaris"
+))]
 const SOCKET_ARG_INTERFACE: &str = "interface";
 
 pub(crate) trait AppendSocketArgs {
@@ -83,8 +95,14 @@ impl SocketArgs {
         if let Some(ip) = args.get_one::<IpAddr>(SOCKET_ARG_LOCAL_ADDRESS) {
             self.bind = BindAddr::Ip(*ip);
         }
-        #[cfg(any(target_os = "linux", target_os = "android"))]
-        if let Some(name) = args.get_one::<InterfaceName>(SOCKET_ARG_INTERFACE) {
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "illumos",
+            target_os = "solaris"
+        ))]
+        if let Some(name) = args.get_one::<Interface>(SOCKET_ARG_INTERFACE) {
             self.bind = BindAddr::Interface(*name);
         }
         Ok(())
@@ -112,14 +130,20 @@ pub(crate) fn append_socket_args(mut cmd: Command) -> Command {
             .num_args(1)
             .value_parser(value_parser!(IpAddr))
     );
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "illumos",
+        target_os = "solaris"
+    ))]
     add_arg!(
         Arg::new(SOCKET_ARG_INTERFACE)
-            .value_name("INTERFACE NAME")
+            .value_name("INTERFACE NAME/INDEX")
             .short('I')
             .long(SOCKET_ARG_INTERFACE)
             .num_args(1)
-            .value_parser(value_parser!(InterfaceName))
+            .value_parser(value_parser!(Interface))
             .conflicts_with(SOCKET_ARG_LOCAL_ADDRESS)
     );
     cmd

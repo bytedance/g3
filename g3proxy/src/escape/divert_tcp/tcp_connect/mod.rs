@@ -55,14 +55,26 @@ impl DivertTcpEscaper {
             }
         };
 
-        #[cfg(any(target_os = "linux", target_os = "android"))]
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "illumos",
+            target_os = "solaris"
+        ))]
         let bind = bind_ip.map(BindAddr::Ip).unwrap_or_else(|| {
             self.config
                 .bind_interface
                 .map(BindAddr::Interface)
                 .unwrap_or_default()
         });
-        #[cfg(not(any(target_os = "linux", target_os = "android")))]
+        #[cfg(not(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "illumos",
+            target_os = "solaris"
+        )))]
         let bind = bind_ip.map(BindAddr::Ip).unwrap_or_default();
         let sock = g3_socket::tcp::new_socket_to(
             peer_ip,

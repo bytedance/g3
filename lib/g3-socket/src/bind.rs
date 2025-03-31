@@ -19,8 +19,14 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use socket2::{SockAddr, Socket};
 
-#[cfg(any(target_os = "linux", target_os = "android"))]
-use g3_types::net::InterfaceName;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos",
+    target_os = "illumos",
+    target_os = "solaris"
+))]
+use g3_types::net::Interface;
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use super::sockopt::set_bind_address_no_port;
@@ -33,8 +39,14 @@ pub enum BindAddr {
     #[default]
     None,
     Ip(IpAddr),
-    #[cfg(any(target_os = "linux", target_os = "android"))]
-    Interface(InterfaceName),
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "illumos",
+        target_os = "solaris"
+    ))]
+    Interface(Interface),
 }
 
 impl BindAddr {
@@ -72,10 +84,15 @@ impl BindAddr {
                 socket.bind(&addr)
             }
             #[cfg(any(target_os = "linux", target_os = "android"))]
-            BindAddr::Interface(name) => {
+            BindAddr::Interface(iface) => {
                 set_bind_address_no_port(socket, true)?;
-                socket.bind_device(Some(name.as_bytes()))
+                socket.bind_device(Some(iface.c_bytes()))
             }
+            #[cfg(any(target_os = "macos", target_os = "illumos", target_os = "solaris"))]
+            BindAddr::Interface(iface) => match peer_family {
+                AddressFamily::Ipv4 => socket.bind_device_by_index_v4(Some(iface.id())),
+                AddressFamily::Ipv6 => socket.bind_device_by_index_v6(Some(iface.id())),
+            },
         }
     }
 
@@ -87,13 +104,24 @@ impl BindAddr {
             },
             BindAddr::Ip(ip) => *ip,
             #[cfg(any(target_os = "linux", target_os = "android"))]
-            BindAddr::Interface(name) => {
-                socket.bind_device(Some(name.as_bytes()))?;
+            BindAddr::Interface(iface) => {
+                socket.bind_device(Some(iface.c_bytes()))?;
                 match family {
                     AddressFamily::Ipv4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
                     AddressFamily::Ipv6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
                 }
             }
+            #[cfg(any(target_os = "macos", target_os = "illumos", target_os = "solaris"))]
+            BindAddr::Interface(iface) => match family {
+                AddressFamily::Ipv4 => {
+                    socket.bind_device_by_index_v4(Some(iface.id()))?;
+                    IpAddr::V4(Ipv4Addr::UNSPECIFIED)
+                }
+                AddressFamily::Ipv6 => {
+                    socket.bind_device_by_index_v6(Some(iface.id()))?;
+                    IpAddr::V6(Ipv6Addr::UNSPECIFIED)
+                }
+            },
         };
         let bind_addr = SockAddr::from(SocketAddr::new(bind_ip, 0));
         socket.bind(&bind_addr)
