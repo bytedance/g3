@@ -23,6 +23,7 @@ use std::str::FromStr;
     path = "freebsd.rs"
 )]
 #[cfg_attr(target_os = "netbsd", path = "netbsd.rs")]
+#[cfg_attr(windows, path = "windows.rs")]
 mod os;
 use os::CpuAffinityImpl;
 
@@ -125,7 +126,8 @@ impl CpuAffinity {
         target_os = "android",
         target_os = "freebsd",
         target_os = "dragonfly",
-        target_os = "netbsd"
+        target_os = "netbsd",
+        windows,
     )
 ))]
 mod tests {

@@ -99,6 +99,7 @@ impl UnaidedRuntimeConfig {
         target_os = "freebsd",
         target_os = "dragonfly",
         target_os = "netbsd",
+        windows,
     ))]
     pub fn auto_set_sched_affinity(&mut self) -> anyhow::Result<()> {
         use anyhow::Context;

@@ -90,6 +90,7 @@ pub use quinn::as_quinn_transport_config;
         target_os = "freebsd",
         target_os = "dragonfly",
         target_os = "netbsd",
+        windows,
     ),
     feature = "sched"
 ))]
@@ -101,6 +102,7 @@ mod sched;
         target_os = "freebsd",
         target_os = "dragonfly",
         target_os = "netbsd",
+        windows,
     ),
     feature = "sched"
 ))]
