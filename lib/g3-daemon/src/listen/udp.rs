@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+use std::future::poll_fn;
+use std::io::{self, IoSliceMut};
 use std::net::SocketAddr;
 
 use log::{info, warn};
@@ -21,6 +23,7 @@ use tokio::net::UdpSocket;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast;
 
+use g3_io_ext::{RecvMsgHdr, UdpSocketExt};
 use g3_types::net::UdpListenConfig;
 
 use crate::server::{BaseServer, ReloadServer, ServerReloadCommand};
@@ -132,11 +135,11 @@ where
                     self.pre_stop();
                     break;
                 }
-                r = socket.recv_from(&mut buf) => {
+                r = self.recv_packet(&socket, listen_addr, &mut buf) => {
                     match r {
-                        Ok((len, peer_addr)) => {
+                        Ok((len, peer_addr, local_addr)) => {
                             // TODO add stats
-                            self.server.receive_packet(&buf[..len], peer_addr, listen_addr, self.worker_id);
+                            self.server.receive_packet(&buf[..len], peer_addr, local_addr, self.worker_id);
                         }
                         Err(e) => {
                             warn!("SRT[{}_v{}#{}] error receiving data from socket, error: {e}",
@@ -148,6 +151,24 @@ where
         }
 
         self.post_stop();
+    }
+
+    async fn recv_packet(
+        &self,
+        socket: &UdpSocket,
+        listen_addr: SocketAddr,
+        buf: &mut [u8],
+    ) -> io::Result<(usize, SocketAddr, SocketAddr)> {
+        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(buf)]);
+
+        poll_fn(|cx| socket.poll_recvmsg(cx, &mut hdr)).await?;
+
+        let peer_addr = hdr
+            .src_addr()
+            .ok_or_else(|| io::Error::other("unable to get peer address"))?;
+        let local_addr = hdr.dst_addr(listen_addr);
+
+        Ok((hdr.n_recv, peer_addr, local_addr))
     }
 
     fn get_rt_handle(&mut self, listen_in_worker: bool) -> Handle {
