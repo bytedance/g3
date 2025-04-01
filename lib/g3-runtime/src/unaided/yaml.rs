@@ -29,6 +29,7 @@ impl UnaidedRuntimeConfig {
                 target_os = "freebsd",
                 target_os = "dragonfly",
                 target_os = "netbsd",
+                windows,
             ))]
             let mut auto_set_sched_affinity = false;
 
@@ -55,6 +56,7 @@ impl UnaidedRuntimeConfig {
                     target_os = "freebsd",
                     target_os = "dragonfly",
                     target_os = "netbsd",
+                    windows,
                 ))]
                 "sched_affinity" => {
                     if let Yaml::Hash(map) = v {
@@ -101,6 +103,7 @@ impl UnaidedRuntimeConfig {
                 target_os = "freebsd",
                 target_os = "dragonfly",
                 target_os = "netbsd",
+                windows,
             ))]
             if auto_set_sched_affinity {
                 config

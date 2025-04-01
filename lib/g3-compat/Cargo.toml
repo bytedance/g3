@@ -13,4 +13,4 @@ libc.workspace = true
 rustix = { workspace = true, features = ["system"] }
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { workspace = true, features = ["Win32_System_SystemInformation"] }
+windows-sys = { workspace = true, features = ["Win32_System_SystemInformation", "Win32_System_Threading"] }

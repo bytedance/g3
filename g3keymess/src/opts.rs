@@ -21,6 +21,7 @@ use std::path::PathBuf;
     target_os = "freebsd",
     target_os = "dragonfly",
     target_os = "netbsd",
+    windows,
 ))]
 use std::str::FromStr;
 use std::sync::OnceLock;
@@ -33,6 +34,7 @@ use clap::{Arg, ArgAction, Command, ValueHint, value_parser};
     target_os = "freebsd",
     target_os = "dragonfly",
     target_os = "netbsd",
+    windows,
 ))]
 use log::info;
 
@@ -154,6 +156,7 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
             target_os = "freebsd",
             target_os = "dragonfly",
             target_os = "netbsd",
+            windows,
         ))]
         if let Some(s) = group_name.strip_prefix("core") {
             let mut cpu = CpuAffinity::default();
