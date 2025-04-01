@@ -18,6 +18,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use arc_swap::ArcSwap;
 use log::debug;
 use tokio::sync::broadcast;
 
@@ -26,6 +27,7 @@ use g3_daemon::server::{BaseServer, ServerReloadCommand};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::NodeName;
 
+use crate::collect::ArcCollector;
 use crate::config::importer::statsd::StatsdImporterConfig;
 use crate::config::importer::{AnyImporterConfig, ImporterConfig};
 use crate::import::{ArcImporter, Importer, ImporterInternal, WrapArcImporter};
@@ -35,6 +37,7 @@ pub(crate) struct StatsdImporter {
     ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
 
+    collector: ArcSwap<ArcCollector>,
     reload_version: usize,
 }
 
@@ -47,10 +50,13 @@ impl StatsdImporter {
             .as_ref()
             .map(|builder| builder.build());
 
+        let collector = Arc::new(crate::collect::get_or_insert_default(config.collector()));
+
         StatsdImporter {
             config,
             ingress_net_filter,
             reload_sender,
+            collector: ArcSwap::new(collector),
             reload_version,
         }
     }
@@ -97,6 +103,11 @@ impl ImporterInternal for StatsdImporter {
     fn _reload_config_notify_runtime(&self) {
         let cmd = ServerReloadCommand::ReloadVersion(self.reload_version);
         let _ = self.reload_sender.send(cmd);
+    }
+
+    fn _update_collector_in_place(&self) {
+        let collector = crate::collect::get_or_insert_default(self.config.collector());
+        self.collector.store(Arc::new(collector));
     }
 
     fn _reload_with_old_notifier(&self, config: AnyImporterConfig) -> anyhow::Result<ArcImporter> {
@@ -156,4 +167,8 @@ impl ReceiveUdpServer for StatsdImporter {
     }
 }
 
-impl Importer for StatsdImporter {}
+impl Importer for StatsdImporter {
+    fn collector(&self) -> &NodeName {
+        self.config.collector()
+    }
+}

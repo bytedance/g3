@@ -76,6 +76,8 @@ impl ImporterInternal for DummyImporter {
         let _ = self.reload_sender.send(cmd);
     }
 
+    fn _update_collector_in_place(&self) {}
+
     fn _reload_with_old_notifier(&self, config: AnyImporterConfig) -> anyhow::Result<ArcImporter> {
         Err(anyhow!(
             "this {} importer doesn't support reload with old notifier",
@@ -123,4 +125,8 @@ impl ReceiveUdpServer for DummyImporter {
     }
 }
 
-impl Importer for DummyImporter {}
+impl Importer for DummyImporter {
+    fn collector(&self) -> &NodeName {
+        Default::default()
+    }
+}

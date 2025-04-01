@@ -29,7 +29,9 @@ static RUNTIME_IMPORTER_REGISTRY: Mutex<HashMap<NodeName, ArcImporter, FixedStat
     Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub(super) fn add(name: NodeName, importer: ArcImporter) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
+    let mut ht = RUNTIME_IMPORTER_REGISTRY
+        .lock()
+        .map_err(|e| anyhow!("failed to lock importer registry: {e}"))?;
     importer._start_runtime(&importer)?;
     if let Some(old_importer) = ht.insert(name, importer) {
         old_importer._abort_runtime();
@@ -58,8 +60,10 @@ pub(super) fn get_config(name: &NodeName) -> Option<AnyImporterConfig> {
     ht.get(name).map(|importer| importer._clone_config())
 }
 
-pub(super) fn reload_only_config(name: &NodeName, config: AnyImporterConfig) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
+pub(super) fn reload_no_respawn(name: &NodeName, config: AnyImporterConfig) -> anyhow::Result<()> {
+    let mut ht = RUNTIME_IMPORTER_REGISTRY
+        .lock()
+        .map_err(|e| anyhow!("failed to lock importer registry: {e}"))?;
     let Some(old_importer) = ht.get(name) else {
         return Err(anyhow!("no importer with name {name} found"));
     };
@@ -72,8 +76,22 @@ pub(super) fn reload_only_config(name: &NodeName, config: AnyImporterConfig) -> 
     Ok(())
 }
 
+pub(crate) fn reload_only_collector(name: &NodeName) -> anyhow::Result<()> {
+    let ht = RUNTIME_IMPORTER_REGISTRY
+        .lock()
+        .map_err(|e| anyhow!("failed to lock importer registry: {e}"))?;
+    let Some(importer) = ht.get(name) else {
+        return Err(anyhow!("no importer with name {name} found"));
+    };
+
+    importer._update_collector_in_place();
+    Ok(())
+}
+
 pub(super) fn reload_and_respawn(name: &NodeName, config: AnyImporterConfig) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
+    let mut ht = RUNTIME_IMPORTER_REGISTRY
+        .lock()
+        .map_err(|e| anyhow!("failed to lock importer registry: {e}"))?;
     let Some(old_importer) = ht.get(name) else {
         return Err(anyhow!("no importer with name {name} found"));
     };

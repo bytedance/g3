@@ -17,7 +17,7 @@
 use std::collections::HashSet;
 
 use anyhow::{Context, anyhow};
-use log::debug;
+use log::{debug, warn};
 use tokio::sync::Mutex;
 
 use g3_types::metrics::NodeName;
@@ -112,6 +112,30 @@ pub(crate) async fn reload(
     Ok(())
 }
 
+pub(crate) async fn update_dependency_to_collector(collector: &NodeName, status: &str) {
+    let _guard = IMPORTER_OPS_LOCK.lock().await;
+
+    let mut names = Vec::<NodeName>::new();
+
+    registry::foreach(|name, importer| {
+        if importer.collector().eq(collector) {
+            names.push(name.clone());
+        }
+    });
+
+    if names.is_empty() {
+        return;
+    }
+
+    debug!("collector {collector} changed({status}), will reload importer(s) {names:?}");
+    for name in names.iter() {
+        debug!("importer {name}: will reload as it's using collector {collector}");
+        if let Err(e) = registry::reload_only_collector(name) {
+            warn!("failed to reload collector {name}: {e:?}");
+        }
+    }
+}
+
 fn reload_old_unlocked(old: AnyImporterConfig, new: AnyImporterConfig) -> anyhow::Result<()> {
     let name = old.name();
     match old.diff_action(&new) {
@@ -123,9 +147,9 @@ fn reload_old_unlocked(old: AnyImporterConfig, new: AnyImporterConfig) -> anyhow
             debug!("importer {name} reload: will create a totally new one");
             spawn_new_unlocked(new)
         }
-        ImporterConfigDiffAction::ReloadOnlyConfig => {
-            debug!("importer {name} reload: will only reload config");
-            registry::reload_only_config(name, new)?;
+        ImporterConfigDiffAction::ReloadNoRespawn => {
+            debug!("importer {name} reload: will reload config without respawn");
+            registry::reload_no_respawn(name, new)?;
             Ok(())
         }
         ImporterConfigDiffAction::ReloadAndRespawn => {

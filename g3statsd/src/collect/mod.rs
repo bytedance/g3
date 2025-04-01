@@ -22,7 +22,7 @@ use g3_types::metrics::NodeName;
 use crate::config::collector::AnyCollectorConfig;
 
 mod registry;
-pub(crate) use registry::get_names;
+pub(crate) use registry::{get_names, get_or_insert_default};
 
 mod ops;
 pub(crate) use ops::reload;

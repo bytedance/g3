@@ -198,9 +198,9 @@ fn reload_old_unlocked(old: AnyServerConfig, new: AnyServerConfig) -> anyhow::Re
             debug!("server {name} reload: will create a totally new one");
             spawn_new_unlocked(new)
         }
-        ServerConfigDiffAction::ReloadOnlyConfig => {
-            debug!("server {name} reload: will only reload config");
-            registry::reload_only_config(name, new)?;
+        ServerConfigDiffAction::ReloadNoRespawn => {
+            debug!("server {name} reload: will reload config without respawn");
+            registry::reload_no_respawn(name, new)?;
             update_dependency_to_server_unlocked(name, "reloaded");
             Ok(())
         }

@@ -35,7 +35,7 @@ const CONFIG_KEY_IMPORTER_NAME: &str = "name";
 pub(crate) enum ImporterConfigDiffAction {
     NoAction,
     SpawnNew,
-    ReloadOnlyConfig,
+    ReloadNoRespawn,
     ReloadAndRespawn,
 }
 
@@ -45,6 +45,8 @@ pub(crate) trait ImporterConfig {
     fn importer_type(&self) -> &'static str;
 
     fn diff_action(&self, new: &AnyImporterConfig) -> ImporterConfigDiffAction;
+
+    fn collector(&self) -> &NodeName;
 }
 
 #[derive(Clone, Debug, AnyConfig)]
@@ -52,6 +54,7 @@ pub(crate) trait ImporterConfig {
 #[def_fn(position, Option<YamlDocPosition>)]
 #[def_fn(importer_type, &'static str)]
 #[def_fn(diff_action, &Self, ImporterConfigDiffAction)]
+#[def_fn(collector, &NodeName)]
 pub(crate) enum AnyImporterConfig {
     Dummy(dummy::DummyImporterConfig),
     StatsD(statsd::StatsdImporterConfig),

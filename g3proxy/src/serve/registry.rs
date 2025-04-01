@@ -115,7 +115,7 @@ pub(super) fn update_config_in_place(
     }
 }
 
-pub(super) fn reload_only_config(name: &NodeName, config: AnyServerConfig) -> anyhow::Result<()> {
+pub(super) fn reload_no_respawn(name: &NodeName, config: AnyServerConfig) -> anyhow::Result<()> {
     let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     let Some(old_server) = ht.get(name) else {
         return Err(anyhow!("no server with name {name} found"));

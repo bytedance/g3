@@ -185,7 +185,7 @@ impl ServerConfig for PlainTlsPortConfig {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
 
-        ServerConfigDiffAction::ReloadOnlyConfig
+        ServerConfigDiffAction::ReloadNoRespawn
     }
 
     fn dependent_server(&self) -> Option<BTreeSet<NodeName>> {

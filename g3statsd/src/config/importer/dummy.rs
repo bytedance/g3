@@ -96,4 +96,8 @@ impl ImporterConfig for DummyImporterConfig {
 
         ImporterConfigDiffAction::NoAction
     }
+
+    fn collector(&self) -> &NodeName {
+        Default::default()
+    }
 }
