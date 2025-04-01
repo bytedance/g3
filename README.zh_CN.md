@@ -196,3 +196,9 @@ Please do **not** create a public GitHub issue.
 ## License
 
 This project is licensed under the [Apache-2.0 License](LICENSE).
+
+## 404星链计划
+
+<img src="https://github.com/knownsec/404StarLink/raw/master/Images/logo.png" width="30%">
+
+[g3proxy](g3proxy) 现已加入 [404星链计划](https://github.com/knownsec/404StarLink)
