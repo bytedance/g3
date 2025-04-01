@@ -293,7 +293,7 @@ impl ServerConfig for TcpStreamServerConfig {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
 
-        ServerConfigDiffAction::ReloadOnlyConfig
+        ServerConfigDiffAction::ReloadNoRespawn
     }
 
     fn shared_logger(&self) -> Option<&str> {

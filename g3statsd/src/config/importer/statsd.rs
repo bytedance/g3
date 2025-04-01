@@ -30,6 +30,7 @@ const IMPORTER_CONFIG_TYPE: &str = "StatsD";
 pub(crate) struct StatsdImporterConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
+    pub(crate) collector: NodeName,
     pub(crate) listen: UdpListenConfig,
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
@@ -40,6 +41,7 @@ impl StatsdImporterConfig {
         StatsdImporterConfig {
             name: NodeName::default(),
             position,
+            collector: Default::default(),
             listen: UdpListenConfig::default(),
             listen_in_worker: false,
             ingress_net_filter: None,
@@ -89,6 +91,9 @@ impl StatsdImporterConfig {
         if self.name.is_empty() {
             return Err(anyhow!("name is not set"));
         }
+        if self.collector.is_empty() {
+            return Err(anyhow!("collector is not set"));
+        }
         // make sure listen is always set
         self.listen.check().context("invalid listen config")?;
 
@@ -122,6 +127,10 @@ impl ImporterConfig for StatsdImporterConfig {
             return ImporterConfigDiffAction::ReloadAndRespawn;
         }
 
-        ImporterConfigDiffAction::ReloadOnlyConfig
+        ImporterConfigDiffAction::ReloadNoRespawn
+    }
+
+    fn collector(&self) -> &NodeName {
+        &self.collector
     }
 }

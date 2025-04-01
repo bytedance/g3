@@ -245,6 +245,6 @@ impl ServerConfig for RustlsProxyServerConfig {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
 
-        ServerConfigDiffAction::ReloadOnlyConfig
+        ServerConfigDiffAction::ReloadNoRespawn
     }
 }

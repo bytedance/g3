@@ -40,12 +40,12 @@ pub async fn spawn_all() -> anyhow::Result<()> {
         match registry::get_config(name) {
             Some(old) => {
                 debug!("reloading collector {name}");
-                reload_old_unlocked(old, config.as_ref().clone())?;
+                reload_old_unlocked(old, config.as_ref().clone()).await?;
                 debug!("collector {name} reload OK");
             }
             None => {
                 debug!("creating collector {name}");
-                spawn_new_unlocked(config.as_ref().clone())?;
+                spawn_new_unlocked(config.as_ref().clone()).await?;
                 debug!("collector {name} create OK");
             }
         }
@@ -54,7 +54,7 @@ pub async fn spawn_all() -> anyhow::Result<()> {
     for name in &registry::get_names() {
         if !new_names.contains(name) {
             debug!("deleting collector {name}");
-            delete_existed_unlocked(name);
+            delete_existed_unlocked(name).await;
             debug!("collector {name} deleted");
         }
     }
@@ -107,12 +107,15 @@ pub(crate) async fn reload(
     }
 
     debug!("reloading collector {name} from position {position}");
-    reload_old_unlocked(old_config, config)?;
+    reload_old_unlocked(old_config, config).await?;
     debug!("collector {name} reload OK");
     Ok(())
 }
 
-fn reload_old_unlocked(old: AnyCollectorConfig, new: AnyCollectorConfig) -> anyhow::Result<()> {
+async fn reload_old_unlocked(
+    old: AnyCollectorConfig,
+    new: AnyCollectorConfig,
+) -> anyhow::Result<()> {
     let name = old.name();
     match old.diff_action(&new) {
         CollectorConfigDiffAction::NoAction => {
@@ -121,18 +124,20 @@ fn reload_old_unlocked(old: AnyCollectorConfig, new: AnyCollectorConfig) -> anyh
         }
         CollectorConfigDiffAction::SpawnNew => {
             debug!("collector {name} reload: will create a totally new one");
-            spawn_new_unlocked(new)
+            spawn_new_unlocked(new).await
         }
-        CollectorConfigDiffAction::ReloadOnlyConfig => {
-            debug!("collector {name} reload: will only reload config");
-            registry::reload_only_config(name, new)?;
+        CollectorConfigDiffAction::ReloadNoRespawn => {
+            debug!("collector {name} reload: will reload config without respawn");
+            registry::reload_no_respawn(name, new)?;
             update_dependency_to_collector_unlocked(name, "reloaded");
+            crate::import::update_dependency_to_collector(name, "reloaded").await;
             Ok(())
         }
         CollectorConfigDiffAction::ReloadAndRespawn => {
             debug!("collector {name} reload: will respawn with old stats");
             registry::reload_and_respawn(name, new)?;
-            update_dependency_to_collector_unlocked(name, "reloaded");
+            update_dependency_to_collector_unlocked(name, "respawned");
+            crate::import::update_dependency_to_collector(name, "respawned").await;
             Ok(())
         }
     }
@@ -164,13 +169,18 @@ fn update_dependency_to_collector_unlocked(target: &NodeName, status: &str) {
     }
 }
 
-fn delete_existed_unlocked(name: &NodeName) {
+async fn delete_existed_unlocked(name: &NodeName) {
+    const STATUS: &str = "deleted";
+
     registry::del(name);
-    update_dependency_to_collector_unlocked(name, "deleted");
+    update_dependency_to_collector_unlocked(name, STATUS);
+    crate::import::update_dependency_to_collector(name, STATUS).await;
 }
 
 // use async fn to allow tokio schedule
-fn spawn_new_unlocked(config: AnyCollectorConfig) -> anyhow::Result<()> {
+async fn spawn_new_unlocked(config: AnyCollectorConfig) -> anyhow::Result<()> {
+    const STATUS: &str = "spawned";
+
     let name = config.name().clone();
     let collector = match config {
         AnyCollectorConfig::Dummy(config) => super::dummy::DummyCollector::prepare_initial(config)?,
@@ -179,6 +189,7 @@ fn spawn_new_unlocked(config: AnyCollectorConfig) -> anyhow::Result<()> {
         }
     };
     registry::add(name.clone(), collector)?;
-    update_dependency_to_collector_unlocked(&name, "spawned");
+    update_dependency_to_collector_unlocked(&name, STATUS);
+    crate::import::update_dependency_to_collector(&name, STATUS).await;
     Ok(())
 }

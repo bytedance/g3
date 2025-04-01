@@ -51,7 +51,7 @@ const IDLE_CHECK_DEFAULT_MAX_COUNT: usize = 5;
 pub(crate) enum ServerConfigDiffAction {
     NoAction,
     SpawnNew,
-    ReloadOnlyConfig,
+    ReloadNoRespawn,
     ReloadAndRespawn,
     #[allow(unused)]
     UpdateInPlace(u64), // to support server custom hot update, take a flags param

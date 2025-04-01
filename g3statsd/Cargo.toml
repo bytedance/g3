@@ -7,6 +7,7 @@ description = "G3 StatsD"
 
 [dependencies]
 anyhow.workspace = true
+arc-swap.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
 foldhash.workspace = true

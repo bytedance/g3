@@ -317,7 +317,7 @@ impl ServerConfig for TlsStreamServerConfig {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
 
-        ServerConfigDiffAction::ReloadOnlyConfig
+        ServerConfigDiffAction::ReloadNoRespawn
     }
 
     fn shared_logger(&self) -> Option<&str> {

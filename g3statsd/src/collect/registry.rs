@@ -29,7 +29,9 @@ static RUNTIME_COLLECTOR_REGISTRY: Mutex<HashMap<NodeName, ArcCollector, FixedSt
     Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub(super) fn add(name: NodeName, collector: ArcCollector) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
+    let mut ht = RUNTIME_COLLECTOR_REGISTRY
+        .lock()
+        .map_err(|e| anyhow!("failed to lock collector registry: {e}"))?;
     collector._start_runtime(&collector)?;
     if let Some(old_collector) = ht.insert(name, collector) {
         old_collector._abort_runtime();
@@ -58,11 +60,10 @@ pub(super) fn get_config(name: &NodeName) -> Option<AnyCollectorConfig> {
     ht.get(name).map(|collect| collect._clone_config())
 }
 
-pub(super) fn reload_only_config(
-    name: &NodeName,
-    config: AnyCollectorConfig,
-) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
+pub(super) fn reload_no_respawn(name: &NodeName, config: AnyCollectorConfig) -> anyhow::Result<()> {
+    let mut ht = RUNTIME_COLLECTOR_REGISTRY
+        .lock()
+        .map_err(|e| anyhow!("failed to lock collector registry: {e}"))?;
     let Some(old_collector) = ht.get(name) else {
         return Err(anyhow!("no collector with name {name} found"));
     };
@@ -79,7 +80,9 @@ pub(super) fn reload_and_respawn(
     name: &NodeName,
     config: AnyCollectorConfig,
 ) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
+    let mut ht = RUNTIME_COLLECTOR_REGISTRY
+        .lock()
+        .map_err(|e| anyhow!("failed to lock collector registry: {e}"))?;
     let Some(old_collector) = ht.get(name) else {
         return Err(anyhow!("no collector with name {name} found"));
     };

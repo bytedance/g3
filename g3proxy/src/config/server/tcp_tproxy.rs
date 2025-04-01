@@ -239,7 +239,7 @@ impl ServerConfig for TcpTProxyServerConfig {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
 
-        ServerConfigDiffAction::ReloadOnlyConfig
+        ServerConfigDiffAction::ReloadNoRespawn
     }
 
     fn shared_logger(&self) -> Option<&str> {

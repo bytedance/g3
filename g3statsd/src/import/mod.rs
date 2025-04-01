@@ -29,7 +29,7 @@ mod registry;
 pub(crate) use registry::get_names;
 
 mod ops;
-pub(crate) use ops::reload;
+pub(crate) use ops::{reload, update_dependency_to_collector};
 pub use ops::{spawn_all, stop_all};
 
 mod dummy;
@@ -39,6 +39,7 @@ pub(crate) trait ImporterInternal {
     fn _clone_config(&self) -> AnyImporterConfig;
 
     fn _reload_config_notify_runtime(&self);
+    fn _update_collector_in_place(&self);
 
     fn _reload_with_old_notifier(&self, config: AnyImporterConfig) -> anyhow::Result<ArcImporter>;
     fn _reload_with_new_notifier(&self, config: AnyImporterConfig) -> anyhow::Result<ArcImporter>;
@@ -47,7 +48,9 @@ pub(crate) trait ImporterInternal {
     fn _abort_runtime(&self);
 }
 
-pub(crate) trait Importer: ImporterInternal + ReceiveUdpServer + BaseServer {}
+pub(crate) trait Importer: ImporterInternal + ReceiveUdpServer + BaseServer {
+    fn collector(&self) -> &NodeName;
+}
 
 pub(crate) type ArcImporter = Arc<dyn Importer + Send + Sync>;
 

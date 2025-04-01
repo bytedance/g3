@@ -157,6 +157,6 @@ impl ServerConfig for KeylessProxyServerConfig {
             return ServerConfigDiffAction::NoAction;
         }
 
-        ServerConfigDiffAction::ReloadOnlyConfig
+        ServerConfigDiffAction::ReloadNoRespawn
     }
 }
