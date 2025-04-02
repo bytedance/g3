@@ -28,7 +28,7 @@ pub(crate) struct LoggerStats {
 impl LoggerStats {
     pub(crate) fn new(name: &str, inner: Arc<LogStats>) -> Self {
         LoggerStats {
-            id: StatId::new(),
+            id: StatId::new_unique(),
             name: name.to_string(),
             inner,
         }

@@ -259,13 +259,13 @@ async fn spawn_new_unlocked(config: AnyEscaperConfig) -> anyhow::Result<()> {
     let name = config.name().clone();
     let escaper = match config {
         AnyEscaperConfig::ComplyAudit(c) => ComplyAuditEscaper::prepare_initial(c)?,
-        AnyEscaperConfig::DirectFixed(c) => DirectFixedEscaper::prepare_initial(*c)?,
-        AnyEscaperConfig::DirectFloat(c) => DirectFloatEscaper::prepare_initial(*c).await?,
+        AnyEscaperConfig::DirectFixed(c) => DirectFixedEscaper::prepare_initial(c)?,
+        AnyEscaperConfig::DirectFloat(c) => DirectFloatEscaper::prepare_initial(c).await?,
         AnyEscaperConfig::DivertTcp(c) => DivertTcpEscaper::prepare_initial(c)?,
         AnyEscaperConfig::DummyDeny(c) => DummyDenyEscaper::prepare_initial(c)?,
         AnyEscaperConfig::ProxyFloat(c) => ProxyFloatEscaper::prepare_initial(c).await?,
-        AnyEscaperConfig::ProxyHttp(c) => ProxyHttpEscaper::prepare_initial(*c)?,
-        AnyEscaperConfig::ProxyHttps(c) => ProxyHttpsEscaper::prepare_initial(*c)?,
+        AnyEscaperConfig::ProxyHttp(c) => ProxyHttpEscaper::prepare_initial(c)?,
+        AnyEscaperConfig::ProxyHttps(c) => ProxyHttpsEscaper::prepare_initial(c)?,
         AnyEscaperConfig::ProxySocks5(c) => ProxySocks5Escaper::prepare_initial(c)?,
         AnyEscaperConfig::ProxySocks5s(c) => ProxySocks5sEscaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteFailover(c) => RouteFailoverEscaper::prepare_initial(c)?,

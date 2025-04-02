@@ -150,7 +150,7 @@ impl KeyServerStats {
     pub(crate) fn new(name: &NodeName) -> Self {
         KeyServerStats {
             name: name.clone(),
-            id: StatId::new(),
+            id: StatId::new_unique(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             online: AtomicIsize::new(0),
             task_total: AtomicU64::new(0),
@@ -304,7 +304,7 @@ impl KeyServerDurationRecorder {
         };
         let s = KeyServerDurationStats {
             name: name.clone(),
-            id: StatId::new(),
+            id: StatId::new_unique(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             online: AtomicIsize::new(0),
             ping_pong: ping_pong_s,

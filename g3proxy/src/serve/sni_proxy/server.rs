@@ -116,7 +116,7 @@ impl SniProxyServer {
 
     fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<SniProxyServer> {
         if let AnyServerConfig::SniProxy(config) = config {
-            let config = Arc::new(*config);
+            let config = Arc::new(config);
             let server_stats = Arc::clone(&self.server_stats);
             let listen_stats = Arc::clone(&self.listen_stats);
 
@@ -173,7 +173,7 @@ impl SniProxyServer {
 
 impl ServerInternal for SniProxyServer {
     fn _clone_config(&self) -> AnyServerConfig {
-        AnyServerConfig::SniProxy(Box::new(self.config.as_ref().clone()))
+        AnyServerConfig::SniProxy(self.config.as_ref().clone())
     }
 
     fn _update_config_in_place(&self, _flags: u64, _config: AnyServerConfig) -> anyhow::Result<()> {

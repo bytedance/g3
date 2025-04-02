@@ -43,7 +43,7 @@ impl UserSiteDurationRecorder {
             config.build_spawned(g3_daemon::runtime::main_handle().cloned());
 
         let stats = UserSiteDurationStats {
-            id: StatId::new(),
+            id: StatId::new_unique(),
             user_group: user_group.clone(),
             user: user.to_string(),
             user_type,

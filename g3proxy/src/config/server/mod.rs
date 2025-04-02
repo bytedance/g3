@@ -147,7 +147,7 @@ pub(crate) enum AnyServerConfig {
     #[cfg(feature = "quic")]
     PlainQuicPort(plain_quic_port::PlainQuicPortConfig),
     IntelliProxy(intelli_proxy::IntelliProxyConfig),
-    TcpStream(Box<tcp_stream::TcpStreamServerConfig>),
+    TcpStream(tcp_stream::TcpStreamServerConfig),
     #[cfg(any(
         target_os = "linux",
         target_os = "freebsd",
@@ -155,11 +155,11 @@ pub(crate) enum AnyServerConfig {
         target_os = "openbsd"
     ))]
     TcpTProxy(tcp_tproxy::TcpTProxyServerConfig),
-    TlsStream(Box<tls_stream::TlsStreamServerConfig>),
-    SniProxy(Box<sni_proxy::SniProxyServerConfig>),
-    SocksProxy(Box<socks_proxy::SocksProxyServerConfig>),
-    HttpProxy(Box<http_proxy::HttpProxyServerConfig>),
-    HttpRProxy(Box<http_rproxy::HttpRProxyServerConfig>),
+    TlsStream(tls_stream::TlsStreamServerConfig),
+    SniProxy(sni_proxy::SniProxyServerConfig),
+    SocksProxy(socks_proxy::SocksProxyServerConfig),
+    HttpProxy(http_proxy::HttpProxyServerConfig),
+    HttpRProxy(http_rproxy::HttpRProxyServerConfig),
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
@@ -242,7 +242,7 @@ fn load_server(
         "tcp_stream" | "tcpstream" => {
             let server = tcp_stream::TcpStreamServerConfig::parse(map, position)
                 .context("failed to load this TcpStream server")?;
-            Ok(AnyServerConfig::TcpStream(Box::new(server)))
+            Ok(AnyServerConfig::TcpStream(server))
         }
         #[cfg(any(
             target_os = "linux",
@@ -258,28 +258,28 @@ fn load_server(
         "tls_stream" | "tlsstream" => {
             let server = tls_stream::TlsStreamServerConfig::parse(map, position)
                 .context("failed to load this TLsStream server")?;
-            Ok(AnyServerConfig::TlsStream(Box::new(server)))
+            Ok(AnyServerConfig::TlsStream(server))
         }
         "sni_proxy" | "sniproxy" => {
             let server = sni_proxy::SniProxyServerConfig::parse(map, position)
                 .context("failed to load this SniProxy server")?;
-            Ok(AnyServerConfig::SniProxy(Box::new(server)))
+            Ok(AnyServerConfig::SniProxy(server))
         }
         "socks_proxy" | "socksproxy" => {
             let server = socks_proxy::SocksProxyServerConfig::parse(map, position)
                 .context("failed to load this SocksProxy server")?;
-            Ok(AnyServerConfig::SocksProxy(Box::new(server)))
+            Ok(AnyServerConfig::SocksProxy(server))
         }
         "http_proxy" | "httpproxy" => {
             let server = http_proxy::HttpProxyServerConfig::parse(map, position)
                 .context("failed to load this HttpProxy server")?;
-            Ok(AnyServerConfig::HttpProxy(Box::new(server)))
+            Ok(AnyServerConfig::HttpProxy(server))
         }
         "http_rproxy" | "httprproxy" | "http_reverse_proxy" | "httpreverseproxy"
         | "http_gateway" | "httpgateway" => {
             let server = http_rproxy::HttpRProxyServerConfig::parse(map, position)
                 .context("failed to load this HttpRProxy server")?;
-            Ok(AnyServerConfig::HttpRProxy(Box::new(server)))
+            Ok(AnyServerConfig::HttpRProxy(server))
         }
         _ => Err(anyhow!("unsupported server type {}", server_type)),
     }

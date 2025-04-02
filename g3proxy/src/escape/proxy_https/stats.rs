@@ -42,7 +42,7 @@ impl ProxyHttpsEscaperStats {
     pub(crate) fn new(name: &NodeName) -> Self {
         ProxyHttpsEscaperStats {
             name: name.clone(),
-            id: StatId::new(),
+            id: StatId::new_unique(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             interface: EscaperInterfaceStats::default(),
             tcp: EscaperTcpStats::default(),

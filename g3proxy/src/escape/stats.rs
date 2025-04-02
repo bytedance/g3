@@ -296,7 +296,7 @@ impl RouteEscaperStats {
     pub(super) fn new(name: &NodeName) -> Self {
         RouteEscaperStats {
             name: name.clone(),
-            id: StatId::new(),
+            id: StatId::new_unique(),
             request_passed: AtomicU64::new(0),
             request_failed: AtomicU64::new(0),
         }

@@ -50,7 +50,7 @@ impl SocksProxyServerStats {
     pub(crate) fn new(name: &NodeName) -> Self {
         SocksProxyServerStats {
             name: name.clone(),
-            id: StatId::new(),
+            id: StatId::new_unique(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             online: AtomicIsize::new(0),
             conn_total: AtomicU64::new(0),

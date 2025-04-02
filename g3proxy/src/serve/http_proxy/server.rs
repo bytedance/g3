@@ -169,7 +169,7 @@ impl HttpProxyServer {
 
     fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<HttpProxyServer> {
         if let AnyServerConfig::HttpProxy(config) = config {
-            let config = Arc::new(*config);
+            let config = Arc::new(config);
             let server_stats = Arc::clone(&self.server_stats);
             let listen_stats = Arc::clone(&self.listen_stats);
 
@@ -292,7 +292,7 @@ impl HttpProxyServer {
 
 impl ServerInternal for HttpProxyServer {
     fn _clone_config(&self) -> AnyServerConfig {
-        AnyServerConfig::HttpProxy(Box::new(self.config.as_ref().clone()))
+        AnyServerConfig::HttpProxy(self.config.as_ref().clone())
     }
 
     fn _update_config_in_place(&self, _flags: u64, _config: AnyServerConfig) -> anyhow::Result<()> {

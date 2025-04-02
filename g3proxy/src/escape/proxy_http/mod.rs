@@ -114,7 +114,7 @@ impl ProxyHttpEscaper {
         stats: Arc<ProxyHttpEscaperStats>,
     ) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::ProxyHttp(config) = config {
-            ProxyHttpEscaper::new_obj(*config, stats)
+            ProxyHttpEscaper::new_obj(config, stats)
         } else {
             Err(anyhow!("invalid escaper config type"))
         }
@@ -251,7 +251,7 @@ impl EscaperInternal for ProxyHttpEscaper {
 
     fn _clone_config(&self) -> AnyEscaperConfig {
         let config = &*self.config;
-        AnyEscaperConfig::ProxyHttp(Box::new(config.clone()))
+        AnyEscaperConfig::ProxyHttp(config.clone())
     }
 
     fn _update_config_in_place(

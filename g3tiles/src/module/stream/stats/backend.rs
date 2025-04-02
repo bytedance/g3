@@ -38,7 +38,7 @@ impl StreamBackendStats {
     pub(crate) fn new(name: &NodeName) -> Self {
         StreamBackendStats {
             name: name.clone(),
-            id: StatId::new(),
+            id: StatId::new_unique(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             conn_attempt: AtomicU64::new(0),
             conn_established: AtomicU64::new(0),
@@ -122,7 +122,7 @@ impl StreamBackendDurationRecorder {
         let r = StreamBackendDurationRecorder { connect: connect_r };
         let s = StreamBackendDurationStats {
             name: name.clone(),
-            id: StatId::new(),
+            id: StatId::new_unique(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             connect: connect_s,
         };

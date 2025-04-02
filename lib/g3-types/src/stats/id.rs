@@ -25,8 +25,8 @@ pub struct StatId {
 }
 
 impl StatId {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
+    /// Create a StatId that is unique in current process
+    pub fn new_unique() -> Self {
         StatId {
             pid: std::process::id(),
             aid: ATOMIC_STAT_ID.fetch_add(1, Ordering::Relaxed),

@@ -103,13 +103,13 @@ pub(crate) struct GeneralEscaperConfig {
 #[def_fn(diff_action, &Self, EscaperConfigDiffAction)]
 pub(crate) enum AnyEscaperConfig {
     ComplyAudit(comply_audit::ComplyAuditEscaperConfig),
-    DirectFixed(Box<direct_fixed::DirectFixedEscaperConfig>),
-    DirectFloat(Box<direct_float::DirectFloatEscaperConfig>),
+    DirectFixed(direct_fixed::DirectFixedEscaperConfig),
+    DirectFloat(direct_float::DirectFloatEscaperConfig),
     DivertTcp(divert_tcp::DivertTcpEscaperConfig),
     DummyDeny(dummy_deny::DummyDenyEscaperConfig),
     ProxyFloat(proxy_float::ProxyFloatEscaperConfig),
-    ProxyHttp(Box<proxy_http::ProxyHttpEscaperConfig>),
-    ProxyHttps(Box<proxy_https::ProxyHttpsEscaperConfig>),
+    ProxyHttp(proxy_http::ProxyHttpEscaperConfig),
+    ProxyHttps(proxy_https::ProxyHttpsEscaperConfig),
     ProxySocks5(proxy_socks5::ProxySocks5EscaperConfig),
     ProxySocks5s(proxy_socks5s::ProxySocks5sEscaperConfig),
     RouteFailover(route_failover::RouteFailoverEscaperConfig),
@@ -174,11 +174,11 @@ fn load_escaper(
         }
         "direct_fixed" | "directfixed" => {
             let config = direct_fixed::DirectFixedEscaperConfig::parse(map, position)?;
-            Ok(AnyEscaperConfig::DirectFixed(Box::new(config)))
+            Ok(AnyEscaperConfig::DirectFixed(config))
         }
         "direct_float" | "directfloat" | "direct_dynamic" | "directdynamic" => {
             let config = direct_float::DirectFloatEscaperConfig::parse(map, position)?;
-            Ok(AnyEscaperConfig::DirectFloat(Box::new(config)))
+            Ok(AnyEscaperConfig::DirectFloat(config))
         }
         "divert_tcp" | "diverttcp" => {
             let config = divert_tcp::DivertTcpEscaperConfig::parse(map, position)?;
@@ -190,11 +190,11 @@ fn load_escaper(
         }
         "proxy_http" | "proxyhttp" => {
             let config = proxy_http::ProxyHttpEscaperConfig::parse(map, position)?;
-            Ok(AnyEscaperConfig::ProxyHttp(Box::new(config)))
+            Ok(AnyEscaperConfig::ProxyHttp(config))
         }
         "proxy_https" | "proxyhttps" => {
             let config = proxy_https::ProxyHttpsEscaperConfig::parse(map, position)?;
-            Ok(AnyEscaperConfig::ProxyHttps(Box::new(config)))
+            Ok(AnyEscaperConfig::ProxyHttps(config))
         }
         "proxy_socks5" | "proxysocks5" => {
             let config = proxy_socks5::ProxySocks5EscaperConfig::parse(map, position)?;

@@ -162,7 +162,7 @@ impl DirectFloatEscaper {
         bind_v6: Option<Arc<BindSet>>,
     ) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::DirectFloat(config) = config {
-            DirectFloatEscaper::new_obj(*config, stats, bind_v4, bind_v6).await
+            DirectFloatEscaper::new_obj(config, stats, bind_v4, bind_v6).await
         } else {
             Err(anyhow!("invalid escaper config type"))
         }
@@ -459,7 +459,7 @@ impl EscaperInternal for DirectFloatEscaper {
 
     fn _clone_config(&self) -> AnyEscaperConfig {
         let config = &*self.config;
-        AnyEscaperConfig::DirectFloat(Box::new(config.clone()))
+        AnyEscaperConfig::DirectFloat(config.clone())
     }
 
     fn _update_config_in_place(
