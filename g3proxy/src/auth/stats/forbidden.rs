@@ -68,7 +68,7 @@ impl UserForbiddenStats {
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Self {
         UserForbiddenStats {
-            id: StatId::new(),
+            id: StatId::new_unique(),
             user_group: user_group.clone(),
             user,
             user_type,

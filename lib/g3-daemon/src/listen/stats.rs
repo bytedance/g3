@@ -45,7 +45,7 @@ impl ListenStats {
     pub fn new(name: &NodeName) -> Self {
         ListenStats {
             name: name.clone(),
-            id: StatId::new(),
+            id: StatId::new_unique(),
             runtime_count: AtomicIsize::new(0),
             accepted: AtomicU64::new(0),
             dropped: AtomicU64::new(0),

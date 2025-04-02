@@ -38,7 +38,7 @@ struct TokioStatsValue {
 
 pub fn add_tokio_stats(stats: RuntimeMetrics, id: String) {
     let value = TokioStatsValue {
-        stat_id: StatId::new(),
+        stat_id: StatId::new_unique(),
         runtime_id: id,
         stats,
     };

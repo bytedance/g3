@@ -300,7 +300,7 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
         #[cfg(feature = "quic")]
         AnyServerConfig::PlainQuicPort(c) => PlainQuicPort::prepare_initial(c)?,
         AnyServerConfig::IntelliProxy(c) => IntelliProxy::prepare_initial(c)?,
-        AnyServerConfig::TcpStream(c) => TcpStreamServer::prepare_initial(*c)?,
+        AnyServerConfig::TcpStream(c) => TcpStreamServer::prepare_initial(c)?,
         #[cfg(any(
             target_os = "linux",
             target_os = "freebsd",
@@ -308,11 +308,11 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
             target_os = "openbsd"
         ))]
         AnyServerConfig::TcpTProxy(c) => TcpTProxyServer::prepare_initial(c)?,
-        AnyServerConfig::TlsStream(c) => TlsStreamServer::prepare_initial(*c)?,
-        AnyServerConfig::SniProxy(c) => SniProxyServer::prepare_initial(*c)?,
-        AnyServerConfig::SocksProxy(c) => SocksProxyServer::prepare_initial(*c)?,
-        AnyServerConfig::HttpProxy(c) => HttpProxyServer::prepare_initial(*c)?,
-        AnyServerConfig::HttpRProxy(c) => HttpRProxyServer::prepare_initial(*c)?,
+        AnyServerConfig::TlsStream(c) => TlsStreamServer::prepare_initial(c)?,
+        AnyServerConfig::SniProxy(c) => SniProxyServer::prepare_initial(c)?,
+        AnyServerConfig::SocksProxy(c) => SocksProxyServer::prepare_initial(c)?,
+        AnyServerConfig::HttpProxy(c) => HttpProxyServer::prepare_initial(c)?,
+        AnyServerConfig::HttpRProxy(c) => HttpRProxyServer::prepare_initial(c)?,
     };
     registry::add(name.clone(), server)?;
     update_dependency_to_server_unlocked(&name, "spawned");

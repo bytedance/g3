@@ -46,7 +46,7 @@ impl KeylessBackendStats {
     pub(crate) fn new(name: &NodeName) -> Self {
         KeylessBackendStats {
             name: name.clone(),
-            id: StatId::new(),
+            id: StatId::new_unique(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             conn_attempt: AtomicU64::new(0),
             conn_established: AtomicU64::new(0),
@@ -224,7 +224,7 @@ impl KeylessUpstreamDurationRecorder {
         };
         let s = KeylessUpstreamDurationStats {
             name: name.clone(),
-            id: StatId::new(),
+            id: StatId::new_unique(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             connect: connect_s,
             wait: wait_s,

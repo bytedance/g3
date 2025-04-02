@@ -117,7 +117,7 @@ impl DirectFixedEscaper {
         stats: Arc<DirectFixedEscaperStats>,
     ) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::DirectFixed(config) = config {
-            DirectFixedEscaper::new_obj(*config, stats)
+            DirectFixedEscaper::new_obj(config, stats)
         } else {
             Err(anyhow!("invalid escaper config type"))
         }
@@ -409,7 +409,7 @@ impl EscaperInternal for DirectFixedEscaper {
 
     fn _clone_config(&self) -> AnyEscaperConfig {
         let config = &*self.config;
-        AnyEscaperConfig::DirectFixed(Box::new(config.clone()))
+        AnyEscaperConfig::DirectFixed(config.clone())
     }
 
     fn _update_config_in_place(

@@ -45,7 +45,7 @@ impl ProxySocks5sEscaperStats {
     pub(crate) fn new(name: &NodeName) -> Self {
         ProxySocks5sEscaperStats {
             name: name.clone(),
-            id: StatId::new(),
+            id: StatId::new_unique(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             interface: EscaperInterfaceStats::default(),
             udp: EscaperUdpStats::default(),

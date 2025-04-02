@@ -50,7 +50,7 @@ impl HttpRProxyServerStats {
     pub(super) fn new(name: &NodeName) -> Self {
         HttpRProxyServerStats {
             name: name.clone(),
-            id: StatId::new(),
+            id: StatId::new_unique(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             online: AtomicIsize::new(0),
             conn_total: AtomicU64::new(0),

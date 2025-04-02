@@ -61,7 +61,7 @@ impl UserRequestStats {
         server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
     ) -> Self {
         UserRequestStats {
-            id: StatId::new(),
+            id: StatId::new_unique(),
             user_group: user_group.clone(),
             user,
             user_type,

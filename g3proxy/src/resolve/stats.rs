@@ -28,7 +28,7 @@ pub(crate) struct ResolverStats {
 impl ResolverStats {
     pub(crate) fn new(name: &NodeName, inner: Arc<g3_resolver::ResolverStats>) -> Self {
         ResolverStats {
-            id: StatId::new(),
+            id: StatId::new_unique(),
             name: name.clone(),
             inner,
         }
