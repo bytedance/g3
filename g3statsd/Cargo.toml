@@ -11,6 +11,9 @@ arc-swap.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
 foldhash.workspace = true
+memchr.workspace = true
+itoa.workspace = true
+ryu.workspace = true
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 yaml-rust.workspace = true
 tokio = { workspace = true, features = ["time", "signal"] }

@@ -25,7 +25,7 @@ use super::{ParseError, chars_allowed_in_opentsdb};
 #[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
 pub struct MetricTagName(SmolStr);
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub struct MetricTagValue(SmolStr);
 
 pub type StaticMetricsTags = BTreeMap<MetricTagName, MetricTagValue>;

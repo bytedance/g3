@@ -24,6 +24,7 @@ use g3_types::metrics::NodeName;
 use super::{ArcCollector, Collector, CollectorInternal};
 use crate::config::collector::dummy::DummyCollectorConfig;
 use crate::config::collector::{AnyCollectorConfig, CollectorConfig};
+use crate::types::{MetricName, MetricTagMap, MetricValue};
 
 pub(crate) struct DummyCollector {
     config: DummyCollectorConfig,
@@ -112,4 +113,6 @@ impl BaseServer for DummyCollector {
     }
 }
 
-impl Collector for DummyCollector {}
+impl Collector for DummyCollector {
+    fn add_metric(&self, _name: MetricName, _tag: MetricTagMap, _value: MetricValue) {}
+}

@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-pub mod collect;
-pub mod config;
-pub mod control;
-pub mod export;
-pub mod import;
-pub mod opts;
-pub mod signal;
+mod name;
+pub(crate) use name::MetricName;
 
-mod build;
-mod types;
+mod tag;
+pub(crate) use tag::MetricTagMap;
+
+mod value;
+pub(crate) use value::MetricValue;
