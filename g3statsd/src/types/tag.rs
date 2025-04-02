@@ -14,13 +14,17 @@
  * limitations under the License.
  */
 
-pub mod collect;
-pub mod config;
-pub mod control;
-pub mod export;
-pub mod import;
-pub mod opts;
-pub mod signal;
+use std::collections::BTreeMap;
 
-mod build;
-mod types;
+use g3_types::metrics::{MetricTagName, MetricTagValue};
+
+#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct MetricTagMap {
+    inner: BTreeMap<MetricTagName, MetricTagValue>,
+}
+
+impl MetricTagMap {
+    pub(crate) fn delete(&mut self, name: &MetricTagName) {
+        self.inner.remove(name);
+    }
+}

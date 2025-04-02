@@ -1991,7 +1991,10 @@ dependencies = [
  "g3-types",
  "g3-yaml",
  "g3statsd-proto",
+ "itoa",
  "log",
+ "memchr",
+ "ryu",
  "tokio",
  "yaml-rust2",
 ]

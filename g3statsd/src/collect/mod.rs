@@ -20,6 +20,7 @@ use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
 use crate::config::collector::AnyCollectorConfig;
+use crate::types::{MetricName, MetricTagMap, MetricValue};
 
 mod registry;
 pub(crate) use registry::{get_names, get_or_insert_default};
@@ -47,6 +48,8 @@ pub(crate) trait CollectorInternal {
     fn _abort_runtime(&self);
 }
 
-pub(crate) trait Collector: CollectorInternal + BaseServer {}
+pub(crate) trait Collector: CollectorInternal + BaseServer {
+    fn add_metric(&self, name: MetricName, tag: MetricTagMap, value: MetricValue);
+}
 
 pub(crate) type ArcCollector = Arc<dyn Collector + Send + Sync>;

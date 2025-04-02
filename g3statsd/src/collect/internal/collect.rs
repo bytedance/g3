@@ -26,6 +26,7 @@ use super::InternalEmitter;
 use crate::collect::{ArcCollector, Collector, CollectorInternal};
 use crate::config::collector::internal::InternalCollectorConfig;
 use crate::config::collector::{AnyCollectorConfig, CollectorConfig};
+use crate::types::{MetricName, MetricTagMap, MetricValue};
 
 pub(crate) struct InternalCollector {
     config: Arc<InternalCollectorConfig>,
@@ -128,4 +129,6 @@ impl BaseServer for InternalCollector {
     }
 }
 
-impl Collector for InternalCollector {}
+impl Collector for InternalCollector {
+    fn add_metric(&self, _name: MetricName, _tag: MetricTagMap, _value: MetricValue) {}
+}
