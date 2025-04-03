@@ -83,7 +83,7 @@ impl PlainQuicPortConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "listen" => {
@@ -121,7 +121,7 @@ impl PlainQuicPortConfig {
                 Ok(())
             }
             "server" => {
-                self.server = g3_yaml::value::as_metrics_name(v)?;
+                self.server = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

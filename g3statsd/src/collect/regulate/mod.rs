@@ -22,32 +22,42 @@ use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
 use super::{ArcCollector, Collector, CollectorInternal};
-use crate::config::collector::dummy::DummyCollectorConfig;
+use crate::config::collector::regulate::RegulateCollectorConfig;
 use crate::config::collector::{AnyCollectorConfig, CollectorConfig};
 use crate::types::{MetricName, MetricTagMap, MetricValue};
 
-pub(crate) struct DummyCollector {
-    config: DummyCollectorConfig,
+pub(crate) struct RegulateCollector {
+    config: RegulateCollectorConfig,
+    next: Option<ArcCollector>,
+
+    reload_version: usize,
 }
 
-impl DummyCollector {
-    fn new(config: DummyCollectorConfig) -> Self {
-        DummyCollector { config }
+impl RegulateCollector {
+    fn new(config: RegulateCollectorConfig, reload_version: usize) -> Self {
+        let next = config
+            .next
+            .as_ref()
+            .map(|name| crate::collect::get_or_insert_default(name));
+
+        RegulateCollector {
+            config,
+            next,
+            reload_version,
+        }
     }
 
-    pub(crate) fn prepare_initial(config: DummyCollectorConfig) -> anyhow::Result<ArcCollector> {
-        let server = DummyCollector::new(config);
+    pub(crate) fn prepare_initial(config: RegulateCollectorConfig) -> anyhow::Result<ArcCollector> {
+        let server = RegulateCollector::new(config, 0);
         Ok(Arc::new(server))
     }
 
-    pub(crate) fn prepare_default(name: &NodeName) -> ArcCollector {
-        let config = DummyCollectorConfig::with_name(name, None);
-        Arc::new(DummyCollector::new(config))
-    }
-
-    fn prepare_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<DummyCollector> {
-        if let AnyCollectorConfig::Dummy(config) = config {
-            Ok(DummyCollector::new(config))
+    fn prepare_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollector> {
+        if let AnyCollectorConfig::Regulate(config) = config {
+            Ok(Arc::new(RegulateCollector::new(
+                config,
+                self.reload_version + 1,
+            )))
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
@@ -58,13 +68,17 @@ impl DummyCollector {
     }
 }
 
-impl CollectorInternal for DummyCollector {
+impl CollectorInternal for RegulateCollector {
     fn _clone_config(&self) -> AnyCollectorConfig {
-        AnyCollectorConfig::Dummy(self.config.clone())
+        AnyCollectorConfig::Regulate(self.config.clone())
     }
 
-    fn _depend_on_collector(&self, _name: &NodeName) -> bool {
-        false
+    fn _depend_on_collector(&self, name: &NodeName) -> bool {
+        self.config
+            .next
+            .as_ref()
+            .map(|n| n.eq(name))
+            .unwrap_or(false)
     }
 
     fn _reload_config_notify_runtime(&self) {}
@@ -75,18 +89,14 @@ impl CollectorInternal for DummyCollector {
         &self,
         config: AnyCollectorConfig,
     ) -> anyhow::Result<ArcCollector> {
-        Err(anyhow!(
-            "this {} collector doesn't support reload with old notifier",
-            config.collector_type()
-        ))
+        self.prepare_reload(config)
     }
 
     fn _reload_with_new_notifier(
         &self,
         config: AnyCollectorConfig,
     ) -> anyhow::Result<ArcCollector> {
-        let server = self.prepare_reload(config)?;
-        Ok(Arc::new(server))
+        self.prepare_reload(config)
     }
 
     fn _start_runtime(&self, _collector: &ArcCollector) -> anyhow::Result<()> {
@@ -96,7 +106,7 @@ impl CollectorInternal for DummyCollector {
     fn _abort_runtime(&self) {}
 }
 
-impl BaseServer for DummyCollector {
+impl BaseServer for RegulateCollector {
     #[inline]
     fn name(&self) -> &NodeName {
         self.config.name()
@@ -109,10 +119,20 @@ impl BaseServer for DummyCollector {
 
     #[inline]
     fn version(&self) -> usize {
-        0
+        self.reload_version
     }
 }
 
-impl Collector for DummyCollector {
-    fn add_metric(&self, _name: MetricName, _tag_map: MetricTagMap, _value: MetricValue) {}
+impl Collector for RegulateCollector {
+    fn add_metric(&self, name: MetricName, mut tag_map: MetricTagMap, value: MetricValue) {
+        for tag_name in &self.config.delete_tags {
+            tag_map.delete(tag_name);
+        }
+
+        // TODO send to exporter
+
+        if let Some(next) = &self.next {
+            next.add_metric(name, tag_map, value);
+        }
+    }
 }

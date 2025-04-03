@@ -63,15 +63,15 @@ impl RouteFailoverEscaperConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "primary" | "primary_next" => {
-                self.primary_node = g3_yaml::value::as_metrics_name(v)?;
+                self.primary_node = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "standby" | "standby_next" => {
-                self.standby_node = g3_yaml::value::as_metrics_name(v)?;
+                self.standby_node = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "fallback_delay" | "delay" | "fallback_timeout" | "timeout" => {

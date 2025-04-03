@@ -84,7 +84,7 @@ impl RouteQueryEscaperConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "query_pass_client_ip" => {
@@ -94,7 +94,7 @@ impl RouteQueryEscaperConfig {
             "query_allowed_next" => {
                 if let Yaml::Array(seq) = v {
                     for (i, v) in seq.iter().enumerate() {
-                        let name = g3_yaml::value::as_metrics_name(v)
+                        let name = g3_yaml::value::as_metric_node_name(v)
                             .context(format!("invalid metrics name value for {k}#{i}"))?;
                         // duplicate values should report an error
                         if let Some(old) = self.query_allowed_nodes.replace(name) {
@@ -107,7 +107,7 @@ impl RouteQueryEscaperConfig {
                 }
             }
             "fallback_node" => {
-                self.fallback_node = g3_yaml::value::as_metrics_name(v)?;
+                self.fallback_node = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "cache_request_batch_count" => {

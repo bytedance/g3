@@ -130,5 +130,5 @@ impl BaseServer for InternalCollector {
 }
 
 impl Collector for InternalCollector {
-    fn add_metric(&self, _name: MetricName, _tag: MetricTagMap, _value: MetricValue) {}
+    fn add_metric(&self, _name: MetricName, _tag_map: MetricTagMap, _value: MetricValue) {}
 }

@@ -71,7 +71,7 @@ impl LocalKeyStoreConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_STORE_TYPE => Ok(()),
             "name" => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "dir" | "directory" | "dir_path" | "directory_path" => {

@@ -121,7 +121,7 @@ impl DirectFixedEscaperConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "shared_logger" => {
@@ -157,7 +157,7 @@ impl DirectFixedEscaperConfig {
                 Ok(())
             }
             "resolver" => {
-                self.resolver = g3_yaml::value::as_metrics_name(v)?;
+                self.resolver = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "resolve_strategy" => {

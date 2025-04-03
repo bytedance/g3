@@ -90,7 +90,7 @@ impl UserGroupConfig {
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
             "name" => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "static_users" => {

@@ -254,7 +254,7 @@ impl UserConfig {
             "egress_path_id_map" => {
                 let id_map = g3_yaml::value::as_hashmap(
                     v,
-                    g3_yaml::value::as_metrics_name,
+                    g3_yaml::value::as_metric_node_name,
                     g3_yaml::value::as_string,
                 )
                 .context(format!("invalid egress path id map value for key {k}"))?;
@@ -264,11 +264,13 @@ impl UserConfig {
                 Ok(())
             }
             "egress_path_value_map" => {
-                let id_map = g3_yaml::value::as_hashmap(v, g3_yaml::value::as_metrics_name, |v| {
-                    let v = g3_yaml::value::as_string(v)?;
-                    serde_json::Value::from_str(&v).map_err(|e| anyhow!("invalid json string: {e}"))
-                })
-                .context(format!("invalid egress path id map value for key {k}"))?;
+                let id_map =
+                    g3_yaml::value::as_hashmap(v, g3_yaml::value::as_metric_node_name, |v| {
+                        let v = g3_yaml::value::as_string(v)?;
+                        serde_json::Value::from_str(&v)
+                            .map_err(|e| anyhow!("invalid json string: {e}"))
+                    })
+                    .context(format!("invalid egress path id map value for key {k}"))?;
                 self.egress_path_selection = Some(EgressPathSelection::MatchValue(
                     id_map.into_iter().collect::<AHashMap<_, _>>(),
                 ));

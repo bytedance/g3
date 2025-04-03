@@ -61,14 +61,15 @@ impl RouteSelectEscaperConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "next_nodes" => {
                 self.next_nodes =
-                    g3_yaml::value::as_list(v, g3_yaml::value::as_weighted_metrics_name).context(
-                        format!("invalid weighted metrics name list value for key {k}"),
-                    )?;
+                    g3_yaml::value::as_list(v, g3_yaml::value::as_weighted_metric_node_name)
+                        .context(format!(
+                            "invalid weighted metrics name list value for key {k}"
+                        ))?;
                 Ok(())
             }
             "next_pick_policy" => {

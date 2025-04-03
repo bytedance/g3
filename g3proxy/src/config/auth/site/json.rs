@@ -36,7 +36,7 @@ impl UserSiteConfig {
     fn set_json(&mut self, k: &str, v: &Value) -> anyhow::Result<()> {
         match g3_json::key::normalize(k).as_str() {
             "id" | "name" => {
-                self.id = g3_json::value::as_metrics_name(v)
+                self.id = g3_json::value::as_metric_node_name(v)
                     .context(format!("invalid metrics name value for key {k}"))?;
                 Ok(())
             }

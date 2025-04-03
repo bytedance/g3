@@ -90,7 +90,7 @@ impl RouteUpstreamEscaperConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "exact_match" | "exact_rules" => {
@@ -106,7 +106,7 @@ impl RouteUpstreamEscaperConfig {
                 RouteUpstreamEscaperConfig::foreach_rule(k, v, |map| self.add_child_match(map))
             }
             "default_next" => {
-                self.default_next = g3_yaml::value::as_metrics_name(v)?;
+                self.default_next = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
@@ -149,7 +149,7 @@ impl RouteUpstreamEscaperConfig {
         let mut all_domain = BTreeSet::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
-                escaper = g3_yaml::value::as_metrics_name(v)?;
+                escaper = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "hosts" | "host" => {
@@ -194,7 +194,7 @@ impl RouteUpstreamEscaperConfig {
         let mut all_subnets = BTreeSet::<IpNetwork>::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
-                escaper = g3_yaml::value::as_metrics_name(v)?;
+                escaper = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "subnets" | "subnet" => {
@@ -230,7 +230,7 @@ impl RouteUpstreamEscaperConfig {
         let mut all_domain = BTreeSet::<String>::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
-                escaper = g3_yaml::value::as_metrics_name(v)?;
+                escaper = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "domains" | "domain" => {
@@ -263,7 +263,7 @@ impl RouteUpstreamEscaperConfig {
         let mut all_domain = BTreeSet::<String>::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
-                escaper = g3_yaml::value::as_metrics_name(v)?;
+                escaper = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "suffixes" | "suffix" => {

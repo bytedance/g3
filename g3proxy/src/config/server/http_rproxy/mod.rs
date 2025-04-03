@@ -157,15 +157,15 @@ impl HttpRProxyServerConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "escaper" => {
-                self.escaper = g3_yaml::value::as_metrics_name(v)?;
+                self.escaper = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "user_group" => {
-                self.user_group = g3_yaml::value::as_metrics_name(v)?;
+                self.user_group = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "shared_logger" => {
