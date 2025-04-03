@@ -32,7 +32,7 @@ pub fn new_std_socket_to(
 ) -> io::Result<UdpSocket> {
     let peer_family = AddressFamily::from(&peer_addr);
     let socket = new_udp_socket(peer_family, buf_conf)?;
-    bind.bind_for_connect(&socket, peer_family)?;
+    bind.bind_udp_for_connect(&socket, peer_family)?;
     RawSocket::from(&socket).set_udp_misc_opts(misc_opts)?;
     Ok(UdpSocket::from(socket))
 }
