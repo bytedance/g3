@@ -62,7 +62,7 @@ impl BindAddr {
         }
     }
 
-    pub(crate) fn bind_for_connect(
+    pub(crate) fn bind_tcp_for_connect(
         &self,
         socket: &Socket,
         peer_family: AddressFamily,
@@ -79,7 +79,40 @@ impl BindAddr {
                 #[cfg(any(target_os = "linux", target_os = "android"))]
                 set_bind_address_no_port(socket, true)?;
                 #[cfg(windows)]
-                let _ = set_reuse_unicastport(socket, true);
+                set_reuse_unicastport(socket, true)?;
+                let addr: SockAddr = SocketAddr::new(*ip, 0).into();
+                socket.bind(&addr)
+            }
+            #[cfg(any(target_os = "linux", target_os = "android"))]
+            BindAddr::Interface(iface) => {
+                set_bind_address_no_port(socket, true)?;
+                socket.bind_device(Some(iface.c_bytes()))
+            }
+            #[cfg(any(target_os = "macos", target_os = "illumos", target_os = "solaris"))]
+            BindAddr::Interface(iface) => match peer_family {
+                AddressFamily::Ipv4 => socket.bind_device_by_index_v4(Some(iface.id())),
+                AddressFamily::Ipv6 => socket.bind_device_by_index_v6(Some(iface.id())),
+            },
+        }
+    }
+
+    pub(crate) fn bind_udp_for_connect(
+        &self,
+        socket: &Socket,
+        peer_family: AddressFamily,
+    ) -> io::Result<()> {
+        match self {
+            BindAddr::None => Ok(()),
+            BindAddr::Ip(ip) => {
+                if AddressFamily::from(ip) != peer_family {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "bind_ip should be of the same family with peer ip",
+                    ));
+                }
+                #[cfg(any(target_os = "linux", target_os = "android"))]
+                set_bind_address_no_port(socket, true)?;
+                // SO_REUSE_UNICASTPORT is not available for UDP socket on Windows
                 let addr: SockAddr = SocketAddr::new(*ip, 0).into();
                 socket.bind(&addr)
             }

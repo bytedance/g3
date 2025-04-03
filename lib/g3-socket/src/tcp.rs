@@ -56,7 +56,7 @@ pub fn new_std_socket_to(
 ) -> io::Result<std::net::TcpStream> {
     let peer_family = AddressFamily::from(&peer_ip);
     let socket = new_tcp_socket(peer_family)?;
-    bind.bind_for_connect(&socket, peer_family)?;
+    bind.bind_tcp_for_connect(&socket, peer_family)?;
     #[cfg(windows)]
     if keepalive.is_enabled() {
         // set keepalive_idle
@@ -181,6 +181,33 @@ mod tests {
         let connect_sock = new_socket_to(
             listen_addr.ip(),
             &BindAddr::None,
+            &TcpKeepAliveConfig::default(),
+            &TcpMiscSockOpts::default(),
+            true,
+        )
+        .unwrap();
+        let connected_stream = connect_sock.connect(listen_addr).await.unwrap();
+        let connect_addr = connected_stream.local_addr().unwrap();
+        let accepted_addr = accept_task.await.unwrap();
+        assert_eq!(connect_addr, accepted_addr);
+    }
+
+    #[tokio::test]
+    async fn bind_connect() {
+        let listen_config =
+            TcpListenConfig::new(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0));
+        let listen_socket = new_listen_to(&listen_config).unwrap();
+        let listen_addr = listen_socket.local_addr().unwrap();
+
+        let accept_task = tokio::spawn(async move {
+            let (_stream, accepted_addr) = listen_socket.accept().await.unwrap();
+            accepted_addr
+        });
+
+        let bind = BindAddr::Ip(IpAddr::V4(Ipv4Addr::LOCALHOST));
+        let connect_sock = new_socket_to(
+            listen_addr.ip(),
+            &bind,
             &TcpKeepAliveConfig::default(),
             &TcpMiscSockOpts::default(),
             true,
