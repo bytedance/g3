@@ -61,7 +61,7 @@ impl DummyCollectorConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_COLLECTOR_TYPE => Ok(()),
             super::CONFIG_KEY_COLLECTOR_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

@@ -14,31 +14,33 @@
  * limitations under the License.
  */
 
-use std::time::Duration;
+use std::collections::BTreeSet;
 
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::NodeName;
+use g3_types::metrics::{MetricTagName, NodeName};
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyCollectorConfig, CollectorConfig, CollectorConfigDiffAction};
 
-const COLLECTOR_CONFIG_TYPE: &str = "Internal";
+const COLLECTOR_CONFIG_TYPE: &str = "Regulate";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct InternalCollectorConfig {
+pub(crate) struct RegulateCollectorConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) emit_interval: Duration,
+    pub(crate) delete_tags: Vec<MetricTagName>,
+    pub(crate) next: Option<NodeName>,
 }
 
-impl InternalCollectorConfig {
+impl RegulateCollectorConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
-        InternalCollectorConfig {
+        RegulateCollectorConfig {
             name: NodeName::default(),
             position,
-            emit_interval: Duration::from_secs(1),
+            delete_tags: Vec::new(),
+            next: None,
         }
     }
 
@@ -46,7 +48,7 @@ impl InternalCollectorConfig {
         map: &yaml::Hash,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
-        let mut collector = InternalCollectorConfig::new(position);
+        let mut collector = RegulateCollectorConfig::new(position);
 
         g3_yaml::foreach_kv(map, |k, v| collector.set(k, v))?;
 
@@ -61,9 +63,10 @@ impl InternalCollectorConfig {
                 self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
-            "emit_interval" => {
-                self.emit_interval = g3_yaml::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
+            "delete_tags" => {
+                self.delete_tags =
+                    g3_yaml::value::as_list(v, g3_yaml::value::as_metric_tag_name)
+                        .context(format!("invalid list of metric tag names for key {k}"))?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
@@ -78,7 +81,7 @@ impl InternalCollectorConfig {
     }
 }
 
-impl CollectorConfig for InternalCollectorConfig {
+impl CollectorConfig for RegulateCollectorConfig {
     fn name(&self) -> &NodeName {
         &self.name
     }
@@ -92,10 +95,21 @@ impl CollectorConfig for InternalCollectorConfig {
     }
 
     fn diff_action(&self, new: &AnyCollectorConfig) -> CollectorConfigDiffAction {
-        let AnyCollectorConfig::Internal(_new) = new else {
+        let AnyCollectorConfig::Regulate(new) = new else {
             return CollectorConfigDiffAction::SpawnNew;
         };
 
+        if self.eq(new) {
+            return CollectorConfigDiffAction::NoAction;
+        }
+
         CollectorConfigDiffAction::ReloadNoRespawn
+    }
+
+    fn dependent_collector(&self) -> Option<BTreeSet<NodeName>> {
+        let next = self.next.as_ref()?;
+        let mut set = BTreeSet::new();
+        set.insert(next.clone());
+        Some(set)
     }
 }

@@ -31,6 +31,7 @@ pub(crate) use registry::clear;
 
 pub(crate) mod dummy;
 pub(crate) mod internal;
+pub(crate) mod regulate;
 
 const CONFIG_KEY_COLLECTOR_TYPE: &str = "type";
 const CONFIG_KEY_COLLECTOR_NAME: &str = "name";
@@ -64,6 +65,7 @@ pub(crate) trait CollectorConfig {
 pub(crate) enum AnyCollectorConfig {
     Dummy(dummy::DummyCollectorConfig),
     Internal(internal::InternalCollectorConfig),
+    Regulate(regulate::RegulateCollectorConfig),
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
@@ -120,6 +122,11 @@ fn load_collector(
             let collector = internal::InternalCollectorConfig::parse(map, position)
                 .context("failed to load this Internal collector")?;
             Ok(AnyCollectorConfig::Internal(collector))
+        }
+        "regulate" => {
+            let collector = regulate::RegulateCollectorConfig::parse(map, position)
+                .context("failed to load this Regulate collector")?;
+            Ok(AnyCollectorConfig::Regulate(collector))
         }
         _ => Err(anyhow!("unsupported collector type {}", collector_type)),
     }

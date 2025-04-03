@@ -141,13 +141,13 @@ fn add_alpn_matched_backend(obj: &mut AlpnMatch<NodeName>, value: &Yaml) -> anyh
                 Ok(())
             }
             "backend" => {
-                name = crate::value::as_metrics_name(v)?;
+                name = crate::value::as_metric_node_name(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
         })?;
     } else {
-        name = crate::value::as_metrics_name(value)?;
+        name = crate::value::as_metric_node_name(value)?;
     }
 
     let mut auto_default = true;

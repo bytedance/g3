@@ -187,6 +187,9 @@ async fn spawn_new_unlocked(config: AnyCollectorConfig) -> anyhow::Result<()> {
         AnyCollectorConfig::Internal(config) => {
             super::internal::InternalCollector::prepare_initial(config)?
         }
+        AnyCollectorConfig::Regulate(config) => {
+            super::regulate::RegulateCollector::prepare_initial(config)?
+        }
     };
     registry::add(name.clone(), collector)?;
     update_dependency_to_collector_unlocked(&name, STATUS);

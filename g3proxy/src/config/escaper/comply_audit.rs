@@ -70,15 +70,15 @@ impl ComplyAuditEscaperConfig {
         match k {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "next" => {
-                self.next = g3_yaml::value::as_metrics_name(v)?;
+                self.next = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "auditor" => {
-                self.auditor = g3_yaml::value::as_metrics_name(v)?;
+                self.auditor = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

@@ -25,7 +25,7 @@ mod speed_limit;
 
 pub use auth::{as_password, as_username};
 pub use datetime::as_rfc3339_datetime;
-pub use metrics::{as_metrics_name, as_weighted_metrics_name};
+pub use metrics::{as_metric_node_name, as_weighted_metric_node_name};
 pub use net::*;
 pub use primary::{
     as_ascii, as_bool, as_bytes, as_f64, as_hashmap, as_i32, as_list, as_nonzero_u32, as_string,

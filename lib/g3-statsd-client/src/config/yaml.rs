@@ -139,7 +139,7 @@ impl StatsdClientConfig {
                     }
                 }
                 "prefix" => {
-                    let prefix = g3_yaml::value::as_metrics_name(v)
+                    let prefix = g3_yaml::value::as_metric_node_name(v)
                         .context(format!("invalid metrics name value for key {k}"))?;
                     config.set_prefix(prefix);
                     Ok(())

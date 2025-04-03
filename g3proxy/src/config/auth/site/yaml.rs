@@ -41,7 +41,7 @@ impl UserSiteConfig {
     ) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
             "id" | "name" => {
-                self.id = g3_yaml::value::as_metrics_name(v)
+                self.id = g3_yaml::value::as_metric_node_name(v)
                     .context(format!("invalid metrics name value for key {k}"))?;
                 Ok(())
             }

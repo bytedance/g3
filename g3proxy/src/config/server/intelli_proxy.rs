@@ -76,7 +76,7 @@ impl IntelliProxyConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "listen" => {
@@ -96,11 +96,11 @@ impl IntelliProxyConfig {
                 Ok(())
             }
             "http_server" => {
-                self.http_server = g3_yaml::value::as_metrics_name(v)?;
+                self.http_server = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "socks_server" => {
-                self.socks_server = g3_yaml::value::as_metrics_name(v)?;
+                self.socks_server = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "protocol_detection_channel_size" => Ok(()),

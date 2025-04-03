@@ -107,11 +107,11 @@ impl KeylessQuicBackendConfig {
         match k {
             super::CONFIG_KEY_BACKEND_TYPE => Ok(()),
             super::CONFIG_KEY_BACKEND_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "discover" => {
-                self.discover = g3_yaml::value::as_metrics_name(v)?;
+                self.discover = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "discover_data" => {

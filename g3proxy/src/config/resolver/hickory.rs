@@ -93,7 +93,7 @@ impl HickoryResolverConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_RESOLVER_TYPE => Ok(()),
             super::CONFIG_KEY_RESOLVER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "graceful_stop_wait" => {

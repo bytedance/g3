@@ -31,6 +31,7 @@ pub use ops::{spawn_all, stop_all};
 
 mod dummy;
 mod internal;
+mod regulate;
 
 pub(crate) trait CollectorInternal {
     fn _clone_config(&self) -> AnyCollectorConfig;
@@ -49,7 +50,7 @@ pub(crate) trait CollectorInternal {
 }
 
 pub(crate) trait Collector: CollectorInternal + BaseServer {
-    fn add_metric(&self, name: MetricName, tag: MetricTagMap, value: MetricValue);
+    fn add_metric(&self, name: MetricName, tag_map: MetricTagMap, value: MetricValue);
 }
 
 pub(crate) type ArcCollector = Arc<dyn Collector + Send + Sync>;
