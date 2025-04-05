@@ -13,24 +13,3 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-mod name;
-pub(crate) use name::MetricName;
-
-mod tag;
-pub(crate) use tag::MetricTagMap;
-
-mod value;
-pub(crate) use value::MetricValue;
-
-pub(crate) enum MetricType {
-    Counter,
-    Gauge,
-}
-
-pub(crate) struct MetricRecord {
-    pub(crate) r#type: MetricType,
-    pub(crate) name: MetricName,
-    pub(crate) tag_map: MetricTagMap,
-    pub(crate) value: MetricValue,
-}

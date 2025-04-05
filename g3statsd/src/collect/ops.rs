@@ -183,7 +183,12 @@ async fn spawn_new_unlocked(config: AnyCollectorConfig) -> anyhow::Result<()> {
 
     let name = config.name().clone();
     let collector = match config {
-        AnyCollectorConfig::Dummy(config) => super::dummy::DummyCollector::prepare_initial(config)?,
+        AnyCollectorConfig::Aggregate(config) => {
+            super::aggregate::AggregateCollector::prepare_initial(config)?
+        }
+        AnyCollectorConfig::Discard(config) => {
+            super::discard::DiscardCollector::prepare_initial(config)?
+        }
         AnyCollectorConfig::Internal(config) => {
             super::internal::InternalCollector::prepare_initial(config)?
         }

@@ -18,13 +18,13 @@ use std::collections::BTreeMap;
 
 use g3_types::metrics::{MetricTagName, MetricTagValue};
 
-#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct MetricTagMap {
     inner: BTreeMap<MetricTagName, MetricTagValue>,
 }
 
 impl MetricTagMap {
-    pub(crate) fn delete(&mut self, name: &MetricTagName) {
+    pub(crate) fn drop(&mut self, name: &MetricTagName) {
         self.inner.remove(name);
     }
 }

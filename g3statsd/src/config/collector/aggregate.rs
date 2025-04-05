@@ -14,34 +14,36 @@
  * limitations under the License.
  */
 
-use anyhow::anyhow;
+use std::collections::BTreeSet;
+use std::time::Duration;
+
+use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::NodeName;
+use g3_types::metrics::{MetricTagName, NodeName};
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyCollectorConfig, CollectorConfig, CollectorConfigDiffAction};
 
-const COLLECTOR_CONFIG_TYPE: &str = "Dummy";
+const COLLECTOR_CONFIG_TYPE: &str = "Aggregate";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct DummyCollectorConfig {
+pub(crate) struct AggregateCollectorConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
+    pub(crate) emit_interval: Duration,
+    pub(crate) join_tags: Vec<MetricTagName>,
+    pub(crate) next: Option<NodeName>,
 }
 
-impl DummyCollectorConfig {
-    pub(crate) fn with_name(name: &NodeName, position: Option<YamlDocPosition>) -> Self {
-        DummyCollectorConfig {
-            name: name.clone(),
-            position,
-        }
-    }
-
+impl AggregateCollectorConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
-        DummyCollectorConfig {
+        AggregateCollectorConfig {
             name: NodeName::default(),
             position,
+            emit_interval: Duration::from_secs(1),
+            join_tags: Vec::new(),
+            next: None,
         }
     }
 
@@ -49,7 +51,7 @@ impl DummyCollectorConfig {
         map: &yaml::Hash,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
-        let mut collector = DummyCollectorConfig::new(position);
+        let mut collector = AggregateCollectorConfig::new(position);
 
         g3_yaml::foreach_kv(map, |k, v| collector.set(k, v))?;
 
@@ -64,6 +66,16 @@ impl DummyCollectorConfig {
                 self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
+            "emit_interval" => {
+                self.emit_interval = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            "join_tags" => {
+                self.join_tags = g3_yaml::value::as_list(v, g3_yaml::value::as_metric_tag_name)
+                    .context(format!("invalid list of metric tag names for key {k}"))?;
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         }
     }
@@ -76,7 +88,7 @@ impl DummyCollectorConfig {
     }
 }
 
-impl CollectorConfig for DummyCollectorConfig {
+impl CollectorConfig for AggregateCollectorConfig {
     fn name(&self) -> &NodeName {
         &self.name
     }
@@ -90,10 +102,21 @@ impl CollectorConfig for DummyCollectorConfig {
     }
 
     fn diff_action(&self, new: &AnyCollectorConfig) -> CollectorConfigDiffAction {
-        let AnyCollectorConfig::Dummy(_new) = new else {
+        let AnyCollectorConfig::Aggregate(new) = new else {
             return CollectorConfigDiffAction::SpawnNew;
         };
 
-        CollectorConfigDiffAction::NoAction
+        if self.eq(new) {
+            return CollectorConfigDiffAction::NoAction;
+        }
+
+        CollectorConfigDiffAction::ReloadNoRespawn
+    }
+
+    fn dependent_collector(&self) -> Option<BTreeSet<NodeName>> {
+        let next = self.next.as_ref()?;
+        let mut set = BTreeSet::new();
+        set.insert(next.clone());
+        Some(set)
     }
 }

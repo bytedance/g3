@@ -17,47 +17,61 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use tokio::sync::broadcast;
 
 use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
-use super::{ArcCollector, Collector, CollectorInternal};
-use crate::config::collector::regulate::RegulateCollectorConfig;
+use crate::collect::{ArcCollector, Collector, CollectorInternal};
+use crate::config::collector::aggregate::AggregateCollectorConfig;
 use crate::config::collector::{AnyCollectorConfig, CollectorConfig};
 use crate::types::MetricRecord;
 
-pub(crate) struct RegulateCollector {
-    config: RegulateCollectorConfig,
+pub(crate) struct AggregateCollector {
+    config: Arc<AggregateCollectorConfig>,
     next: Option<ArcCollector>,
 
+    reload_sender: broadcast::Sender<Arc<AggregateCollectorConfig>>,
     reload_version: usize,
 }
 
-impl RegulateCollector {
-    fn new(config: RegulateCollectorConfig, reload_version: usize) -> Self {
+impl AggregateCollector {
+    fn new(
+        config: AggregateCollectorConfig,
+        reload_sender: broadcast::Sender<Arc<AggregateCollectorConfig>>,
+        reload_version: usize,
+    ) -> Self {
         let next = config
             .next
             .as_ref()
             .map(|name| crate::collect::get_or_insert_default(name));
 
-        RegulateCollector {
-            config,
+        AggregateCollector {
+            config: Arc::new(config),
             next,
+            reload_sender,
             reload_version,
         }
     }
 
-    pub(crate) fn prepare_initial(config: RegulateCollectorConfig) -> anyhow::Result<ArcCollector> {
-        let server = RegulateCollector::new(config, 0);
+    pub(crate) fn prepare_initial(
+        config: AggregateCollectorConfig,
+    ) -> anyhow::Result<ArcCollector> {
+        let server = AggregateCollector::new(config, broadcast::Sender::new(4), 1);
+        //let emitter =
+        //    crate::collect::internal::emit::InternalEmitter::new(server.reload_sender.subscribe());
+        //let config = server.config.clone();
+        //tokio::spawn(emitter.into_running(config));
         Ok(Arc::new(server))
     }
 
-    fn prepare_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollector> {
-        if let AnyCollectorConfig::Regulate(config) = config {
-            Ok(Arc::new(RegulateCollector::new(
+    fn prepare_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<AggregateCollector> {
+        if let AnyCollectorConfig::Aggregate(config) = config {
+            Ok(AggregateCollector::new(
                 config,
+                self.reload_sender.clone(),
                 self.reload_version + 1,
-            )))
+            ))
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
@@ -68,20 +82,18 @@ impl RegulateCollector {
     }
 }
 
-impl CollectorInternal for RegulateCollector {
+impl CollectorInternal for AggregateCollector {
     fn _clone_config(&self) -> AnyCollectorConfig {
-        AnyCollectorConfig::Regulate(self.config.clone())
+        AnyCollectorConfig::Aggregate(self.config.as_ref().clone())
     }
 
-    fn _depend_on_collector(&self, name: &NodeName) -> bool {
-        self.config
-            .next
-            .as_ref()
-            .map(|n| n.eq(name))
-            .unwrap_or(false)
+    fn _depend_on_collector(&self, _name: &NodeName) -> bool {
+        false
     }
 
-    fn _reload_config_notify_runtime(&self) {}
+    fn _reload_config_notify_runtime(&self) {
+        let _ = self.reload_sender.send(self.config.clone());
+    }
 
     fn _update_next_collectors_in_place(&self) {}
 
@@ -89,14 +101,17 @@ impl CollectorInternal for RegulateCollector {
         &self,
         config: AnyCollectorConfig,
     ) -> anyhow::Result<ArcCollector> {
-        self.prepare_reload(config)
+        let mut server = self.prepare_reload(config)?;
+        server.reload_sender = self.reload_sender.clone();
+        Ok(Arc::new(server))
     }
 
     fn _reload_with_new_notifier(
         &self,
         config: AnyCollectorConfig,
     ) -> anyhow::Result<ArcCollector> {
-        self.prepare_reload(config)
+        let server = self.prepare_reload(config)?;
+        Ok(Arc::new(server))
     }
 
     fn _start_runtime(&self, _collector: &ArcCollector) -> anyhow::Result<()> {
@@ -106,7 +121,7 @@ impl CollectorInternal for RegulateCollector {
     fn _abort_runtime(&self) {}
 }
 
-impl BaseServer for RegulateCollector {
+impl BaseServer for AggregateCollector {
     #[inline]
     fn name(&self) -> &NodeName {
         self.config.name()
@@ -123,16 +138,6 @@ impl BaseServer for RegulateCollector {
     }
 }
 
-impl Collector for RegulateCollector {
-    fn add_metric(&self, mut record: MetricRecord, worker_id: Option<usize>) {
-        for tag_name in &self.config.drop_tags {
-            record.tag_map.drop(tag_name);
-        }
-
-        // TODO send to exporter
-
-        if let Some(next) = &self.next {
-            next.add_metric(record, worker_id);
-        }
-    }
+impl Collector for AggregateCollector {
+    fn add_metric(&self, _record: MetricRecord, _worker_id: Option<usize>) {}
 }

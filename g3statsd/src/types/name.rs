@@ -19,7 +19,7 @@ use std::fmt::{self, Write};
 
 use g3_types::metrics::NodeName;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct MetricName {
     nodes: VecDeque<NodeName>,
 }
