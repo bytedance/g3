@@ -1978,8 +1978,10 @@ dependencies = [
 name = "g3statsd"
 version = "0.1.0"
 dependencies = [
+ "ahash",
  "anyhow",
  "arc-swap",
+ "async-trait",
  "capnp",
  "capnp-rpc",
  "clap",

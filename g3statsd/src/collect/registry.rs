@@ -108,6 +108,6 @@ where
 pub(crate) fn get_or_insert_default(name: &NodeName) -> ArcCollector {
     let mut ht = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
     ht.entry(name.clone())
-        .or_insert_with(|| super::dummy::DummyCollector::prepare_default(name))
+        .or_insert_with(|| super::discard::DiscardCollector::prepare_default(name))
         .clone()
 }

@@ -17,6 +17,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use async_trait::async_trait;
 
 use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
@@ -24,7 +25,7 @@ use g3_types::metrics::NodeName;
 use super::{ArcCollector, Collector, CollectorInternal};
 use crate::config::collector::regulate::RegulateCollectorConfig;
 use crate::config::collector::{AnyCollectorConfig, CollectorConfig};
-use crate::types::{MetricName, MetricTagMap, MetricValue};
+use crate::types::MetricRecord;
 
 pub(crate) struct RegulateCollector {
     config: RegulateCollectorConfig,
@@ -123,16 +124,17 @@ impl BaseServer for RegulateCollector {
     }
 }
 
+#[async_trait]
 impl Collector for RegulateCollector {
-    fn add_metric(&self, name: MetricName, mut tag_map: MetricTagMap, value: MetricValue) {
-        for tag_name in &self.config.delete_tags {
-            tag_map.delete(tag_name);
+    async fn add_metric(&self, mut record: MetricRecord, worker_id: Option<usize>) {
+        for tag_name in &self.config.drop_tags {
+            record.tag_map.drop(tag_name);
         }
 
         // TODO send to exporter
 
         if let Some(next) = &self.next {
-            next.add_metric(name, tag_map, value);
+            next.add_metric(record, worker_id).await;
         }
     }
 }

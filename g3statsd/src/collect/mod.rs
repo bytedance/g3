@@ -16,11 +16,13 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
+
 use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
 use crate::config::collector::AnyCollectorConfig;
-use crate::types::{MetricName, MetricTagMap, MetricValue};
+use crate::types::MetricRecord;
 
 mod registry;
 pub(crate) use registry::{get_names, get_or_insert_default};
@@ -29,7 +31,8 @@ mod ops;
 pub(crate) use ops::reload;
 pub use ops::{spawn_all, stop_all};
 
-mod dummy;
+mod aggregate;
+mod discard;
 mod internal;
 mod regulate;
 
@@ -49,8 +52,9 @@ pub(crate) trait CollectorInternal {
     fn _abort_runtime(&self);
 }
 
+#[async_trait]
 pub(crate) trait Collector: CollectorInternal + BaseServer {
-    fn add_metric(&self, name: MetricName, tag_map: MetricTagMap, value: MetricValue);
+    async fn add_metric(&self, record: MetricRecord, worker_id: Option<usize>);
 }
 
 pub(crate) type ArcCollector = Arc<dyn Collector + Send + Sync>;

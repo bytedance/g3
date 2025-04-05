@@ -17,37 +17,38 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use async_trait::async_trait;
 
 use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
 use super::{ArcCollector, Collector, CollectorInternal};
-use crate::config::collector::dummy::DummyCollectorConfig;
+use crate::config::collector::discard::DiscardCollectorConfig;
 use crate::config::collector::{AnyCollectorConfig, CollectorConfig};
-use crate::types::{MetricName, MetricTagMap, MetricValue};
+use crate::types::MetricRecord;
 
-pub(crate) struct DummyCollector {
-    config: DummyCollectorConfig,
+pub(crate) struct DiscardCollector {
+    config: DiscardCollectorConfig,
 }
 
-impl DummyCollector {
-    fn new(config: DummyCollectorConfig) -> Self {
-        DummyCollector { config }
+impl DiscardCollector {
+    fn new(config: DiscardCollectorConfig) -> Self {
+        DiscardCollector { config }
     }
 
-    pub(crate) fn prepare_initial(config: DummyCollectorConfig) -> anyhow::Result<ArcCollector> {
-        let server = DummyCollector::new(config);
+    pub(crate) fn prepare_initial(config: DiscardCollectorConfig) -> anyhow::Result<ArcCollector> {
+        let server = DiscardCollector::new(config);
         Ok(Arc::new(server))
     }
 
     pub(crate) fn prepare_default(name: &NodeName) -> ArcCollector {
-        let config = DummyCollectorConfig::with_name(name, None);
-        Arc::new(DummyCollector::new(config))
+        let config = DiscardCollectorConfig::with_name(name, None);
+        Arc::new(DiscardCollector::new(config))
     }
 
-    fn prepare_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<DummyCollector> {
-        if let AnyCollectorConfig::Dummy(config) = config {
-            Ok(DummyCollector::new(config))
+    fn prepare_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<DiscardCollector> {
+        if let AnyCollectorConfig::Discard(config) = config {
+            Ok(DiscardCollector::new(config))
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
@@ -58,9 +59,9 @@ impl DummyCollector {
     }
 }
 
-impl CollectorInternal for DummyCollector {
+impl CollectorInternal for DiscardCollector {
     fn _clone_config(&self) -> AnyCollectorConfig {
-        AnyCollectorConfig::Dummy(self.config.clone())
+        AnyCollectorConfig::Discard(self.config.clone())
     }
 
     fn _depend_on_collector(&self, _name: &NodeName) -> bool {
@@ -96,7 +97,7 @@ impl CollectorInternal for DummyCollector {
     fn _abort_runtime(&self) {}
 }
 
-impl BaseServer for DummyCollector {
+impl BaseServer for DiscardCollector {
     #[inline]
     fn name(&self) -> &NodeName {
         self.config.name()
@@ -113,6 +114,7 @@ impl BaseServer for DummyCollector {
     }
 }
 
-impl Collector for DummyCollector {
-    fn add_metric(&self, _name: MetricName, _tag_map: MetricTagMap, _value: MetricValue) {}
+#[async_trait]
+impl Collector for DiscardCollector {
+    async fn add_metric(&self, _record: MetricRecord, _worker_id: Option<usize>) {}
 }
