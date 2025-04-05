@@ -29,7 +29,8 @@ use g3_yaml::{HybridParser, YamlDocPosition};
 mod registry;
 pub(crate) use registry::clear;
 
-pub(crate) mod dummy;
+pub(crate) mod aggregate;
+pub(crate) mod discard;
 pub(crate) mod internal;
 pub(crate) mod regulate;
 
@@ -63,7 +64,8 @@ pub(crate) trait CollectorConfig {
 #[def_fn(dependent_collector, Option<BTreeSet<NodeName>>)]
 #[def_fn(diff_action, &Self, CollectorConfigDiffAction)]
 pub(crate) enum AnyCollectorConfig {
-    Dummy(dummy::DummyCollectorConfig),
+    Aggregate(aggregate::AggregateCollectorConfig),
+    Discard(discard::DiscardCollectorConfig),
     Internal(internal::InternalCollectorConfig),
     Regulate(regulate::RegulateCollectorConfig),
 }
@@ -114,9 +116,9 @@ fn load_collector(
     let collector_type = g3_yaml::hash_get_required_str(map, CONFIG_KEY_COLLECTOR_TYPE)?;
     match g3_yaml::key::normalize(collector_type).as_str() {
         "dummy" => {
-            let collector = dummy::DummyCollectorConfig::parse(map, position)
-                .context("failed to load this Dummy collector")?;
-            Ok(AnyCollectorConfig::Dummy(collector))
+            let collector = discard::DiscardCollectorConfig::parse(map, position)
+                .context("failed to load this Discard collector")?;
+            Ok(AnyCollectorConfig::Discard(collector))
         }
         "internal" => {
             let collector = internal::InternalCollectorConfig::parse(map, position)
@@ -127,6 +129,11 @@ fn load_collector(
             let collector = regulate::RegulateCollectorConfig::parse(map, position)
                 .context("failed to load this Regulate collector")?;
             Ok(AnyCollectorConfig::Regulate(collector))
+        }
+        "aggregate" => {
+            let collector = aggregate::AggregateCollectorConfig::parse(map, position)
+                .context("failed to load this Aggregate collector")?;
+            Ok(AnyCollectorConfig::Aggregate(collector))
         }
         _ => Err(anyhow!("unsupported collector type {}", collector_type)),
     }

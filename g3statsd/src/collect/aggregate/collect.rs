@@ -23,44 +23,50 @@ use tokio::sync::broadcast;
 use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
-use super::InternalEmitter;
+use super::AggregateHandle;
 use crate::collect::{ArcCollector, Collector, CollectorInternal};
-use crate::config::collector::internal::InternalCollectorConfig;
+use crate::config::collector::aggregate::AggregateCollectorConfig;
 use crate::config::collector::{AnyCollectorConfig, CollectorConfig};
 use crate::types::MetricRecord;
 
-pub(crate) struct InternalCollector {
-    config: Arc<InternalCollectorConfig>,
+pub(crate) struct AggregateCollector {
+    config: Arc<AggregateCollectorConfig>,
+    handle: Arc<AggregateHandle>,
 
-    reload_sender: broadcast::Sender<Arc<InternalCollectorConfig>>,
+    reload_sender: broadcast::Sender<Arc<AggregateCollectorConfig>>,
     reload_version: usize,
 }
 
-impl InternalCollector {
+impl AggregateCollector {
     fn new(
-        config: InternalCollectorConfig,
-        reload_sender: broadcast::Sender<Arc<InternalCollectorConfig>>,
+        config: Arc<AggregateCollectorConfig>,
+        handle: Arc<AggregateHandle>,
+        reload_sender: broadcast::Sender<Arc<AggregateCollectorConfig>>,
         reload_version: usize,
     ) -> Self {
-        InternalCollector {
-            config: Arc::new(config),
+        AggregateCollector {
+            config,
+            handle,
             reload_sender,
             reload_version,
         }
     }
 
-    pub(crate) fn prepare_initial(config: InternalCollectorConfig) -> anyhow::Result<ArcCollector> {
-        let server = InternalCollector::new(config, broadcast::Sender::new(4), 1);
-        let emitter = InternalEmitter::new(server.reload_sender.subscribe());
-        let config = server.config.clone();
-        tokio::spawn(emitter.into_running(config));
+    pub(crate) fn prepare_initial(
+        config: AggregateCollectorConfig,
+    ) -> anyhow::Result<ArcCollector> {
+        let config = Arc::new(config);
+        let reload_sender = broadcast::Sender::new(4);
+        let handle = AggregateHandle::spawn_new(config.clone(), reload_sender.subscribe());
+        let server = AggregateCollector::new(config, handle, reload_sender, 1);
         Ok(Arc::new(server))
     }
 
-    fn prepare_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<InternalCollector> {
-        if let AnyCollectorConfig::Internal(config) = config {
-            Ok(InternalCollector::new(
-                config,
+    fn prepare_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<AggregateCollector> {
+        if let AnyCollectorConfig::Aggregate(config) = config {
+            Ok(AggregateCollector::new(
+                Arc::new(config),
+                self.handle.clone(),
                 self.reload_sender.clone(),
                 self.reload_version + 1,
             ))
@@ -74,9 +80,9 @@ impl InternalCollector {
     }
 }
 
-impl CollectorInternal for InternalCollector {
+impl CollectorInternal for AggregateCollector {
     fn _clone_config(&self) -> AnyCollectorConfig {
-        AnyCollectorConfig::Internal((*self.config).clone())
+        AnyCollectorConfig::Aggregate(self.config.as_ref().clone())
     }
 
     fn _depend_on_collector(&self, _name: &NodeName) -> bool {
@@ -93,8 +99,7 @@ impl CollectorInternal for InternalCollector {
         &self,
         config: AnyCollectorConfig,
     ) -> anyhow::Result<ArcCollector> {
-        let mut server = self.prepare_reload(config)?;
-        server.reload_sender = self.reload_sender.clone();
+        let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }
 
@@ -113,7 +118,7 @@ impl CollectorInternal for InternalCollector {
     fn _abort_runtime(&self) {}
 }
 
-impl BaseServer for InternalCollector {
+impl BaseServer for AggregateCollector {
     #[inline]
     fn name(&self) -> &NodeName {
         self.config.name()
@@ -131,6 +136,8 @@ impl BaseServer for InternalCollector {
 }
 
 #[async_trait]
-impl Collector for InternalCollector {
-    async fn add_metric(&self, _record: MetricRecord, _worker_id: Option<usize>) {}
+impl Collector for AggregateCollector {
+    async fn add_metric(&self, record: MetricRecord, worker_id: Option<usize>) {
+        self.handle.add_metric(record, worker_id).await;
+    }
 }

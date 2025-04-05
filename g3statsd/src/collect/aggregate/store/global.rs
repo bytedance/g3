@@ -1,0 +1,228 @@
+/*
+ * Copyright 2025 ByteDance and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+use std::sync::Arc;
+
+use ahash::AHashMap;
+use tokio::sync::{broadcast, mpsc};
+
+use super::{Command, StoreRecord};
+use crate::collect::ArcCollector;
+use crate::config::collector::aggregate::AggregateCollectorConfig;
+use crate::types::{MetricName, MetricRecord, MetricTagMap, MetricType, MetricValue};
+
+const BATCH_SIZE: usize = 128;
+
+pub(super) struct GlobalStore {
+    config: Arc<AggregateCollectorConfig>,
+    cfg_receiver: broadcast::Receiver<Arc<AggregateCollectorConfig>>,
+    cmd_receiver: mpsc::Receiver<Command>,
+
+    next: Option<ArcCollector>,
+
+    counter: AHashMap<Arc<MetricName>, AHashMap<Arc<MetricTagMap>, MetricValue>>,
+    gauge: AHashMap<Arc<MetricName>, AHashMap<Arc<MetricTagMap>, MetricValue>>,
+}
+
+impl GlobalStore {
+    pub(super) fn new(
+        config: Arc<AggregateCollectorConfig>,
+        cfg_receiver: broadcast::Receiver<Arc<AggregateCollectorConfig>>,
+        cmd_receiver: mpsc::Receiver<Command>,
+    ) -> Self {
+        let next = config
+            .next
+            .as_ref()
+            .map(|name| crate::collect::get_or_insert_default(name));
+
+        GlobalStore {
+            config,
+            cfg_receiver,
+            cmd_receiver,
+            next,
+            counter: Default::default(),
+            gauge: Default::default(),
+        }
+    }
+
+    pub(super) async fn into_running(mut self) {
+        let mut buffer = Vec::with_capacity(BATCH_SIZE);
+        loop {
+            tokio::select! {
+                biased;
+
+                r = self.cfg_receiver.recv() => {
+                    match r {
+                        Ok(config) => {
+                            self.update_config(config);
+                        }
+                        Err(broadcast::error::RecvError::Closed) => break,
+                        Err(broadcast::error::RecvError::Lagged(_)) => continue,
+                    }
+                }
+                nr = self.cmd_receiver.recv_many(&mut buffer, BATCH_SIZE) => {
+                    if nr == 0 {
+                        let _ = self.emit().await;
+                        return;
+                    }
+                    self.handle_cmd(&mut buffer).await;
+                }
+            }
+        }
+
+        loop {
+            let nr = self.cmd_receiver.recv_many(&mut buffer, BATCH_SIZE).await;
+            if nr == 0 {
+                let _ = self.emit().await;
+                break;
+            }
+            self.handle_cmd(&mut buffer).await;
+        }
+    }
+
+    fn update_config(&mut self, config: Arc<AggregateCollectorConfig>) {
+        self.next = config
+            .next
+            .as_ref()
+            .map(|name| crate::collect::get_or_insert_default(name));
+        self.config = config;
+    }
+
+    async fn handle_cmd(&mut self, buffer: &mut Vec<Command>) {
+        while let Some(cmd) = buffer.pop() {
+            match cmd {
+                Command::Add(record) => self.add_record(record),
+                Command::Emit(sender) => {
+                    let emit_total = self.emit().await;
+                    let _ = sender.send(emit_total);
+                }
+            }
+        }
+    }
+
+    fn add_record(&mut self, record: StoreRecord) {
+        match record.r#type {
+            MetricType::Counter => {
+                let StoreRecord {
+                    r#type: _,
+                    name,
+                    tag_map,
+                    value,
+                } = record;
+
+                self.counter
+                    .entry(name)
+                    .or_default()
+                    .entry(tag_map)
+                    .and_modify(|v| *v += value)
+                    .or_insert(value);
+            }
+            MetricType::Gauge => {
+                let StoreRecord {
+                    r#type: _,
+                    name,
+                    tag_map,
+                    value,
+                } = record;
+
+                self.counter
+                    .entry(name)
+                    .or_default()
+                    .entry(tag_map)
+                    .and_modify(|v| *v = value)
+                    .or_insert(value);
+            }
+        }
+    }
+
+    async fn emit(&mut self) -> usize {
+        let mut emit_total = 0;
+
+        macro_rules! emit_orig {
+            ($map:ident, $metric_type:expr) => {
+                for (name, mut inner_map) in self.$map.drain() {
+                    for (tag_map, value) in inner_map.drain() {
+                        let record = MetricRecord {
+                            r#type: $metric_type,
+                            name: name.as_ref().clone(),
+                            tag_map: tag_map.as_ref().clone(),
+                            value,
+                        };
+
+                        // TODO export
+
+                        if let Some(next) = &self.next {
+                            next.add_metric(record, None).await;
+                        }
+
+                        emit_total += 1;
+                    }
+                }
+            };
+        }
+
+        macro_rules! emit_join {
+            ($map:ident, $metric_type:expr) => {
+                let mut joined_map: AHashMap<Arc<MetricName>, AHashMap<MetricTagMap, MetricValue>> =
+                    AHashMap::default();
+
+                for (name, mut inner_map) in self.$map.drain() {
+                    let joined_inner_map = joined_map.entry(name.clone()).or_default();
+
+                    for (tag_map, value) in inner_map.drain() {
+                        let mut new_tag_map = tag_map.as_ref().clone();
+                        for tag in &self.config.join_tags {
+                            new_tag_map.drop(tag);
+                        }
+                        joined_inner_map
+                            .entry(new_tag_map)
+                            .and_modify(|v| *v += value)
+                            .or_insert(value);
+                    }
+                }
+
+                for (name, inner_map) in joined_map.drain() {
+                    for (tag_map, value) in inner_map {
+                        let record = MetricRecord {
+                            r#type: $metric_type,
+                            name: name.as_ref().clone(),
+                            tag_map,
+                            value,
+                        };
+
+                        // TODO export
+
+                        if let Some(next) = &self.next {
+                            next.add_metric(record, None).await;
+                        }
+
+                        emit_total += 1;
+                    }
+                }
+            };
+        }
+
+        if self.config.join_tags.is_empty() {
+            emit_orig!(counter, MetricType::Counter);
+            emit_orig!(gauge, MetricType::Gauge);
+        } else {
+            emit_join!(counter, MetricType::Counter);
+            emit_join!(gauge, MetricType::Gauge);
+        }
+
+        emit_total
+    }
+}

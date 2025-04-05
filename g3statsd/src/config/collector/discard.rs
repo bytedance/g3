@@ -14,33 +14,34 @@
  * limitations under the License.
  */
 
-use std::collections::BTreeSet;
-
-use anyhow::{Context, anyhow};
+use anyhow::anyhow;
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::{MetricTagName, NodeName};
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyCollectorConfig, CollectorConfig, CollectorConfigDiffAction};
 
-const COLLECTOR_CONFIG_TYPE: &str = "Regulate";
+const COLLECTOR_CONFIG_TYPE: &str = "Discard";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct RegulateCollectorConfig {
+pub(crate) struct DiscardCollectorConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) drop_tags: Vec<MetricTagName>,
-    pub(crate) next: Option<NodeName>,
 }
 
-impl RegulateCollectorConfig {
+impl DiscardCollectorConfig {
+    pub(crate) fn with_name(name: &NodeName, position: Option<YamlDocPosition>) -> Self {
+        DiscardCollectorConfig {
+            name: name.clone(),
+            position,
+        }
+    }
+
     fn new(position: Option<YamlDocPosition>) -> Self {
-        RegulateCollectorConfig {
+        DiscardCollectorConfig {
             name: NodeName::default(),
             position,
-            drop_tags: Vec::new(),
-            next: None,
         }
     }
 
@@ -48,7 +49,7 @@ impl RegulateCollectorConfig {
         map: &yaml::Hash,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
-        let mut collector = RegulateCollectorConfig::new(position);
+        let mut collector = DiscardCollectorConfig::new(position);
 
         g3_yaml::foreach_kv(map, |k, v| collector.set(k, v))?;
 
@@ -63,11 +64,6 @@ impl RegulateCollectorConfig {
                 self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
-            "drop_tags" => {
-                self.drop_tags = g3_yaml::value::as_list(v, g3_yaml::value::as_metric_tag_name)
-                    .context(format!("invalid list of metric tag names for key {k}"))?;
-                Ok(())
-            }
             _ => Err(anyhow!("invalid key {k}")),
         }
     }
@@ -80,7 +76,7 @@ impl RegulateCollectorConfig {
     }
 }
 
-impl CollectorConfig for RegulateCollectorConfig {
+impl CollectorConfig for DiscardCollectorConfig {
     fn name(&self) -> &NodeName {
         &self.name
     }
@@ -94,21 +90,10 @@ impl CollectorConfig for RegulateCollectorConfig {
     }
 
     fn diff_action(&self, new: &AnyCollectorConfig) -> CollectorConfigDiffAction {
-        let AnyCollectorConfig::Regulate(new) = new else {
+        let AnyCollectorConfig::Discard(_new) = new else {
             return CollectorConfigDiffAction::SpawnNew;
         };
 
-        if self.eq(new) {
-            return CollectorConfigDiffAction::NoAction;
-        }
-
-        CollectorConfigDiffAction::ReloadNoRespawn
-    }
-
-    fn dependent_collector(&self) -> Option<BTreeSet<NodeName>> {
-        let next = self.next.as_ref()?;
-        let mut set = BTreeSet::new();
-        set.insert(next.clone());
-        Some(set)
+        CollectorConfigDiffAction::NoAction
     }
 }

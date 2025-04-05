@@ -7,9 +7,11 @@ description = "G3 StatsD"
 
 [dependencies]
 anyhow.workspace = true
+async-trait.workspace = true
 arc-swap.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
+ahash.workspace = true
 foldhash.workspace = true
 memchr.workspace = true
 itoa.workspace = true

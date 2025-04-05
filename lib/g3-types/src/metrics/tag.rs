@@ -22,10 +22,10 @@ use smol_str::SmolStr;
 
 use super::{ParseError, chars_allowed_in_opentsdb};
 
-#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Eq, Ord, Hash)]
 pub struct MetricTagName(SmolStr);
 
-#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Clone, Debug, Eq, PartialEq, PartialOrd, Ord, Hash)]
 pub struct MetricTagValue(SmolStr);
 
 pub type StaticMetricsTags = BTreeMap<MetricTagName, MetricTagValue>;
