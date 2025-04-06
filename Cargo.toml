@@ -121,7 +121,7 @@ fixedbitset = "0.5"
 bitflags = "2.8"
 lru = { version = "0.13", default-features = false }
 #
-blake3 = { version = "1.5", default-features = false }
+blake3 = { version = "1.8", default-features = false }
 hex = "0.4.2"
 hex-literal = "1.0"
 #
@@ -141,7 +141,7 @@ hdrhistogram = { version = "7.5", default-features = false }
 clap = "4.5.30"
 clap_complete = "4.5.45"
 #
-tokio = "1.43.0"
+tokio = "1.44.2"
 tokio-util = "0.7"
 tokio-test = "0.4"
 futures-util = "0.3"
