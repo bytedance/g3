@@ -17,7 +17,6 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 
 use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
@@ -124,9 +123,8 @@ impl BaseServer for RegulateCollector {
     }
 }
 
-#[async_trait]
 impl Collector for RegulateCollector {
-    async fn add_metric(&self, mut record: MetricRecord, worker_id: Option<usize>) {
+    fn add_metric(&self, mut record: MetricRecord, worker_id: Option<usize>) {
         if !self.config.drop_tags.is_empty() {
             let tag_map = Arc::make_mut(&mut record.tag_map);
             for tag_name in &self.config.drop_tags {
@@ -137,7 +135,7 @@ impl Collector for RegulateCollector {
         // TODO send to exporter
 
         if let Some(next) = &self.next {
-            next.add_metric(record, worker_id).await;
+            next.add_metric(record, worker_id);
         }
     }
 }

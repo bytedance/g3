@@ -17,7 +17,6 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 use tokio::sync::broadcast;
 
 use g3_daemon::server::BaseServer;
@@ -130,7 +129,6 @@ impl BaseServer for InternalCollector {
     }
 }
 
-#[async_trait]
 impl Collector for InternalCollector {
-    async fn add_metric(&self, _record: MetricRecord, _worker_id: Option<usize>) {}
+    fn add_metric(&self, _record: MetricRecord, _worker_id: Option<usize>) {}
 }

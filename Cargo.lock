@@ -1997,6 +1997,7 @@ dependencies = [
  "log",
  "memchr",
  "ryu",
+ "thiserror",
  "tokio",
  "yaml-rust2",
 ]

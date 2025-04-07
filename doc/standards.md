@@ -55,7 +55,7 @@ The code should comply to these, but should be more compliant to existing popula
 
 ## StatsD
 
- - [the-dogstatsd-protocol](https://docs.datadoghq.com/developers/dogstatsd/datagram_shell?tab=metrics#the-dogstatsd-protocol)
+ - [the-dogstatsd-protocol](https://docs.datadoghq.com/developers/dogstatsd/datagram_shell)
     : The DogStatsD protocol
 
 ## PEN

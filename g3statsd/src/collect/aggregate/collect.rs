@@ -17,7 +17,6 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 use tokio::sync::broadcast;
 
 use g3_daemon::server::BaseServer;
@@ -135,9 +134,8 @@ impl BaseServer for AggregateCollector {
     }
 }
 
-#[async_trait]
 impl Collector for AggregateCollector {
-    async fn add_metric(&self, record: MetricRecord, worker_id: Option<usize>) {
-        self.handle.add_metric(record, worker_id).await;
+    fn add_metric(&self, record: MetricRecord, worker_id: Option<usize>) {
+        self.handle.add_metric(record, worker_id);
     }
 }

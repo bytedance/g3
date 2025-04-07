@@ -25,6 +25,7 @@ pub(crate) use tag::MetricTagMap;
 mod value;
 pub(crate) use value::MetricValue;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum MetricType {
     Counter,
     Gauge,

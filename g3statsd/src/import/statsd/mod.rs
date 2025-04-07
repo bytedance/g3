@@ -16,3 +16,6 @@
 
 mod import;
 pub(super) use import::StatsdImporter;
+
+mod parser;
+use parser::StatsdRecordVisitor;
