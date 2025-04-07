@@ -19,7 +19,7 @@ use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, oneshot};
 
 use crate::config::collector::aggregate::AggregateCollectorConfig;
-use crate::types::{MetricName, MetricRecord, MetricTagMap, MetricType, MetricValue};
+use crate::types::{MetricRecord, MetricType};
 
 mod timer;
 use timer::EmitTimer;
@@ -30,26 +30,8 @@ use global::GlobalStore;
 mod worker;
 use worker::WorkerStore;
 
-struct StoreRecord {
-    r#type: MetricType,
-    name: Arc<MetricName>,
-    tag_map: Arc<MetricTagMap>,
-    value: MetricValue,
-}
-
-impl From<MetricRecord> for StoreRecord {
-    fn from(value: MetricRecord) -> Self {
-        StoreRecord {
-            r#type: value.r#type,
-            name: Arc::new(value.name),
-            tag_map: Arc::new(value.tag_map),
-            value: value.value,
-        }
-    }
-}
-
 enum Command {
-    Add(StoreRecord),
+    Add(MetricRecord),
     Emit(oneshot::Sender<usize>),
 }
 
@@ -98,7 +80,7 @@ impl AggregateHandle {
             MetricType::Counter => {
                 if let Some(id) = worker_id {
                     if let Some(sender) = self.worker.get(id) {
-                        let _ = sender.send(Command::Add(record.into())).await; // TODO add stats
+                        let _ = sender.send(Command::Add(record)).await; // TODO add stats
                         return;
                     }
                 }
@@ -106,6 +88,6 @@ impl AggregateHandle {
             MetricType::Gauge => {}
         }
 
-        let _ = self.global.send(Command::Add(record.into())).await;
+        let _ = self.global.send(Command::Add(record)).await;
     }
 }

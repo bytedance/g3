@@ -127,8 +127,11 @@ impl BaseServer for RegulateCollector {
 #[async_trait]
 impl Collector for RegulateCollector {
     async fn add_metric(&self, mut record: MetricRecord, worker_id: Option<usize>) {
-        for tag_name in &self.config.drop_tags {
-            record.tag_map.drop(tag_name);
+        if !self.config.drop_tags.is_empty() {
+            let tag_map = Arc::make_mut(&mut record.tag_map);
+            for tag_name in &self.config.drop_tags {
+                tag_map.drop(tag_name);
+            }
         }
 
         // TODO send to exporter
