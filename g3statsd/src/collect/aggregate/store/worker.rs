@@ -19,8 +19,8 @@ use std::sync::Arc;
 use ahash::AHashMap;
 use tokio::sync::mpsc;
 
-use super::{Command, StoreRecord};
-use crate::types::{MetricName, MetricTagMap, MetricType, MetricValue};
+use super::Command;
+use crate::types::{MetricName, MetricRecord, MetricTagMap, MetricType, MetricValue};
 
 const BATCH_SIZE: usize = 128;
 
@@ -68,10 +68,10 @@ impl WorkerStore {
         }
     }
 
-    async fn add_record(&mut self, record: StoreRecord) {
+    async fn add_record(&mut self, record: MetricRecord) {
         match record.r#type {
             MetricType::Counter => {
-                let StoreRecord {
+                let MetricRecord {
                     r#type: _,
                     name,
                     tag_map,
@@ -96,10 +96,10 @@ impl WorkerStore {
 
         for (name, mut inner_map) in self.counter.drain() {
             for (tag_map, value) in inner_map.drain() {
-                let record = StoreRecord {
+                let record = MetricRecord {
                     r#type: MetricType::Counter,
                     name: name.clone(),
-                    tag_map: tag_map.clone(),
+                    tag_map,
                     value,
                 };
                 match self.global_sender.send(Command::Add(record)).await {

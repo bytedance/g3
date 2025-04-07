@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+use std::sync::Arc;
+
 mod name;
 pub(crate) use name::MetricName;
 
@@ -30,7 +32,7 @@ pub(crate) enum MetricType {
 
 pub(crate) struct MetricRecord {
     pub(crate) r#type: MetricType,
-    pub(crate) name: MetricName,
-    pub(crate) tag_map: MetricTagMap,
+    pub(crate) name: Arc<MetricName>,
+    pub(crate) tag_map: Arc<MetricTagMap>,
     pub(crate) value: MetricValue,
 }

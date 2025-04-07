@@ -19,7 +19,7 @@ use std::sync::Arc;
 use ahash::AHashMap;
 use tokio::sync::{broadcast, mpsc};
 
-use super::{Command, StoreRecord};
+use super::Command;
 use crate::collect::ArcCollector;
 use crate::config::collector::aggregate::AggregateCollectorConfig;
 use crate::types::{MetricName, MetricRecord, MetricTagMap, MetricType, MetricValue};
@@ -113,10 +113,10 @@ impl GlobalStore {
         }
     }
 
-    fn add_record(&mut self, record: StoreRecord) {
+    fn add_record(&mut self, record: MetricRecord) {
         match record.r#type {
             MetricType::Counter => {
-                let StoreRecord {
+                let MetricRecord {
                     r#type: _,
                     name,
                     tag_map,
@@ -131,7 +131,7 @@ impl GlobalStore {
                     .or_insert(value);
             }
             MetricType::Gauge => {
-                let StoreRecord {
+                let MetricRecord {
                     r#type: _,
                     name,
                     tag_map,
@@ -157,8 +157,8 @@ impl GlobalStore {
                     for (tag_map, value) in inner_map.drain() {
                         let record = MetricRecord {
                             r#type: $metric_type,
-                            name: name.as_ref().clone(),
-                            tag_map: tag_map.as_ref().clone(),
+                            name: name.clone(),
+                            tag_map,
                             value,
                         };
 
@@ -176,19 +176,21 @@ impl GlobalStore {
 
         macro_rules! emit_join {
             ($map:ident, $metric_type:expr) => {
-                let mut joined_map: AHashMap<Arc<MetricName>, AHashMap<MetricTagMap, MetricValue>> =
-                    AHashMap::default();
+                let mut joined_map: AHashMap<
+                    Arc<MetricName>,
+                    AHashMap<Arc<MetricTagMap>, MetricValue>,
+                > = AHashMap::default();
 
                 for (name, mut inner_map) in self.$map.drain() {
                     let joined_inner_map = joined_map.entry(name.clone()).or_default();
 
-                    for (tag_map, value) in inner_map.drain() {
-                        let mut new_tag_map = tag_map.as_ref().clone();
+                    for (mut tag_map, value) in inner_map.drain() {
+                        let inner = Arc::make_mut(&mut tag_map);
                         for tag in &self.config.join_tags {
-                            new_tag_map.drop(tag);
+                            inner.drop(tag);
                         }
                         joined_inner_map
-                            .entry(new_tag_map)
+                            .entry(tag_map)
                             .and_modify(|v| *v += value)
                             .or_insert(value);
                     }
@@ -198,7 +200,7 @@ impl GlobalStore {
                     for (tag_map, value) in inner_map {
                         let record = MetricRecord {
                             r#type: $metric_type,
-                            name: name.as_ref().clone(),
+                            name: name.clone(),
                             tag_map,
                             value,
                         };
