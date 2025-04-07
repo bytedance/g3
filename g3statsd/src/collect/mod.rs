@@ -16,8 +16,6 @@
 
 use std::sync::Arc;
 
-use async_trait::async_trait;
-
 use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
@@ -52,9 +50,8 @@ pub(crate) trait CollectorInternal {
     fn _abort_runtime(&self);
 }
 
-#[async_trait]
 pub(crate) trait Collector: CollectorInternal + BaseServer {
-    async fn add_metric(&self, record: MetricRecord, worker_id: Option<usize>);
+    fn add_metric(&self, record: MetricRecord, worker_id: Option<usize>);
 }
 
 pub(crate) type ArcCollector = Arc<dyn Collector + Send + Sync>;

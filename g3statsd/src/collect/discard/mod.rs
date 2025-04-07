@@ -17,7 +17,6 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 
 use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
@@ -114,7 +113,6 @@ impl BaseServer for DiscardCollector {
     }
 }
 
-#[async_trait]
 impl Collector for DiscardCollector {
-    async fn add_metric(&self, _record: MetricRecord, _worker_id: Option<usize>) {}
+    fn add_metric(&self, _record: MetricRecord, _worker_id: Option<usize>) {}
 }

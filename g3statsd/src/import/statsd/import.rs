@@ -27,6 +27,7 @@ use g3_daemon::server::{BaseServer, ServerReloadCommand};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::NodeName;
 
+use super::StatsdRecordVisitor;
 use crate::collect::ArcCollector;
 use crate::config::importer::statsd::StatsdImporterConfig;
 use crate::config::importer::{AnyImporterConfig, ImporterConfig};
@@ -157,13 +158,21 @@ impl ReceiveUdpServer for StatsdImporter {
         packet: &[u8],
         client_addr: SocketAddr,
         _server_addr: SocketAddr,
-        _worker_id: Option<usize>,
+        worker_id: Option<usize>,
     ) {
         if self.drop_early(client_addr) {
             return;
         }
 
-        debug!("received {} bytes from {}", packet.len(), client_addr);
+        let iter = StatsdRecordVisitor::new(packet);
+        for r in iter {
+            match r {
+                Ok(r) => self.collector.load().add_metric(r, worker_id),
+                Err(e) => {
+                    debug!("invalid StatsD record from {}: {e}", client_addr);
+                }
+            }
+        }
     }
 }
 

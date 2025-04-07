@@ -21,7 +21,7 @@ use std::str::FromStr;
 use anyhow::anyhow;
 use memchr::memchr;
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum MetricValue {
     Double(f64),
     Signed(i64),

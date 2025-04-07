@@ -7,6 +7,7 @@ description = "G3 StatsD"
 
 [dependencies]
 anyhow.workspace = true
+thiserror.workspace = true
 async-trait.workspace = true
 arc-swap.workspace = true
 clap.workspace = true

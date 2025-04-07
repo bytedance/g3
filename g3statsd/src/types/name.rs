@@ -16,8 +16,9 @@
 
 use std::collections::VecDeque;
 use std::fmt::{self, Write};
+use std::str::FromStr;
 
-use g3_types::metrics::NodeName;
+use g3_types::metrics::{NodeName, ParseError};
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct MetricName {
@@ -25,10 +26,14 @@ pub(crate) struct MetricName {
 }
 
 impl MetricName {
-    pub(crate) fn new<T: IntoIterator<Item = NodeName>>(nodes: T) -> Self {
-        MetricName {
-            nodes: nodes.into_iter().collect(),
+    pub(crate) fn new(s: &str, delimiter: char) -> Result<Self, ParseError> {
+        let mut nodes = VecDeque::new();
+        for node in s.split(delimiter) {
+            let node = NodeName::from_str(node)?;
+            nodes.push_back(node);
         }
+
+        Ok(MetricName { nodes })
     }
 
     pub(crate) fn add_prefix(&mut self, prefix: NodeName) {

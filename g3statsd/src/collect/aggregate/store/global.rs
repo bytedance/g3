@@ -165,7 +165,7 @@ impl GlobalStore {
                         // TODO export
 
                         if let Some(next) = &self.next {
-                            next.add_metric(record, None).await;
+                            next.add_metric(record, None);
                         }
 
                         emit_total += 1;
@@ -208,7 +208,7 @@ impl GlobalStore {
                         // TODO export
 
                         if let Some(next) = &self.next {
-                            next.add_metric(record, None).await;
+                            next.add_metric(record, None);
                         }
 
                         emit_total += 1;

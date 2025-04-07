@@ -75,12 +75,25 @@ impl AggregateHandle {
         handle
     }
 
-    pub(super) async fn add_metric(&self, record: MetricRecord, worker_id: Option<usize>) {
+    pub(super) fn add_metric(&self, record: MetricRecord, worker_id: Option<usize>) {
+        use mpsc::error::TrySendError;
+
         match record.r#type {
             MetricType::Counter => {
                 if let Some(id) = worker_id {
                     if let Some(sender) = self.worker.get(id) {
-                        let _ = sender.send(Command::Add(record)).await; // TODO add stats
+                        match sender.try_send(Command::Add(record)) {
+                            Ok(_) => {}
+                            Err(TrySendError::Full(msg)) => {
+                                let sender = sender.clone();
+                                tokio::spawn(async move {
+                                    let _ = sender.send(msg).await; // TODO add stats
+                                });
+                            }
+                            Err(TrySendError::Closed(_msg)) => {
+                                // TODO add stats
+                            }
+                        }
                         return;
                     }
                 }
@@ -88,6 +101,17 @@ impl AggregateHandle {
             MetricType::Gauge => {}
         }
 
-        let _ = self.global.send(Command::Add(record)).await;
+        match self.global.try_send(Command::Add(record)) {
+            Ok(_) => {}
+            Err(TrySendError::Full(msg)) => {
+                let sender = self.global.clone();
+                tokio::spawn(async move {
+                    let _ = sender.send(msg).await; // TODO add stats
+                });
+            }
+            Err(TrySendError::Closed(_msg)) => {
+                // TODO add stats
+            }
+        }
     }
 }

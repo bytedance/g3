@@ -24,6 +24,8 @@ pub use tag::{MetricTagName, MetricTagValue, StaticMetricsTags};
 
 #[derive(Debug, Error)]
 pub enum ParseError {
+    #[error("unexpected empty")]
+    UnexpectedEmpty,
     #[error("invalid graphic char: {0}")]
     InvalidGraphic(char),
     #[error("not alpha numeric char")]
