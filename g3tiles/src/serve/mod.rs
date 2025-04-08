@@ -31,6 +31,7 @@ use g3_types::metrics::NodeName;
 use crate::config::server::AnyServerConfig;
 
 mod registry;
+use registry::ServerRegistry;
 pub(crate) use registry::{foreach_online as foreach_server, get_names, get_or_insert_default};
 
 mod error;
@@ -60,14 +61,24 @@ pub(crate) use stats::{ArcServerStats, ServerStats};
 
 pub(crate) trait ServerInternal {
     fn _clone_config(&self) -> AnyServerConfig;
-    fn _update_config_in_place(&self, flags: u64, config: AnyServerConfig) -> anyhow::Result<()>;
+    fn _update_config_in_place(&self, _flags: u64, _config: AnyServerConfig) -> anyhow::Result<()> {
+        Ok(())
+    }
 
     fn _depend_on_server(&self, name: &NodeName) -> bool;
     fn _reload_config_notify_runtime(&self);
     fn _update_next_servers_in_place(&self);
 
-    fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer>;
-    fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer>;
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServer>;
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServer>;
 
     fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()>;
     fn _abort_runtime(&self);
