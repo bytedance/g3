@@ -17,7 +17,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use async_trait::async_trait;
+use arc_swap::ArcSwapOption;
 
 use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
@@ -29,7 +29,7 @@ use crate::types::MetricRecord;
 
 pub(crate) struct RegulateCollector {
     config: RegulateCollectorConfig,
-    next: Option<ArcCollector>,
+    next: ArcSwapOption<ArcCollector>,
 
     reload_version: usize,
 }
@@ -39,11 +39,11 @@ impl RegulateCollector {
         let next = config
             .next
             .as_ref()
-            .map(|name| crate::collect::get_or_insert_default(name));
+            .map(|name| Arc::new(crate::collect::get_or_insert_default(name)));
 
         RegulateCollector {
             config,
-            next,
+            next: ArcSwapOption::new(next),
             reload_version,
         }
     }
@@ -69,7 +69,6 @@ impl RegulateCollector {
     }
 }
 
-#[async_trait]
 impl CollectorInternal for RegulateCollector {
     fn _clone_config(&self) -> AnyCollectorConfig {
         AnyCollectorConfig::Regulate(self.config.clone())
@@ -83,10 +82,15 @@ impl CollectorInternal for RegulateCollector {
             .unwrap_or(false)
     }
 
-    fn _update_next_collectors_in_place(&self) {}
-
-    async fn _lock_safe_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollector> {
+    fn _lock_safe_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollector> {
         self.prepare_reload(config)
+    }
+
+    fn _update_next_collectors_in_place(&self) {
+        if let Some(name) = &self.config.next {
+            let next = crate::collect::get_or_insert_default(name);
+            self.next.store(Some(Arc::new(next)));
+        }
     }
 }
 
@@ -109,6 +113,10 @@ impl BaseServer for RegulateCollector {
 
 impl Collector for RegulateCollector {
     fn add_metric(&self, mut record: MetricRecord, worker_id: Option<usize>) {
+        if let Some(prefix) = &self.config.prefix {
+            let name = Arc::make_mut(&mut record.name);
+            name.add_prefix(prefix);
+        }
         if !self.config.drop_tags.is_empty() {
             let tag_map = Arc::make_mut(&mut record.tag_map);
             for tag_name in &self.config.drop_tags {
@@ -118,7 +126,7 @@ impl Collector for RegulateCollector {
 
         // TODO send to exporter
 
-        if let Some(next) = &self.next {
+        if let Some(next) = self.next.load().as_ref() {
             next.add_metric(record, worker_id);
         }
     }

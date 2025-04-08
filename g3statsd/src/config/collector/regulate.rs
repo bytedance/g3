@@ -23,6 +23,7 @@ use g3_types::metrics::{MetricTagName, NodeName};
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyCollectorConfig, CollectorConfig, CollectorConfigDiffAction};
+use crate::types::MetricName;
 
 const COLLECTOR_CONFIG_TYPE: &str = "Regulate";
 
@@ -30,6 +31,7 @@ const COLLECTOR_CONFIG_TYPE: &str = "Regulate";
 pub(crate) struct RegulateCollectorConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
+    pub(crate) prefix: Option<MetricName>,
     pub(crate) drop_tags: Vec<MetricTagName>,
     pub(crate) next: Option<NodeName>,
 }
@@ -39,6 +41,7 @@ impl RegulateCollectorConfig {
         RegulateCollectorConfig {
             name: NodeName::default(),
             position,
+            prefix: None,
             drop_tags: Vec::new(),
             next: None,
         }
@@ -61,6 +64,12 @@ impl RegulateCollectorConfig {
             super::CONFIG_KEY_COLLECTOR_TYPE => Ok(()),
             super::CONFIG_KEY_COLLECTOR_NAME => {
                 self.name = g3_yaml::value::as_metric_node_name(v)?;
+                Ok(())
+            }
+            "prefix" => {
+                let prefix = MetricName::parse_yaml(v)
+                    .context(format!("invalid metric name value for key {k}"))?;
+                self.prefix = Some(prefix);
                 Ok(())
             }
             "drop_tags" => {

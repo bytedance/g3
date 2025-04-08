@@ -71,7 +71,7 @@ pub(super) fn get_config(name: &NodeName) -> Option<AnyCollectorConfig> {
     ht.get(name).map(|collect| collect._clone_config())
 }
 
-pub(super) async fn reload_existed(
+pub(super) fn reload_existed(
     name: &NodeName,
     config: Option<AnyCollectorConfig>,
 ) -> anyhow::Result<()> {
@@ -82,7 +82,7 @@ pub(super) async fn reload_existed(
 
     // the _reload method is allowed to hold a registry lock
     // a tokio mutex is needed if we lock this await inside
-    let collector = old_collector._lock_safe_reload(config).await?;
+    let collector = old_collector._lock_safe_reload(config)?;
 
     add(name.clone(), collector);
     Ok(())

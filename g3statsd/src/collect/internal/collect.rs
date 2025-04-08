@@ -17,7 +17,6 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 use tokio::sync::broadcast;
 
 use g3_daemon::server::BaseServer;
@@ -74,7 +73,6 @@ impl InternalCollector {
     }
 }
 
-#[async_trait]
 impl CollectorInternal for InternalCollector {
     fn _clone_config(&self) -> AnyCollectorConfig {
         AnyCollectorConfig::Internal((*self.config).clone())
@@ -84,15 +82,14 @@ impl CollectorInternal for InternalCollector {
         false
     }
 
-    fn _update_next_collectors_in_place(&self) {
-        // TODO
-    }
-
-    async fn _lock_safe_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollector> {
-        let mut server = self.prepare_reload(config)?;
-        server.reload_sender = self.reload_sender.clone();
+    fn _lock_safe_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollector> {
+        let server = self.prepare_reload(config)?;
         let _ = self.reload_sender.send(self.config.clone());
         Ok(Arc::new(server))
+    }
+
+    fn _update_next_collectors_in_place(&self) {
+        let _ = self.reload_sender.send(self.config.clone());
     }
 }
 

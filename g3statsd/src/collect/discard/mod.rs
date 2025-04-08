@@ -17,7 +17,6 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use async_trait::async_trait;
 
 use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
@@ -59,7 +58,6 @@ impl DiscardCollector {
     }
 }
 
-#[async_trait]
 impl CollectorInternal for DiscardCollector {
     fn _clone_config(&self) -> AnyCollectorConfig {
         AnyCollectorConfig::Discard(self.config.clone())
@@ -69,12 +67,12 @@ impl CollectorInternal for DiscardCollector {
         false
     }
 
-    fn _update_next_collectors_in_place(&self) {}
-
-    async fn _lock_safe_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollector> {
+    fn _lock_safe_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollector> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }
+
+    fn _update_next_collectors_in_place(&self) {}
 }
 
 impl BaseServer for DiscardCollector {
