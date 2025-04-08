@@ -102,7 +102,7 @@ impl CollectorConfig for RegulateCollectorConfig {
             return CollectorConfigDiffAction::NoAction;
         }
 
-        CollectorConfigDiffAction::ReloadNoRespawn
+        CollectorConfigDiffAction::Reload
     }
 
     fn dependent_collector(&self) -> Option<BTreeSet<NodeName>> {

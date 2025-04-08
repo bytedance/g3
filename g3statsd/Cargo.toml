@@ -9,6 +9,7 @@ description = "G3 StatsD"
 anyhow.workspace = true
 thiserror.workspace = true
 async-trait.workspace = true
+async-recursion.workspace = true
 arc-swap.workspace = true
 clap.workspace = true
 clap_complete.workspace = true

@@ -26,7 +26,7 @@ use g3_types::metrics::NodeName;
 
 use crate::config::importer::dummy::DummyImporterConfig;
 use crate::config::importer::{AnyImporterConfig, ImporterConfig};
-use crate::import::{ArcImporter, Importer, ImporterInternal};
+use crate::import::{ArcImporter, Importer, ImporterInternal, ImporterRegistry};
 
 pub(crate) struct DummyImporter {
     config: DummyImporterConfig,
@@ -78,14 +78,22 @@ impl ImporterInternal for DummyImporter {
 
     fn _update_collector_in_place(&self) {}
 
-    fn _reload_with_old_notifier(&self, config: AnyImporterConfig) -> anyhow::Result<ArcImporter> {
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyImporterConfig,
+        _registry: &mut ImporterRegistry,
+    ) -> anyhow::Result<ArcImporter> {
         Err(anyhow!(
             "this {} importer doesn't support reload with old notifier",
             config.importer_type()
         ))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyImporterConfig) -> anyhow::Result<ArcImporter> {
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyImporterConfig,
+        _registry: &mut ImporterRegistry,
+    ) -> anyhow::Result<ArcImporter> {
         let importer = self.prepare_reload(config)?;
         Ok(Arc::new(importer))
     }

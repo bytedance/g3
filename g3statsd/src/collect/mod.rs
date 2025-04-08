@@ -16,6 +16,8 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
+
 use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
@@ -27,27 +29,25 @@ pub(crate) use registry::{get_names, get_or_insert_default};
 
 mod ops;
 pub(crate) use ops::reload;
-pub use ops::{spawn_all, stop_all};
+pub use ops::spawn_all;
 
 mod aggregate;
 mod discard;
 mod internal;
 mod regulate;
 
+#[async_trait]
 pub(crate) trait CollectorInternal {
     fn _clone_config(&self) -> AnyCollectorConfig;
 
     fn _depend_on_collector(&self, name: &NodeName) -> bool;
-    fn _reload_config_notify_runtime(&self);
+
+    /// registry lock is allowed in this method
+    async fn _lock_safe_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollector>;
+
+    fn _clean_to_offline(&self) {}
+
     fn _update_next_collectors_in_place(&self);
-
-    fn _reload_with_old_notifier(&self, config: AnyCollectorConfig)
-    -> anyhow::Result<ArcCollector>;
-    fn _reload_with_new_notifier(&self, config: AnyCollectorConfig)
-    -> anyhow::Result<ArcCollector>;
-
-    fn _start_runtime(&self, server: &ArcCollector) -> anyhow::Result<()>;
-    fn _abort_runtime(&self);
 }
 
 pub(crate) trait Collector: CollectorInternal + BaseServer {

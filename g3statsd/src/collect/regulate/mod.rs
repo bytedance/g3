@@ -17,6 +17,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use async_trait::async_trait;
 
 use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
@@ -68,6 +69,7 @@ impl RegulateCollector {
     }
 }
 
+#[async_trait]
 impl CollectorInternal for RegulateCollector {
     fn _clone_config(&self) -> AnyCollectorConfig {
         AnyCollectorConfig::Regulate(self.config.clone())
@@ -81,29 +83,11 @@ impl CollectorInternal for RegulateCollector {
             .unwrap_or(false)
     }
 
-    fn _reload_config_notify_runtime(&self) {}
-
     fn _update_next_collectors_in_place(&self) {}
 
-    fn _reload_with_old_notifier(
-        &self,
-        config: AnyCollectorConfig,
-    ) -> anyhow::Result<ArcCollector> {
+    async fn _lock_safe_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollector> {
         self.prepare_reload(config)
     }
-
-    fn _reload_with_new_notifier(
-        &self,
-        config: AnyCollectorConfig,
-    ) -> anyhow::Result<ArcCollector> {
-        self.prepare_reload(config)
-    }
-
-    fn _start_runtime(&self, _collector: &ArcCollector) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn _abort_runtime(&self) {}
 }
 
 impl BaseServer for RegulateCollector {

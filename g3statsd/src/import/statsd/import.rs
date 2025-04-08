@@ -31,7 +31,7 @@ use super::StatsdRecordVisitor;
 use crate::collect::ArcCollector;
 use crate::config::importer::statsd::StatsdImporterConfig;
 use crate::config::importer::{AnyImporterConfig, ImporterConfig};
-use crate::import::{ArcImporter, Importer, ImporterInternal, WrapArcImporter};
+use crate::import::{ArcImporter, Importer, ImporterInternal, ImporterRegistry, WrapArcImporter};
 
 pub(crate) struct StatsdImporter {
     config: StatsdImporterConfig,
@@ -111,13 +111,21 @@ impl ImporterInternal for StatsdImporter {
         self.collector.store(Arc::new(collector));
     }
 
-    fn _reload_with_old_notifier(&self, config: AnyImporterConfig) -> anyhow::Result<ArcImporter> {
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyImporterConfig,
+        _registry: &mut ImporterRegistry,
+    ) -> anyhow::Result<ArcImporter> {
         let mut server = self.prepare_reload(config)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyImporterConfig) -> anyhow::Result<ArcImporter> {
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyImporterConfig,
+        _registry: &mut ImporterRegistry,
+    ) -> anyhow::Result<ArcImporter> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }

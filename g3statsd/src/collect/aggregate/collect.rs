@@ -17,6 +17,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use async_trait::async_trait;
 use tokio::sync::broadcast;
 
 use g3_daemon::server::BaseServer;
@@ -79,6 +80,7 @@ impl AggregateCollector {
     }
 }
 
+#[async_trait]
 impl CollectorInternal for AggregateCollector {
     fn _clone_config(&self) -> AnyCollectorConfig {
         AnyCollectorConfig::Aggregate(self.config.as_ref().clone())
@@ -88,33 +90,15 @@ impl CollectorInternal for AggregateCollector {
         false
     }
 
-    fn _reload_config_notify_runtime(&self) {
+    fn _update_next_collectors_in_place(&self) {
         let _ = self.reload_sender.send(self.config.clone());
     }
 
-    fn _update_next_collectors_in_place(&self) {}
-
-    fn _reload_with_old_notifier(
-        &self,
-        config: AnyCollectorConfig,
-    ) -> anyhow::Result<ArcCollector> {
+    async fn _lock_safe_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollector> {
         let server = self.prepare_reload(config)?;
+        let _ = self.reload_sender.send(self.config.clone());
         Ok(Arc::new(server))
     }
-
-    fn _reload_with_new_notifier(
-        &self,
-        config: AnyCollectorConfig,
-    ) -> anyhow::Result<ArcCollector> {
-        let server = self.prepare_reload(config)?;
-        Ok(Arc::new(server))
-    }
-
-    fn _start_runtime(&self, _collector: &ArcCollector) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn _abort_runtime(&self) {}
 }
 
 impl BaseServer for AggregateCollector {
