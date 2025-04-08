@@ -34,7 +34,9 @@ use g3_types::net::{OpensslTicketKey, RollingTicketer, UdpListenConfig};
 
 use crate::config::server::plain_quic_port::{PlainQuicPortConfig, PlainQuicPortUpdateFlags};
 use crate::config::server::{AnyServerConfig, ServerConfig};
-use crate::serve::{ArcServer, Server, ServerInternal, ServerQuitPolicy, WrapArcServer};
+use crate::serve::{
+    ArcServer, Server, ServerInternal, ServerQuitPolicy, ServerRegistry, WrapArcServer,
+};
 
 #[derive(Clone)]
 struct PlainQuicPortAuxConfig {
@@ -88,12 +90,16 @@ pub(crate) struct PlainQuicPort {
 }
 
 impl PlainQuicPort {
-    fn new(
+    fn new<F>(
         config: Arc<PlainQuicPortConfig>,
         listen_stats: Arc<ListenStats>,
         tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         reload_version: usize,
-    ) -> anyhow::Result<Self> {
+        mut fetch_server: F,
+    ) -> anyhow::Result<Self>
+    where
+        F: FnMut(&NodeName) -> ArcServer,
+    {
         let reload_sender = crate::serve::new_reload_notify_channel();
 
         let quic_server = config
@@ -105,7 +111,7 @@ impl PlainQuicPort {
             .as_ref()
             .map(|builder| Arc::new(builder.build()));
 
-        let next_server = Arc::new(crate::serve::get_or_insert_default(&config.server));
+        let next_server = Arc::new(fetch_server(&config.server));
 
         let aux_config = PlainQuicPortAuxConfig {
             ingress_net_filter,
@@ -142,11 +148,21 @@ impl PlainQuicPort {
             None
         };
 
-        let server = PlainQuicPort::new(Arc::new(config), listen_stats, tls_rolling_ticketer, 1)?;
+        let server = PlainQuicPort::new(
+            Arc::new(config),
+            listen_stats,
+            tls_rolling_ticketer,
+            1,
+            crate::serve::get_or_insert_default,
+        )?;
         Ok(Arc::new(server))
     }
 
-    fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<PlainQuicPort> {
+    fn prepare_reload(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<PlainQuicPort> {
         if let AnyServerConfig::PlainQuicPort(config) = config {
             let listen_stats = Arc::clone(&self.listen_stats);
 
@@ -167,6 +183,7 @@ impl PlainQuicPort {
                 listen_stats,
                 tls_rolling_ticketer,
                 self.reload_version + 1,
+                |name| registry.get_or_insert_default(name),
             )
         } else {
             let cur_config = self.config.load();
@@ -241,14 +258,22 @@ impl ServerInternal for PlainQuicPort {
         self.next_server.store(Arc::new(next_server));
     }
 
-    fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
-        let mut server = self.prepare_reload(config)?;
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServer> {
+        let mut server = self.prepare_reload(config, registry)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
-        let server = self.prepare_reload(config)?;
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServer> {
+        let server = self.prepare_reload(config, registry)?;
         Ok(Arc::new(server))
     }
 
