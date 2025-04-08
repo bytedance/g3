@@ -16,8 +16,6 @@
 
 use std::sync::Arc;
 
-use async_trait::async_trait;
-
 use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
@@ -36,14 +34,13 @@ mod discard;
 mod internal;
 mod regulate;
 
-#[async_trait]
 pub(crate) trait CollectorInternal {
     fn _clone_config(&self) -> AnyCollectorConfig;
 
     fn _depend_on_collector(&self, name: &NodeName) -> bool;
 
     /// registry lock is allowed in this method
-    async fn _lock_safe_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollector>;
+    fn _lock_safe_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollector>;
 
     fn _clean_to_offline(&self) {}
 

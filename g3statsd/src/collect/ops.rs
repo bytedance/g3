@@ -163,7 +163,7 @@ async fn reload_existed_unlocked(
 ) -> anyhow::Result<()> {
     const STATUS: &str = "reloaded";
 
-    registry::reload_existed(name, new).await?;
+    registry::reload_existed(name, new)?;
     update_dependency_to_collector_unlocked(name, STATUS).await;
     crate::import::update_dependency_to_collector(name, STATUS).await;
     Ok(())

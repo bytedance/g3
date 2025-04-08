@@ -109,7 +109,7 @@ impl<'a> LineValueIter<'a> {
         let name = &part[..p];
         let name = std::str::from_utf8(name)
             .map_err(|e| StatsdParseError::InvalidName(anyhow::Error::new(e)))?;
-        let name = MetricName::new(name, '.').map_err(|e| {
+        let name = MetricName::parse(name).map_err(|e| {
             StatsdParseError::InvalidName(anyhow!("invalid node name in name field: {e}"))
         })?;
 
