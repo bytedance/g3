@@ -226,10 +226,6 @@ async fn reload_unlocked(old: AnyEscaperConfig, new: AnyEscaperConfig) -> anyhow
             debug!("escaper {name} reload: will reload from existed");
             reload_existed_unlocked(name, Some(new)).await
         }
-        EscaperConfigDiffAction::UpdateInPlace(flags) => {
-            debug!("escaper {name} reload: will update the existed in place");
-            registry::update_config_in_place(name, flags, new)
-        }
     }
 }
 

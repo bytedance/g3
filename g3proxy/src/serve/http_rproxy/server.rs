@@ -53,7 +53,8 @@ use crate::config::server::http_rproxy::HttpRProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
 use crate::serve::{
-    ArcServer, ArcServerStats, Server, ServerInternal, ServerQuitPolicy, ServerStats, WrapArcServer,
+    ArcServer, ArcServerStats, Server, ServerInternal, ServerQuitPolicy, ServerRegistry,
+    ServerStats, WrapArcServer,
 };
 
 pub(crate) struct HttpRProxyServer {
@@ -260,10 +261,6 @@ impl ServerInternal for HttpRProxyServer {
         AnyServerConfig::HttpRProxy(self.config.as_ref().clone())
     }
 
-    fn _update_config_in_place(&self, _flags: u64, _config: AnyServerConfig) -> anyhow::Result<()> {
-        Ok(())
-    }
-
     fn _depend_on_server(&self, _name: &NodeName) -> bool {
         false
     }
@@ -288,13 +285,21 @@ impl ServerInternal for HttpRProxyServer {
         Ok(())
     }
 
-    fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyServerConfig,
+        _registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServer> {
         let mut server = self.prepare_reload(config)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyServerConfig,
+        _registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServer> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }

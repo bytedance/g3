@@ -38,7 +38,9 @@ use g3_types::net::{OpensslServerConfig, OpensslTicketKey, ProxyProtocolVersion,
 
 use crate::config::server::native_tls_port::NativeTlsPortConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
-use crate::serve::{ArcServer, Server, ServerInternal, ServerQuitPolicy, WrapArcServer};
+use crate::serve::{
+    ArcServer, Server, ServerInternal, ServerQuitPolicy, ServerRegistry, WrapArcServer,
+};
 
 pub(crate) struct NativeTlsPort {
     config: NativeTlsPortConfig,
@@ -54,12 +56,16 @@ pub(crate) struct NativeTlsPort {
 }
 
 impl NativeTlsPort {
-    fn new(
+    fn new<F>(
         config: NativeTlsPortConfig,
         listen_stats: Arc<ListenStats>,
         tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         reload_version: usize,
-    ) -> anyhow::Result<Self> {
+        mut fetch_server: F,
+    ) -> anyhow::Result<Self>
+    where
+        F: FnMut(&NodeName) -> ArcServer,
+    {
         let reload_sender = crate::serve::new_reload_notify_channel();
 
         let tls_server_config = if let Some(builder) = &config.server_tls_config {
@@ -75,7 +81,7 @@ impl NativeTlsPort {
             .as_ref()
             .map(|builder| builder.build());
 
-        let next_server = Arc::new(crate::serve::get_or_insert_default(&config.server));
+        let next_server = Arc::new(fetch_server(&config.server));
 
         Ok(NativeTlsPort {
             config,
@@ -102,11 +108,21 @@ impl NativeTlsPort {
             None
         };
 
-        let server = NativeTlsPort::new(config, listen_stats, tls_rolling_ticketer, 1)?;
+        let server = NativeTlsPort::new(
+            config,
+            listen_stats,
+            tls_rolling_ticketer,
+            1,
+            crate::serve::get_or_insert_default,
+        )?;
         Ok(Arc::new(server))
     }
 
-    fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<NativeTlsPort> {
+    fn prepare_reload(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<NativeTlsPort> {
         if let AnyServerConfig::NativeTlsPort(config) = config {
             let listen_stats = Arc::clone(&self.listen_stats);
 
@@ -126,6 +142,7 @@ impl NativeTlsPort {
                 listen_stats,
                 tls_rolling_ticketer,
                 self.reload_version + 1,
+                |name| registry.get_or_insert_default(name),
             )
         } else {
             Err(anyhow!(
@@ -219,10 +236,6 @@ impl ServerInternal for NativeTlsPort {
         AnyServerConfig::NativeTlsPort(self.config.clone())
     }
 
-    fn _update_config_in_place(&self, _flags: u64, _config: AnyServerConfig) -> anyhow::Result<()> {
-        Ok(())
-    }
-
     fn _depend_on_server(&self, name: &NodeName) -> bool {
         self.config.server.eq(name)
     }
@@ -243,14 +256,22 @@ impl ServerInternal for NativeTlsPort {
         Ok(())
     }
 
-    fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
-        let mut server = self.prepare_reload(config)?;
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServer> {
+        let mut server = self.prepare_reload(config, registry)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
-        let server = self.prepare_reload(config)?;
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServer> {
+        let server = self.prepare_reload(config, registry)?;
         Ok(Arc::new(server))
     }
 

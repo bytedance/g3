@@ -270,14 +270,6 @@ impl EscaperInternal for ProxySocks5sEscaper {
         AnyEscaperConfig::ProxySocks5s(config.clone())
     }
 
-    fn _update_config_in_place(
-        &self,
-        _flags: u64,
-        _config: AnyEscaperConfig,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
     async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
         ProxySocks5sEscaper::prepare_reload(config, stats)

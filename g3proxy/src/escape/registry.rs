@@ -72,19 +72,6 @@ pub(super) fn get_config(name: &NodeName) -> Option<AnyEscaperConfig> {
     ht.get(name).map(|escaper| escaper._clone_config())
 }
 
-pub(super) fn update_config_in_place(
-    name: &NodeName,
-    flags: u64,
-    config: AnyEscaperConfig,
-) -> anyhow::Result<()> {
-    let ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
-    if let Some(escaper) = ht.get(name) {
-        escaper._update_config_in_place(flags, config)
-    } else {
-        Err(anyhow!("no escaper with name {name} found"))
-    }
-}
-
 pub(super) async fn reload_existed(
     name: &NodeName,
     config: Option<AnyEscaperConfig>,

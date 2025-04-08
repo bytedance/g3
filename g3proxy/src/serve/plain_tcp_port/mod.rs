@@ -36,7 +36,9 @@ use g3_types::net::ProxyProtocolVersion;
 
 use crate::config::server::plain_tcp_port::PlainTcpPortConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
-use crate::serve::{ArcServer, Server, ServerInternal, ServerQuitPolicy, WrapArcServer};
+use crate::serve::{
+    ArcServer, Server, ServerInternal, ServerQuitPolicy, ServerRegistry, WrapArcServer,
+};
 
 pub(crate) struct PlainTcpPort {
     config: PlainTcpPortConfig,
@@ -50,11 +52,15 @@ pub(crate) struct PlainTcpPort {
 }
 
 impl PlainTcpPort {
-    fn new(
+    fn new<F>(
         config: PlainTcpPortConfig,
         listen_stats: Arc<ListenStats>,
         reload_version: usize,
-    ) -> anyhow::Result<Self> {
+        mut fetch_server: F,
+    ) -> anyhow::Result<Self>
+    where
+        F: FnMut(&NodeName) -> ArcServer,
+    {
         let reload_sender = crate::serve::new_reload_notify_channel();
 
         let ingress_net_filter = config
@@ -62,7 +68,7 @@ impl PlainTcpPort {
             .as_ref()
             .map(|builder| builder.build());
 
-        let next_server = Arc::new(crate::serve::get_or_insert_default(&config.server));
+        let next_server = Arc::new(fetch_server(&config.server));
 
         Ok(PlainTcpPort {
             config,
@@ -78,15 +84,22 @@ impl PlainTcpPort {
     pub(crate) fn prepare_initial(config: PlainTcpPortConfig) -> anyhow::Result<ArcServer> {
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-        let server = PlainTcpPort::new(config, listen_stats, 1)?;
+        let server =
+            PlainTcpPort::new(config, listen_stats, 1, crate::serve::get_or_insert_default)?;
         Ok(Arc::new(server))
     }
 
-    fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<PlainTcpPort> {
+    fn prepare_reload(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<PlainTcpPort> {
         if let AnyServerConfig::PlainTcpPort(config) = config {
             let listen_stats = Arc::clone(&self.listen_stats);
 
-            PlainTcpPort::new(config, listen_stats, self.reload_version + 1)
+            PlainTcpPort::new(config, listen_stats, self.reload_version + 1, |name| {
+                registry.get_or_insert_default(name)
+            })
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
@@ -151,10 +164,6 @@ impl ServerInternal for PlainTcpPort {
         AnyServerConfig::PlainTcpPort(self.config.clone())
     }
 
-    fn _update_config_in_place(&self, _flags: u64, _config: AnyServerConfig) -> anyhow::Result<()> {
-        Ok(())
-    }
-
     fn _depend_on_server(&self, name: &NodeName) -> bool {
         self.config.server.eq(name)
     }
@@ -175,14 +184,22 @@ impl ServerInternal for PlainTcpPort {
         Ok(())
     }
 
-    fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
-        let mut server = self.prepare_reload(config)?;
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServer> {
+        let mut server = self.prepare_reload(config, registry)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
-        let server = self.prepare_reload(config)?;
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServer> {
+        let server = self.prepare_reload(config, registry)?;
         Ok(Arc::new(server))
     }
 

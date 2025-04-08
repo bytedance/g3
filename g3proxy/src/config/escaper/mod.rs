@@ -61,8 +61,6 @@ pub(crate) enum EscaperConfigDiffAction {
     NoAction,
     SpawnNew,
     Reload,
-    #[allow(unused)]
-    UpdateInPlace(u64), // to support escaper custom hot update, take a flags param
 }
 
 pub(crate) trait EscaperConfig {

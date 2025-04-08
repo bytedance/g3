@@ -98,7 +98,6 @@ pub(crate) trait EscaperInternal {
     fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>>;
 
     fn _clone_config(&self) -> AnyEscaperConfig;
-    fn _update_config_in_place(&self, flags: u64, config: AnyEscaperConfig) -> anyhow::Result<()>;
 
     /// registry lock is allowed in this method
     async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper>;
