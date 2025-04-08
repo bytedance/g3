@@ -31,7 +31,7 @@ use g3_types::metrics::NodeName;
 
 use crate::config::server::dummy_close::DummyCloseServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
-use crate::serve::{ArcServer, Server, ServerInternal, ServerQuitPolicy};
+use crate::serve::{ArcServer, Server, ServerInternal, ServerQuitPolicy, ServerRegistry};
 
 pub(crate) struct DummyCloseServer {
     config: DummyCloseServerConfig,
@@ -87,10 +87,6 @@ impl ServerInternal for DummyCloseServer {
         AnyServerConfig::DummyClose(self.config.clone())
     }
 
-    fn _update_config_in_place(&self, _flags: u64, _config: AnyServerConfig) -> anyhow::Result<()> {
-        Ok(())
-    }
-
     fn _depend_on_server(&self, _name: &NodeName) -> bool {
         false
     }
@@ -108,14 +104,22 @@ impl ServerInternal for DummyCloseServer {
         Ok(())
     }
 
-    fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyServerConfig,
+        _registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServer> {
         Err(anyhow!(
             "this {} server doesn't support reload with old notifier",
             config.server_type()
         ))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyServerConfig,
+        _registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServer> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }

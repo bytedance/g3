@@ -37,7 +37,9 @@ use g3_types::net::ProxyProtocolVersion;
 use super::{DetectedProxyProtocol, detect_tcp_proxy_protocol};
 use crate::config::server::intelli_proxy::IntelliProxyConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
-use crate::serve::{ArcServer, Server, ServerInternal, ServerQuitPolicy, WrapArcServer};
+use crate::serve::{
+    ArcServer, Server, ServerInternal, ServerQuitPolicy, ServerRegistry, WrapArcServer,
+};
 
 pub(crate) struct IntelliProxy {
     config: IntelliProxyConfig,
@@ -52,11 +54,15 @@ pub(crate) struct IntelliProxy {
 }
 
 impl IntelliProxy {
-    fn new(
+    fn new<F>(
         config: IntelliProxyConfig,
         listen_stats: Arc<ListenStats>,
         reload_version: usize,
-    ) -> Self {
+        mut fetch_server: F,
+    ) -> Self
+    where
+        F: FnMut(&NodeName) -> ArcServer,
+    {
         let reload_sender = crate::serve::new_reload_notify_channel();
 
         let ingress_net_filter = config
@@ -64,8 +70,8 @@ impl IntelliProxy {
             .as_ref()
             .map(|builder| builder.build());
 
-        let http_server = Arc::new(crate::serve::get_or_insert_default(&config.http_server));
-        let socks_server = Arc::new(crate::serve::get_or_insert_default(&config.socks_server));
+        let http_server = Arc::new(fetch_server(&config.http_server));
+        let socks_server = Arc::new(fetch_server(&config.socks_server));
 
         IntelliProxy {
             config,
@@ -82,15 +88,22 @@ impl IntelliProxy {
     pub(crate) fn prepare_initial(config: IntelliProxyConfig) -> anyhow::Result<ArcServer> {
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-        let server = IntelliProxy::new(config, listen_stats, 1);
+        let server =
+            IntelliProxy::new(config, listen_stats, 1, crate::serve::get_or_insert_default);
         Ok(Arc::new(server))
     }
 
-    fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<IntelliProxy> {
+    fn prepare_reload(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<IntelliProxy> {
         if let AnyServerConfig::IntelliProxy(config) = config {
             let listen_stats = Arc::clone(&self.listen_stats);
 
-            let server = IntelliProxy::new(config, listen_stats, self.reload_version + 1);
+            let server = IntelliProxy::new(config, listen_stats, self.reload_version + 1, |name| {
+                registry.get_or_insert_default(name)
+            });
             Ok(server)
         } else {
             Err(anyhow!(
@@ -182,10 +195,6 @@ impl ServerInternal for IntelliProxy {
         AnyServerConfig::IntelliProxy(self.config.clone())
     }
 
-    fn _update_config_in_place(&self, _flags: u64, _config: AnyServerConfig) -> anyhow::Result<()> {
-        Ok(())
-    }
-
     fn _depend_on_server(&self, name: &NodeName) -> bool {
         let config = &self.config;
         config.http_server.eq(name) || config.socks_server.eq(name)
@@ -209,14 +218,22 @@ impl ServerInternal for IntelliProxy {
         Ok(())
     }
 
-    fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
-        let mut server = self.prepare_reload(config)?;
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServer> {
+        let mut server = self.prepare_reload(config, registry)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
-        let server = self.prepare_reload(config)?;
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServer> {
+        let server = self.prepare_reload(config, registry)?;
         Ok(Arc::new(server))
     }
 

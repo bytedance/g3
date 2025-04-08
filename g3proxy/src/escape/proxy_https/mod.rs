@@ -263,14 +263,6 @@ impl EscaperInternal for ProxyHttpsEscaper {
         AnyEscaperConfig::ProxyHttps(config.clone())
     }
 
-    fn _update_config_in_place(
-        &self,
-        _flags: u64,
-        _config: AnyEscaperConfig,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
     async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
         ProxyHttpsEscaper::prepare_reload(config, stats)

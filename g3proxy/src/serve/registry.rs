@@ -26,9 +26,102 @@ use super::ArcServer;
 use crate::config::server::AnyServerConfig;
 use crate::serve::dummy_close::DummyCloseServer;
 
-static RUNTIME_SERVER_REGISTRY: Mutex<HashMap<NodeName, ArcServer, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static RUNTIME_SERVER_REGISTRY: Mutex<ServerRegistry> = Mutex::new(ServerRegistry::new());
 static OFFLINE_SERVER_SET: Mutex<Vec<ArcServer>> = Mutex::new(Vec::new());
+
+pub(crate) struct ServerRegistry {
+    inner: HashMap<NodeName, ArcServer, FixedState>,
+}
+
+impl ServerRegistry {
+    const fn new() -> Self {
+        ServerRegistry {
+            inner: HashMap::with_hasher(FixedState::with_seed(0)),
+        }
+    }
+
+    fn add(&mut self, name: NodeName, server: ArcServer) -> anyhow::Result<()> {
+        server._start_runtime(&server)?;
+        if let Some(old_server) = self.inner.insert(name, server) {
+            old_server._abort_runtime();
+            add_offline(old_server);
+        }
+        Ok(())
+    }
+
+    fn del(&mut self, name: &NodeName) {
+        if let Some(old_server) = self.inner.remove(name) {
+            old_server._abort_runtime();
+            add_offline(old_server);
+        }
+    }
+
+    fn get_names(&self) -> HashSet<NodeName> {
+        self.inner.keys().cloned().collect()
+    }
+
+    fn get_config(&self, name: &NodeName) -> Option<AnyServerConfig> {
+        self.inner.get(name).map(|server| server._clone_config())
+    }
+
+    fn get_server(&self, name: &NodeName) -> Option<ArcServer> {
+        self.inner.get(name).cloned()
+    }
+
+    fn reload_no_respawn(
+        &mut self,
+        name: &NodeName,
+        config: AnyServerConfig,
+    ) -> anyhow::Result<()> {
+        let Some(old_server) = self.inner.get(name) else {
+            return Err(anyhow!("no server with name {name} found"));
+        };
+
+        let old_server = old_server.clone();
+        let server = old_server._reload_with_old_notifier(config, self)?;
+        if let Some(old_server) = self.inner.insert(name.clone(), Arc::clone(&server)) {
+            // do not abort the runtime, as it's reused
+            add_offline(old_server);
+        }
+        server._reload_config_notify_runtime();
+        Ok(())
+    }
+
+    fn reload_and_respawn(
+        &mut self,
+        name: &NodeName,
+        config: AnyServerConfig,
+    ) -> anyhow::Result<()> {
+        let Some(old_server) = self.inner.get(name) else {
+            return Err(anyhow!("no server with name {name} found"));
+        };
+
+        let old_server = old_server.clone();
+        let server = old_server._reload_with_new_notifier(config, self)?;
+        server._start_runtime(&server)?;
+        if let Some(old_server) = self.inner.insert(name.clone(), server) {
+            old_server._abort_runtime();
+            add_offline(old_server);
+        }
+        Ok(())
+    }
+
+    fn foreach<F>(&self, mut f: F)
+    where
+        F: FnMut(&NodeName, &ArcServer),
+    {
+        for (name, server) in self.inner.iter() {
+            f(name, server)
+        }
+    }
+
+    pub(crate) fn get_or_insert_default(&mut self, name: &NodeName) -> ArcServer {
+        self.inner
+            .entry(name.clone())
+            .or_insert_with(|| DummyCloseServer::prepare_default(name))
+            .clone()
+    }
+}
 
 pub(super) fn add_offline(old_server: ArcServer) {
     let mut set = OFFLINE_SERVER_SET.lock().unwrap();
@@ -66,40 +159,34 @@ where
 }
 
 pub(super) fn add(name: NodeName, server: ArcServer) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
-    server._start_runtime(&server)?;
-    if let Some(old_server) = ht.insert(name, server) {
-        old_server._abort_runtime();
-        add_offline(old_server);
-    }
-    Ok(())
+    let mut sr = RUNTIME_SERVER_REGISTRY
+        .lock()
+        .map_err(|e| anyhow!("failed to lock server registry: {e}"))?;
+    sr.add(name, server)
 }
 
 pub(super) fn del(name: &NodeName) {
-    let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
-    if let Some(old_server) = ht.remove(name) {
-        old_server._abort_runtime();
-        add_offline(old_server);
-    }
+    let mut sr = RUNTIME_SERVER_REGISTRY.lock().unwrap();
+    sr.del(name);
 }
 
 pub(crate) fn get_names() -> HashSet<NodeName> {
-    let mut names = HashSet::new();
-    let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
-    for name in ht.keys() {
-        names.insert(name.clone());
-    }
-    names
+    let sr = RUNTIME_SERVER_REGISTRY.lock().unwrap();
+    sr.get_names()
 }
 
 pub(super) fn get_config(name: &NodeName) -> Option<AnyServerConfig> {
-    let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
-    ht.get(name).map(|server| server._clone_config())
+    let sr = RUNTIME_SERVER_REGISTRY.lock().unwrap();
+    sr.get_config(name)
 }
 
 pub(crate) fn get_server(name: &NodeName) -> Option<ArcServer> {
-    let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
-    ht.get(name).cloned()
+    let sr = RUNTIME_SERVER_REGISTRY.lock().unwrap();
+    sr.get_server(name)
+}
+
+fn check_get_server(name: &NodeName) -> anyhow::Result<ArcServer> {
+    get_server(name).ok_or_else(|| anyhow!("no server with name {name} found"))
 }
 
 pub(super) fn update_config_in_place(
@@ -107,87 +194,50 @@ pub(super) fn update_config_in_place(
     flags: u64,
     config: AnyServerConfig,
 ) -> anyhow::Result<()> {
-    let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
-    if let Some(server) = ht.get(name) {
-        server._update_config_in_place(flags, config)
-    } else {
-        Err(anyhow!("no server with name {name} found"))
-    }
+    let server = check_get_server(name)?;
+    server._update_config_in_place(flags, config)
 }
 
 pub(super) fn reload_no_respawn(name: &NodeName, config: AnyServerConfig) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
-    let Some(old_server) = ht.get(name) else {
-        return Err(anyhow!("no server with name {name} found"));
-    };
-
-    let server = old_server._reload_with_old_notifier(config)?;
-    if let Some(old_server) = ht.insert(name.clone(), Arc::clone(&server)) {
-        // do not abort the runtime, as it's reused
-        add_offline(old_server);
-    }
-    server._reload_config_notify_runtime();
-    Ok(())
+    let mut sr = RUNTIME_SERVER_REGISTRY
+        .lock()
+        .map_err(|e| anyhow!("failed to lock server registry: {e}"))?;
+    sr.reload_no_respawn(name, config)
 }
 
-pub(crate) fn reload_only_escaper(name: &NodeName) -> anyhow::Result<()> {
-    let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
-    let Some(server) = ht.get(name) else {
-        return Err(anyhow!("no server with name {name} found"));
-    };
-
+pub(super) fn reload_only_escaper(name: &NodeName) -> anyhow::Result<()> {
+    let server = check_get_server(name)?;
     server._update_escaper_in_place();
     Ok(())
 }
 
-pub(crate) fn reload_only_user_group(name: &NodeName) -> anyhow::Result<()> {
-    let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
-    let Some(server) = ht.get(name) else {
-        return Err(anyhow!("no server with name {name} found"));
-    };
-
+pub(super) fn reload_only_user_group(name: &NodeName) -> anyhow::Result<()> {
+    let server = check_get_server(name)?;
     server._update_user_group_in_place();
     Ok(())
 }
 
-pub(crate) fn reload_only_auditor(name: &NodeName) -> anyhow::Result<()> {
-    let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
-    let Some(server) = ht.get(name) else {
-        return Err(anyhow!("no server with name {name} found"));
-    };
-
-    server._update_audit_handle_in_place()?;
-    Ok(())
+pub(super) fn reload_only_auditor(name: &NodeName) -> anyhow::Result<()> {
+    let server = check_get_server(name)?;
+    server._update_audit_handle_in_place()
 }
 
 pub(super) fn reload_and_respawn(name: &NodeName, config: AnyServerConfig) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
-    let Some(old_server) = ht.get(name) else {
-        return Err(anyhow!("no server with name {name} found"));
-    };
-
-    let server = old_server._reload_with_new_notifier(config)?;
-    server._start_runtime(&server)?;
-    if let Some(old_server) = ht.insert(name.clone(), server) {
-        old_server._abort_runtime();
-        add_offline(old_server);
-    }
-    Ok(())
+    let mut sr = RUNTIME_SERVER_REGISTRY
+        .lock()
+        .map_err(|e| anyhow!("failed to lock server registry: {e}"))?;
+    sr.reload_and_respawn(name, config)
 }
 
-pub(crate) fn foreach_online<F>(mut f: F)
+pub(crate) fn foreach_online<F>(f: F)
 where
     F: FnMut(&NodeName, &ArcServer),
 {
-    let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
-    for (name, server) in ht.iter() {
-        f(name, server)
-    }
+    let sr = RUNTIME_SERVER_REGISTRY.lock().unwrap();
+    sr.foreach(f)
 }
 
 pub(crate) fn get_or_insert_default(name: &NodeName) -> ArcServer {
-    let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
-    ht.entry(name.clone())
-        .or_insert_with(|| DummyCloseServer::prepare_default(name))
-        .clone()
+    let mut sr = RUNTIME_SERVER_REGISTRY.lock().unwrap();
+    sr.get_or_insert_default(name)
 }
