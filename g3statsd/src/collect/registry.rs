@@ -15,7 +15,7 @@
  */
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use anyhow::anyhow;
 use foldhash::fast::FixedState;
@@ -28,21 +28,27 @@ use crate::config::collector::AnyCollectorConfig;
 static RUNTIME_COLLECTOR_REGISTRY: Mutex<HashMap<NodeName, ArcCollector, FixedState>> =
     Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
-pub(super) fn add(name: NodeName, collector: ArcCollector) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_COLLECTOR_REGISTRY
-        .lock()
-        .map_err(|e| anyhow!("failed to lock collector registry: {e}"))?;
-    collector._start_runtime(&collector)?;
+pub(super) fn add(name: NodeName, collector: ArcCollector) {
+    let mut ht = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
     if let Some(old_collector) = ht.insert(name, collector) {
-        old_collector._abort_runtime();
+        old_collector._clean_to_offline();
     }
-    Ok(())
 }
 
 pub(super) fn del(name: &NodeName) {
     let mut ht = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
     if let Some(old_collector) = ht.remove(name) {
-        old_collector._abort_runtime();
+        old_collector._clean_to_offline();
+    }
+}
+
+pub(crate) fn foreach<F>(mut f: F)
+where
+    F: FnMut(&NodeName, &ArcCollector),
+{
+    let ht = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
+    for (name, collector) in ht.iter() {
+        f(name, collector)
     }
 }
 
@@ -55,54 +61,31 @@ pub(crate) fn get_names() -> HashSet<NodeName> {
     names
 }
 
+pub(super) fn get_collector(name: &NodeName) -> Option<ArcCollector> {
+    let ht = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
+    ht.get(name).cloned()
+}
+
 pub(super) fn get_config(name: &NodeName) -> Option<AnyCollectorConfig> {
     let ht = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
     ht.get(name).map(|collect| collect._clone_config())
 }
 
-pub(super) fn reload_no_respawn(name: &NodeName, config: AnyCollectorConfig) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_COLLECTOR_REGISTRY
-        .lock()
-        .map_err(|e| anyhow!("failed to lock collector registry: {e}"))?;
-    let Some(old_collector) = ht.get(name) else {
-        return Err(anyhow!("no collector with name {name} found"));
-    };
-
-    let collector = old_collector._reload_with_old_notifier(config)?;
-    if let Some(_old_collector) = ht.insert(name.clone(), Arc::clone(&collector)) {
-        // do not abort the runtime, as it's reused
-    }
-    collector._reload_config_notify_runtime();
-    Ok(())
-}
-
-pub(super) fn reload_and_respawn(
+pub(super) async fn reload_existed(
     name: &NodeName,
-    config: AnyCollectorConfig,
+    config: Option<AnyCollectorConfig>,
 ) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_COLLECTOR_REGISTRY
-        .lock()
-        .map_err(|e| anyhow!("failed to lock collector registry: {e}"))?;
-    let Some(old_collector) = ht.get(name) else {
+    let Some(old_collector) = get_collector(name) else {
         return Err(anyhow!("no collector with name {name} found"));
     };
+    let config = config.unwrap_or_else(|| old_collector._clone_config());
 
-    let collector = old_collector._reload_with_new_notifier(config)?;
-    collector._start_runtime(&collector)?;
-    if let Some(old_collector) = ht.insert(name.clone(), collector) {
-        old_collector._abort_runtime();
-    }
+    // the _reload method is allowed to hold a registry lock
+    // a tokio mutex is needed if we lock this await inside
+    let collector = old_collector._lock_safe_reload(config).await?;
+
+    add(name.clone(), collector);
     Ok(())
-}
-
-pub(crate) fn foreach<F>(mut f: F)
-where
-    F: FnMut(&NodeName, &ArcCollector),
-{
-    let ht = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
-    for (name, collector) in ht.iter() {
-        f(name, collector)
-    }
 }
 
 pub(crate) fn get_or_insert_default(name: &NodeName) -> ArcCollector {

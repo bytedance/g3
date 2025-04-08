@@ -17,6 +17,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use async_trait::async_trait;
 
 use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
@@ -58,6 +59,7 @@ impl DiscardCollector {
     }
 }
 
+#[async_trait]
 impl CollectorInternal for DiscardCollector {
     fn _clone_config(&self) -> AnyCollectorConfig {
         AnyCollectorConfig::Discard(self.config.clone())
@@ -67,33 +69,12 @@ impl CollectorInternal for DiscardCollector {
         false
     }
 
-    fn _reload_config_notify_runtime(&self) {}
-
     fn _update_next_collectors_in_place(&self) {}
 
-    fn _reload_with_old_notifier(
-        &self,
-        config: AnyCollectorConfig,
-    ) -> anyhow::Result<ArcCollector> {
-        Err(anyhow!(
-            "this {} collector doesn't support reload with old notifier",
-            config.collector_type()
-        ))
-    }
-
-    fn _reload_with_new_notifier(
-        &self,
-        config: AnyCollectorConfig,
-    ) -> anyhow::Result<ArcCollector> {
+    async fn _lock_safe_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollector> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }
-
-    fn _start_runtime(&self, _collector: &ArcCollector) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn _abort_runtime(&self) {}
 }
 
 impl BaseServer for DiscardCollector {

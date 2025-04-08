@@ -17,13 +17,14 @@
 use std::collections::HashSet;
 
 use anyhow::{Context, anyhow};
-use log::debug;
+use async_recursion::async_recursion;
+use log::{debug, warn};
 use tokio::sync::Mutex;
 
 use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
-use super::{ArcCollector, registry};
+use super::registry;
 use crate::config::collector::{AnyCollectorConfig, CollectorConfigDiffAction};
 
 static COLLECTOR_OPS_LOCK: Mutex<()> = Mutex::const_new(());
@@ -40,7 +41,7 @@ pub async fn spawn_all() -> anyhow::Result<()> {
         match registry::get_config(name) {
             Some(old) => {
                 debug!("reloading collector {name}");
-                reload_old_unlocked(old, config.as_ref().clone()).await?;
+                reload_unlocked(old, config.as_ref().clone()).await?;
                 debug!("collector {name} reload OK");
             }
             None => {
@@ -60,14 +61,6 @@ pub async fn spawn_all() -> anyhow::Result<()> {
     }
 
     Ok(())
-}
-
-pub async fn stop_all() {
-    let _guard = COLLECTOR_OPS_LOCK.lock().await;
-
-    registry::foreach(|_name, collect| {
-        collect._abort_runtime();
-    });
 }
 
 pub(crate) async fn reload(
@@ -107,15 +100,38 @@ pub(crate) async fn reload(
     }
 
     debug!("reloading collector {name} from position {position}");
-    reload_old_unlocked(old_config, config).await?;
+    reload_unlocked(old_config, config).await?;
     debug!("collector {name} reload OK");
     Ok(())
 }
 
-async fn reload_old_unlocked(
-    old: AnyCollectorConfig,
-    new: AnyCollectorConfig,
-) -> anyhow::Result<()> {
+#[async_recursion]
+async fn update_dependency_to_collector_unlocked(target: &NodeName, status: &str) {
+    let mut names = Vec::<NodeName>::new();
+
+    registry::foreach(|name, collector| {
+        if collector._depend_on_collector(target) {
+            names.push(name.clone())
+        }
+    });
+
+    debug!(
+        "collector {target} changed({status}), will reload collector(s) {names:?} which depend on it"
+    );
+    for name in names.iter() {
+        debug!("collector {name}: will reload as it depends on collector {target}");
+        if let Err(e) = reload_existed_unlocked(name, None).await {
+            warn!("failed to reload collector {name}: {e:?}");
+        }
+    }
+
+    // finish those in the same level first, then go in depth
+    for name in names.iter() {
+        update_dependency_to_collector_unlocked(name, "reloaded").await;
+    }
+}
+
+async fn reload_unlocked(old: AnyCollectorConfig, new: AnyCollectorConfig) -> anyhow::Result<()> {
     let name = old.name();
     match old.diff_action(&new) {
         CollectorConfigDiffAction::NoAction => {
@@ -126,46 +142,10 @@ async fn reload_old_unlocked(
             debug!("collector {name} reload: will create a totally new one");
             spawn_new_unlocked(new).await
         }
-        CollectorConfigDiffAction::ReloadNoRespawn => {
-            debug!("collector {name} reload: will reload config without respawn");
-            registry::reload_no_respawn(name, new)?;
-            update_dependency_to_collector_unlocked(name, "reloaded");
-            crate::import::update_dependency_to_collector(name, "reloaded").await;
-            Ok(())
+        CollectorConfigDiffAction::Reload => {
+            debug!("collector {name} reload: will reload from existed");
+            reload_existed_unlocked(name, Some(new)).await
         }
-        CollectorConfigDiffAction::ReloadAndRespawn => {
-            debug!("collector {name} reload: will respawn with old stats");
-            registry::reload_and_respawn(name, new)?;
-            update_dependency_to_collector_unlocked(name, "respawned");
-            crate::import::update_dependency_to_collector(name, "respawned").await;
-            Ok(())
-        }
-    }
-}
-
-fn update_dependency_to_collector_unlocked(target: &NodeName, status: &str) {
-    let mut collectors = Vec::<ArcCollector>::new();
-
-    registry::foreach(|_name, collect| {
-        if collect._depend_on_collector(target) {
-            collectors.push(collect.clone());
-        }
-    });
-
-    if collectors.is_empty() {
-        return;
-    }
-
-    debug!(
-        "collector {target} changed({status}), will reload {} collector(s)",
-        collectors.len()
-    );
-    for collector in collectors.iter() {
-        debug!(
-            "collector {}: will reload next collectors as it's using collector {target}",
-            collector.name()
-        );
-        collector._update_next_collectors_in_place();
     }
 }
 
@@ -173,8 +153,20 @@ async fn delete_existed_unlocked(name: &NodeName) {
     const STATUS: &str = "deleted";
 
     registry::del(name);
-    update_dependency_to_collector_unlocked(name, STATUS);
+    update_dependency_to_collector_unlocked(name, STATUS).await;
     crate::import::update_dependency_to_collector(name, STATUS).await;
+}
+
+async fn reload_existed_unlocked(
+    name: &NodeName,
+    new: Option<AnyCollectorConfig>,
+) -> anyhow::Result<()> {
+    const STATUS: &str = "reloaded";
+
+    registry::reload_existed(name, new).await?;
+    update_dependency_to_collector_unlocked(name, STATUS).await;
+    crate::import::update_dependency_to_collector(name, STATUS).await;
+    Ok(())
 }
 
 // use async fn to allow tokio schedule
@@ -196,8 +188,8 @@ async fn spawn_new_unlocked(config: AnyCollectorConfig) -> anyhow::Result<()> {
             super::regulate::RegulateCollector::prepare_initial(config)?
         }
     };
-    registry::add(name.clone(), collector)?;
-    update_dependency_to_collector_unlocked(&name, STATUS);
+    registry::add(name.clone(), collector);
+    update_dependency_to_collector_unlocked(&name, STATUS).await;
     crate::import::update_dependency_to_collector(&name, STATUS).await;
     Ok(())
 }

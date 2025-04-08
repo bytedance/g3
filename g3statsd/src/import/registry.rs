@@ -25,98 +25,158 @@ use g3_types::metrics::NodeName;
 use super::ArcImporter;
 use crate::config::importer::AnyImporterConfig;
 
-static RUNTIME_IMPORTER_REGISTRY: Mutex<HashMap<NodeName, ArcImporter, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static RUNTIME_IMPORTER_REGISTRY: Mutex<ImporterRegistry> = Mutex::new(ImporterRegistry::new());
+
+pub(crate) struct ImporterRegistry {
+    inner: HashMap<NodeName, ArcImporter, FixedState>,
+}
+
+impl ImporterRegistry {
+    const fn new() -> Self {
+        ImporterRegistry {
+            inner: HashMap::with_hasher(FixedState::with_seed(0)),
+        }
+    }
+
+    fn add(&mut self, name: NodeName, importer: ArcImporter) -> anyhow::Result<()> {
+        importer._start_runtime(&importer)?;
+        if let Some(old_importer) = self.inner.insert(name, importer) {
+            old_importer._abort_runtime();
+        }
+        Ok(())
+    }
+
+    fn del(&mut self, name: &NodeName) {
+        if let Some(old_importer) = self.inner.remove(name) {
+            old_importer._abort_runtime();
+        }
+    }
+
+    fn get_names(&self) -> HashSet<NodeName> {
+        self.inner.keys().cloned().collect()
+    }
+
+    fn get_config(&self, name: &NodeName) -> Option<AnyImporterConfig> {
+        self.inner
+            .get(name)
+            .map(|importer| importer._clone_config())
+    }
+
+    fn get_importer(&self, name: &NodeName) -> Option<ArcImporter> {
+        self.inner.get(name).cloned()
+    }
+
+    fn reload_no_respawn(
+        &mut self,
+        name: &NodeName,
+        config: AnyImporterConfig,
+    ) -> anyhow::Result<()> {
+        let Some(old_importer) = self.inner.get(name) else {
+            return Err(anyhow!("no importer with name {name} found"));
+        };
+
+        let old_importer = old_importer.clone();
+        let importer = old_importer._reload_with_old_notifier(config, self)?;
+        if let Some(_old_importer) = self.inner.insert(name.clone(), Arc::clone(&importer)) {
+            // do not abort the runtime, as it's reused
+        }
+        importer._reload_config_notify_runtime();
+        Ok(())
+    }
+
+    fn reload_and_respawn(
+        &mut self,
+        name: &NodeName,
+        config: AnyImporterConfig,
+    ) -> anyhow::Result<()> {
+        let Some(old_importer) = self.inner.get(name) else {
+            return Err(anyhow!("no importer with name {name} found"));
+        };
+
+        let old_importer = old_importer.clone();
+        let importer = old_importer._reload_with_new_notifier(config, self)?;
+        importer._start_runtime(&importer)?;
+        if let Some(old_importer) = self.inner.insert(name.clone(), importer) {
+            old_importer._abort_runtime();
+        }
+        Ok(())
+    }
+
+    fn foreach<F>(&self, mut f: F)
+    where
+        F: FnMut(&NodeName, &ArcImporter),
+    {
+        for (name, importer) in self.inner.iter() {
+            f(name, importer)
+        }
+    }
+
+    pub(crate) fn get_or_insert_default(&mut self, name: &NodeName) -> ArcImporter {
+        self.inner
+            .entry(name.clone())
+            .or_insert_with(|| super::dummy::DummyImporter::prepare_default(name))
+            .clone()
+    }
+}
 
 pub(super) fn add(name: NodeName, importer: ArcImporter) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_IMPORTER_REGISTRY
+    let mut sr = RUNTIME_IMPORTER_REGISTRY
         .lock()
         .map_err(|e| anyhow!("failed to lock importer registry: {e}"))?;
-    importer._start_runtime(&importer)?;
-    if let Some(old_importer) = ht.insert(name, importer) {
-        old_importer._abort_runtime();
-    }
-    Ok(())
+    sr.add(name, importer)
 }
 
 pub(super) fn del(name: &NodeName) {
-    let mut ht = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
-    if let Some(old_importer) = ht.remove(name) {
-        old_importer._abort_runtime();
-    }
+    let mut sr = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
+    sr.del(name);
 }
 
 pub(crate) fn get_names() -> HashSet<NodeName> {
-    let mut names = HashSet::new();
-    let ht = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
-    for name in ht.keys() {
-        names.insert(name.clone());
-    }
-    names
+    let sr = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
+    sr.get_names()
 }
 
 pub(super) fn get_config(name: &NodeName) -> Option<AnyImporterConfig> {
-    let ht = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
-    ht.get(name).map(|importer| importer._clone_config())
+    let sr = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
+    sr.get_config(name)
 }
 
 pub(super) fn reload_no_respawn(name: &NodeName, config: AnyImporterConfig) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_IMPORTER_REGISTRY
+    let mut sr = RUNTIME_IMPORTER_REGISTRY
         .lock()
         .map_err(|e| anyhow!("failed to lock importer registry: {e}"))?;
-    let Some(old_importer) = ht.get(name) else {
-        return Err(anyhow!("no importer with name {name} found"));
-    };
+    sr.reload_no_respawn(name, config)
+}
 
-    let importer = old_importer._reload_with_old_notifier(config)?;
-    if let Some(_old_importer) = ht.insert(name.clone(), Arc::clone(&importer)) {
-        // do not abort the runtime, as it's reused
-    }
-    importer._reload_config_notify_runtime();
-    Ok(())
+pub(crate) fn get_importer(name: &NodeName) -> Option<ArcImporter> {
+    let sr = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
+    sr.get_importer(name)
 }
 
 pub(crate) fn reload_only_collector(name: &NodeName) -> anyhow::Result<()> {
-    let ht = RUNTIME_IMPORTER_REGISTRY
-        .lock()
-        .map_err(|e| anyhow!("failed to lock importer registry: {e}"))?;
-    let Some(importer) = ht.get(name) else {
+    let Some(importer) = get_importer(name) else {
         return Err(anyhow!("no importer with name {name} found"));
     };
-
     importer._update_collector_in_place();
     Ok(())
 }
 
 pub(super) fn reload_and_respawn(name: &NodeName, config: AnyImporterConfig) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_IMPORTER_REGISTRY
+    let mut sr = RUNTIME_IMPORTER_REGISTRY
         .lock()
         .map_err(|e| anyhow!("failed to lock importer registry: {e}"))?;
-    let Some(old_importer) = ht.get(name) else {
-        return Err(anyhow!("no importer with name {name} found"));
-    };
-
-    let importer = old_importer._reload_with_new_notifier(config)?;
-    importer._start_runtime(&importer)?;
-    if let Some(old_importer) = ht.insert(name.clone(), importer) {
-        old_importer._abort_runtime();
-    }
-    Ok(())
+    sr.reload_and_respawn(name, config)
 }
 
-pub(crate) fn foreach<F>(mut f: F)
+pub(crate) fn foreach<F>(f: F)
 where
     F: FnMut(&NodeName, &ArcImporter),
 {
-    let ht = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
-    for (name, importer) in ht.iter() {
-        f(name, importer)
-    }
+    let sr = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
+    sr.foreach(f)
 }
 
 pub(crate) fn get_or_insert_default(name: &NodeName) -> ArcImporter {
-    let mut ht = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
-    ht.entry(name.clone())
-        .or_insert_with(|| super::dummy::DummyImporter::prepare_default(name))
-        .clone()
+    let mut sr = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
+    sr.get_or_insert_default(name)
 }

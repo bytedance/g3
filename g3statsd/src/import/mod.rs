@@ -26,6 +26,7 @@ use g3_types::metrics::NodeName;
 use crate::config::importer::AnyImporterConfig;
 
 mod registry;
+use registry::ImporterRegistry;
 pub(crate) use registry::get_names;
 
 mod ops;
@@ -41,8 +42,16 @@ pub(crate) trait ImporterInternal {
     fn _reload_config_notify_runtime(&self);
     fn _update_collector_in_place(&self);
 
-    fn _reload_with_old_notifier(&self, config: AnyImporterConfig) -> anyhow::Result<ArcImporter>;
-    fn _reload_with_new_notifier(&self, config: AnyImporterConfig) -> anyhow::Result<ArcImporter>;
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyImporterConfig,
+        registry: &mut ImporterRegistry,
+    ) -> anyhow::Result<ArcImporter>;
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyImporterConfig,
+        registry: &mut ImporterRegistry,
+    ) -> anyhow::Result<ArcImporter>;
 
     fn _start_runtime(&self, server: &ArcImporter) -> anyhow::Result<()>;
     fn _abort_runtime(&self);

@@ -36,10 +36,6 @@ impl UniqueController {
         crate::import::stop_all().await;
         debug!("stopped all importers");
 
-        debug!("stopping all collectors");
-        crate::collect::stop_all().await;
-        debug!("stopped all collectors");
-
         // TODO flush and stop all exporters
 
         UniqueController::abort_immediately().await

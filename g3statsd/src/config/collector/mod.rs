@@ -40,9 +40,7 @@ const CONFIG_KEY_COLLECTOR_NAME: &str = "name";
 pub(crate) enum CollectorConfigDiffAction {
     NoAction,
     SpawnNew,
-    ReloadNoRespawn,
-    #[allow(unused)]
-    ReloadAndRespawn,
+    Reload,
 }
 
 pub(crate) trait CollectorConfig {

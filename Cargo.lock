@@ -1981,6 +1981,7 @@ dependencies = [
  "ahash",
  "anyhow",
  "arc-swap",
+ "async-recursion",
  "async-trait",
  "capnp",
  "capnp-rpc",
