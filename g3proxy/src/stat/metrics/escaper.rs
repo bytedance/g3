@@ -43,6 +43,8 @@ const METRIC_NAME_ESCAPER_TCP_CONNECT_TIMEOUT: &str = "escaper.tcp.connect.timeo
 const METRIC_NAME_ESCAPER_TLS_HANDSHAKE_SUCCESS: &str = "escaper.tls.handshake.success";
 const METRIC_NAME_ESCAPER_TLS_HANDSHAKE_ERROR: &str = "escaper.tls.handshake.error";
 const METRIC_NAME_ESCAPER_TLS_HANDSHAKE_TIMEOUT: &str = "escaper.tls.handshake.timeout";
+const METRIC_NAME_ESCAPER_TLS_PEER_ORDERLY_CLOSURE: &str = "escaper.tls.peer.closure.orderly";
+const METRIC_NAME_ESCAPER_TLS_PEER_ABORTIVE_CLOSURE: &str = "escaper.tls.peer.closure.abortive";
 const METRIC_NAME_ESCAPER_IO_IN_BYTES: &str = "escaper.traffic.in.bytes";
 const METRIC_NAME_ESCAPER_IO_IN_PACKETS: &str = "escaper.traffic.in.packets";
 const METRIC_NAME_ESCAPER_IO_OUT_BYTES: &str = "escaper.traffic.out.bytes";
@@ -228,6 +230,14 @@ fn emit_tls_stats(
     emit_optional_field!(handshake_success, METRIC_NAME_ESCAPER_TLS_HANDSHAKE_SUCCESS);
     emit_optional_field!(handshake_error, METRIC_NAME_ESCAPER_TLS_HANDSHAKE_ERROR);
     emit_optional_field!(handshake_timeout, METRIC_NAME_ESCAPER_TLS_HANDSHAKE_TIMEOUT);
+    emit_optional_field!(
+        peer_orderly_closure,
+        METRIC_NAME_ESCAPER_TLS_PEER_ORDERLY_CLOSURE
+    );
+    emit_optional_field!(
+        peer_abortive_closure,
+        METRIC_NAME_ESCAPER_TLS_PEER_ABORTIVE_CLOSURE
+    );
 }
 
 fn emit_forbidden_stats(

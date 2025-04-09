@@ -247,6 +247,8 @@ pub(crate) struct EscaperTlsSnapshot {
     pub(crate) handshake_success: u64,
     pub(crate) handshake_error: u64,
     pub(crate) handshake_timeout: u64,
+    pub(crate) peer_orderly_closure: u64,
+    pub(crate) peer_abortive_closure: u64,
 }
 
 #[derive(Default)]
@@ -254,6 +256,8 @@ pub(crate) struct EscaperTlsStats {
     handshake_success: AtomicU64,
     handshake_error: AtomicU64,
     handshake_timeout: AtomicU64,
+    peer_orderly_closure: AtomicU64,
+    peer_abortive_closure: AtomicU64,
 }
 
 impl EscaperTlsStats {
@@ -269,11 +273,21 @@ impl EscaperTlsStats {
         self.handshake_timeout.fetch_add(1, Ordering::Relaxed);
     }
 
+    pub(super) fn add_peer_orderly_closure(&self) {
+        self.peer_abortive_closure.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn add_peer_abortive_closure(&self) {
+        self.peer_abortive_closure.fetch_add(1, Ordering::Relaxed);
+    }
+
     pub(super) fn snapshot(&self) -> EscaperTlsSnapshot {
         EscaperTlsSnapshot {
             handshake_success: self.handshake_success.load(Ordering::Relaxed),
             handshake_error: self.handshake_error.load(Ordering::Relaxed),
             handshake_timeout: self.handshake_timeout.load(Ordering::Relaxed),
+            peer_orderly_closure: self.peer_orderly_closure.load(Ordering::Relaxed),
+            peer_abortive_closure: self.peer_abortive_closure.load(Ordering::Relaxed),
         }
     }
 }

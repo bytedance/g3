@@ -37,3 +37,6 @@ pub use ticketer::{
 
 mod version;
 pub use version::TlsVersion;
+
+mod alert;
+pub use alert::{TlsAlert, TlsAlertType};

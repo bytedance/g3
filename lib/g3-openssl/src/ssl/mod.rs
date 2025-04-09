@@ -43,3 +43,6 @@ pub use lazy_accept::SslLazyAcceptor;
 #[cfg_attr(feature = "async-job", path = "async_connect.rs")]
 mod connect;
 pub use connect::SslConnector;
+
+mod types;
+pub use types::SslInfoCallbackWhere;

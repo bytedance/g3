@@ -17,7 +17,8 @@
 use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_openssl::{SslConnector, SslStream};
+use g3_openssl::{SslConnector, SslInfoCallbackWhere, SslStream};
+use g3_types::net::{TlsAlert, TlsAlertType};
 
 use super::ProxySocks5sEscaper;
 use crate::log::escape::tls_handshake::{EscapeLogForTlsHandshake, TlsApplication};
@@ -36,10 +37,22 @@ impl ProxySocks5sEscaper {
             .await?;
 
         let tls_name = self.config.tls_name.as_ref().unwrap_or_else(|| peer.host());
-        let ssl = self
+        let mut ssl = self
             .tls_config
             .build_ssl(tls_name, peer.port())
             .map_err(TcpConnectError::InternalTlsClientError)?;
+        let escaper_stats = self.stats.clone();
+        ssl.set_info_callback(move |_ssl, r#where, ret| {
+            let mask = SslInfoCallbackWhere::from_bits_retain(r#where);
+            if !(mask & (SslInfoCallbackWhere::ALERT | SslInfoCallbackWhere::READ)).is_empty() {
+                match TlsAlert::new(ret).r#type() {
+                    TlsAlertType::Closure => escaper_stats.tls.add_peer_orderly_closure(),
+                    TlsAlertType::Error => escaper_stats.tls.add_peer_abortive_closure(),
+                }
+                escaper_stats.tls.add_handshake_error();
+            }
+        });
+
         let connector = SslConnector::new(ssl, ups_s)
             .map_err(|e| TcpConnectError::InternalTlsClientError(anyhow::Error::new(e)))?;
 

@@ -112,6 +112,24 @@ The metric names are:
 
   .. versionadded:: 1.11.1
 
+* escaper.tls.peer.closure.orderly
+
+  **type**: count
+
+  Show the count of received TLS warning alerts from peer, which includes close_notify and user_canceled.
+
+  .. note:: You may see user_canceled followed by a close_notify on one connection.
+
+  .. versionchanged:: 1.11.4
+
+* escaper.tls.peer.closure.abortive
+
+  **type**: count
+
+  Show the count of received TLS error alerts (abortive closure of connection) from peer.
+
+  .. versionchanged:: 1.11.4
+
 * escaper.forbidden.ip_blocked
 
   **type**: count
