@@ -95,11 +95,7 @@ impl ImporterRegistry {
 
         let old_importer = old_importer.clone();
         let importer = old_importer._reload_with_new_notifier(config, self)?;
-        importer._start_runtime(&importer)?;
-        if let Some(old_importer) = self.inner.insert(name.clone(), importer) {
-            old_importer._abort_runtime();
-        }
-        Ok(())
+        self.add(name.clone(), importer)
     }
 
     fn foreach<F>(&self, mut f: F)
@@ -111,7 +107,7 @@ impl ImporterRegistry {
         }
     }
 
-    pub(crate) fn get_or_insert_default(&mut self, name: &NodeName) -> ArcImporter {
+    pub(super) fn get_or_insert_default(&mut self, name: &NodeName) -> ArcImporter {
         self.inner
             .entry(name.clone())
             .or_insert_with(|| super::dummy::DummyImporter::prepare_default(name))
@@ -120,40 +116,40 @@ impl ImporterRegistry {
 }
 
 pub(super) fn add(name: NodeName, importer: ArcImporter) -> anyhow::Result<()> {
-    let mut sr = RUNTIME_IMPORTER_REGISTRY
+    let mut r = RUNTIME_IMPORTER_REGISTRY
         .lock()
         .map_err(|e| anyhow!("failed to lock importer registry: {e}"))?;
-    sr.add(name, importer)
+    r.add(name, importer)
 }
 
 pub(super) fn del(name: &NodeName) {
-    let mut sr = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
-    sr.del(name);
+    let mut r = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
+    r.del(name);
 }
 
 pub(crate) fn get_names() -> HashSet<NodeName> {
-    let sr = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
-    sr.get_names()
+    let r = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
+    r.get_names()
 }
 
 pub(super) fn get_config(name: &NodeName) -> Option<AnyImporterConfig> {
-    let sr = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
-    sr.get_config(name)
+    let r = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
+    r.get_config(name)
 }
 
 pub(super) fn reload_no_respawn(name: &NodeName, config: AnyImporterConfig) -> anyhow::Result<()> {
-    let mut sr = RUNTIME_IMPORTER_REGISTRY
+    let mut r = RUNTIME_IMPORTER_REGISTRY
         .lock()
         .map_err(|e| anyhow!("failed to lock importer registry: {e}"))?;
-    sr.reload_no_respawn(name, config)
+    r.reload_no_respawn(name, config)
 }
 
 pub(crate) fn get_importer(name: &NodeName) -> Option<ArcImporter> {
-    let sr = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
-    sr.get_importer(name)
+    let r = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
+    r.get_importer(name)
 }
 
-pub(crate) fn reload_only_collector(name: &NodeName) -> anyhow::Result<()> {
+pub(super) fn reload_only_collector(name: &NodeName) -> anyhow::Result<()> {
     let Some(importer) = get_importer(name) else {
         return Err(anyhow!("no importer with name {name} found"));
     };
@@ -162,21 +158,21 @@ pub(crate) fn reload_only_collector(name: &NodeName) -> anyhow::Result<()> {
 }
 
 pub(super) fn reload_and_respawn(name: &NodeName, config: AnyImporterConfig) -> anyhow::Result<()> {
-    let mut sr = RUNTIME_IMPORTER_REGISTRY
+    let mut r = RUNTIME_IMPORTER_REGISTRY
         .lock()
         .map_err(|e| anyhow!("failed to lock importer registry: {e}"))?;
-    sr.reload_and_respawn(name, config)
+    r.reload_and_respawn(name, config)
 }
 
 pub(crate) fn foreach<F>(f: F)
 where
     F: FnMut(&NodeName, &ArcImporter),
 {
-    let sr = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
-    sr.foreach(f)
+    let r = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
+    r.foreach(f)
 }
 
 pub(crate) fn get_or_insert_default(name: &NodeName) -> ArcImporter {
-    let mut sr = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
-    sr.get_or_insert_default(name)
+    let mut r = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
+    r.get_or_insert_default(name)
 }

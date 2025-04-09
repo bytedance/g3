@@ -23,6 +23,7 @@ use crate::config::collector::AnyCollectorConfig;
 use crate::types::MetricRecord;
 
 mod registry;
+use registry::CollectorRegistry;
 pub(crate) use registry::{get_names, get_or_insert_default};
 
 mod ops;
@@ -39,12 +40,13 @@ pub(crate) trait CollectorInternal {
 
     fn _depend_on_collector(&self, name: &NodeName) -> bool;
 
-    /// registry lock is allowed in this method
-    fn _lock_safe_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollector>;
+    fn _reload(
+        &self,
+        config: AnyCollectorConfig,
+        registry: &mut CollectorRegistry,
+    ) -> anyhow::Result<ArcCollector>;
 
     fn _clean_to_offline(&self) {}
-
-    fn _update_next_collectors_in_place(&self);
 }
 
 pub(crate) trait Collector: CollectorInternal + BaseServer {

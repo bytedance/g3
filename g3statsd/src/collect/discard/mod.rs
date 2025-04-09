@@ -21,7 +21,7 @@ use anyhow::anyhow;
 use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
-use super::{ArcCollector, Collector, CollectorInternal};
+use super::{ArcCollector, Collector, CollectorInternal, CollectorRegistry};
 use crate::config::collector::discard::DiscardCollectorConfig;
 use crate::config::collector::{AnyCollectorConfig, CollectorConfig};
 use crate::types::MetricRecord;
@@ -67,12 +67,14 @@ impl CollectorInternal for DiscardCollector {
         false
     }
 
-    fn _lock_safe_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollector> {
+    fn _reload(
+        &self,
+        config: AnyCollectorConfig,
+        _registry: &mut CollectorRegistry,
+    ) -> anyhow::Result<ArcCollector> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }
-
-    fn _update_next_collectors_in_place(&self) {}
 }
 
 impl BaseServer for DiscardCollector {

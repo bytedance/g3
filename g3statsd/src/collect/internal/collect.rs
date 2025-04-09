@@ -23,7 +23,7 @@ use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
 use super::InternalEmitter;
-use crate::collect::{ArcCollector, Collector, CollectorInternal};
+use crate::collect::{ArcCollector, Collector, CollectorInternal, CollectorRegistry};
 use crate::config::collector::internal::InternalCollectorConfig;
 use crate::config::collector::{AnyCollectorConfig, CollectorConfig};
 use crate::types::MetricRecord;
@@ -82,14 +82,14 @@ impl CollectorInternal for InternalCollector {
         false
     }
 
-    fn _lock_safe_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollector> {
+    fn _reload(
+        &self,
+        config: AnyCollectorConfig,
+        _registry: &mut CollectorRegistry,
+    ) -> anyhow::Result<ArcCollector> {
         let server = self.prepare_reload(config)?;
         let _ = self.reload_sender.send(self.config.clone());
         Ok(Arc::new(server))
-    }
-
-    fn _update_next_collectors_in_place(&self) {
-        let _ = self.reload_sender.send(self.config.clone());
     }
 }
 

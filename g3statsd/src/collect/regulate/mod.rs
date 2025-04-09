@@ -17,47 +17,51 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use arc_swap::ArcSwapOption;
 
 use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
-use super::{ArcCollector, Collector, CollectorInternal};
+use super::{ArcCollector, Collector, CollectorInternal, CollectorRegistry};
 use crate::config::collector::regulate::RegulateCollectorConfig;
 use crate::config::collector::{AnyCollectorConfig, CollectorConfig};
 use crate::types::MetricRecord;
 
 pub(crate) struct RegulateCollector {
     config: RegulateCollectorConfig,
-    next: ArcSwapOption<ArcCollector>,
+    next: Option<ArcCollector>,
 
     reload_version: usize,
 }
 
 impl RegulateCollector {
-    fn new(config: RegulateCollectorConfig, reload_version: usize) -> Self {
-        let next = config
-            .next
-            .as_ref()
-            .map(|name| Arc::new(crate::collect::get_or_insert_default(name)));
+    fn new<F>(config: RegulateCollectorConfig, reload_version: usize, fetch_collector: F) -> Self
+    where
+        F: FnMut(&NodeName) -> ArcCollector,
+    {
+        let next = config.next.as_ref().map(fetch_collector);
 
         RegulateCollector {
             config,
-            next: ArcSwapOption::new(next),
+            next,
             reload_version,
         }
     }
 
     pub(crate) fn prepare_initial(config: RegulateCollectorConfig) -> anyhow::Result<ArcCollector> {
-        let server = RegulateCollector::new(config, 0);
+        let server = RegulateCollector::new(config, 0, crate::collect::get_or_insert_default);
         Ok(Arc::new(server))
     }
 
-    fn prepare_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollector> {
+    fn prepare_reload(
+        &self,
+        config: AnyCollectorConfig,
+        registry: &mut CollectorRegistry,
+    ) -> anyhow::Result<ArcCollector> {
         if let AnyCollectorConfig::Regulate(config) = config {
             Ok(Arc::new(RegulateCollector::new(
                 config,
                 self.reload_version + 1,
+                |name| registry.get_or_insert_default(name),
             )))
         } else {
             Err(anyhow!(
@@ -82,15 +86,12 @@ impl CollectorInternal for RegulateCollector {
             .unwrap_or(false)
     }
 
-    fn _lock_safe_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollector> {
-        self.prepare_reload(config)
-    }
-
-    fn _update_next_collectors_in_place(&self) {
-        if let Some(name) = &self.config.next {
-            let next = crate::collect::get_or_insert_default(name);
-            self.next.store(Some(Arc::new(next)));
-        }
+    fn _reload(
+        &self,
+        config: AnyCollectorConfig,
+        registry: &mut CollectorRegistry,
+    ) -> anyhow::Result<ArcCollector> {
+        self.prepare_reload(config, registry)
     }
 }
 
@@ -126,7 +127,7 @@ impl Collector for RegulateCollector {
 
         // TODO send to exporter
 
-        if let Some(next) = self.next.load().as_ref() {
+        if let Some(next) = &self.next {
             next.add_metric(record, worker_id);
         }
     }
