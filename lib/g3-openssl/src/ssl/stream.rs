@@ -25,7 +25,7 @@ use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
 #[cfg(feature = "async-job")]
 use super::AsyncEnginePoller;
-use super::SslIoWrapper;
+use super::{ConvertSslError, SslErrorAction, SslIoWrapper};
 
 pub struct SslStream<S> {
     inner: ssl::SslStream<SslIoWrapper<S>>,
@@ -118,7 +118,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslStream<S> {
                     _ => {
                         return Poll::Ready(Err(e
                             .into_io_error()
-                            .unwrap_or_else(|e| io::Error::other(format!("ssl read: {e}")))));
+                            .unwrap_or_else(|e| e.build_io_error(SslErrorAction::Read))));
                     }
                 },
             }
@@ -150,7 +150,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslStream<S> {
                     _ => {
                         return Poll::Ready(Err(e
                             .into_io_error()
-                            .unwrap_or_else(|e| io::Error::other(format!("ssl write: {e}")))));
+                            .unwrap_or_else(|e| e.build_io_error(SslErrorAction::Write))));
                     }
                 },
             }
@@ -168,7 +168,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslStream<S> {
                 _ => {
                     return Poll::Ready(Err(e
                         .into_io_error()
-                        .unwrap_or_else(|e| io::Error::other(format!("ssl shutdown: {e}")))));
+                        .unwrap_or_else(|e| e.build_io_error(SslErrorAction::Shutdown))));
                 }
             }
         }
@@ -192,7 +192,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslStream<S> {
                 _ => {
                     return Poll::Ready(Err(e
                         .into_io_error()
-                        .unwrap_or_else(|e| io::Error::other(format!("ssl shutdown: {e}")))));
+                        .unwrap_or_else(|e| e.build_io_error(SslErrorAction::Shutdown))));
                 }
             }
         }

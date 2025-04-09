@@ -22,7 +22,7 @@ use openssl::error::ErrorStack;
 use openssl::ssl::{self, ErrorCode, Ssl};
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use super::{AsyncEnginePoller, SslIoWrapper, SslStream};
+use super::{AsyncEnginePoller, ConvertSslError, SslErrorAction, SslIoWrapper, SslStream};
 
 pub struct SslConnector<S> {
     inner: ssl::SslStream<SslIoWrapper<S>>,
@@ -70,7 +70,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslConnector<S> {
                     _ => {
                         return Poll::Ready(Err(e
                             .into_io_error()
-                            .unwrap_or_else(|e| io::Error::other(format!("ssl connect: {e}")))));
+                            .unwrap_or_else(|e| e.build_io_error(SslErrorAction::Connect))));
                     }
                 },
             }
