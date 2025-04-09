@@ -150,7 +150,7 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
 pub(super) type ArcNextProxyPeer = Arc<dyn NextProxyPeer + Send + Sync>;
 
 pub(super) fn parse_peer(
-    escaper_config: &Arc<ProxyFloatEscaperConfig>,
+    escaper_config: &ProxyFloatEscaperConfig,
     record: &Value,
 ) -> anyhow::Result<Option<ArcNextProxyPeer>> {
     let instant_now = Instant::now();
@@ -160,7 +160,7 @@ pub(super) fn parse_peer(
 }
 
 pub(super) fn parse_peers(
-    escaper_config: &Arc<ProxyFloatEscaperConfig>,
+    escaper_config: &ProxyFloatEscaperConfig,
     records: &[Value],
 ) -> anyhow::Result<PeerSet> {
     let mut peer_set = PeerSet::default();

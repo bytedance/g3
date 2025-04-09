@@ -29,7 +29,7 @@ use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr, WeightedUpstreamAdd
 
 use super::{
     ArcEscaper, ArcEscaperInternalStats, ArcEscaperStats, Escaper, EscaperExt, EscaperInternal,
-    EscaperStats,
+    EscaperRegistry, EscaperStats,
 };
 use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStats;
@@ -270,7 +270,11 @@ impl EscaperInternal for ProxySocks5sEscaper {
         AnyEscaperConfig::ProxySocks5s(config.clone())
     }
 
-    async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
+    fn _reload(
+        &self,
+        config: AnyEscaperConfig,
+        _registry: &mut EscaperRegistry,
+    ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
         ProxySocks5sEscaper::prepare_reload(config, stats)
     }

@@ -31,9 +31,7 @@ trait FetchJob {
     fn fetch_records(&self) -> impl Future<Output = anyhow::Result<Vec<serde_json::Value>>> + Send;
 }
 
-pub(super) async fn load_cached_peers(
-    config: &Arc<ProxyFloatEscaperConfig>,
-) -> anyhow::Result<PeerSet> {
+pub(super) async fn load_cached_peers(config: &ProxyFloatEscaperConfig) -> anyhow::Result<PeerSet> {
     if let Some(cache_file) = &config.cache_file {
         let records = file::load_peers_from_cache(cache_file).await?;
         super::peer::parse_peers(config, &records)
@@ -43,7 +41,7 @@ pub(super) async fn load_cached_peers(
 }
 
 async fn parse_and_save_peers(
-    config: &Arc<ProxyFloatEscaperConfig>,
+    config: &ProxyFloatEscaperConfig,
     container: &Arc<ArcSwap<PeerSet>>,
     records: Vec<serde_json::Value>,
 ) -> anyhow::Result<()> {
@@ -60,7 +58,7 @@ async fn parse_and_save_peers(
 }
 
 pub(super) async fn publish_peers(
-    config: &Arc<ProxyFloatEscaperConfig>,
+    config: &ProxyFloatEscaperConfig,
     peers_container: &Arc<ArcSwap<PeerSet>>,
     data: String,
 ) -> anyhow::Result<()> {

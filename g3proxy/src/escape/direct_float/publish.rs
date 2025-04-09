@@ -48,7 +48,7 @@ async fn load_records_from_cache(cache_file: &Path) -> anyhow::Result<Value> {
 }
 
 pub(super) async fn load_ipv4_from_cache(
-    config: &Arc<DirectFloatEscaperConfig>,
+    config: &DirectFloatEscaperConfig,
 ) -> anyhow::Result<BindSet> {
     if let Some(cache_file) = &config.cache_ipv4 {
         let records = load_records_from_cache(cache_file).await?;
@@ -59,7 +59,7 @@ pub(super) async fn load_ipv4_from_cache(
 }
 
 pub(super) async fn load_ipv6_from_cache(
-    config: &Arc<DirectFloatEscaperConfig>,
+    config: &DirectFloatEscaperConfig,
 ) -> anyhow::Result<BindSet> {
     if let Some(cache_file) = &config.cache_ipv6 {
         let records = load_records_from_cache(cache_file).await?;
@@ -101,7 +101,7 @@ async fn parse_value(
 }
 
 pub(super) async fn publish_records(
-    config: &Arc<DirectFloatEscaperConfig>,
+    config: &DirectFloatEscaperConfig,
     v4_container: &ArcSwap<BindSet>,
     v6_container: &ArcSwap<BindSet>,
     data: String,

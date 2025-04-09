@@ -27,7 +27,7 @@ use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
 use g3_types::metrics::NodeName;
 use g3_types::net::UpstreamAddr;
 
-use super::{ArcEscaper, Escaper, EscaperExt, EscaperInternal, RouteEscaperStats};
+use super::{ArcEscaper, Escaper, EscaperExt, EscaperInternal, EscaperRegistry, RouteEscaperStats};
 use crate::audit::AuditContext;
 use crate::config::escaper::route_select::RouteSelectEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
@@ -70,14 +70,18 @@ pub(super) struct RouteSelectEscaper {
 }
 
 impl RouteSelectEscaper {
-    fn new_obj(
+    fn new_obj<F>(
         config: RouteSelectEscaperConfig,
         stats: Arc<RouteEscaperStats>,
-    ) -> anyhow::Result<ArcEscaper> {
+        mut fetch_escaper: F,
+    ) -> anyhow::Result<ArcEscaper>
+    where
+        F: FnMut(&NodeName) -> ArcEscaper,
+    {
         let mut all_nodes = HashMap::with_capacity(config.next_nodes.len());
         let mut select_nodes_builder = SelectiveVecBuilder::with_capacity(config.next_nodes.len());
         for v in &config.next_nodes {
-            let escaper = super::registry::get_or_insert_default(v.inner());
+            let escaper = fetch_escaper(v.inner());
             all_nodes.insert(escaper.name().clone(), escaper.clone());
             if v.weight() > 0f64 {
                 select_nodes_builder.insert(WeightedValue::with_weight(
@@ -103,15 +107,16 @@ impl RouteSelectEscaper {
 
     pub(super) fn prepare_initial(config: RouteSelectEscaperConfig) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::new(RouteEscaperStats::new(config.name()));
-        RouteSelectEscaper::new_obj(config, stats)
+        RouteSelectEscaper::new_obj(config, stats, super::registry::get_or_insert_default)
     }
 
     fn prepare_reload(
         config: AnyEscaperConfig,
         stats: Arc<RouteEscaperStats>,
+        registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::RouteSelect(config) = config {
-            RouteSelectEscaper::new_obj(config, stats)
+            RouteSelectEscaper::new_obj(config, stats, |name| registry.get_or_insert_default(name))
         } else {
             Err(anyhow!("invalid escaper config type"))
         }
@@ -295,9 +300,13 @@ impl EscaperInternal for RouteSelectEscaper {
         AnyEscaperConfig::RouteSelect(self.config.clone())
     }
 
-    async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
+    fn _reload(
+        &self,
+        config: AnyEscaperConfig,
+        registry: &mut EscaperRegistry,
+    ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
-        RouteSelectEscaper::prepare_reload(config, stats)
+        RouteSelectEscaper::prepare_reload(config, stats, registry)
     }
 
     async fn _check_out_next_escaper(

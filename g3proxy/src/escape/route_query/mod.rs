@@ -24,7 +24,7 @@ use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::metrics::NodeName;
 use g3_types::net::UpstreamAddr;
 
-use super::{ArcEscaper, Escaper, EscaperInternal, RouteEscaperStats};
+use super::{ArcEscaper, Escaper, EscaperInternal, EscaperRegistry, RouteEscaperStats};
 use crate::audit::AuditContext;
 use crate::config::escaper::route_query::RouteQueryEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
@@ -61,19 +61,23 @@ pub(super) struct RouteQueryEscaper {
 }
 
 impl RouteQueryEscaper {
-    async fn new_obj(
+    fn new_obj<F>(
         config: Arc<RouteQueryEscaperConfig>,
         stats: Arc<RouteEscaperStats>,
-    ) -> anyhow::Result<ArcEscaper> {
+        mut fetch_escaper: F,
+    ) -> anyhow::Result<ArcEscaper>
+    where
+        F: FnMut(&NodeName) -> ArcEscaper,
+    {
         let mut query_nodes = BTreeMap::new();
         for name in &config.query_allowed_nodes {
-            let escaper = super::registry::get_or_insert_default(name);
+            let escaper = fetch_escaper(name);
             query_nodes.insert(name.clone(), escaper);
         }
 
-        let fallback_node = super::registry::get_or_insert_default(&config.fallback_node);
+        let fallback_node = fetch_escaper(&config.fallback_node);
 
-        let cache_handle = cache::spawn(&config).await?;
+        let cache_handle = cache::spawn(&config)?;
 
         let escaper = RouteQueryEscaper {
             config,
@@ -86,19 +90,24 @@ impl RouteQueryEscaper {
         Ok(Arc::new(escaper))
     }
 
-    pub(super) async fn prepare_initial(
-        config: RouteQueryEscaperConfig,
-    ) -> anyhow::Result<ArcEscaper> {
+    pub(super) fn prepare_initial(config: RouteQueryEscaperConfig) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::new(RouteEscaperStats::new(config.name()));
-        RouteQueryEscaper::new_obj(Arc::new(config), stats).await
+        RouteQueryEscaper::new_obj(
+            Arc::new(config),
+            stats,
+            super::registry::get_or_insert_default,
+        )
     }
 
-    async fn prepare_reload(
+    fn prepare_reload(
         config: AnyEscaperConfig,
         stats: Arc<RouteEscaperStats>,
+        registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::RouteQuery(config) = config {
-            RouteQueryEscaper::new_obj(Arc::new(config), stats).await
+            RouteQueryEscaper::new_obj(Arc::new(config), stats, |name| {
+                registry.get_or_insert_default(name)
+            })
         } else {
             Err(anyhow!("invalid escaper config type"))
         }
@@ -241,9 +250,13 @@ impl EscaperInternal for RouteQueryEscaper {
         AnyEscaperConfig::RouteQuery((*self.config).clone())
     }
 
-    async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
+    fn _reload(
+        &self,
+        config: AnyEscaperConfig,
+        registry: &mut EscaperRegistry,
+    ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
-        RouteQueryEscaper::prepare_reload(config, stats).await
+        RouteQueryEscaper::prepare_reload(config, stats, registry)
     }
 
     async fn _check_out_next_escaper(

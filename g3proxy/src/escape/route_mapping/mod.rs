@@ -24,7 +24,9 @@ use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::metrics::NodeName;
 use g3_types::net::UpstreamAddr;
 
-use super::{ArcEscaper, EgressPathSelection, Escaper, EscaperInternal, RouteEscaperStats};
+use super::{
+    ArcEscaper, EgressPathSelection, Escaper, EscaperInternal, EscaperRegistry, RouteEscaperStats,
+};
 use crate::audit::AuditContext;
 use crate::config::escaper::route_mapping::RouteMappingEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
@@ -54,10 +56,17 @@ pub(super) struct RouteMappingEscaper {
 }
 
 impl RouteMappingEscaper {
-    fn new_obj(config: RouteMappingEscaperConfig, stats: Arc<RouteEscaperStats>) -> ArcEscaper {
+    fn new_obj<F>(
+        config: RouteMappingEscaperConfig,
+        stats: Arc<RouteEscaperStats>,
+        mut fetch_escaper: F,
+    ) -> ArcEscaper
+    where
+        F: FnMut(&NodeName) -> ArcEscaper,
+    {
         let mut next_nodes = Vec::with_capacity(config.next_nodes.len());
         for name in &config.next_nodes {
-            let escaper = super::registry::get_or_insert_default(name);
+            let escaper = fetch_escaper(name);
             next_nodes.push(escaper)
         }
 
@@ -72,15 +81,22 @@ impl RouteMappingEscaper {
 
     pub(super) fn prepare_initial(config: RouteMappingEscaperConfig) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::new(RouteEscaperStats::new(config.name()));
-        Ok(RouteMappingEscaper::new_obj(config, stats))
+        Ok(RouteMappingEscaper::new_obj(
+            config,
+            stats,
+            super::registry::get_or_insert_default,
+        ))
     }
 
     fn prepare_reload(
         config: AnyEscaperConfig,
         stats: Arc<RouteEscaperStats>,
+        registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::RouteMapping(config) = config {
-            Ok(RouteMappingEscaper::new_obj(config, stats))
+            Ok(RouteMappingEscaper::new_obj(config, stats, |name| {
+                registry.get_or_insert_default(name)
+            }))
         } else {
             Err(anyhow!("invalid escaper config type"))
         }
@@ -215,9 +231,13 @@ impl EscaperInternal for RouteMappingEscaper {
         AnyEscaperConfig::RouteMapping(self.config.clone())
     }
 
-    async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
+    fn _reload(
+        &self,
+        config: AnyEscaperConfig,
+        registry: &mut EscaperRegistry,
+    ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
-        RouteMappingEscaper::prepare_reload(config, stats)
+        RouteMappingEscaper::prepare_reload(config, stats, registry)
     }
 
     async fn _check_out_next_escaper(

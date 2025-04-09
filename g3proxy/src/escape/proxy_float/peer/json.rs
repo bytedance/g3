@@ -32,7 +32,7 @@ use crate::config::escaper::proxy_float::ProxyFloatEscaperConfig;
 
 pub(super) fn do_parse_peer(
     value: &Value,
-    escaper_config: &Arc<ProxyFloatEscaperConfig>,
+    escaper_config: &ProxyFloatEscaperConfig,
     instant_now: Instant,
     datetime_now: DateTime<Utc>,
 ) -> anyhow::Result<Option<(String, ArcNextProxyPeer)>> {

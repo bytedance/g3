@@ -24,7 +24,7 @@ use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::metrics::NodeName;
 use g3_types::net::UpstreamAddr;
 
-use super::{ArcEscaper, Escaper, EscaperInternal, RouteEscaperStats};
+use super::{ArcEscaper, Escaper, EscaperInternal, EscaperRegistry, RouteEscaperStats};
 use crate::audit::{AuditContext, AuditHandle};
 use crate::config::escaper::comply_audit::ComplyAuditEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
@@ -55,11 +55,15 @@ pub(super) struct ComplyAuditEscaper {
 }
 
 impl ComplyAuditEscaper {
-    fn new_obj(
+    fn new_obj<F>(
         config: ComplyAuditEscaperConfig,
         stats: Arc<RouteEscaperStats>,
-    ) -> anyhow::Result<ArcEscaper> {
-        let next = super::registry::get_or_insert_default(&config.next);
+        mut fetch_escaper: F,
+    ) -> anyhow::Result<ArcEscaper>
+    where
+        F: FnMut(&NodeName) -> ArcEscaper,
+    {
+        let next = fetch_escaper(&config.next);
         let auditor = crate::audit::get_or_insert_default(&config.auditor);
         let audit_handle = auditor
             .build_handle()
@@ -76,15 +80,16 @@ impl ComplyAuditEscaper {
 
     pub(super) fn prepare_initial(config: ComplyAuditEscaperConfig) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::new(RouteEscaperStats::new(config.name()));
-        ComplyAuditEscaper::new_obj(config, stats)
+        ComplyAuditEscaper::new_obj(config, stats, super::registry::get_or_insert_default)
     }
 
     fn prepare_reload(
         config: AnyEscaperConfig,
         stats: Arc<RouteEscaperStats>,
+        registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::ComplyAudit(config) = config {
-            ComplyAuditEscaper::new_obj(config, stats)
+            ComplyAuditEscaper::new_obj(config, stats, |name| registry.get_or_insert_default(name))
         } else {
             Err(anyhow!("invalid escaper config type"))
         }
@@ -207,9 +212,13 @@ impl EscaperInternal for ComplyAuditEscaper {
         AnyEscaperConfig::ComplyAudit(self.config.clone())
     }
 
-    async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
+    fn _reload(
+        &self,
+        config: AnyEscaperConfig,
+        registry: &mut EscaperRegistry,
+    ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
-        ComplyAuditEscaper::prepare_reload(config, stats)
+        ComplyAuditEscaper::prepare_reload(config, stats, registry)
     }
 
     async fn _check_out_next_escaper(

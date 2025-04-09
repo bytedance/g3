@@ -31,7 +31,10 @@ use g3_types::net::{
     Host, ProxyProtocolEncodeError, ProxyProtocolV2Encoder, UpstreamAddr, WeightedUpstreamAddr,
 };
 
-use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperExt, EscaperInternal, EscaperStats};
+use super::{
+    ArcEscaper, ArcEscaperStats, Escaper, EscaperExt, EscaperInternal, EscaperRegistry,
+    EscaperStats,
+};
 use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::divert_tcp::DivertTcpEscaperConfig;
@@ -297,7 +300,11 @@ impl EscaperInternal for DivertTcpEscaper {
         AnyEscaperConfig::DivertTcp(self.config.as_ref().clone())
     }
 
-    async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
+    fn _reload(
+        &self,
+        config: AnyEscaperConfig,
+        _registry: &mut EscaperRegistry,
+    ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
         DivertTcpEscaper::prepare_reload(config, stats)
     }

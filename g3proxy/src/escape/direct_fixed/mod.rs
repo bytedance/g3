@@ -33,7 +33,8 @@ use g3_types::net::{Host, ProxyProtocolEncoder, ProxyProtocolVersion, UpstreamAd
 use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
 
 use super::{
-    ArcEscaper, ArcEscaperStats, EgressPathSelection, Escaper, EscaperInternal, EscaperStats,
+    ArcEscaper, ArcEscaperStats, EgressPathSelection, Escaper, EscaperInternal, EscaperRegistry,
+    EscaperStats,
 };
 use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStats;
@@ -412,7 +413,11 @@ impl EscaperInternal for DirectFixedEscaper {
         AnyEscaperConfig::DirectFixed(config.clone())
     }
 
-    async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
+    fn _reload(
+        &self,
+        config: AnyEscaperConfig,
+        _registry: &mut EscaperRegistry,
+    ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
         DirectFixedEscaper::prepare_reload(config, stats)
     }
