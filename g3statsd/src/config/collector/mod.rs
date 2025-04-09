@@ -113,7 +113,7 @@ fn load_collector(
 ) -> anyhow::Result<AnyCollectorConfig> {
     let collector_type = g3_yaml::hash_get_required_str(map, CONFIG_KEY_COLLECTOR_TYPE)?;
     match g3_yaml::key::normalize(collector_type).as_str() {
-        "dummy" => {
+        "discard" => {
             let collector = discard::DiscardCollectorConfig::parse(map, position)
                 .context("failed to load this Discard collector")?;
             Ok(AnyCollectorConfig::Discard(collector))

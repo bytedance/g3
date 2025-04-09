@@ -37,3 +37,4 @@ macro_rules! impl_reload {
 
 impl_reload!(reload_importer, import);
 impl_reload!(reload_collector, collect);
+impl_reload!(reload_exporter, export);

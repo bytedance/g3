@@ -22,6 +22,7 @@ use tokio::sync::{broadcast, mpsc};
 use super::Command;
 use crate::collect::ArcCollector;
 use crate::config::collector::aggregate::AggregateCollectorConfig;
+use crate::export::ArcExporter;
 use crate::types::{MetricName, MetricRecord, MetricTagMap, MetricType, MetricValue};
 
 const BATCH_SIZE: usize = 128;
@@ -32,6 +33,7 @@ pub(super) struct GlobalStore {
     cmd_receiver: mpsc::Receiver<Command>,
 
     next: Option<ArcCollector>,
+    exporters: Vec<ArcExporter>,
 
     counter: AHashMap<Arc<MetricName>, AHashMap<Arc<MetricTagMap>, MetricValue>>,
     gauge: AHashMap<Arc<MetricName>, AHashMap<Arc<MetricTagMap>, MetricValue>>,
@@ -47,12 +49,18 @@ impl GlobalStore {
             .next
             .as_ref()
             .map(|name| crate::collect::get_or_insert_default(name));
+        let exporters = config
+            .exporters
+            .iter()
+            .map(crate::export::get_or_insert_default)
+            .collect();
 
         GlobalStore {
             config,
             cfg_receiver,
             cmd_receiver,
             next,
+            exporters,
             counter: Default::default(),
             gauge: Default::default(),
         }
@@ -98,6 +106,11 @@ impl GlobalStore {
             .next
             .as_ref()
             .map(|name| crate::collect::get_or_insert_default(name));
+        self.exporters = config
+            .exporters
+            .iter()
+            .map(crate::export::get_or_insert_default)
+            .collect();
         self.config = config;
     }
 
@@ -162,7 +175,9 @@ impl GlobalStore {
                             value,
                         };
 
-                        // TODO export
+                        for exporter in &self.exporters {
+                            exporter.add_metric(&record);
+                        }
 
                         if let Some(next) = &self.next {
                             next.add_metric(record, None);
@@ -205,7 +220,9 @@ impl GlobalStore {
                             value,
                         };
 
-                        // TODO export
+                        for exporter in &self.exporters {
+                            exporter.add_metric(&record);
+                        }
 
                         if let Some(next) = &self.next {
                             next.add_metric(record, None);
