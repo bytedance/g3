@@ -19,7 +19,6 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use tokio::sync::broadcast;
 
-use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
 use super::InternalEmitter;
@@ -78,8 +77,16 @@ impl CollectorInternal for InternalCollector {
         AnyCollectorConfig::Internal((*self.config).clone())
     }
 
-    fn _depend_on_collector(&self, _name: &NodeName) -> bool {
-        false
+    fn _depend_on_collector(&self, name: &NodeName) -> bool {
+        self.config
+            .next
+            .as_ref()
+            .map(|n| n.eq(name))
+            .unwrap_or(false)
+    }
+
+    fn _depend_on_exporter(&self, name: &NodeName) -> bool {
+        self.config.exporters.contains(name)
     }
 
     fn _reload(
@@ -93,14 +100,14 @@ impl CollectorInternal for InternalCollector {
     }
 }
 
-impl BaseServer for InternalCollector {
+impl Collector for InternalCollector {
     #[inline]
     fn name(&self) -> &NodeName {
         self.config.name()
     }
 
     #[inline]
-    fn server_type(&self) -> &'static str {
+    fn collector_type(&self) -> &'static str {
         self.config.collector_type()
     }
 
@@ -108,8 +115,6 @@ impl BaseServer for InternalCollector {
     fn version(&self) -> usize {
         self.reload_version
     }
-}
 
-impl Collector for InternalCollector {
     fn add_metric(&self, _record: MetricRecord, _worker_id: Option<usize>) {}
 }

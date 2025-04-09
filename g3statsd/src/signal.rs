@@ -30,7 +30,7 @@ async fn do_reload() {
         warn!("reload aborted");
     }
 
-    if let Err(e) = crate::collect::spawn_all().await {
+    if let Err(e) = crate::collect::load_all().await {
         error!("failed to reload all collectors: {e}");
     }
     if let Err(e) = crate::import::spawn_all().await {

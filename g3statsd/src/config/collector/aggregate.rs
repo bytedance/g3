@@ -34,6 +34,7 @@ pub(crate) struct AggregateCollectorConfig {
     pub(crate) emit_interval: Duration,
     pub(crate) join_tags: Vec<MetricTagName>,
     pub(crate) next: Option<NodeName>,
+    pub(crate) exporters: Vec<NodeName>,
 }
 
 impl AggregateCollectorConfig {
@@ -44,6 +45,7 @@ impl AggregateCollectorConfig {
             emit_interval: Duration::from_secs(1),
             join_tags: Vec::new(),
             next: None,
+            exporters: Vec::new(),
         }
     }
 
@@ -74,6 +76,16 @@ impl AggregateCollectorConfig {
             "join_tags" => {
                 self.join_tags = g3_yaml::value::as_list(v, g3_yaml::value::as_metric_tag_name)
                     .context(format!("invalid list of metric tag names for key {k}"))?;
+                Ok(())
+            }
+            "next" => {
+                let next = g3_yaml::value::as_metric_node_name(v)?;
+                self.next = Some(next);
+                Ok(())
+            }
+            "exporter" => {
+                self.exporters = g3_yaml::value::as_list(v, g3_yaml::value::as_metric_node_name)
+                    .context(format!("invalid list of exporter names for key {k}"))?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

@@ -19,7 +19,6 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use tokio::sync::broadcast;
 
-use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
 use super::AggregateHandle;
@@ -88,6 +87,10 @@ impl CollectorInternal for AggregateCollector {
         false
     }
 
+    fn _depend_on_exporter(&self, name: &NodeName) -> bool {
+        self.config.exporters.contains(name)
+    }
+
     fn _reload(
         &self,
         config: AnyCollectorConfig,
@@ -99,14 +102,14 @@ impl CollectorInternal for AggregateCollector {
     }
 }
 
-impl BaseServer for AggregateCollector {
+impl Collector for AggregateCollector {
     #[inline]
     fn name(&self) -> &NodeName {
         self.config.name()
     }
 
     #[inline]
-    fn server_type(&self) -> &'static str {
+    fn collector_type(&self) -> &'static str {
         self.config.collector_type()
     }
 
@@ -114,9 +117,7 @@ impl BaseServer for AggregateCollector {
     fn version(&self) -> usize {
         self.reload_version
     }
-}
 
-impl Collector for AggregateCollector {
     fn add_metric(&self, record: MetricRecord, worker_id: Option<usize>) {
         self.handle.add_metric(record, worker_id);
     }

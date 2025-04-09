@@ -15,4 +15,7 @@ interface ProcControl {
 
   reloadCollector @6 (name :Text) -> (result :Types.OperationResult);
   listCollector @7 () -> (result :List(Text));
+
+  reloadExporter @8 (name :Text) -> (result :Types.OperationResult);
+  listExporter @9 () -> (result :List(Text));
 }

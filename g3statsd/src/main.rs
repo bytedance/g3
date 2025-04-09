@@ -107,10 +107,12 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
 }
 
 async fn load_and_spawn() -> anyhow::Result<()> {
-    // TODO setup exporters
-    g3statsd::collect::spawn_all()
+    g3statsd::export::load_all()
         .await
-        .context("failed to spawn all collectors")?;
+        .context("failed to load all exporters")?;
+    g3statsd::collect::load_all()
+        .await
+        .context("failed to load all collectors")?;
     g3statsd::import::spawn_all()
         .await
         .context("failed to spawn all importers")?;

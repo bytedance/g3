@@ -34,6 +34,7 @@ pub(crate) struct RegulateCollectorConfig {
     pub(crate) prefix: Option<MetricName>,
     pub(crate) drop_tags: Vec<MetricTagName>,
     pub(crate) next: Option<NodeName>,
+    pub(crate) exporters: Vec<NodeName>,
 }
 
 impl RegulateCollectorConfig {
@@ -44,6 +45,7 @@ impl RegulateCollectorConfig {
             prefix: None,
             drop_tags: Vec::new(),
             next: None,
+            exporters: Vec::new(),
         }
     }
 
@@ -75,6 +77,16 @@ impl RegulateCollectorConfig {
             "drop_tags" => {
                 self.drop_tags = g3_yaml::value::as_list(v, g3_yaml::value::as_metric_tag_name)
                     .context(format!("invalid list of metric tag names for key {k}"))?;
+                Ok(())
+            }
+            "next" => {
+                let next = g3_yaml::value::as_metric_node_name(v)?;
+                self.next = Some(next);
+                Ok(())
+            }
+            "exporter" => {
+                self.exporters = g3_yaml::value::as_list(v, g3_yaml::value::as_metric_node_name)
+                    .context(format!("invalid list of exporter names for key {k}"))?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

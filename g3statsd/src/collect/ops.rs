@@ -29,7 +29,7 @@ use crate::config::collector::{AnyCollectorConfig, CollectorConfigDiffAction};
 
 static COLLECTOR_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 
-pub async fn spawn_all() -> anyhow::Result<()> {
+pub async fn load_all() -> anyhow::Result<()> {
     let _guard = COLLECTOR_OPS_LOCK.lock().await;
 
     let mut new_names = HashSet::<NodeName>::new();
@@ -103,6 +103,30 @@ pub(crate) async fn reload(
     reload_unlocked(old_config, config).await?;
     debug!("collector {name} reload OK");
     Ok(())
+}
+
+pub(crate) async fn update_dependency_to_exporter(exporter: &NodeName, status: &str) {
+    let _guard = COLLECTOR_OPS_LOCK.lock().await;
+
+    let mut names = Vec::<NodeName>::new();
+
+    registry::foreach(|name, collector| {
+        if collector._depend_on_exporter(exporter) {
+            names.push(name.clone());
+        }
+    });
+
+    if names.is_empty() {
+        return;
+    }
+
+    debug!("exporter {exporter} changed({status}), will reload collector(s) {names:?}");
+    for name in names.iter() {
+        debug!("collector {name}: will reload as it's using exporter {exporter}");
+        if let Err(e) = reload_existed_unlocked(name, None).await {
+            warn!("failed to reload collector {name}: {e:?}");
+        }
+    }
 }
 
 #[async_recursion]

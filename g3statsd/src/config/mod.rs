@@ -20,7 +20,7 @@ use anyhow::anyhow;
 use yaml_rust::{Yaml, yaml};
 
 pub(crate) mod collector;
-pub(crate) mod export;
+pub(crate) mod exporter;
 pub(crate) mod importer;
 
 pub fn load() -> anyhow::Result<&'static Path> {
@@ -45,6 +45,7 @@ pub(crate) async fn reload() -> anyhow::Result<()> {
 fn clear_all() {
     importer::clear();
     collector::clear();
+    exporter::clear();
 }
 
 fn reload_blocking() -> anyhow::Result<()> {
@@ -66,6 +67,7 @@ fn reload_doc(map: &yaml::Hash) -> anyhow::Result<()> {
         "runtime" | "worker" | "log" | "controller" => Ok(()),
         "importer" => importer::load_all(v, conf_dir),
         "collector" => collector::load_all(v, conf_dir),
+        "exporter" => exporter::load_all(v, conf_dir),
         _ => Ok(()),
     })?;
     Ok(())
@@ -79,6 +81,7 @@ fn load_doc(map: &yaml::Hash) -> anyhow::Result<()> {
         "worker" => g3_daemon::runtime::config::load_worker(v),
         "importer" => importer::load_all(v, conf_dir),
         "collector" => collector::load_all(v, conf_dir),
+        "exporter" => exporter::load_all(v, conf_dir),
         _ => Err(anyhow!("invalid key {k} in main conf")),
     })?;
     Ok(())

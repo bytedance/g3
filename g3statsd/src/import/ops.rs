@@ -131,7 +131,7 @@ pub(crate) async fn update_dependency_to_collector(collector: &NodeName, status:
     for name in names.iter() {
         debug!("importer {name}: will reload as it's using collector {collector}");
         if let Err(e) = registry::reload_only_collector(name) {
-            warn!("failed to reload collector {name}: {e:?}");
+            warn!("failed to reload importer {name}: {e:?}");
         }
     }
 }

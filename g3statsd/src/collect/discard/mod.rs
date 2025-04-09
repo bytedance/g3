@@ -18,7 +18,6 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 
-use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
 use super::{ArcCollector, Collector, CollectorInternal, CollectorRegistry};
@@ -67,6 +66,10 @@ impl CollectorInternal for DiscardCollector {
         false
     }
 
+    fn _depend_on_exporter(&self, _name: &NodeName) -> bool {
+        false
+    }
+
     fn _reload(
         &self,
         config: AnyCollectorConfig,
@@ -77,14 +80,14 @@ impl CollectorInternal for DiscardCollector {
     }
 }
 
-impl BaseServer for DiscardCollector {
+impl Collector for DiscardCollector {
     #[inline]
     fn name(&self) -> &NodeName {
         self.config.name()
     }
 
     #[inline]
-    fn server_type(&self) -> &'static str {
+    fn collector_type(&self) -> &'static str {
         self.config.collector_type()
     }
 
@@ -92,8 +95,6 @@ impl BaseServer for DiscardCollector {
     fn version(&self) -> usize {
         0
     }
-}
 
-impl Collector for DiscardCollector {
     fn add_metric(&self, _record: MetricRecord, _worker_id: Option<usize>) {}
 }

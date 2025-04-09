@@ -121,6 +121,32 @@ impl proc_control::Server for ProcControlImpl {
             Ok(())
         })
     }
+
+    fn list_exporter(
+        &mut self,
+        _params: proc_control::ListExporterParams,
+        mut results: proc_control::ListExporterResults,
+    ) -> Promise<(), capnp::Error> {
+        let set = crate::export::get_names();
+        let mut builder = results.get().init_result(set.len() as u32);
+        for (i, name) in set.iter().enumerate() {
+            builder.set(i as u32, name.as_str());
+        }
+        Promise::ok(())
+    }
+
+    fn reload_exporter(
+        &mut self,
+        params: proc_control::ReloadExporterParams,
+        mut results: proc_control::ReloadExporterResults,
+    ) -> Promise<(), capnp::Error> {
+        let name = pry!(pry!(pry!(params.get()).get_name()).to_string());
+        Promise::from_future(async move {
+            let r = crate::control::bridge::reload_exporter(name, None).await;
+            set_operation_result(results.get().init_result(), r);
+            Ok(())
+        })
+    }
 }
 
 #[allow(unused)]

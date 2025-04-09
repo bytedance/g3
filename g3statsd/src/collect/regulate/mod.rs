@@ -18,17 +18,18 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 
-use g3_daemon::server::BaseServer;
 use g3_types::metrics::NodeName;
 
 use super::{ArcCollector, Collector, CollectorInternal, CollectorRegistry};
 use crate::config::collector::regulate::RegulateCollectorConfig;
 use crate::config::collector::{AnyCollectorConfig, CollectorConfig};
+use crate::export::ArcExporter;
 use crate::types::MetricRecord;
 
 pub(crate) struct RegulateCollector {
     config: RegulateCollectorConfig,
     next: Option<ArcCollector>,
+    exporters: Vec<ArcExporter>,
 
     reload_version: usize,
 }
@@ -39,10 +40,16 @@ impl RegulateCollector {
         F: FnMut(&NodeName) -> ArcCollector,
     {
         let next = config.next.as_ref().map(fetch_collector);
+        let exporters = config
+            .exporters
+            .iter()
+            .map(crate::export::get_or_insert_default)
+            .collect();
 
         RegulateCollector {
             config,
             next,
+            exporters,
             reload_version,
         }
     }
@@ -86,6 +93,10 @@ impl CollectorInternal for RegulateCollector {
             .unwrap_or(false)
     }
 
+    fn _depend_on_exporter(&self, name: &NodeName) -> bool {
+        self.config.exporters.contains(name)
+    }
+
     fn _reload(
         &self,
         config: AnyCollectorConfig,
@@ -95,14 +106,14 @@ impl CollectorInternal for RegulateCollector {
     }
 }
 
-impl BaseServer for RegulateCollector {
+impl Collector for RegulateCollector {
     #[inline]
     fn name(&self) -> &NodeName {
         self.config.name()
     }
 
     #[inline]
-    fn server_type(&self) -> &'static str {
+    fn collector_type(&self) -> &'static str {
         self.config.collector_type()
     }
 
@@ -110,9 +121,7 @@ impl BaseServer for RegulateCollector {
     fn version(&self) -> usize {
         self.reload_version
     }
-}
 
-impl Collector for RegulateCollector {
     fn add_metric(&self, mut record: MetricRecord, worker_id: Option<usize>) {
         if let Some(prefix) = &self.config.prefix {
             let name = Arc::make_mut(&mut record.name);
@@ -125,7 +134,9 @@ impl Collector for RegulateCollector {
             }
         }
 
-        // TODO send to exporter
+        for exporter in &self.exporters {
+            exporter.add_metric(&record);
+        }
 
         if let Some(next) = &self.next {
             next.add_metric(record, worker_id);
