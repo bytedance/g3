@@ -27,7 +27,10 @@ use g3_types::collection::{SelectiveVec, SelectiveVecBuilder};
 use g3_types::metrics::NodeName;
 use g3_types::net::{Host, HttpForwardCapability, UpstreamAddr, WeightedUpstreamAddr};
 
-use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperExt, EscaperInternal, EscaperStats};
+use super::{
+    ArcEscaper, ArcEscaperStats, Escaper, EscaperExt, EscaperInternal, EscaperRegistry,
+    EscaperStats,
+};
 use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::proxy_http::ProxyHttpEscaperConfig;
@@ -254,7 +257,11 @@ impl EscaperInternal for ProxyHttpEscaper {
         AnyEscaperConfig::ProxyHttp(config.clone())
     }
 
-    async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
+    fn _reload(
+        &self,
+        config: AnyEscaperConfig,
+        _registry: &mut EscaperRegistry,
+    ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
         ProxyHttpEscaper::prepare_reload(config, stats)
     }

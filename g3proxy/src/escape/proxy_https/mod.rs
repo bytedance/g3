@@ -29,7 +29,10 @@ use g3_types::net::{
     Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr, WeightedUpstreamAddr,
 };
 
-use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperExt, EscaperInternal, EscaperStats};
+use super::{
+    ArcEscaper, ArcEscaperStats, Escaper, EscaperExt, EscaperInternal, EscaperRegistry,
+    EscaperStats,
+};
 use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::proxy_https::ProxyHttpsEscaperConfig;
@@ -263,7 +266,11 @@ impl EscaperInternal for ProxyHttpsEscaper {
         AnyEscaperConfig::ProxyHttps(config.clone())
     }
 
-    async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
+    fn _reload(
+        &self,
+        config: AnyEscaperConfig,
+        _registry: &mut EscaperRegistry,
+    ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
         ProxyHttpsEscaper::prepare_reload(config, stats)
     }

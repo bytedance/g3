@@ -20,7 +20,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use async_trait::async_trait;
 
-use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal};
+use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal, EscaperRegistry};
 use crate::audit::AuditContext;
 use crate::config::escaper::dummy_deny::DummyDenyEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
@@ -185,7 +185,11 @@ impl EscaperInternal for DummyDenyEscaper {
         AnyEscaperConfig::DummyDeny(self.config.clone())
     }
 
-    async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
+    fn _reload(
+        &self,
+        config: AnyEscaperConfig,
+        _registry: &mut EscaperRegistry,
+    ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
         DummyDenyEscaper::prepare_reload(config, stats)
     }

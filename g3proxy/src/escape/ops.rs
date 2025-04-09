@@ -243,7 +243,7 @@ async fn reload_existed_unlocked(
 ) -> anyhow::Result<()> {
     const STATUS: &str = "reloaded";
 
-    registry::reload_existed(name, new).await?;
+    registry::reload_existed(name, new)?;
     update_dependency_to_escaper_unlocked(name, STATUS).await;
     crate::serve::update_dependency_to_escaper(name, STATUS).await;
     Ok(())
@@ -268,7 +268,7 @@ async fn spawn_new_unlocked(config: AnyEscaperConfig) -> anyhow::Result<()> {
         AnyEscaperConfig::RouteResolved(c) => RouteResolvedEscaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteGeoIp(c) => RouteGeoIpEscaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteMapping(c) => RouteMappingEscaper::prepare_initial(c)?,
-        AnyEscaperConfig::RouteQuery(c) => RouteQueryEscaper::prepare_initial(c).await?,
+        AnyEscaperConfig::RouteQuery(c) => RouteQueryEscaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteSelect(c) => RouteSelectEscaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteUpstream(c) => RouteUpstreamEscaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteClient(c) => RouteClientEscaper::prepare_initial(c)?,

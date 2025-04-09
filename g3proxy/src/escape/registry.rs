@@ -26,72 +26,120 @@ use super::ArcEscaper;
 use super::dummy_deny::DummyDenyEscaper;
 use crate::config::escaper::AnyEscaperConfig;
 
-static RUNTIME_ESCAPER_REGISTRY: Mutex<HashMap<NodeName, ArcEscaper, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static RUNTIME_ESCAPER_REGISTRY: Mutex<EscaperRegistry> = Mutex::new(EscaperRegistry::new());
+
+pub(crate) struct EscaperRegistry {
+    inner: HashMap<NodeName, ArcEscaper, FixedState>,
+}
+
+impl EscaperRegistry {
+    const fn new() -> Self {
+        EscaperRegistry {
+            inner: HashMap::with_hasher(FixedState::with_seed(0)),
+        }
+    }
+
+    fn add(&mut self, name: NodeName, escaper: ArcEscaper) {
+        if let Some(old_escaper) = self.inner.insert(name, escaper) {
+            old_escaper._clean_to_offline();
+        }
+    }
+
+    fn del(&mut self, name: &NodeName) {
+        if let Some(old_escaper) = self.inner.remove(name) {
+            old_escaper._clean_to_offline();
+        }
+    }
+
+    fn foreach<F>(&self, mut f: F)
+    where
+        F: FnMut(&NodeName, &ArcEscaper),
+    {
+        for (name, escaper) in self.inner.iter() {
+            f(name, escaper);
+        }
+    }
+
+    fn get_names(&self) -> HashSet<NodeName> {
+        self.inner.keys().cloned().collect()
+    }
+
+    fn get_escaper(&self, name: &NodeName) -> Option<ArcEscaper> {
+        self.inner.get(name).cloned()
+    }
+
+    fn get_config(&self, name: &NodeName) -> Option<AnyEscaperConfig> {
+        self.inner.get(name).map(|escaper| escaper._clone_config())
+    }
+
+    pub(super) fn reload(
+        &mut self,
+        name: &NodeName,
+        config: Option<AnyEscaperConfig>,
+    ) -> anyhow::Result<()> {
+        let Some(old_escaper) = self.inner.get(name) else {
+            return Err(anyhow!("no escaper with name {name} found"));
+        };
+
+        let old_escaper = old_escaper.clone();
+        let config = config.unwrap_or_else(|| old_escaper._clone_config());
+        let escaper = old_escaper._reload(config, self)?;
+        self.add(name.clone(), escaper);
+        Ok(())
+    }
+
+    pub(super) fn get_or_insert_default(&mut self, name: &NodeName) -> ArcEscaper {
+        self.inner
+            .entry(name.clone())
+            .or_insert_with(|| DummyDenyEscaper::prepare_default(name))
+            .clone()
+    }
+}
 
 pub(super) fn add(name: NodeName, escaper: ArcEscaper) {
-    let mut ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
-    if let Some(old_escaper) = ht.insert(name, escaper) {
-        old_escaper._clean_to_offline();
-    }
+    let mut r = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
+    r.add(name, escaper);
 }
 
 pub(super) fn del(name: &NodeName) {
-    let mut ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
-    if let Some(old_escaper) = ht.remove(name) {
-        old_escaper._clean_to_offline();
-    }
+    let mut r = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
+    r.del(name);
 }
 
-pub(crate) fn foreach<F>(mut f: F)
+pub(crate) fn foreach<F>(f: F)
 where
     F: FnMut(&NodeName, &ArcEscaper),
 {
-    let ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
-    for (name, escaper) in ht.iter() {
-        f(name, escaper)
-    }
+    let r = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
+    r.foreach(f);
 }
 
 pub(crate) fn get_names() -> HashSet<NodeName> {
-    let mut names = HashSet::new();
-    let ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
-    for key in ht.keys() {
-        names.insert(key.clone());
-    }
-    names
+    let r = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
+    r.get_names()
 }
 
 pub(super) fn get_escaper(name: &NodeName) -> Option<ArcEscaper> {
-    let ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
-    ht.get(name).cloned()
+    let r = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
+    r.get_escaper(name)
 }
 
 pub(super) fn get_config(name: &NodeName) -> Option<AnyEscaperConfig> {
-    let ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
-    ht.get(name).map(|escaper| escaper._clone_config())
+    let r = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
+    r.get_config(name)
 }
 
-pub(super) async fn reload_existed(
+pub(super) fn reload_existed(
     name: &NodeName,
     config: Option<AnyEscaperConfig>,
 ) -> anyhow::Result<()> {
-    let Some(old_escaper) = get_escaper(name) else {
-        return Err(anyhow!("no escaper with name {name} found"));
-    };
-    let config = config.unwrap_or_else(|| old_escaper._clone_config());
-
-    // the _reload method is allowed to hold a registry lock
-    // a tokio mutex is needed if we lock this await inside
-    let escaper = old_escaper._lock_safe_reload(config).await?;
-
-    add(name.clone(), escaper);
-    Ok(())
+    let mut r = RUNTIME_ESCAPER_REGISTRY
+        .lock()
+        .map_err(|e| anyhow!("failed to lock escaper registry: {e}"))?;
+    r.reload(name, config)
 }
 
 pub(crate) fn get_or_insert_default(name: &NodeName) -> ArcEscaper {
-    let mut ht = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
-    ht.entry(name.clone())
-        .or_insert_with(|| DummyDenyEscaper::prepare_default(name))
-        .clone()
+    let mut r = RUNTIME_ESCAPER_REGISTRY.lock().unwrap();
+    r.get_or_insert_default(name)
 }

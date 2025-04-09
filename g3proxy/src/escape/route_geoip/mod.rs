@@ -32,7 +32,7 @@ use g3_resolver::ResolveError;
 use g3_types::metrics::NodeName;
 use g3_types::net::{Host, UpstreamAddr};
 
-use super::{ArcEscaper, Escaper, EscaperInternal, RouteEscaperStats};
+use super::{ArcEscaper, Escaper, EscaperInternal, EscaperRegistry, RouteEscaperStats};
 use crate::audit::AuditContext;
 use crate::config::escaper::route_geoip::RouteGeoIpEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
@@ -73,17 +73,21 @@ pub(super) struct RouteGeoIpEscaper {
 }
 
 impl RouteGeoIpEscaper {
-    fn new_obj(
+    fn new_obj<F>(
         config: RouteGeoIpEscaperConfig,
         stats: Arc<RouteEscaperStats>,
-    ) -> anyhow::Result<ArcEscaper> {
+        mut fetch_escaper: F,
+    ) -> anyhow::Result<ArcEscaper>
+    where
+        F: FnMut(&NodeName) -> ArcEscaper,
+    {
         let resolver_handle = crate::resolve::get_handle(config.resolver())?;
         let ip_locate_handle = config.ip_locate_service.spawn_ip_locate_agent()?;
 
         let mut next_table = BTreeMap::new();
         if let Some(escapers) = config.dependent_escaper() {
             for escaper in escapers {
-                let next = super::registry::get_or_insert_default(&escaper);
+                let next = fetch_escaper(&escaper);
                 next_table.insert(escaper, next);
             }
         }
@@ -150,15 +154,16 @@ impl RouteGeoIpEscaper {
 
     pub(super) fn prepare_initial(config: RouteGeoIpEscaperConfig) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::new(RouteEscaperStats::new(config.name()));
-        RouteGeoIpEscaper::new_obj(config, stats)
+        RouteGeoIpEscaper::new_obj(config, stats, super::registry::get_or_insert_default)
     }
 
     fn prepare_reload(
         config: AnyEscaperConfig,
         stats: Arc<RouteEscaperStats>,
+        registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::RouteGeoIp(config) = config {
-            RouteGeoIpEscaper::new_obj(config, stats)
+            RouteGeoIpEscaper::new_obj(config, stats, |name| registry.get_or_insert_default(name))
         } else {
             Err(anyhow!("invalid escaper config type"))
         }
@@ -395,9 +400,13 @@ impl EscaperInternal for RouteGeoIpEscaper {
         AnyEscaperConfig::RouteGeoIp(self.config.clone())
     }
 
-    async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
+    fn _reload(
+        &self,
+        config: AnyEscaperConfig,
+        registry: &mut EscaperRegistry,
+    ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
-        RouteGeoIpEscaper::prepare_reload(config, stats)
+        RouteGeoIpEscaper::prepare_reload(config, stats, registry)
     }
 
     async fn _check_out_next_escaper(

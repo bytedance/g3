@@ -28,7 +28,7 @@ use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::metrics::NodeName;
 use g3_types::net::{OpensslClientConfig, UpstreamAddr};
 
-use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal, EscaperStats};
+use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal, EscaperRegistry, EscaperStats};
 use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::proxy_float::ProxyFloatEscaperConfig;
@@ -76,10 +76,10 @@ pub(super) struct ProxyFloatEscaper {
 }
 
 impl ProxyFloatEscaper {
-    async fn new_obj(
+    fn new_obj(
         config: ProxyFloatEscaperConfig,
         stats: Arc<ProxyFloatEscaperStats>,
-        peers: Option<Arc<PeerSet>>,
+        peers: ArcSwap<PeerSet>,
     ) -> anyhow::Result<ArcEscaper> {
         let escape_logger = config.get_escape_logger();
 
@@ -89,23 +89,7 @@ impl ProxyFloatEscaper {
             .context("failed to setup tls client config")?;
 
         let config = Arc::new(config);
-
-        let peers = match peers {
-            Some(peers) => peers,
-            None => {
-                let peers = source::load_cached_peers(&config)
-                    .await
-                    .unwrap_or_else(|e| {
-                        warn!(
-                            "failed to load cached peers for escaper {}: {e:?}",
-                            config.name
-                        );
-                        PeerSet::default()
-                    });
-                Arc::new(peers)
-            }
-        };
-        let peers = Arc::new(ArcSwap::new(peers));
+        let peers = Arc::new(peers);
         let quit_job_sender = source::new_job(Arc::clone(&config), Arc::clone(&peers))?;
 
         stats.set_extra_tags(config.extra_metrics_tags.clone());
@@ -125,17 +109,26 @@ impl ProxyFloatEscaper {
     pub(super) async fn prepare_initial(
         config: ProxyFloatEscaperConfig,
     ) -> anyhow::Result<ArcEscaper> {
+        let peers = source::load_cached_peers(&config)
+            .await
+            .unwrap_or_else(|e| {
+                warn!(
+                    "failed to load cached peers for escaper {}: {e:?}",
+                    config.name
+                );
+                PeerSet::default()
+            });
         let stats = Arc::new(ProxyFloatEscaperStats::new(config.name()));
-        ProxyFloatEscaper::new_obj(config, stats, None).await
+        ProxyFloatEscaper::new_obj(config, stats, ArcSwap::new(Arc::new(peers)))
     }
 
-    async fn prepare_reload(
+    fn prepare_reload(
         config: AnyEscaperConfig,
         stats: Arc<ProxyFloatEscaperStats>,
         peers: Arc<PeerSet>,
     ) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::ProxyFloat(config) = config {
-            ProxyFloatEscaper::new_obj(config, stats, Some(peers)).await
+            ProxyFloatEscaper::new_obj(config, stats, ArcSwap::new(peers))
         } else {
             Err(anyhow!("invalid escaper config type"))
         }
@@ -300,12 +293,16 @@ impl EscaperInternal for ProxyFloatEscaper {
         AnyEscaperConfig::ProxyFloat(config.clone())
     }
 
-    async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
+    fn _reload(
+        &self,
+        config: AnyEscaperConfig,
+        _registry: &mut EscaperRegistry,
+    ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
         // copy the old peers, they may be a little outdated at this stage
-        // as we haven't stop the old job
+        // as we haven't stopped the old job
         let peers = self.peers.load_full();
-        ProxyFloatEscaper::prepare_reload(config, stats, peers).await
+        ProxyFloatEscaper::prepare_reload(config, stats, peers)
     }
 
     fn _clean_to_offline(&self) {

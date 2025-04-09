@@ -46,6 +46,7 @@ use crate::module::udp_relay::{
 use crate::serve::ServerTaskNotes;
 
 mod registry;
+use registry::EscaperRegistry;
 pub(crate) use registry::{foreach as foreach_escaper, get_names, get_or_insert_default};
 
 mod stats;
@@ -99,8 +100,11 @@ pub(crate) trait EscaperInternal {
 
     fn _clone_config(&self) -> AnyEscaperConfig;
 
-    /// registry lock is allowed in this method
-    async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper>;
+    fn _reload(
+        &self,
+        config: AnyEscaperConfig,
+        registry: &mut EscaperRegistry,
+    ) -> anyhow::Result<ArcEscaper>;
 
     fn _clean_to_offline(&self) {}
 

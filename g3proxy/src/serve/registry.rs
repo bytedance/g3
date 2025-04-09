@@ -98,12 +98,7 @@ impl ServerRegistry {
 
         let old_server = old_server.clone();
         let server = old_server._reload_with_new_notifier(config, self)?;
-        server._start_runtime(&server)?;
-        if let Some(old_server) = self.inner.insert(name.clone(), server) {
-            old_server._abort_runtime();
-            add_offline(old_server);
-        }
-        Ok(())
+        self.add(name.clone(), server)
     }
 
     fn foreach<F>(&self, mut f: F)
@@ -115,7 +110,7 @@ impl ServerRegistry {
         }
     }
 
-    pub(crate) fn get_or_insert_default(&mut self, name: &NodeName) -> ArcServer {
+    pub(super) fn get_or_insert_default(&mut self, name: &NodeName) -> ArcServer {
         self.inner
             .entry(name.clone())
             .or_insert_with(|| DummyCloseServer::prepare_default(name))

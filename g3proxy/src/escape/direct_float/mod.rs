@@ -35,7 +35,8 @@ use g3_types::net::{Host, UpstreamAddr};
 use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
 
 use super::{
-    ArcEscaper, ArcEscaperInternalStats, ArcEscaperStats, Escaper, EscaperInternal, EscaperStats,
+    ArcEscaper, ArcEscaperInternalStats, ArcEscaperStats, Escaper, EscaperInternal,
+    EscaperRegistry, EscaperStats,
 };
 use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStats;
@@ -83,11 +84,11 @@ pub(super) struct DirectFloatEscaper {
 }
 
 impl DirectFloatEscaper {
-    async fn new_obj(
+    fn new_obj(
         config: DirectFloatEscaperConfig,
         stats: Arc<DirectFixedEscaperStats>,
-        bind_v4: Option<Arc<BindSet>>,
-        bind_v6: Option<Arc<BindSet>>,
+        bind_v4: ArcSwap<BindSet>,
+        bind_v6: ArcSwap<BindSet>,
     ) -> anyhow::Result<ArcEscaper> {
         let resolver_handle = crate::resolve::get_handle(config.resolver())?;
         let egress_net_filter = Arc::new(config.egress_net_filter.build());
@@ -101,37 +102,6 @@ impl DirectFloatEscaper {
 
         let config = Arc::new(config);
 
-        let bind_v4 = match bind_v4 {
-            Some(binds) => binds,
-            None => {
-                let bind_set = publish::load_ipv4_from_cache(&config)
-                    .await
-                    .unwrap_or_else(|e| {
-                        warn!(
-                            "failed to load cached ipv4 addr for escaper {}: {:?}",
-                            config.name, e
-                        );
-                        BindSet::new(AddressFamily::Ipv4)
-                    });
-                Arc::new(bind_set)
-            }
-        };
-        let bind_v6 = match bind_v6 {
-            Some(binds) => binds,
-            None => {
-                let bind_set = publish::load_ipv6_from_cache(&config)
-                    .await
-                    .unwrap_or_else(|e| {
-                        warn!(
-                            "failed to load cached ipv6 addr for escaper {}: {:?}",
-                            config.name, e
-                        );
-                        BindSet::new(AddressFamily::Ipv6)
-                    });
-                Arc::new(bind_set)
-            }
-        };
-
         stats.set_extra_tags(config.extra_metrics_tags.clone());
 
         let escaper = DirectFloatEscaper {
@@ -140,8 +110,8 @@ impl DirectFloatEscaper {
             resolver_handle,
             egress_net_filter,
             resolve_redirection,
-            bind_v4: ArcSwap::new(bind_v4),
-            bind_v6: ArcSwap::new(bind_v6),
+            bind_v4,
+            bind_v6,
             escape_logger,
         };
 
@@ -151,18 +121,43 @@ impl DirectFloatEscaper {
     pub(super) async fn prepare_initial(
         config: DirectFloatEscaperConfig,
     ) -> anyhow::Result<ArcEscaper> {
+        let bind_set_v4 = publish::load_ipv4_from_cache(&config)
+            .await
+            .unwrap_or_else(|e| {
+                warn!(
+                    "failed to load cached ipv4 addr for escaper {}: {:?}",
+                    config.name, e
+                );
+                BindSet::new(AddressFamily::Ipv4)
+            });
+        let bind_set_v6 = publish::load_ipv6_from_cache(&config)
+            .await
+            .unwrap_or_else(|e| {
+                warn!(
+                    "failed to load cached ipv6 addr for escaper {}: {:?}",
+                    config.name, e
+                );
+                BindSet::new(AddressFamily::Ipv6)
+            });
+
         let stats = Arc::new(DirectFixedEscaperStats::new(config.name()));
-        DirectFloatEscaper::new_obj(config, stats, None, None).await
+
+        DirectFloatEscaper::new_obj(
+            config,
+            stats,
+            ArcSwap::from_pointee(bind_set_v4),
+            ArcSwap::from_pointee(bind_set_v6),
+        )
     }
 
-    async fn prepare_reload(
+    fn prepare_reload(
         config: AnyEscaperConfig,
         stats: Arc<DirectFixedEscaperStats>,
-        bind_v4: Option<Arc<BindSet>>,
-        bind_v6: Option<Arc<BindSet>>,
+        bind_v4: Arc<BindSet>,
+        bind_v6: Arc<BindSet>,
     ) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::DirectFloat(config) = config {
-            DirectFloatEscaper::new_obj(config, stats, bind_v4, bind_v6).await
+            DirectFloatEscaper::new_obj(config, stats, ArcSwap::new(bind_v4), ArcSwap::new(bind_v6))
         } else {
             Err(anyhow!("invalid escaper config type"))
         }
@@ -462,12 +457,16 @@ impl EscaperInternal for DirectFloatEscaper {
         AnyEscaperConfig::DirectFloat(config.clone())
     }
 
-    async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
+    fn _reload(
+        &self,
+        config: AnyEscaperConfig,
+        _registry: &mut EscaperRegistry,
+    ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
         let bind_v4 = self.bind_v4.load_full();
         let bind_v6 = self.bind_v6.load_full();
 
-        DirectFloatEscaper::prepare_reload(config, stats, Some(bind_v4), Some(bind_v6)).await
+        DirectFloatEscaper::prepare_reload(config, stats, bind_v4, bind_v6)
     }
 
     async fn _new_http_forward_connection(

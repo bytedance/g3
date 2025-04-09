@@ -18,7 +18,7 @@ use std::hash::Hash;
 use std::net::IpAddr;
 use std::sync::Arc;
 
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use tokio::net::UdpSocket;
 
 use g3_io_ext::EffectiveCacheHandle;
@@ -100,9 +100,7 @@ impl CacheHandle {
     }
 }
 
-pub(super) async fn spawn(config: &Arc<RouteQueryEscaperConfig>) -> anyhow::Result<CacheHandle> {
-    use anyhow::Context;
-
+pub(super) fn spawn(config: &Arc<RouteQueryEscaperConfig>) -> anyhow::Result<CacheHandle> {
     let socket = g3_socket::udp::new_std_socket_to(
         config.query_peer_addr,
         &Default::default(),
