@@ -1363,6 +1363,7 @@ version = "0.4.0"
 dependencies = [
  "anyhow",
  "atomic-waker",
+ "bitflags",
  "libc",
  "thiserror",
  "tokio",
@@ -3788,9 +3789,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.16.1"
+version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "16a9585321be1cd02653c759fc1de88ed123488b1a1da4afd758ab67da0d1d37"
+checksum = "8fb887ba4fc6b27e9917bf0dba908f9e3f086593ed23e7dff584a57e779fcab0"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -3803,9 +3804,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl-sys"
-version = "0.16.1"
+version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a82687c79327b0c86da23e8a91f8dcbdd25fca0234903d1693e4810c862f45a2"
+checksum = "6d45dc5a413ffccd9e14bed020a0cef4739a4722ec7ec5febdc286d8bbb13426"
 dependencies = [
  "bssl-cmake-sys",
  "cc",

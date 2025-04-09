@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2025 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,5 @@
  * limitations under the License.
  */
 
-mod ffi;
-
-#[cfg(feature = "async-job")]
-pub mod async_job;
-
-mod ssl;
-#[cfg(feature = "async-job")]
-pub use ssl::SslAsyncModeExt;
-pub use ssl::{
-    SslAcceptor, SslConnector, SslError, SslInfoCallbackWhere, SslLazyAcceptor, SslStream,
-};
+mod mask;
+pub use mask::SslInfoCallbackWhere;

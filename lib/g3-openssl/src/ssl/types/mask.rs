@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2025 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
-mod ffi;
+use bitflags::bitflags;
 
-#[cfg(feature = "async-job")]
-pub mod async_job;
-
-mod ssl;
-#[cfg(feature = "async-job")]
-pub use ssl::SslAsyncModeExt;
-pub use ssl::{
-    SslAcceptor, SslConnector, SslError, SslInfoCallbackWhere, SslLazyAcceptor, SslStream,
-};
+bitflags! {
+    pub struct SslInfoCallbackWhere: i32 {
+        const LOOP = 0x01;
+        const EXIT = 0x02;
+        const READ = 0x04;
+        const WRITE = 0x08;
+        const HANDSHAKE_START = 0x10;
+        const HANDSHAKE_DONE = 0x20;
+        const ALERT = 0x4000;
+    }
+}

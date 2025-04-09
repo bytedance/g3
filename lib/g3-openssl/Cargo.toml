@@ -9,6 +9,7 @@ edition.workspace = true
 [dependencies]
 anyhow.workspace = true
 thiserror.workspace = true
+bitflags.workspace = true
 libc.workspace = true
 openssl-sys.workspace = true
 openssl.workspace = true
