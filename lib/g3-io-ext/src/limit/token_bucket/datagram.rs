@@ -34,10 +34,10 @@ pub struct GlobalDatagramLimiter {
 impl GlobalDatagramLimiter {
     pub fn new(config: GlobalDatagramSpeedLimitConfig) -> Self {
         GlobalDatagramLimiter {
-            config: ArcSwap::new(Arc::new(config)),
+            config: ArcSwap::from_pointee(config),
             byte_tokens: AtomicU64::new(config.replenish_bytes()),
             packet_tokens: AtomicU64::new(config.replenish_packets()),
-            last_updated: ArcSwap::new(Arc::new(Instant::now())),
+            last_updated: ArcSwap::from_pointee(Instant::now()),
         }
     }
 

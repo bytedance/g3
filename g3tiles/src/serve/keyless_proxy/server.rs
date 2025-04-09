@@ -86,7 +86,7 @@ impl KeylessProxyServer {
             ingress_net_filter,
             reload_sender,
             task_logger,
-            backend_selector: Arc::new(ArcSwap::new(Arc::new(backend))),
+            backend_selector: Arc::new(ArcSwap::from_pointee(backend)),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             idle_wheel,
             reload_version: version,

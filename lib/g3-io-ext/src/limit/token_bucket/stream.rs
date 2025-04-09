@@ -35,9 +35,9 @@ impl GlobalStreamLimiter {
     pub fn new(group: GlobalLimitGroup, config: GlobalStreamSpeedLimitConfig) -> Self {
         GlobalStreamLimiter {
             group,
-            config: ArcSwap::new(Arc::new(config)),
+            config: ArcSwap::from_pointee(config),
             byte_tokens: AtomicU64::new(config.replenish_bytes()),
-            last_updated: ArcSwap::new(Arc::new(Instant::now())),
+            last_updated: ArcSwap::from_pointee(Instant::now()),
         }
     }
 
