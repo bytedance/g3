@@ -119,7 +119,7 @@ impl ProxyFloatEscaper {
                 PeerSet::default()
             });
         let stats = Arc::new(ProxyFloatEscaperStats::new(config.name()));
-        ProxyFloatEscaper::new_obj(config, stats, ArcSwap::new(Arc::new(peers)))
+        ProxyFloatEscaper::new_obj(config, stats, ArcSwap::from_pointee(peers))
     }
 
     fn prepare_reload(

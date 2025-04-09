@@ -63,7 +63,7 @@ impl OpensslHost {
             tlcp_context,
             req_alive_sem,
             request_rate_limit,
-            backends: Arc::new(ArcSwap::new(Arc::new(backends))),
+            backends: Arc::new(ArcSwap::from_pointee(backends)),
         })
     }
 
