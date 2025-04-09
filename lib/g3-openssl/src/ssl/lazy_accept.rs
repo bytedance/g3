@@ -23,7 +23,7 @@ use openssl::error::ErrorStack;
 use openssl::ssl::{self, ErrorCode, Ssl, SslRef};
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use super::{SslAcceptor, SslIoWrapper};
+use super::{ConvertSslError, SslAcceptor, SslErrorAction, SslIoWrapper};
 
 pub struct SslLazyAcceptor<S> {
     inner: ssl::SslStream<SslIoWrapper<S>>,
@@ -49,7 +49,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslLazyAcceptor<S> {
                 ErrorCode::PENDING_CERTIFICATE => Poll::Ready(Ok(())),
                 _ => Poll::Ready(Err(e
                     .into_io_error()
-                    .unwrap_or_else(|e| io::Error::other(format!("ssl accept: {e}"))))),
+                    .unwrap_or_else(|e| e.build_io_error(SslErrorAction::Accept)))),
             },
         }
     }

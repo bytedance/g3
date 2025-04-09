@@ -25,7 +25,7 @@ use openssl::ssl::{self, ErrorCode, Ssl};
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::time::Sleep;
 
-use super::{SslIoWrapper, SslStream};
+use super::{ConvertSslError, SslErrorAction, SslIoWrapper, SslStream};
 
 pub struct SslAcceptor<S> {
     inner: ssl::SslStream<SslIoWrapper<S>>,
@@ -73,7 +73,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {
                 ErrorCode::WANT_READ | ErrorCode::WANT_WRITE => Poll::Pending,
                 _ => Poll::Ready(Err(e
                     .into_io_error()
-                    .unwrap_or_else(|e| io::Error::other(format!("ssl accept: {e}"))))),
+                    .unwrap_or_else(|e| e.build_io_error(SslErrorAction::Accept)))),
             },
         }
     }

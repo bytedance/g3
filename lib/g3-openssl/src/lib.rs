@@ -22,4 +22,4 @@ pub mod async_job;
 mod ssl;
 #[cfg(feature = "async-job")]
 pub use ssl::SslAsyncModeExt;
-pub use ssl::{SslAcceptor, SslConnector, SslLazyAcceptor, SslStream};
+pub use ssl::{SslAcceptor, SslConnector, SslError, SslLazyAcceptor, SslStream};

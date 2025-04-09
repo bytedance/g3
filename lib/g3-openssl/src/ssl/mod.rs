@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+mod error;
+pub use error::SslError;
+use error::{ConvertSslError, SslErrorAction};
+
 mod wrapper;
 use wrapper::SslIoWrapper;
 
