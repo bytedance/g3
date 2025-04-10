@@ -34,32 +34,31 @@ mod discard;
 mod internal;
 mod regulate;
 
-pub(crate) trait CollectorInternal {
+pub(crate) trait Collector {
+    fn name(&self) -> &NodeName;
+    #[allow(unused)]
+    fn r#type(&self) -> &'static str;
+
+    fn add_metric(&self, record: MetricRecord, worker_id: Option<usize>);
+}
+
+trait CollectorInternal: Collector {
     fn _clone_config(&self) -> AnyCollectorConfig;
 
     fn _depend_on_collector(&self, name: &NodeName) -> bool;
     fn _depend_on_exporter(&self, name: &NodeName) -> bool;
 
+    fn _update_config(&self, _config: AnyCollectorConfig) -> anyhow::Result<()> {
+        Ok(())
+    }
     fn _reload(
         &self,
         config: AnyCollectorConfig,
         registry: &mut CollectorRegistry,
-    ) -> anyhow::Result<ArcCollector>;
+    ) -> anyhow::Result<ArcCollectorInternal>;
 
     fn _clean_to_offline(&self) {}
 }
 
-pub(crate) trait Collector: CollectorInternal {
-    #[allow(unused)]
-    fn name(&self) -> &NodeName;
-
-    #[allow(unused)]
-    fn collector_type(&self) -> &'static str;
-
-    #[allow(unused)]
-    fn version(&self) -> usize;
-
-    fn add_metric(&self, record: MetricRecord, worker_id: Option<usize>);
-}
-
 pub(crate) type ArcCollector = Arc<dyn Collector + Send + Sync>;
+type ArcCollectorInternal = Arc<dyn CollectorInternal + Send + Sync>;

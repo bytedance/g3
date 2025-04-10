@@ -22,13 +22,13 @@ use foldhash::fast::FixedState;
 
 use g3_types::metrics::NodeName;
 
-use super::ArcCollector;
+use super::{ArcCollector, ArcCollectorInternal};
 use crate::config::collector::AnyCollectorConfig;
 
 static RUNTIME_COLLECTOR_REGISTRY: Mutex<CollectorRegistry> = Mutex::new(CollectorRegistry::new());
 
-pub(crate) struct CollectorRegistry {
-    inner: HashMap<NodeName, ArcCollector, FixedState>,
+pub(super) struct CollectorRegistry {
+    inner: HashMap<NodeName, ArcCollectorInternal, FixedState>,
 }
 
 impl CollectorRegistry {
@@ -38,7 +38,7 @@ impl CollectorRegistry {
         }
     }
 
-    fn add(&mut self, name: NodeName, collector: ArcCollector) {
+    fn add(&mut self, name: NodeName, collector: ArcCollectorInternal) {
         if let Some(old_collector) = self.inner.insert(name, collector) {
             old_collector._clean_to_offline();
         }
@@ -52,7 +52,7 @@ impl CollectorRegistry {
 
     fn foreach<F>(&self, mut f: F)
     where
-        F: FnMut(&NodeName, &ArcCollector),
+        F: FnMut(&NodeName, &ArcCollectorInternal),
     {
         for (name, collector) in self.inner.iter() {
             f(name, collector);
@@ -65,6 +65,10 @@ impl CollectorRegistry {
 
     fn get_config(&self, name: &NodeName) -> Option<AnyCollectorConfig> {
         self.inner.get(name).map(|collect| collect._clone_config())
+    }
+
+    fn get_collector(&self, name: &NodeName) -> Option<ArcCollectorInternal> {
+        self.inner.get(name).cloned()
     }
 
     pub(super) fn reload(
@@ -90,7 +94,8 @@ impl CollectorRegistry {
     }
 }
 
-pub(super) fn add(name: NodeName, collector: ArcCollector) {
+pub(super) fn add(collector: ArcCollectorInternal) {
+    let name = collector.name().clone();
     let mut r = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
     r.add(name, collector)
 }
@@ -100,9 +105,9 @@ pub(super) fn del(name: &NodeName) {
     r.del(name);
 }
 
-pub(crate) fn foreach<F>(f: F)
+pub(super) fn foreach<F>(f: F)
 where
-    F: FnMut(&NodeName, &ArcCollector),
+    F: FnMut(&NodeName, &ArcCollectorInternal),
 {
     let r = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
     r.foreach(f);
@@ -116,6 +121,18 @@ pub(crate) fn get_names() -> HashSet<NodeName> {
 pub(super) fn get_config(name: &NodeName) -> Option<AnyCollectorConfig> {
     let r = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
     r.get_config(name)
+}
+
+fn get_collector(name: &NodeName) -> Option<ArcCollectorInternal> {
+    let r = RUNTIME_COLLECTOR_REGISTRY.lock().unwrap();
+    r.get_collector(name)
+}
+
+pub(super) fn update_config(name: &NodeName, config: AnyCollectorConfig) -> anyhow::Result<()> {
+    let Some(collector) = get_collector(name) else {
+        return Err(anyhow!("no collector with name {name} found"));
+    };
+    collector._update_config(config)
 }
 
 pub(super) fn reload_existed(

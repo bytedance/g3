@@ -20,7 +20,7 @@ use anyhow::anyhow;
 
 use g3_types::metrics::NodeName;
 
-use super::{ArcCollector, Collector, CollectorInternal, CollectorRegistry};
+use super::{ArcCollectorInternal, Collector, CollectorInternal, CollectorRegistry};
 use crate::config::collector::discard::DiscardCollectorConfig;
 use crate::config::collector::{AnyCollectorConfig, CollectorConfig};
 use crate::types::MetricRecord;
@@ -34,19 +34,21 @@ impl DiscardCollector {
         DiscardCollector { config }
     }
 
-    pub(crate) fn prepare_initial(config: DiscardCollectorConfig) -> anyhow::Result<ArcCollector> {
+    pub(crate) fn prepare_initial(
+        config: DiscardCollectorConfig,
+    ) -> anyhow::Result<ArcCollectorInternal> {
         let server = DiscardCollector::new(config);
         Ok(Arc::new(server))
     }
 
-    pub(crate) fn prepare_default(name: &NodeName) -> ArcCollector {
+    pub(crate) fn prepare_default(name: &NodeName) -> ArcCollectorInternal {
         let config = DiscardCollectorConfig::with_name(name, None);
         Arc::new(DiscardCollector::new(config))
     }
 
-    fn prepare_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<DiscardCollector> {
+    fn prepare_reload(&self, config: AnyCollectorConfig) -> anyhow::Result<ArcCollectorInternal> {
         if let AnyCollectorConfig::Discard(config) = config {
-            Ok(DiscardCollector::new(config))
+            Ok(Arc::new(DiscardCollector::new(config)))
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
@@ -55,6 +57,20 @@ impl DiscardCollector {
             ))
         }
     }
+}
+
+impl Collector for DiscardCollector {
+    #[inline]
+    fn name(&self) -> &NodeName {
+        self.config.name()
+    }
+
+    #[inline]
+    fn r#type(&self) -> &'static str {
+        self.config.collector_type()
+    }
+
+    fn add_metric(&self, _record: MetricRecord, _worker_id: Option<usize>) {}
 }
 
 impl CollectorInternal for DiscardCollector {
@@ -74,27 +90,7 @@ impl CollectorInternal for DiscardCollector {
         &self,
         config: AnyCollectorConfig,
         _registry: &mut CollectorRegistry,
-    ) -> anyhow::Result<ArcCollector> {
-        let server = self.prepare_reload(config)?;
-        Ok(Arc::new(server))
+    ) -> anyhow::Result<ArcCollectorInternal> {
+        self.prepare_reload(config)
     }
-}
-
-impl Collector for DiscardCollector {
-    #[inline]
-    fn name(&self) -> &NodeName {
-        self.config.name()
-    }
-
-    #[inline]
-    fn collector_type(&self) -> &'static str {
-        self.config.collector_type()
-    }
-
-    #[inline]
-    fn version(&self) -> usize {
-        0
-    }
-
-    fn add_metric(&self, _record: MetricRecord, _worker_id: Option<usize>) {}
 }

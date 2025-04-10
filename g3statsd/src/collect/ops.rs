@@ -170,6 +170,10 @@ async fn reload_unlocked(old: AnyCollectorConfig, new: AnyCollectorConfig) -> an
             debug!("collector {name} reload: will reload from existed");
             reload_existed_unlocked(name, Some(new)).await
         }
+        CollectorConfigDiffAction::Update => {
+            debug!("collector {name} reload: will update config in place");
+            registry::update_config(name, new)
+        }
     }
 }
 
@@ -197,7 +201,6 @@ async fn reload_existed_unlocked(
 async fn spawn_new_unlocked(config: AnyCollectorConfig) -> anyhow::Result<()> {
     const STATUS: &str = "spawned";
 
-    let name = config.name().clone();
     let collector = match config {
         AnyCollectorConfig::Aggregate(config) => {
             super::aggregate::AggregateCollector::prepare_initial(config)?
@@ -212,7 +215,8 @@ async fn spawn_new_unlocked(config: AnyCollectorConfig) -> anyhow::Result<()> {
             super::regulate::RegulateCollector::prepare_initial(config)?
         }
     };
-    registry::add(name.clone(), collector);
+    let name = collector.name().clone();
+    registry::add(collector);
     update_dependency_to_collector_unlocked(&name, STATUS).await;
     crate::import::update_dependency_to_collector(&name, STATUS).await;
     Ok(())

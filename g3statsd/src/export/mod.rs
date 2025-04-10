@@ -31,21 +31,21 @@ pub(crate) use ops::reload;
 mod console;
 mod discard;
 
-pub(crate) trait ExporterInternal {
-    fn _clone_config(&self) -> AnyExporterConfig;
-
-    fn _reload(&self, config: AnyExporterConfig) -> anyhow::Result<ArcExporter>;
-
-    fn _clean_to_offline(&self) {}
-}
-
-pub(crate) trait Exporter: ExporterInternal {
-    #[allow(unused)]
+pub(crate) trait Exporter {
     fn name(&self) -> &NodeName;
     #[allow(unused)]
-    fn exporter_type(&self) -> &str;
+    fn r#type(&self) -> &str;
 
     fn add_metric(&self, record: &MetricRecord);
 }
 
+trait ExporterInternal: Exporter {
+    fn _clone_config(&self) -> AnyExporterConfig;
+
+    fn _reload(&self, config: AnyExporterConfig) -> anyhow::Result<ArcExporterInternal>;
+
+    fn _clean_to_offline(&self) {}
+}
+
 pub(crate) type ArcExporter = Arc<dyn Exporter + Send + Sync>;
+type ArcExporterInternal = Arc<dyn ExporterInternal + Send + Sync>;

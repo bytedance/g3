@@ -166,13 +166,11 @@ fn delete_existed_unlocked(name: &NodeName) {
 
 // use async fn to allow tokio schedule
 fn spawn_new_unlocked(config: AnyImporterConfig) -> anyhow::Result<()> {
-    let name = config.name().clone();
     let importer = match config {
         AnyImporterConfig::Dummy(config) => super::dummy::DummyImporter::prepare_initial(config)?,
         AnyImporterConfig::StatsD(config) => {
             super::statsd::StatsdImporter::prepare_initial(config)?
         }
     };
-    registry::add(name.clone(), importer)?;
-    Ok(())
+    registry::add(importer)
 }

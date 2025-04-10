@@ -20,7 +20,7 @@ use anyhow::anyhow;
 
 use g3_types::metrics::NodeName;
 
-use super::{ArcExporter, Exporter, ExporterInternal};
+use super::{ArcExporterInternal, Exporter, ExporterInternal};
 use crate::config::exporter::console::ConsoleExporterConfig;
 use crate::config::exporter::{AnyExporterConfig, ExporterConfig};
 use crate::types::MetricRecord;
@@ -34,7 +34,9 @@ impl ConsoleExporter {
         ConsoleExporter { config }
     }
 
-    pub(crate) fn prepare_initial(config: ConsoleExporterConfig) -> anyhow::Result<ArcExporter> {
+    pub(crate) fn prepare_initial(
+        config: ConsoleExporterConfig,
+    ) -> anyhow::Result<ArcExporterInternal> {
         let server = ConsoleExporter::new(config);
         Ok(Arc::new(server))
     }
@@ -52,17 +54,6 @@ impl ConsoleExporter {
     }
 }
 
-impl ExporterInternal for ConsoleExporter {
-    fn _clone_config(&self) -> AnyExporterConfig {
-        AnyExporterConfig::Console(self.config.clone())
-    }
-
-    fn _reload(&self, config: AnyExporterConfig) -> anyhow::Result<ArcExporter> {
-        let exporter = self.prepare_reload(config)?;
-        Ok(Arc::new(exporter))
-    }
-}
-
 impl Exporter for ConsoleExporter {
     #[inline]
     fn name(&self) -> &NodeName {
@@ -70,11 +61,22 @@ impl Exporter for ConsoleExporter {
     }
 
     #[inline]
-    fn exporter_type(&self) -> &'static str {
+    fn r#type(&self) -> &'static str {
         self.config.exporter_type()
     }
 
     fn add_metric(&self, _record: &MetricRecord) {
         todo!()
+    }
+}
+
+impl ExporterInternal for ConsoleExporter {
+    fn _clone_config(&self) -> AnyExporterConfig {
+        AnyExporterConfig::Console(self.config.clone())
+    }
+
+    fn _reload(&self, config: AnyExporterConfig) -> anyhow::Result<ArcExporterInternal> {
+        let exporter = self.prepare_reload(config)?;
+        Ok(Arc::new(exporter))
     }
 }
