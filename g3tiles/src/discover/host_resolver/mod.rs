@@ -24,7 +24,7 @@ use yaml_rust::Yaml;
 use g3_types::collection::WeightedValue;
 use g3_types::metrics::NodeName;
 
-use super::{ArcDiscover, Discover, DiscoverResult};
+use super::{ArcDiscoverInternal, Discover, DiscoverInternal, DiscoverResult};
 use crate::config::discover::host_resolver::HostResolverDiscoverConfig;
 use crate::config::discover::{AnyDiscoverConfig, DiscoverConfig};
 
@@ -33,7 +33,7 @@ pub(crate) struct HostResolverDiscover {
 }
 
 impl HostResolverDiscover {
-    pub(crate) fn new_obj(config: HostResolverDiscoverConfig) -> ArcDiscover {
+    pub(crate) fn new_obj(config: HostResolverDiscoverConfig) -> ArcDiscoverInternal {
         Arc::new(HostResolverDiscover { config })
     }
 }
@@ -41,14 +41,6 @@ impl HostResolverDiscover {
 impl Discover for HostResolverDiscover {
     fn name(&self) -> &NodeName {
         self.config.name()
-    }
-
-    fn _clone_config(&self) -> AnyDiscoverConfig {
-        AnyDiscoverConfig::HostResolver(self.config.clone())
-    }
-
-    fn _update_config_in_place(&self, _config: AnyDiscoverConfig) -> anyhow::Result<()> {
-        Ok(())
     }
 
     fn register_yaml(&self, data: &Yaml) -> anyhow::Result<watch::Receiver<DiscoverResult>> {
@@ -74,5 +66,15 @@ impl Discover for HostResolverDiscover {
             }
         });
         Ok(receiver)
+    }
+}
+
+impl DiscoverInternal for HostResolverDiscover {
+    fn _clone_config(&self) -> AnyDiscoverConfig {
+        AnyDiscoverConfig::HostResolver(self.config.clone())
+    }
+
+    fn _update_config_in_place(&self, _config: AnyDiscoverConfig) -> anyhow::Result<()> {
+        Ok(())
     }
 }

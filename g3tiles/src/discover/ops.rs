@@ -68,7 +68,7 @@ pub async fn load_all() -> anyhow::Result<()> {
 
 pub(crate) fn get_discover(name: &NodeName) -> anyhow::Result<ArcDiscover> {
     match registry::get(name) {
-        Some(site) => Ok(site),
+        Some(discover) => Ok(discover),
         None => Err(anyhow!("no discover named {name} found")),
     }
 }

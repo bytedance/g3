@@ -35,7 +35,8 @@ use g3_types::net::ProxyProtocolVersion;
 use crate::config::server::plain_tcp_port::PlainTcpPortConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::serve::{
-    ArcServer, Server, ServerInternal, ServerQuitPolicy, ServerRegistry, WrapArcServer,
+    ArcServer, ArcServerInternal, Server, ServerInternal, ServerQuitPolicy, ServerRegistry,
+    WrapArcServer,
 };
 
 pub(crate) struct PlainTcpPort {
@@ -79,7 +80,7 @@ impl PlainTcpPort {
         })
     }
 
-    pub(crate) fn prepare_initial(config: PlainTcpPortConfig) -> anyhow::Result<ArcServer> {
+    pub(crate) fn prepare_initial(config: PlainTcpPortConfig) -> anyhow::Result<ArcServerInternal> {
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
         let server =
@@ -180,7 +181,7 @@ impl ServerInternal for PlainTcpPort {
         &self,
         config: AnyServerConfig,
         registry: &mut ServerRegistry,
-    ) -> anyhow::Result<ArcServer> {
+    ) -> anyhow::Result<ArcServerInternal> {
         let mut server = self.prepare_reload(config, registry)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
@@ -190,14 +191,14 @@ impl ServerInternal for PlainTcpPort {
         &self,
         config: AnyServerConfig,
         registry: &mut ServerRegistry,
-    ) -> anyhow::Result<ArcServer> {
+    ) -> anyhow::Result<ArcServerInternal> {
         let server = self.prepare_reload(config, registry)?;
         Ok(Arc::new(server))
     }
 
-    fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()> {
-        let runtime =
-            ListenTcpRuntime::new(WrapArcServer(server.clone()), server.get_listen_stats());
+    fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {
+        let listen_stats = server.get_listen_stats();
+        let runtime = ListenTcpRuntime::new(WrapArcServer(server), listen_stats);
         runtime.run_all_instances(
             &self.config.listen,
             self.config.listen_in_worker,

@@ -26,7 +26,7 @@ use tokio::sync::oneshot;
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
 use g3_types::metrics::NodeName;
 
-use super::{ArcBackend, Backend};
+use super::{ArcBackendInternal, Backend, BackendInternal, BackendRegistry};
 use crate::config::backend::keyless_tcp::KeylessTcpBackendConfig;
 use crate::config::backend::{AnyBackendConfig, BackendConfig};
 use crate::module::keyless::{
@@ -55,7 +55,7 @@ impl KeylessTcpBackend {
         stats: Arc<KeylessBackendStats>,
         duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
         duration_stats: Arc<KeylessUpstreamDurationStats>,
-    ) -> anyhow::Result<ArcBackend> {
+    ) -> anyhow::Result<ArcBackendInternal> {
         let peer_addrs = Arc::new(ArcSwapOption::new(None));
 
         // always update extra metrics tags
@@ -103,7 +103,9 @@ impl KeylessTcpBackend {
         Ok(backend)
     }
 
-    pub(super) fn prepare_initial(config: KeylessTcpBackendConfig) -> anyhow::Result<ArcBackend> {
+    pub(super) fn prepare_initial(
+        config: KeylessTcpBackendConfig,
+    ) -> anyhow::Result<ArcBackendInternal> {
         let stats = Arc::new(KeylessBackendStats::new(config.name()));
         let (duration_recorder, duration_stats) =
             KeylessUpstreamDurationRecorder::new(config.name(), &config.duration_stats);
@@ -120,7 +122,10 @@ impl KeylessTcpBackend {
         )
     }
 
-    fn prepare_reload(&self, config: KeylessTcpBackendConfig) -> anyhow::Result<ArcBackend> {
+    fn prepare_reload(
+        &self,
+        config: KeylessTcpBackendConfig,
+    ) -> anyhow::Result<ArcBackendInternal> {
         let new = KeylessTcpBackend::new_obj(
             Arc::new(config),
             self.stats.clone(),
@@ -135,26 +140,6 @@ impl KeylessTcpBackend {
 
 #[async_trait]
 impl Backend for KeylessTcpBackend {
-    fn _clone_config(&self) -> AnyBackendConfig {
-        AnyBackendConfig::KeylessTcp(self.config.as_ref().clone())
-    }
-
-    fn _update_config_in_place(
-        &self,
-        _flags: u64,
-        _config: AnyBackendConfig,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn _lock_safe_reload(&self, config: AnyBackendConfig) -> anyhow::Result<ArcBackend> {
-        if let AnyBackendConfig::KeylessTcp(c) = config {
-            self.prepare_reload(c)
-        } else {
-            Err(anyhow!("invalid backend config type"))
-        }
-    }
-
     #[inline]
     fn name(&self) -> &NodeName {
         self.config.name()
@@ -236,5 +221,31 @@ impl Backend for KeylessTcpBackend {
             }
         }
         rsp_receiver.await.unwrap_or(KeylessResponse::Local(err))
+    }
+}
+
+impl BackendInternal for KeylessTcpBackend {
+    fn _clone_config(&self) -> AnyBackendConfig {
+        AnyBackendConfig::KeylessTcp(self.config.as_ref().clone())
+    }
+
+    fn _update_config_in_place(
+        &self,
+        _flags: u64,
+        _config: AnyBackendConfig,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn _reload(
+        &self,
+        config: AnyBackendConfig,
+        _registry: &mut BackendRegistry,
+    ) -> anyhow::Result<ArcBackendInternal> {
+        if let AnyBackendConfig::KeylessTcp(c) = config {
+            self.prepare_reload(c)
+        } else {
+            Err(anyhow!("invalid backend config type"))
+        }
     }
 }

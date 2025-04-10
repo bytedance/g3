@@ -172,7 +172,7 @@ async fn reload_existed_unlocked(
     name: &NodeName,
     new: Option<AnyBackendConfig>,
 ) -> anyhow::Result<()> {
-    registry::reload_existed(name, new).await?;
+    registry::reload_existed(name, new)?;
     crate::serve::update_dependency_to_backend(name, "reloaded").await;
     Ok(())
 }

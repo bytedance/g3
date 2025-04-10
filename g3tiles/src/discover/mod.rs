@@ -41,8 +41,6 @@ pub(crate) type DiscoverResult = anyhow::Result<DiscoveredData>;
 
 pub(crate) trait Discover {
     fn name(&self) -> &NodeName;
-    fn _clone_config(&self) -> AnyDiscoverConfig;
-    fn _update_config_in_place(&self, config: AnyDiscoverConfig) -> anyhow::Result<()>;
 
     fn register_yaml(&self, data: &Yaml) -> anyhow::Result<watch::Receiver<DiscoverResult>>;
 
@@ -60,4 +58,10 @@ pub(crate) trait Discover {
     }
 }
 
+trait DiscoverInternal: Discover {
+    fn _clone_config(&self) -> AnyDiscoverConfig;
+    fn _update_config_in_place(&self, config: AnyDiscoverConfig) -> anyhow::Result<()>;
+}
+
 pub(crate) type ArcDiscover = Arc<dyn Discover + Send + Sync>;
+type ArcDiscoverInternal = Arc<dyn DiscoverInternal + Send + Sync>;

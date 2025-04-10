@@ -22,7 +22,7 @@ use yaml_rust::Yaml;
 
 use g3_types::metrics::NodeName;
 
-use super::{ArcDiscover, Discover, DiscoverResult};
+use super::{ArcDiscoverInternal, Discover, DiscoverInternal, DiscoverResult};
 use crate::config::discover::static_addr::StaticAddrDiscoverConfig;
 use crate::config::discover::{AnyDiscoverConfig, DiscoverConfig};
 
@@ -31,7 +31,7 @@ pub(crate) struct StaticAddrDiscover {
 }
 
 impl StaticAddrDiscover {
-    pub(crate) fn new_obj(config: StaticAddrDiscoverConfig) -> ArcDiscover {
+    pub(crate) fn new_obj(config: StaticAddrDiscoverConfig) -> ArcDiscoverInternal {
         Arc::new(StaticAddrDiscover { config })
     }
 }
@@ -39,14 +39,6 @@ impl StaticAddrDiscover {
 impl Discover for StaticAddrDiscover {
     fn name(&self) -> &NodeName {
         self.config.name()
-    }
-
-    fn _clone_config(&self) -> AnyDiscoverConfig {
-        AnyDiscoverConfig::StaticAddr(self.config.clone())
-    }
-
-    fn _update_config_in_place(&self, _config: AnyDiscoverConfig) -> anyhow::Result<()> {
-        Ok(())
     }
 
     fn register_yaml(&self, data: &Yaml) -> anyhow::Result<watch::Receiver<DiscoverResult>> {
@@ -58,5 +50,15 @@ impl Discover for StaticAddrDiscover {
         receiver.mark_changed();
         tokio::spawn(async move { sender.closed().await });
         Ok(receiver)
+    }
+}
+
+impl DiscoverInternal for StaticAddrDiscover {
+    fn _clone_config(&self) -> AnyDiscoverConfig {
+        AnyDiscoverConfig::StaticAddr(self.config.clone())
+    }
+
+    fn _update_config_in_place(&self, _config: AnyDiscoverConfig) -> anyhow::Result<()> {
+        Ok(())
     }
 }

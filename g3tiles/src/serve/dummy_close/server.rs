@@ -29,7 +29,9 @@ use g3_types::metrics::NodeName;
 
 use crate::config::server::dummy_close::DummyCloseServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
-use crate::serve::{ArcServer, Server, ServerInternal, ServerQuitPolicy, ServerRegistry};
+use crate::serve::{
+    ArcServer, ArcServerInternal, Server, ServerInternal, ServerQuitPolicy, ServerRegistry,
+};
 
 pub(crate) struct DummyCloseServer {
     config: DummyCloseServerConfig,
@@ -51,14 +53,16 @@ impl DummyCloseServer {
         }
     }
 
-    pub(crate) fn prepare_initial(config: DummyCloseServerConfig) -> anyhow::Result<ArcServer> {
+    pub(crate) fn prepare_initial(
+        config: DummyCloseServerConfig,
+    ) -> anyhow::Result<ArcServerInternal> {
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
         let server = DummyCloseServer::new(config, listen_stats);
         Ok(Arc::new(server))
     }
 
-    pub(crate) fn prepare_default(name: &NodeName) -> ArcServer {
+    pub(crate) fn prepare_default(name: &NodeName) -> ArcServerInternal {
         let config = DummyCloseServerConfig::new(name, None);
         let listen_stats = Arc::new(ListenStats::new(name));
         Arc::new(DummyCloseServer::new(config, listen_stats))
@@ -98,7 +102,7 @@ impl ServerInternal for DummyCloseServer {
         &self,
         config: AnyServerConfig,
         _registry: &mut ServerRegistry,
-    ) -> anyhow::Result<ArcServer> {
+    ) -> anyhow::Result<ArcServerInternal> {
         Err(anyhow!(
             "this {} server doesn't support reload with old notifier",
             config.server_type()
@@ -109,12 +113,12 @@ impl ServerInternal for DummyCloseServer {
         &self,
         config: AnyServerConfig,
         _registry: &mut ServerRegistry,
-    ) -> anyhow::Result<ArcServer> {
+    ) -> anyhow::Result<ArcServerInternal> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }
 
-    fn _start_runtime(&self, _server: &ArcServer) -> anyhow::Result<()> {
+    fn _start_runtime(&self, _server: ArcServer) -> anyhow::Result<()> {
         Ok(())
     }
 

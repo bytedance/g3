@@ -27,7 +27,7 @@ use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
 use g3_types::metrics::NodeName;
 use g3_types::net::ConnectError;
 
-use super::{ArcBackend, Backend, BackendExt};
+use super::{ArcBackendInternal, Backend, BackendExt, BackendInternal, BackendRegistry};
 use crate::config::backend::stream_tcp::StreamTcpBackendConfig;
 use crate::config::backend::{AnyBackendConfig, BackendConfig};
 use crate::module::stream::{
@@ -51,7 +51,7 @@ impl StreamTcpBackend {
         stats: Arc<StreamBackendStats>,
         duration_recorder: Arc<StreamBackendDurationRecorder>,
         duration_stats: Arc<StreamBackendDurationStats>,
-    ) -> anyhow::Result<ArcBackend> {
+    ) -> anyhow::Result<ArcBackendInternal> {
         let peer_addrs = Arc::new(ArcSwapOption::new(None));
 
         // always update extra metrics tags
@@ -71,7 +71,9 @@ impl StreamTcpBackend {
         Ok(backend)
     }
 
-    pub(super) fn prepare_initial(config: StreamTcpBackendConfig) -> anyhow::Result<ArcBackend> {
+    pub(super) fn prepare_initial(
+        config: StreamTcpBackendConfig,
+    ) -> anyhow::Result<ArcBackendInternal> {
         let stats = Arc::new(StreamBackendStats::new(config.name()));
         let (duration_recorder, duration_stats) =
             StreamBackendDurationRecorder::new(config.name(), &config.duration_stats);
@@ -88,7 +90,7 @@ impl StreamTcpBackend {
         )
     }
 
-    fn prepare_reload(&self, config: StreamTcpBackendConfig) -> anyhow::Result<ArcBackend> {
+    fn prepare_reload(&self, config: StreamTcpBackendConfig) -> anyhow::Result<ArcBackendInternal> {
         let stats = self.stats.clone();
         // TODO reuse old connection pool?
         StreamTcpBackend::new_obj(
@@ -112,26 +114,6 @@ impl BackendExt for StreamTcpBackend {}
 
 #[async_trait]
 impl Backend for StreamTcpBackend {
-    fn _clone_config(&self) -> AnyBackendConfig {
-        AnyBackendConfig::StreamTcp(self.config.as_ref().clone())
-    }
-
-    fn _update_config_in_place(
-        &self,
-        _flags: u64,
-        _config: AnyBackendConfig,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn _lock_safe_reload(&self, config: AnyBackendConfig) -> anyhow::Result<ArcBackend> {
-        if let AnyBackendConfig::StreamTcp(c) = config {
-            self.prepare_reload(c)
-        } else {
-            Err(anyhow!("invalid backend config type"))
-        }
-    }
-
     #[inline]
     fn name(&self) -> &NodeName {
         self.config.name()
@@ -210,5 +192,31 @@ impl Backend for StreamTcpBackend {
 
         let (ups_r, ups_w) = stream.into_split();
         Ok((Box::new(ups_r), Box::new(ups_w)))
+    }
+}
+
+impl BackendInternal for StreamTcpBackend {
+    fn _clone_config(&self) -> AnyBackendConfig {
+        AnyBackendConfig::StreamTcp(self.config.as_ref().clone())
+    }
+
+    fn _update_config_in_place(
+        &self,
+        _flags: u64,
+        _config: AnyBackendConfig,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn _reload(
+        &self,
+        config: AnyBackendConfig,
+        _registry: &mut BackendRegistry,
+    ) -> anyhow::Result<ArcBackendInternal> {
+        if let AnyBackendConfig::StreamTcp(c) = config {
+            self.prepare_reload(c)
+        } else {
+            Err(anyhow!("invalid backend config type"))
+        }
     }
 }
