@@ -22,25 +22,25 @@ use foldhash::fast::FixedState;
 
 use g3_types::metrics::NodeName;
 
-use super::{ArcIntegratedResolverHandle, BoxResolver};
+use super::{ArcIntegratedResolverHandle, BoxResolverInternal};
 use crate::config::resolver::AnyResolverConfig;
 
-static RUNTIME_RESOLVER_REGISTRY: Mutex<HashMap<NodeName, BoxResolver, FixedState>> =
+static RUNTIME_RESOLVER_REGISTRY: Mutex<HashMap<NodeName, BoxResolverInternal, FixedState>> =
     Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
-pub(super) fn add(name: NodeName, resolver: BoxResolver) -> Option<BoxResolver> {
+pub(super) fn add(name: NodeName, resolver: BoxResolverInternal) -> Option<BoxResolverInternal> {
     let mut ht = RUNTIME_RESOLVER_REGISTRY.lock().unwrap();
     ht.insert(name, resolver)
 }
 
-pub(super) fn del(name: &NodeName) -> Option<BoxResolver> {
+pub(super) fn del(name: &NodeName) -> Option<BoxResolverInternal> {
     let mut ht = RUNTIME_RESOLVER_REGISTRY.lock().unwrap();
     ht.remove(name)
 }
 
-pub(crate) fn foreach<F>(mut f: F)
+pub(super) fn foreach<F>(mut f: F)
 where
-    F: FnMut(&NodeName, &BoxResolver),
+    F: FnMut(&NodeName, &BoxResolverInternal),
 {
     let ht = RUNTIME_RESOLVER_REGISTRY.lock().unwrap();
     for (name, server) in ht.iter() {
@@ -58,7 +58,9 @@ pub(crate) fn get_names() -> HashSet<NodeName> {
 }
 
 pub(crate) fn get_handle(name: &NodeName) -> anyhow::Result<ArcIntegratedResolverHandle> {
-    let ht = RUNTIME_RESOLVER_REGISTRY.lock().unwrap();
+    let ht = RUNTIME_RESOLVER_REGISTRY
+        .lock()
+        .map_err(|e| anyhow!("failed to lock resolver registry: {e}"))?;
     match ht.get(name) {
         Some(resolver) => Ok(resolver.get_handle()),
         None => Err(anyhow!("no resolver with name {name} found")),
@@ -71,7 +73,9 @@ pub(super) fn get_config(name: &NodeName) -> Option<AnyResolverConfig> {
 }
 
 pub(super) fn update_config(name: &NodeName, config: AnyResolverConfig) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_RESOLVER_REGISTRY.lock().unwrap();
+    let mut ht = RUNTIME_RESOLVER_REGISTRY
+        .lock()
+        .map_err(|e| anyhow!("failed to lock resolver registry: {e}"))?;
     if ht.contains_key(name) {
         let mut dep_table = BTreeMap::new();
         if let Some(set) = config.dependent_resolver() {
@@ -92,7 +96,9 @@ pub(super) fn update_config(name: &NodeName, config: AnyResolverConfig) -> anyho
 }
 
 pub(super) fn update_dependency(name: &NodeName, target: &NodeName) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_RESOLVER_REGISTRY.lock().unwrap();
+    let mut ht = RUNTIME_RESOLVER_REGISTRY
+        .lock()
+        .map_err(|e| anyhow!("failed to lock resolver registry: {e}"))?;
     if let Some(target_resolver) = ht.get_mut(target) {
         let handle = target_resolver.get_handle();
         if let Some(resolver) = ht.get_mut(name) {

@@ -37,7 +37,8 @@ use g3_types::net::{OpensslTicketKey, RollingTicketer, UdpListenConfig};
 use crate::config::server::plain_quic_port::{PlainQuicPortConfig, PlainQuicPortUpdateFlags};
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::serve::{
-    ArcServer, Server, ServerInternal, ServerQuitPolicy, ServerRegistry, WrapArcServer,
+    ArcServer, ArcServerInternal, Server, ServerInternal, ServerQuitPolicy, ServerRegistry,
+    WrapArcServer,
 };
 
 #[derive(Clone)]
@@ -138,7 +139,9 @@ impl PlainQuicPort {
         })
     }
 
-    pub(crate) fn prepare_initial(config: PlainQuicPortConfig) -> anyhow::Result<ArcServer> {
+    pub(crate) fn prepare_initial(
+        config: PlainQuicPortConfig,
+    ) -> anyhow::Result<ArcServerInternal> {
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
         let tls_rolling_ticketer = if let Some(c) = &config.tls_ticketer {
@@ -270,7 +273,7 @@ impl ServerInternal for PlainQuicPort {
         &self,
         config: AnyServerConfig,
         registry: &mut ServerRegistry,
-    ) -> anyhow::Result<ArcServer> {
+    ) -> anyhow::Result<ArcServerInternal> {
         let mut server = self.prepare_reload(config, registry)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
@@ -280,18 +283,16 @@ impl ServerInternal for PlainQuicPort {
         &self,
         config: AnyServerConfig,
         registry: &mut ServerRegistry,
-    ) -> anyhow::Result<ArcServer> {
+    ) -> anyhow::Result<ArcServerInternal> {
         let server = self.prepare_reload(config, registry)?;
         Ok(Arc::new(server))
     }
 
-    fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()> {
+    fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {
         let config = self.config.load();
-        let runtime = ListenQuicRuntime::new(
-            WrapArcServer(server.clone()),
-            server.get_listen_stats(),
-            config.listen.clone(),
-        );
+        let listen_stats = server.get_listen_stats();
+        let runtime =
+            ListenQuicRuntime::new(WrapArcServer(server), listen_stats, config.listen.clone());
         runtime.run_all_instances(
             config.listen_in_worker,
             &self.quinn_config,

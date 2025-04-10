@@ -27,7 +27,7 @@ use g3_yaml::YamlDocPosition;
 
 use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
 
-use super::{ArcServer, registry};
+use super::{ArcServer, ArcServerInternal, Server, registry};
 
 use super::dummy_close::DummyCloseServer;
 use super::intelli_proxy::IntelliProxy;
@@ -114,6 +114,13 @@ pub(crate) fn get_server(name: &NodeName) -> anyhow::Result<ArcServer> {
     }
 }
 
+pub(crate) fn foreach_server<F>(mut f: F)
+where
+    F: FnMut(&NodeName, &dyn Server),
+{
+    registry::foreach_online(|name, server| f(name, server.as_ref()))
+}
+
 pub(crate) async fn reload(
     name: &NodeName,
     position: Option<YamlDocPosition>,
@@ -157,7 +164,7 @@ pub(crate) async fn reload(
 }
 
 pub(crate) fn update_dependency_to_server_unlocked(target: &NodeName, status: &str) {
-    let mut servers = Vec::<ArcServer>::new();
+    let mut servers = Vec::<ArcServerInternal>::new();
 
     registry::foreach_online(|_name, server| {
         if server._depend_on_server(target) {
