@@ -122,7 +122,7 @@ impl CollectorConfig for AggregateCollectorConfig {
             return CollectorConfigDiffAction::NoAction;
         }
 
-        CollectorConfigDiffAction::Reload
+        CollectorConfigDiffAction::Update
     }
 
     fn dependent_collector(&self) -> Option<BTreeSet<NodeName>> {

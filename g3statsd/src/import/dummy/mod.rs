@@ -24,9 +24,9 @@ use g3_daemon::listen::ReceiveUdpServer;
 use g3_daemon::server::{BaseServer, ServerReloadCommand};
 use g3_types::metrics::NodeName;
 
+use super::{ArcImporter, ArcImporterInternal, Importer, ImporterInternal, ImporterRegistry};
 use crate::config::importer::dummy::DummyImporterConfig;
 use crate::config::importer::{AnyImporterConfig, ImporterConfig};
-use crate::import::{ArcImporter, Importer, ImporterInternal, ImporterRegistry};
 
 pub(crate) struct DummyImporter {
     config: DummyImporterConfig,
@@ -43,19 +43,21 @@ impl DummyImporter {
         }
     }
 
-    pub(crate) fn prepare_initial(config: DummyImporterConfig) -> anyhow::Result<ArcImporter> {
+    pub(crate) fn prepare_initial(
+        config: DummyImporterConfig,
+    ) -> anyhow::Result<ArcImporterInternal> {
         let server = DummyImporter::new(config);
         Ok(Arc::new(server))
     }
 
-    pub(crate) fn prepare_default(name: &NodeName) -> ArcImporter {
+    pub(crate) fn prepare_default(name: &NodeName) -> ArcImporterInternal {
         let config = DummyImporterConfig::with_name(name, None);
         Arc::new(DummyImporter::new(config))
     }
 
-    fn prepare_reload(&self, config: AnyImporterConfig) -> anyhow::Result<DummyImporter> {
+    fn prepare_reload(&self, config: AnyImporterConfig) -> anyhow::Result<ArcImporterInternal> {
         if let AnyImporterConfig::Dummy(config) = config {
-            Ok(DummyImporter::new(config))
+            Ok(Arc::new(DummyImporter::new(config)))
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
@@ -82,7 +84,7 @@ impl ImporterInternal for DummyImporter {
         &self,
         config: AnyImporterConfig,
         _registry: &mut ImporterRegistry,
-    ) -> anyhow::Result<ArcImporter> {
+    ) -> anyhow::Result<ArcImporterInternal> {
         Err(anyhow!(
             "this {} importer doesn't support reload with old notifier",
             config.importer_type()
@@ -93,12 +95,11 @@ impl ImporterInternal for DummyImporter {
         &self,
         config: AnyImporterConfig,
         _registry: &mut ImporterRegistry,
-    ) -> anyhow::Result<ArcImporter> {
-        let importer = self.prepare_reload(config)?;
-        Ok(Arc::new(importer))
+    ) -> anyhow::Result<ArcImporterInternal> {
+        self.prepare_reload(config)
     }
 
-    fn _start_runtime(&self, _importer: &ArcImporter) -> anyhow::Result<()> {
+    fn _start_runtime(&self, _importer: ArcImporter) -> anyhow::Result<()> {
         Ok(())
     }
 

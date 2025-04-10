@@ -110,6 +110,6 @@ impl CollectorConfig for InternalCollectorConfig {
             return CollectorConfigDiffAction::SpawnNew;
         };
 
-        CollectorConfigDiffAction::Reload
+        CollectorConfigDiffAction::Update
     }
 }

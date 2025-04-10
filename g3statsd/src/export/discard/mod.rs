@@ -20,7 +20,7 @@ use anyhow::anyhow;
 
 use g3_types::metrics::NodeName;
 
-use super::{ArcExporter, Exporter, ExporterInternal};
+use super::{ArcExporterInternal, Exporter, ExporterInternal};
 use crate::config::exporter::discard::DiscardExporterConfig;
 use crate::config::exporter::{AnyExporterConfig, ExporterConfig};
 use crate::types::MetricRecord;
@@ -34,12 +34,14 @@ impl DiscardExporter {
         DiscardExporter { config }
     }
 
-    pub(crate) fn prepare_initial(config: DiscardExporterConfig) -> anyhow::Result<ArcExporter> {
+    pub(crate) fn prepare_initial(
+        config: DiscardExporterConfig,
+    ) -> anyhow::Result<ArcExporterInternal> {
         let server = DiscardExporter::new(config);
         Ok(Arc::new(server))
     }
 
-    pub(crate) fn prepare_default(name: &NodeName) -> ArcExporter {
+    pub(crate) fn prepare_default(name: &NodeName) -> ArcExporterInternal {
         let config = DiscardExporterConfig::with_name(name, None);
         Arc::new(DiscardExporter::new(config))
     }
@@ -57,17 +59,6 @@ impl DiscardExporter {
     }
 }
 
-impl ExporterInternal for DiscardExporter {
-    fn _clone_config(&self) -> AnyExporterConfig {
-        AnyExporterConfig::Discard(self.config.clone())
-    }
-
-    fn _reload(&self, config: AnyExporterConfig) -> anyhow::Result<ArcExporter> {
-        let exporter = self.prepare_reload(config)?;
-        Ok(Arc::new(exporter))
-    }
-}
-
 impl Exporter for DiscardExporter {
     #[inline]
     fn name(&self) -> &NodeName {
@@ -75,9 +66,20 @@ impl Exporter for DiscardExporter {
     }
 
     #[inline]
-    fn exporter_type(&self) -> &'static str {
+    fn r#type(&self) -> &'static str {
         self.config.exporter_type()
     }
 
     fn add_metric(&self, _record: &MetricRecord) {}
+}
+
+impl ExporterInternal for DiscardExporter {
+    fn _clone_config(&self) -> AnyExporterConfig {
+        AnyExporterConfig::Discard(self.config.clone())
+    }
+
+    fn _reload(&self, config: AnyExporterConfig) -> anyhow::Result<ArcExporterInternal> {
+        let exporter = self.prepare_reload(config)?;
+        Ok(Arc::new(exporter))
+    }
 }

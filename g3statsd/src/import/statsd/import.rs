@@ -31,7 +31,9 @@ use super::StatsdRecordVisitor;
 use crate::collect::ArcCollector;
 use crate::config::importer::statsd::StatsdImporterConfig;
 use crate::config::importer::{AnyImporterConfig, ImporterConfig};
-use crate::import::{ArcImporter, Importer, ImporterInternal, ImporterRegistry, WrapArcImporter};
+use crate::import::{
+    ArcImporter, ArcImporterInternal, Importer, ImporterInternal, ImporterRegistry, WrapArcImporter,
+};
 
 pub(crate) struct StatsdImporter {
     config: StatsdImporterConfig,
@@ -62,7 +64,9 @@ impl StatsdImporter {
         }
     }
 
-    pub(crate) fn prepare_initial(config: StatsdImporterConfig) -> anyhow::Result<ArcImporter> {
+    pub(crate) fn prepare_initial(
+        config: StatsdImporterConfig,
+    ) -> anyhow::Result<ArcImporterInternal> {
         let server = StatsdImporter::new(config, 1);
         Ok(Arc::new(server))
     }
@@ -115,7 +119,7 @@ impl ImporterInternal for StatsdImporter {
         &self,
         config: AnyImporterConfig,
         _registry: &mut ImporterRegistry,
-    ) -> anyhow::Result<ArcImporter> {
+    ) -> anyhow::Result<ArcImporterInternal> {
         let mut server = self.prepare_reload(config)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
@@ -125,12 +129,12 @@ impl ImporterInternal for StatsdImporter {
         &self,
         config: AnyImporterConfig,
         _registry: &mut ImporterRegistry,
-    ) -> anyhow::Result<ArcImporter> {
+    ) -> anyhow::Result<ArcImporterInternal> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }
 
-    fn _start_runtime(&self, importer: &ArcImporter) -> anyhow::Result<()> {
+    fn _start_runtime(&self, importer: ArcImporter) -> anyhow::Result<()> {
         let runtime = ReceiveUdpRuntime::new(
             WrapArcImporter(importer.clone()),
             self.config.listen.clone(),

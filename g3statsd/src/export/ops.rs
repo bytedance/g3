@@ -126,7 +126,7 @@ async fn delete_existed_unlocked(name: &NodeName) {
     const STATUS: &str = "deleted";
 
     registry::del(name);
-    crate::collect::update_dependency_to_exporter(&name, STATUS).await;
+    crate::collect::update_dependency_to_exporter(name, STATUS).await;
 }
 
 async fn reload_existed_unlocked(
@@ -136,7 +136,7 @@ async fn reload_existed_unlocked(
     const STATUS: &str = "reloaded";
 
     registry::reload_existed(name, new)?;
-    crate::collect::update_dependency_to_exporter(&name, STATUS).await;
+    crate::collect::update_dependency_to_exporter(name, STATUS).await;
     Ok(())
 }
 
@@ -144,7 +144,6 @@ async fn reload_existed_unlocked(
 async fn spawn_new_unlocked(config: AnyExporterConfig) -> anyhow::Result<()> {
     const STATUS: &str = "spawned";
 
-    let name = config.name().clone();
     let exporter = match config {
         AnyExporterConfig::Discard(config) => {
             super::discard::DiscardExporter::prepare_initial(config)?
@@ -153,7 +152,8 @@ async fn spawn_new_unlocked(config: AnyExporterConfig) -> anyhow::Result<()> {
             super::console::ConsoleExporter::prepare_initial(config)?
         }
     };
-    registry::add(name.clone(), exporter);
+    let name = exporter.name().clone();
+    registry::add(exporter);
     crate::collect::update_dependency_to_exporter(&name, STATUS).await;
     Ok(())
 }

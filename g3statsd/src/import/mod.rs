@@ -36,7 +36,11 @@ pub use ops::{spawn_all, stop_all};
 mod dummy;
 mod statsd;
 
-pub(crate) trait ImporterInternal {
+pub(crate) trait Importer: ReceiveUdpServer + BaseServer {
+    fn collector(&self) -> &NodeName;
+}
+
+trait ImporterInternal: Importer {
     fn _clone_config(&self) -> AnyImporterConfig;
 
     fn _reload_config_notify_runtime(&self);
@@ -46,22 +50,19 @@ pub(crate) trait ImporterInternal {
         &self,
         config: AnyImporterConfig,
         registry: &mut ImporterRegistry,
-    ) -> anyhow::Result<ArcImporter>;
+    ) -> anyhow::Result<ArcImporterInternal>;
     fn _reload_with_new_notifier(
         &self,
         config: AnyImporterConfig,
         registry: &mut ImporterRegistry,
-    ) -> anyhow::Result<ArcImporter>;
+    ) -> anyhow::Result<ArcImporterInternal>;
 
-    fn _start_runtime(&self, server: &ArcImporter) -> anyhow::Result<()>;
+    fn _start_runtime(&self, server: ArcImporter) -> anyhow::Result<()>;
     fn _abort_runtime(&self);
 }
 
-pub(crate) trait Importer: ImporterInternal + ReceiveUdpServer + BaseServer {
-    fn collector(&self) -> &NodeName;
-}
-
 pub(crate) type ArcImporter = Arc<dyn Importer + Send + Sync>;
+type ArcImporterInternal = Arc<dyn ImporterInternal + Send + Sync>;
 
 #[derive(Clone)]
 struct WrapArcImporter(ArcImporter);

@@ -22,13 +22,13 @@ use foldhash::fast::FixedState;
 
 use g3_types::metrics::NodeName;
 
-use super::ArcImporter;
+use super::{ArcImporter, ArcImporterInternal};
 use crate::config::importer::AnyImporterConfig;
 
 static RUNTIME_IMPORTER_REGISTRY: Mutex<ImporterRegistry> = Mutex::new(ImporterRegistry::new());
 
-pub(crate) struct ImporterRegistry {
-    inner: HashMap<NodeName, ArcImporter, FixedState>,
+pub(super) struct ImporterRegistry {
+    inner: HashMap<NodeName, ArcImporterInternal, FixedState>,
 }
 
 impl ImporterRegistry {
@@ -38,8 +38,8 @@ impl ImporterRegistry {
         }
     }
 
-    fn add(&mut self, name: NodeName, importer: ArcImporter) -> anyhow::Result<()> {
-        importer._start_runtime(&importer)?;
+    fn add(&mut self, name: NodeName, importer: ArcImporterInternal) -> anyhow::Result<()> {
+        importer._start_runtime(importer.clone())?;
         if let Some(old_importer) = self.inner.insert(name, importer) {
             old_importer._abort_runtime();
         }
@@ -62,7 +62,7 @@ impl ImporterRegistry {
             .map(|importer| importer._clone_config())
     }
 
-    fn get_importer(&self, name: &NodeName) -> Option<ArcImporter> {
+    fn get_importer(&self, name: &NodeName) -> Option<ArcImporterInternal> {
         self.inner.get(name).cloned()
     }
 
@@ -100,7 +100,7 @@ impl ImporterRegistry {
 
     fn foreach<F>(&self, mut f: F)
     where
-        F: FnMut(&NodeName, &ArcImporter),
+        F: FnMut(&NodeName, &ArcImporterInternal),
     {
         for (name, importer) in self.inner.iter() {
             f(name, importer)
@@ -115,7 +115,8 @@ impl ImporterRegistry {
     }
 }
 
-pub(super) fn add(name: NodeName, importer: ArcImporter) -> anyhow::Result<()> {
+pub(super) fn add(importer: ArcImporterInternal) -> anyhow::Result<()> {
+    let name = importer.name().clone();
     let mut r = RUNTIME_IMPORTER_REGISTRY
         .lock()
         .map_err(|e| anyhow!("failed to lock importer registry: {e}"))?;
@@ -144,7 +145,7 @@ pub(super) fn reload_no_respawn(name: &NodeName, config: AnyImporterConfig) -> a
     r.reload_no_respawn(name, config)
 }
 
-pub(crate) fn get_importer(name: &NodeName) -> Option<ArcImporter> {
+fn get_importer(name: &NodeName) -> Option<ArcImporterInternal> {
     let r = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
     r.get_importer(name)
 }
@@ -164,9 +165,9 @@ pub(super) fn reload_and_respawn(name: &NodeName, config: AnyImporterConfig) -> 
     r.reload_and_respawn(name, config)
 }
 
-pub(crate) fn foreach<F>(f: F)
+pub(super) fn foreach<F>(f: F)
 where
-    F: FnMut(&NodeName, &ArcImporter),
+    F: FnMut(&NodeName, &ArcImporterInternal),
 {
     let r = RUNTIME_IMPORTER_REGISTRY.lock().unwrap();
     r.foreach(f)

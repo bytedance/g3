@@ -41,6 +41,7 @@ pub(crate) enum CollectorConfigDiffAction {
     NoAction,
     SpawnNew,
     Reload,
+    Update,
 }
 
 pub(crate) trait CollectorConfig {

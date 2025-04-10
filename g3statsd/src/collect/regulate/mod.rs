@@ -20,7 +20,7 @@ use anyhow::anyhow;
 
 use g3_types::metrics::NodeName;
 
-use super::{ArcCollector, Collector, CollectorInternal, CollectorRegistry};
+use super::{ArcCollector, ArcCollectorInternal, Collector, CollectorInternal, CollectorRegistry};
 use crate::config::collector::regulate::RegulateCollectorConfig;
 use crate::config::collector::{AnyCollectorConfig, CollectorConfig};
 use crate::export::ArcExporter;
@@ -30,12 +30,10 @@ pub(crate) struct RegulateCollector {
     config: RegulateCollectorConfig,
     next: Option<ArcCollector>,
     exporters: Vec<ArcExporter>,
-
-    reload_version: usize,
 }
 
 impl RegulateCollector {
-    fn new<F>(config: RegulateCollectorConfig, reload_version: usize, fetch_collector: F) -> Self
+    fn new<F>(config: RegulateCollectorConfig, fetch_collector: F) -> Self
     where
         F: FnMut(&NodeName) -> ArcCollector,
     {
@@ -50,12 +48,13 @@ impl RegulateCollector {
             config,
             next,
             exporters,
-            reload_version,
         }
     }
 
-    pub(crate) fn prepare_initial(config: RegulateCollectorConfig) -> anyhow::Result<ArcCollector> {
-        let server = RegulateCollector::new(config, 0, crate::collect::get_or_insert_default);
+    pub(crate) fn prepare_initial(
+        config: RegulateCollectorConfig,
+    ) -> anyhow::Result<ArcCollectorInternal> {
+        let server = RegulateCollector::new(config, crate::collect::get_or_insert_default);
         Ok(Arc::new(server))
     }
 
@@ -63,19 +62,50 @@ impl RegulateCollector {
         &self,
         config: AnyCollectorConfig,
         registry: &mut CollectorRegistry,
-    ) -> anyhow::Result<ArcCollector> {
+    ) -> anyhow::Result<ArcCollectorInternal> {
         if let AnyCollectorConfig::Regulate(config) = config {
-            Ok(Arc::new(RegulateCollector::new(
-                config,
-                self.reload_version + 1,
-                |name| registry.get_or_insert_default(name),
-            )))
+            Ok(Arc::new(RegulateCollector::new(config, |name| {
+                registry.get_or_insert_default(name)
+            })))
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
                 self.config.collector_type(),
                 config.collector_type()
             ))
+        }
+    }
+}
+
+impl Collector for RegulateCollector {
+    #[inline]
+    fn name(&self) -> &NodeName {
+        self.config.name()
+    }
+
+    #[inline]
+    fn r#type(&self) -> &'static str {
+        self.config.collector_type()
+    }
+
+    fn add_metric(&self, mut record: MetricRecord, worker_id: Option<usize>) {
+        if let Some(prefix) = &self.config.prefix {
+            let name = Arc::make_mut(&mut record.name);
+            name.add_prefix(prefix);
+        }
+        if !self.config.drop_tags.is_empty() {
+            let tag_map = Arc::make_mut(&mut record.tag_map);
+            for tag_name in &self.config.drop_tags {
+                tag_map.drop(tag_name);
+            }
+        }
+
+        for exporter in &self.exporters {
+            exporter.add_metric(&record);
+        }
+
+        if let Some(next) = &self.next {
+            next.add_metric(record, worker_id);
         }
     }
 }
@@ -101,45 +131,7 @@ impl CollectorInternal for RegulateCollector {
         &self,
         config: AnyCollectorConfig,
         registry: &mut CollectorRegistry,
-    ) -> anyhow::Result<ArcCollector> {
+    ) -> anyhow::Result<ArcCollectorInternal> {
         self.prepare_reload(config, registry)
-    }
-}
-
-impl Collector for RegulateCollector {
-    #[inline]
-    fn name(&self) -> &NodeName {
-        self.config.name()
-    }
-
-    #[inline]
-    fn collector_type(&self) -> &'static str {
-        self.config.collector_type()
-    }
-
-    #[inline]
-    fn version(&self) -> usize {
-        self.reload_version
-    }
-
-    fn add_metric(&self, mut record: MetricRecord, worker_id: Option<usize>) {
-        if let Some(prefix) = &self.config.prefix {
-            let name = Arc::make_mut(&mut record.name);
-            name.add_prefix(prefix);
-        }
-        if !self.config.drop_tags.is_empty() {
-            let tag_map = Arc::make_mut(&mut record.tag_map);
-            for tag_name in &self.config.drop_tags {
-                tag_map.drop(tag_name);
-            }
-        }
-
-        for exporter in &self.exporters {
-            exporter.add_metric(&record);
-        }
-
-        if let Some(next) = &self.next {
-            next.add_metric(record, worker_id);
-        }
     }
 }

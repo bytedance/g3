@@ -22,13 +22,14 @@ use foldhash::fast::FixedState;
 
 use g3_types::metrics::NodeName;
 
-use super::ArcExporter;
+use super::{ArcExporter, ArcExporterInternal};
 use crate::config::exporter::AnyExporterConfig;
 
-static RUNTIME_EXPORTER_REGISTRY: Mutex<HashMap<NodeName, ArcExporter, FixedState>> =
+static RUNTIME_EXPORTER_REGISTRY: Mutex<HashMap<NodeName, ArcExporterInternal, FixedState>> =
     Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
-pub(super) fn add(name: NodeName, exporter: ArcExporter) {
+pub(super) fn add(exporter: ArcExporterInternal) {
+    let name = exporter.name().clone();
     let mut ht = RUNTIME_EXPORTER_REGISTRY.lock().unwrap();
     if let Some(old_exporter) = ht.insert(name, exporter) {
         old_exporter._clean_to_offline();
