@@ -38,16 +38,11 @@ pub use ops::load_all;
 pub(crate) use ops::{get_backend, reload, update_dependency_to_discover};
 
 mod registry;
+use registry::BackendRegistry;
 pub(crate) use registry::{get_names, get_or_insert_default};
 
 #[async_trait]
 pub(crate) trait Backend {
-    fn _clone_config(&self) -> AnyBackendConfig;
-    fn _update_config_in_place(&self, flags: u64, config: AnyBackendConfig) -> anyhow::Result<()>;
-
-    /// registry lock is allowed in this method
-    async fn _lock_safe_reload(&self, config: AnyBackendConfig) -> anyhow::Result<ArcBackend>;
-
     fn name(&self) -> &NodeName;
 
     fn discover(&self) -> &NodeName;
@@ -64,7 +59,19 @@ pub(crate) trait Backend {
     }
 }
 
+trait BackendInternal: Backend {
+    fn _clone_config(&self) -> AnyBackendConfig;
+    fn _update_config_in_place(&self, flags: u64, config: AnyBackendConfig) -> anyhow::Result<()>;
+
+    fn _reload(
+        &self,
+        config: AnyBackendConfig,
+        registry: &mut BackendRegistry,
+    ) -> anyhow::Result<ArcBackendInternal>;
+}
+
 pub(crate) type ArcBackend = Arc<dyn Backend + Send + Sync>;
+type ArcBackendInternal = Arc<dyn BackendInternal + Send + Sync>;
 
 pub(crate) trait BackendExt: Backend {
     fn select_consistent<'a, T>(

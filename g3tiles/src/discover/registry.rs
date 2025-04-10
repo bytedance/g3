@@ -22,18 +22,18 @@ use foldhash::fast::FixedState;
 
 use g3_types::metrics::NodeName;
 
-use super::ArcDiscover;
+use super::ArcDiscoverInternal;
 use crate::config::discover::AnyDiscoverConfig;
 
-static RUNTIME_DISCOVER_REGISTRY: Mutex<HashMap<NodeName, ArcDiscover, FixedState>> =
+static RUNTIME_DISCOVER_REGISTRY: Mutex<HashMap<NodeName, ArcDiscoverInternal, FixedState>> =
     Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
-pub(super) fn add(name: NodeName, discover: ArcDiscover) {
+pub(super) fn add(name: NodeName, discover: ArcDiscoverInternal) {
     let mut ht = RUNTIME_DISCOVER_REGISTRY.lock().unwrap();
     if let Some(_old) = ht.insert(name, discover) {}
 }
 
-pub(crate) fn get(name: &NodeName) -> Option<ArcDiscover> {
+pub(crate) fn get(name: &NodeName) -> Option<ArcDiscoverInternal> {
     let ht = RUNTIME_DISCOVER_REGISTRY.lock().unwrap();
     ht.get(name).cloned()
 }
@@ -61,10 +61,9 @@ pub(super) fn update_config_in_place(
     name: &NodeName,
     config: AnyDiscoverConfig,
 ) -> anyhow::Result<()> {
-    let ht = RUNTIME_DISCOVER_REGISTRY.lock().unwrap();
-    if let Some(site) = ht.get(name) {
-        site._update_config_in_place(config)
+    if let Some(discover) = get(name) {
+        discover._update_config_in_place(config)
     } else {
-        Err(anyhow!("no site with name {name} found"))
+        Err(anyhow!("no discover with name {name} found"))
     }
 }

@@ -32,7 +32,7 @@ use crate::config::server::AnyServerConfig;
 
 mod registry;
 use registry::ServerRegistry;
-pub(crate) use registry::{foreach_online as foreach_server, get_names, get_or_insert_default};
+pub(crate) use registry::{get_names, get_or_insert_default};
 
 mod error;
 pub(crate) use error::{ServerTaskError, ServerTaskResult};
@@ -48,8 +48,8 @@ mod rustls_proxy;
 
 mod ops;
 pub(crate) use ops::{
-    force_quit_offline_server, force_quit_offline_servers, get_server, reload, stop_all,
-    update_dependency_to_backend, wait_all_tasks,
+    force_quit_offline_server, force_quit_offline_servers, foreach_server, get_server, reload,
+    stop_all, update_dependency_to_backend, wait_all_tasks,
 };
 pub use ops::{spawn_all, spawn_offline_clean};
 
@@ -59,7 +59,20 @@ pub(crate) use task::{ServerTaskNotes, ServerTaskStage};
 mod stats;
 pub(crate) use stats::{ArcServerStats, ServerStats};
 
-pub(crate) trait ServerInternal {
+#[async_trait]
+pub(crate) trait Server: BaseServer + AcceptTcpServer + AcceptQuicServer {
+    fn get_server_stats(&self) -> Option<ArcServerStats> {
+        None
+    }
+    fn get_listen_stats(&self) -> Arc<ListenStats>;
+
+    fn alive_count(&self) -> i32;
+    fn quit_policy(&self) -> &Arc<ServerQuitPolicy>;
+
+    fn update_backend(&self, name: &NodeName);
+}
+
+trait ServerInternal: Server {
     fn _clone_config(&self) -> AnyServerConfig;
     fn _update_config_in_place(&self, _flags: u64, _config: AnyServerConfig) -> anyhow::Result<()> {
         Ok(())
@@ -73,33 +86,19 @@ pub(crate) trait ServerInternal {
         &self,
         config: AnyServerConfig,
         registry: &mut ServerRegistry,
-    ) -> anyhow::Result<ArcServer>;
+    ) -> anyhow::Result<ArcServerInternal>;
     fn _reload_with_new_notifier(
         &self,
         config: AnyServerConfig,
         registry: &mut ServerRegistry,
-    ) -> anyhow::Result<ArcServer>;
+    ) -> anyhow::Result<ArcServerInternal>;
 
-    fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()>;
+    fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()>;
     fn _abort_runtime(&self);
 }
 
-#[async_trait]
-pub(crate) trait Server:
-    ServerInternal + BaseServer + AcceptTcpServer + AcceptQuicServer
-{
-    fn get_server_stats(&self) -> Option<ArcServerStats> {
-        None
-    }
-    fn get_listen_stats(&self) -> Arc<ListenStats>;
-
-    fn alive_count(&self) -> i32;
-    fn quit_policy(&self) -> &Arc<ServerQuitPolicy>;
-
-    fn update_backend(&self, name: &NodeName);
-}
-
 pub(crate) type ArcServer = Arc<dyn Server + Send + Sync>;
+type ArcServerInternal = Arc<dyn ServerInternal + Send + Sync>;
 
 #[derive(Clone)]
 struct WrapArcServer(ArcServer);

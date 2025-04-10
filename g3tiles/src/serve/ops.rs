@@ -27,7 +27,7 @@ use g3_yaml::YamlDocPosition;
 
 use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
 
-use super::{ArcServer, registry};
+use super::{ArcServer, ArcServerInternal, Server, registry};
 
 use super::dummy_close::DummyCloseServer;
 #[cfg(feature = "quic")]
@@ -101,6 +101,13 @@ pub(crate) fn get_server(name: &NodeName) -> anyhow::Result<ArcServer> {
     }
 }
 
+pub(crate) fn foreach_server<F>(mut f: F)
+where
+    F: FnMut(&NodeName, &dyn Server),
+{
+    registry::foreach_online(|name, server| f(name, server.as_ref()))
+}
+
 pub(crate) async fn reload(
     name: &NodeName,
     position: Option<YamlDocPosition>,
@@ -157,7 +164,7 @@ pub(crate) async fn update_dependency_to_backend(target: &NodeName, status: &str
 }
 
 fn update_dependency_to_server_unlocked(target: &NodeName, status: &str) {
-    let mut servers = Vec::<ArcServer>::new();
+    let mut servers = Vec::<ArcServerInternal>::new();
 
     registry::foreach_online(|_name, server| {
         if server._depend_on_server(target) {
@@ -219,7 +226,6 @@ fn reload_old_unlocked(old: AnyServerConfig, new: AnyServerConfig) -> anyhow::Re
 
 // use async fn to allow tokio schedule
 fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
-    let name = config.name().clone();
     let server = match config {
         AnyServerConfig::DummyClose(c) => DummyCloseServer::prepare_initial(c)?,
         AnyServerConfig::PlainTcpPort(c) => PlainTcpPort::prepare_initial(c)?,
@@ -229,7 +235,8 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
         AnyServerConfig::RustlsProxy(c) => RustlsProxyServer::prepare_initial(c)?,
         AnyServerConfig::KeylessProxy(c) => KeylessProxyServer::prepare_initial(c)?,
     };
-    registry::add(name.clone(), server)?;
+    let name = server.name().clone();
+    registry::add(server)?;
     update_dependency_to_server_unlocked(&name, "spawned");
     Ok(())
 }

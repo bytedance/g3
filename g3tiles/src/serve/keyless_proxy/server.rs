@@ -39,8 +39,8 @@ use crate::backend::ArcBackend;
 use crate::config::server::keyless_proxy::KeylessProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::serve::{
-    ArcServer, ArcServerStats, Server, ServerInternal, ServerQuitPolicy, ServerRegistry,
-    ServerReloadCommand, ServerStats,
+    ArcServer, ArcServerInternal, ArcServerStats, Server, ServerInternal, ServerQuitPolicy,
+    ServerRegistry, ServerReloadCommand, ServerStats,
 };
 
 pub(crate) struct KeylessProxyServer {
@@ -93,7 +93,9 @@ impl KeylessProxyServer {
         })
     }
 
-    pub(crate) fn prepare_initial(config: KeylessProxyServerConfig) -> anyhow::Result<ArcServer> {
+    pub(crate) fn prepare_initial(
+        config: KeylessProxyServerConfig,
+    ) -> anyhow::Result<ArcServerInternal> {
         let config = Arc::new(config);
         let server_stats = Arc::new(KeylessProxyServerStats::new(config.name()));
         let listen_stats = Arc::new(ListenStats::new(config.name()));
@@ -203,7 +205,7 @@ impl ServerInternal for KeylessProxyServer {
         &self,
         config: AnyServerConfig,
         _registry: &mut ServerRegistry,
-    ) -> anyhow::Result<ArcServer> {
+    ) -> anyhow::Result<ArcServerInternal> {
         let mut server = self.prepare_reload(config)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
@@ -213,12 +215,12 @@ impl ServerInternal for KeylessProxyServer {
         &self,
         config: AnyServerConfig,
         _registry: &mut ServerRegistry,
-    ) -> anyhow::Result<ArcServer> {
+    ) -> anyhow::Result<ArcServerInternal> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }
 
-    fn _start_runtime(&self, _server: &ArcServer) -> anyhow::Result<()> {
+    fn _start_runtime(&self, _server: ArcServer) -> anyhow::Result<()> {
         self.server_stats.set_online();
         Ok(())
     }
