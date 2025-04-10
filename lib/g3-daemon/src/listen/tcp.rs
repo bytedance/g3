@@ -55,7 +55,7 @@ where
     }
 
     fn create_instance(&self) -> ListenTcpRuntimeInstance<S> {
-        let server_type = self.server.server_type();
+        let server_type = self.server.r#type();
         let server_version = self.server.version();
         ListenTcpRuntimeInstance {
             server: self.server.clone(),

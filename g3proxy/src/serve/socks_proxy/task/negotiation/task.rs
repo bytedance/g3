@@ -91,7 +91,7 @@ impl SocksProxyNegotiationTask {
         debug!(
             "new client from {} to {} server {}, using escaper {}",
             self.ctx.client_addr(),
-            self.ctx.server_config.server_type(),
+            self.ctx.server_config.r#type(),
             self.ctx.server_config.name(),
             self.ctx.server_config.escaper
         );

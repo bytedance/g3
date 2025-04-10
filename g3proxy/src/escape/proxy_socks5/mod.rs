@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -160,10 +159,6 @@ impl Escaper for ProxySocks5Escaper {
         self.config.name()
     }
 
-    fn escaper_type(&self) -> &str {
-        self.config.escaper_type()
-    }
-
     fn get_escape_stats(&self) -> Option<ArcEscaperStats> {
         Some(Arc::clone(&self.stats) as ArcEscaperStats)
     }
@@ -253,8 +248,8 @@ impl EscaperInternal for ProxySocks5Escaper {
         self.config.resolver()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
-        None
+    fn _depend_on_escaper(&self, _name: &NodeName) -> bool {
+        false
     }
 
     fn _clone_config(&self) -> AnyEscaperConfig {

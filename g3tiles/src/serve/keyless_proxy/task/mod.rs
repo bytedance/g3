@@ -76,7 +76,7 @@ impl KeylessForwardTask {
         debug!(
             "KeylessProxy: new client from {} to {} server {}",
             self.ctx.client_addr(),
-            self.ctx.server_config.server_type(),
+            self.ctx.server_config.r#type(),
             self.ctx.server_config.name(),
         );
         self._alive_guard = Some(self.ctx.server_stats.add_task());

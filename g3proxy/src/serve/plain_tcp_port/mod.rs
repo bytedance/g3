@@ -104,8 +104,8 @@ impl PlainTcpPort {
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
-                self.config.server_type(),
-                config.server_type()
+                self.config.r#type(),
+                config.r#type()
             ))
         }
     }
@@ -226,8 +226,8 @@ impl BaseServer for PlainTcpPort {
     }
 
     #[inline]
-    fn server_type(&self) -> &'static str {
-        self.config.server_type()
+    fn r#type(&self) -> &'static str {
+        self.config.r#type()
     }
 
     #[inline]

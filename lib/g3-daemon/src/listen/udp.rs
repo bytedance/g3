@@ -54,7 +54,7 @@ where
     S: ReceiveUdpServer + ReloadServer + Clone + Send + Sync + 'static,
 {
     pub fn new(server: S, listen_config: UdpListenConfig) -> Self {
-        let server_type = server.server_type();
+        let server_type = server.r#type();
         let server_version = server.version();
         ReceiveUdpRuntime {
             server,

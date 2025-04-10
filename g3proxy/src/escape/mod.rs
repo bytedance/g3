@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::collections::BTreeSet;
 use std::net::IpAddr;
 use std::sync::Arc;
 
@@ -96,7 +95,7 @@ pub(crate) trait EscaperInternal {
     fn _auditor(&self) -> Option<&NodeName> {
         None
     }
-    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>>;
+    fn _depend_on_escaper(&self, name: &NodeName) -> bool;
 
     fn _clone_config(&self) -> AnyEscaperConfig;
 
@@ -162,8 +161,6 @@ pub(crate) trait EscaperInternal {
 #[async_trait]
 pub(crate) trait Escaper: EscaperInternal {
     fn name(&self) -> &NodeName;
-    #[allow(unused)]
-    fn escaper_type(&self) -> &str;
     fn get_escape_stats(&self) -> Option<ArcEscaperStats> {
         None
     }

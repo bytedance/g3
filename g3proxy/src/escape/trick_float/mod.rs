@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -117,10 +116,6 @@ impl TrickFloatEscaper {
 impl Escaper for TrickFloatEscaper {
     fn name(&self) -> &NodeName {
         self.config.name()
-    }
-
-    fn escaper_type(&self) -> &str {
-        self.config.escaper_type()
     }
 
     fn ref_route_stats(&self) -> Option<&Arc<RouteEscaperStats>> {
@@ -256,8 +251,8 @@ impl EscaperInternal for TrickFloatEscaper {
         Default::default()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
-        self.config.dependent_escaper()
+    fn _depend_on_escaper(&self, name: &NodeName) -> bool {
+        self.config.next_nodes.contains(name)
     }
 
     fn _clone_config(&self) -> AnyEscaperConfig {

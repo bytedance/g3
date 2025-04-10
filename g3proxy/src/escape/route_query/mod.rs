@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -143,10 +143,6 @@ impl Escaper for RouteQueryEscaper {
         self.config.name()
     }
 
-    fn escaper_type(&self) -> &str {
-        self.config.escaper_type()
-    }
-
     fn ref_route_stats(&self) -> Option<&Arc<RouteEscaperStats>> {
         Some(&self.stats)
     }
@@ -242,8 +238,8 @@ impl EscaperInternal for RouteQueryEscaper {
         Default::default()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
-        self.config.dependent_escaper()
+    fn _depend_on_escaper(&self, name: &NodeName) -> bool {
+        self.query_nodes.contains_key(name) || self.fallback_node.name().eq(name)
     }
 
     fn _clone_config(&self) -> AnyEscaperConfig {

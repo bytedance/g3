@@ -49,7 +49,7 @@ pub(crate) enum ResolverConfigDiffAction {
 pub(crate) trait ResolverConfig {
     fn name(&self) -> &NodeName;
     fn position(&self) -> Option<YamlDocPosition>;
-    fn resolver_type(&self) -> &'static str;
+    fn r#type(&self) -> &'static str;
 
     fn diff_action(&self, new: &AnyResolverConfig) -> ResolverConfigDiffAction;
     fn dependent_resolver(&self) -> Option<BTreeSet<NodeName>>;

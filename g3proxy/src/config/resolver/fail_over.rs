@@ -133,7 +133,7 @@ impl ResolverConfig for FailOverResolverConfig {
         self.position.clone()
     }
 
-    fn resolver_type(&self) -> &'static str {
+    fn r#type(&self) -> &'static str {
         RESOLVER_CONFIG_TYPE
     }
 

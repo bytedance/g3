@@ -46,14 +46,14 @@ pub(crate) enum BackendConfigDiffAction {
 pub(crate) trait BackendConfig {
     fn name(&self) -> &NodeName;
     fn position(&self) -> Option<YamlDocPosition>;
-    fn backend_type(&self) -> &'static str;
+    fn r#type(&self) -> &'static str;
 
     fn diff_action(&self, new: &AnyBackendConfig) -> BackendConfigDiffAction;
 }
 
 #[derive(Clone, AnyConfig)]
 #[def_fn(name, &NodeName)]
-#[def_fn(backend_type, &'static str)]
+#[def_fn(r#type, &'static str)]
 #[def_fn(position, Option<YamlDocPosition>)]
 #[def_fn(diff_action, &Self, BackendConfigDiffAction)]
 pub(crate) enum AnyBackendConfig {

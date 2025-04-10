@@ -93,7 +93,7 @@ impl EscaperConfig for DummyDenyEscaperConfig {
         self.position.clone()
     }
 
-    fn escaper_type(&self) -> &str {
+    fn r#type(&self) -> &str {
         &self.custom_type
     }
 

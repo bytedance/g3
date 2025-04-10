@@ -42,12 +42,12 @@ pub async fn load_all() -> anyhow::Result<()> {
         new_names.insert(name.clone());
         match registry::get_config(name) {
             Some(old) => {
-                debug!("reloading discover {name}({})", config.discover_type());
+                debug!("reloading discover {name}({})", config.r#type());
                 reload_unlocked(old, config.as_ref().clone()).await?;
                 debug!("discover {name} reload OK");
             }
             None => {
-                debug!("creating discover {name}({})", config.discover_type());
+                debug!("creating discover {name}({})", config.r#type());
                 spawn_new_unlocked(config.as_ref().clone()).await?;
                 debug!("discover {name} create OK");
             }
@@ -111,7 +111,7 @@ pub(crate) async fn reload(
 
     debug!(
         "reloading discover {name}({}) from position {position}",
-        config.discover_type()
+        config.r#type()
     );
     reload_unlocked(old_config, config).await?;
     debug!("discover {name} reload OK");

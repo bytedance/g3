@@ -196,7 +196,7 @@ impl EscaperConfig for RouteClientEscaperConfig {
         self.position.clone()
     }
 
-    fn escaper_type(&self) -> &str {
+    fn r#type(&self) -> &str {
         ESCAPER_CONFIG_TYPE
     }
 

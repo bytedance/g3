@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -92,10 +91,6 @@ impl DummyDenyEscaper {
 impl Escaper for DummyDenyEscaper {
     fn name(&self) -> &NodeName {
         self.config.name()
-    }
-
-    fn escaper_type(&self) -> &str {
-        self.config.escaper_type()
     }
 
     fn get_escape_stats(&self) -> Option<ArcEscaperStats> {
@@ -177,8 +172,8 @@ impl EscaperInternal for DummyDenyEscaper {
         Default::default()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
-        None
+    fn _depend_on_escaper(&self, _name: &NodeName) -> bool {
+        false
     }
 
     fn _clone_config(&self) -> AnyEscaperConfig {
