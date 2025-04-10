@@ -70,6 +70,7 @@ default-members = [
     "g3proxy/utils/ctl",
     "g3proxy/utils/ftp",
     "g3proxy/utils/lua",
+    "g3statsd",
     "g3tiles",
     "g3tiles/utils/ctl",
     "g3keymess",

@@ -15,6 +15,7 @@
  */
 
 use std::collections::BTreeMap;
+use std::fmt;
 use std::str::FromStr;
 
 use anyhow::anyhow;
@@ -27,6 +28,7 @@ pub(crate) struct MetricTagMap {
 }
 
 impl MetricTagMap {
+    #[cfg(test)]
     pub(crate) fn get(&self, key: &MetricTagName) -> Option<&MetricTagValue> {
         self.inner.get(key)
     }
@@ -45,6 +47,26 @@ impl MetricTagMap {
         for r in iter {
             let (name, value) = r?;
             self.inner.insert(name, value);
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Display for MetricTagMap {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut iter = self.inner.iter();
+        let Some((name, value)) = iter.next() else {
+            return Ok(());
+        };
+        f.write_str(name.as_str())?;
+        f.write_str(": ")?;
+        f.write_str(value.as_str())?;
+
+        for (name, value) in &self.inner {
+            f.write_str(", ")?;
+            f.write_str(name.as_str())?;
+            f.write_str(": ")?;
+            f.write_str(value.as_str())?;
         }
         Ok(())
     }
@@ -76,7 +98,7 @@ impl<'a> TagKvIter<'a> {
         match memchr::memchr(self.multi_delimiter, left) {
             Some(p) => {
                 self.offset += p + 1;
-                Some(&left[p + 1..])
+                Some(&left[..p])
             }
             None => {
                 self.offset = self.data.len();
@@ -127,4 +149,30 @@ fn parse_tag_name(buf: &[u8]) -> anyhow::Result<MetricTagName> {
 fn parse_tag_value(buf: &[u8]) -> anyhow::Result<MetricTagValue> {
     let value = std::str::from_utf8(buf).map_err(|e| anyhow!("invalid tag value: {e}"))?;
     MetricTagValue::from_str(value).map_err(|e| anyhow!("invalid tag value: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn statsd() {
+        let buf = b"daemon_group:test,server:test-tls,online:y,stat_id:406995395936281";
+        let mut iter = TagKvIter::new(buf, b':', b',');
+        let (name, value) = iter.next().unwrap().unwrap();
+        assert_eq!(name.as_str(), "daemon_group");
+        assert_eq!(value.as_str(), "test");
+
+        let (name, value) = iter.next().unwrap().unwrap();
+        assert_eq!(name.as_str(), "server");
+        assert_eq!(value.as_str(), "test-tls");
+
+        let (name, value) = iter.next().unwrap().unwrap();
+        assert_eq!(name.as_str(), "online");
+        assert_eq!(value.as_str(), "y");
+
+        let (name, value) = iter.next().unwrap().unwrap();
+        assert_eq!(name.as_str(), "stat_id");
+        assert_eq!(value.as_str(), "406995395936281");
+    }
 }

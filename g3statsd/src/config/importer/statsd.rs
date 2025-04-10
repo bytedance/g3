@@ -67,6 +67,10 @@ impl StatsdImporterConfig {
                 self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
+            "collector" => {
+                self.collector = g3_yaml::value::as_metric_node_name(v)?;
+                Ok(())
+            }
             "listen" => {
                 self.listen = g3_yaml::value::as_udp_listen_config(v)
                     .context(format!("invalid udp listen config value for key {k}"))?;

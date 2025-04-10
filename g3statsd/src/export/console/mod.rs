@@ -65,8 +65,13 @@ impl Exporter for ConsoleExporter {
         self.config.exporter_type()
     }
 
-    fn add_metric(&self, _record: &MetricRecord) {
-        todo!()
+    fn add_metric(&self, record: &MetricRecord) {
+        println!(
+            "{} {} {}",
+            record.name.display('.'),
+            record.value,
+            record.tag_map
+        );
     }
 }
 
