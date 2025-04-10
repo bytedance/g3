@@ -42,8 +42,8 @@ use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
 use crate::serve::tcp_stream::TcpStreamServerStats;
 use crate::serve::{
-    ArcServer, ArcServerStats, Server, ServerInternal, ServerQuitPolicy, ServerRegistry,
-    ServerStats, WrapArcServer,
+    ArcServer, ArcServerInternal, ArcServerStats, Server, ServerInternal, ServerQuitPolicy,
+    ServerRegistry, ServerStats, WrapArcServer,
 };
 
 pub(crate) struct TcpTProxyServer {
@@ -100,7 +100,9 @@ impl TcpTProxyServer {
         Ok(server)
     }
 
-    pub(crate) fn prepare_initial(config: TcpTProxyServerConfig) -> anyhow::Result<ArcServer> {
+    pub(crate) fn prepare_initial(
+        config: TcpTProxyServerConfig,
+    ) -> anyhow::Result<ArcServerInternal> {
         let config = Arc::new(config);
         let server_stats = Arc::new(TcpStreamServerStats::new(config.name()));
         let listen_stats = Arc::new(ListenStats::new(config.name()));
@@ -198,7 +200,7 @@ impl ServerInternal for TcpTProxyServer {
         &self,
         config: AnyServerConfig,
         _registry: &mut ServerRegistry,
-    ) -> anyhow::Result<ArcServer> {
+    ) -> anyhow::Result<ArcServerInternal> {
         let mut server = self.prepare_reload(config)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
@@ -208,14 +210,14 @@ impl ServerInternal for TcpTProxyServer {
         &self,
         config: AnyServerConfig,
         _registry: &mut ServerRegistry,
-    ) -> anyhow::Result<ArcServer> {
+    ) -> anyhow::Result<ArcServerInternal> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }
 
-    fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()> {
-        let runtime =
-            ListenTcpRuntime::new(WrapArcServer(server.clone()), server.get_listen_stats());
+    fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {
+        let listen_stats = server.get_listen_stats();
+        let runtime = ListenTcpRuntime::new(WrapArcServer(server), listen_stats);
         runtime
             .run_all_instances(
                 &self.config.listen,

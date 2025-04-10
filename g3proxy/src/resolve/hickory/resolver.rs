@@ -26,7 +26,7 @@ use g3_types::metrics::NodeName;
 use crate::config::resolver::hickory::HickoryResolverConfig;
 use crate::config::resolver::{AnyResolverConfig, ResolverConfig};
 use crate::resolve::{
-    ArcIntegratedResolverHandle, BoxResolver, Resolver, ResolverInternal, ResolverStats,
+    ArcIntegratedResolverHandle, BoxResolverInternal, Resolver, ResolverInternal, ResolverStats,
 };
 
 pub(crate) struct HickoryResolver {
@@ -37,7 +37,7 @@ pub(crate) struct HickoryResolver {
 }
 
 impl HickoryResolver {
-    pub(crate) fn new_obj(config: HickoryResolverConfig) -> anyhow::Result<BoxResolver> {
+    pub(crate) fn new_obj(config: HickoryResolverConfig) -> anyhow::Result<BoxResolverInternal> {
         let mut builder = g3_resolver::ResolverBuilder::new((&config).into());
         builder.thread_name(format!("res-{}", config.name()));
         let resolver = builder.build()?;

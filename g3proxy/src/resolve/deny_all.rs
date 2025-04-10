@@ -29,7 +29,7 @@ use super::{
 };
 use crate::config::resolver::deny_all::DenyAllResolverConfig;
 use crate::config::resolver::{AnyResolverConfig, ResolverConfig};
-use crate::resolve::{BoxResolver, ResolverStats};
+use crate::resolve::{BoxResolverInternal, ResolverStats};
 
 pub(super) struct DenyAllResolver {
     config: Arc<DenyAllResolverConfig>,
@@ -37,7 +37,7 @@ pub(super) struct DenyAllResolver {
 }
 
 impl DenyAllResolver {
-    pub(super) fn new_obj(config: DenyAllResolverConfig) -> anyhow::Result<BoxResolver> {
+    pub(super) fn new_obj(config: DenyAllResolverConfig) -> anyhow::Result<BoxResolverInternal> {
         let stats = g3_resolver::ResolverStats::default();
         let stats = ResolverStats::new(config.name(), Arc::new(stats));
         Ok(Box::new(DenyAllResolver {

@@ -27,7 +27,7 @@ use g3_types::metrics::NodeName;
 use crate::config::resolver::fail_over::FailOverResolverConfig;
 use crate::config::resolver::{AnyResolverConfig, ResolverConfig};
 use crate::resolve::{
-    ArcIntegratedResolverHandle, BoxResolver, Resolver, ResolverInternal, ResolverStats,
+    ArcIntegratedResolverHandle, BoxResolverInternal, Resolver, ResolverInternal, ResolverStats,
 };
 
 pub(crate) struct FailOverResolver {
@@ -39,7 +39,7 @@ pub(crate) struct FailOverResolver {
 }
 
 impl FailOverResolver {
-    pub(crate) fn new_obj(config: FailOverResolverConfig) -> anyhow::Result<BoxResolver> {
+    pub(crate) fn new_obj(config: FailOverResolverConfig) -> anyhow::Result<BoxResolverInternal> {
         let mut driver_config = FailOverDriverConfig::default();
 
         let primary_handle = crate::resolve::get_handle(&config.primary)

@@ -34,7 +34,7 @@ use super::hickory::HickoryResolver;
 use super::deny_all::DenyAllResolver;
 use super::fail_over::FailOverResolver;
 
-use super::registry;
+use super::{Resolver, registry};
 
 static RESOLVER_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 
@@ -112,6 +112,13 @@ pub(crate) async fn reload(
     reload_old_unlocked(old_config, config).await?;
     debug!("resolver {name} reload OK");
     Ok(())
+}
+
+pub(crate) fn foreach_resolver<F>(mut f: F)
+where
+    F: FnMut(&NodeName, &dyn Resolver),
+{
+    registry::foreach(|name, resolver| f(name, resolver.as_ref()));
 }
 
 #[async_recursion]

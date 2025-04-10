@@ -22,15 +22,15 @@ use foldhash::fast::FixedState;
 
 use g3_types::metrics::NodeName;
 
-use super::ArcServer;
+use super::{ArcServer, ArcServerInternal};
 use crate::config::server::AnyServerConfig;
 use crate::serve::dummy_close::DummyCloseServer;
 
 static RUNTIME_SERVER_REGISTRY: Mutex<ServerRegistry> = Mutex::new(ServerRegistry::new());
-static OFFLINE_SERVER_SET: Mutex<Vec<ArcServer>> = Mutex::new(Vec::new());
+static OFFLINE_SERVER_SET: Mutex<Vec<ArcServerInternal>> = Mutex::new(Vec::new());
 
-pub(crate) struct ServerRegistry {
-    inner: HashMap<NodeName, ArcServer, FixedState>,
+pub(super) struct ServerRegistry {
+    inner: HashMap<NodeName, ArcServerInternal, FixedState>,
 }
 
 impl ServerRegistry {
@@ -40,8 +40,8 @@ impl ServerRegistry {
         }
     }
 
-    fn add(&mut self, name: NodeName, server: ArcServer) -> anyhow::Result<()> {
-        server._start_runtime(&server)?;
+    fn add(&mut self, name: NodeName, server: ArcServerInternal) -> anyhow::Result<()> {
+        server._start_runtime(server.clone())?;
         if let Some(old_server) = self.inner.insert(name, server) {
             old_server._abort_runtime();
             add_offline(old_server);
@@ -64,7 +64,7 @@ impl ServerRegistry {
         self.inner.get(name).map(|server| server._clone_config())
     }
 
-    fn get_server(&self, name: &NodeName) -> Option<ArcServer> {
+    fn get_server(&self, name: &NodeName) -> Option<ArcServerInternal> {
         self.inner.get(name).cloned()
     }
 
@@ -103,7 +103,7 @@ impl ServerRegistry {
 
     fn foreach<F>(&self, mut f: F)
     where
-        F: FnMut(&NodeName, &ArcServer),
+        F: FnMut(&NodeName, &ArcServerInternal),
     {
         for (name, server) in self.inner.iter() {
             f(name, server)
@@ -118,7 +118,7 @@ impl ServerRegistry {
     }
 }
 
-pub(super) fn add_offline(old_server: ArcServer) {
+pub(super) fn add_offline(old_server: ArcServerInternal) {
     let mut set = OFFLINE_SERVER_SET.lock().unwrap();
     set.push(old_server);
 }
@@ -145,7 +145,7 @@ pub(super) fn retain_offline() {
 
 pub(super) fn foreach_offline<F>(mut f: F)
 where
-    F: FnMut(&ArcServer),
+    F: FnMut(&ArcServerInternal),
 {
     let set = OFFLINE_SERVER_SET.lock().unwrap();
     for server in set.iter() {
@@ -153,7 +153,7 @@ where
     }
 }
 
-pub(super) fn add(name: NodeName, server: ArcServer) -> anyhow::Result<()> {
+pub(super) fn add(name: NodeName, server: ArcServerInternal) -> anyhow::Result<()> {
     let mut sr = RUNTIME_SERVER_REGISTRY
         .lock()
         .map_err(|e| anyhow!("failed to lock server registry: {e}"))?;
@@ -175,12 +175,12 @@ pub(super) fn get_config(name: &NodeName) -> Option<AnyServerConfig> {
     sr.get_config(name)
 }
 
-pub(crate) fn get_server(name: &NodeName) -> Option<ArcServer> {
+pub(super) fn get_server(name: &NodeName) -> Option<ArcServerInternal> {
     let sr = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     sr.get_server(name)
 }
 
-fn check_get_server(name: &NodeName) -> anyhow::Result<ArcServer> {
+fn check_get_server(name: &NodeName) -> anyhow::Result<ArcServerInternal> {
     get_server(name).ok_or_else(|| anyhow!("no server with name {name} found"))
 }
 
@@ -226,7 +226,7 @@ pub(super) fn reload_and_respawn(name: &NodeName, config: AnyServerConfig) -> an
 
 pub(crate) fn foreach_online<F>(f: F)
 where
-    F: FnMut(&NodeName, &ArcServer),
+    F: FnMut(&NodeName, &ArcServerInternal),
 {
     let sr = RUNTIME_SERVER_REGISTRY.lock().unwrap();
     sr.foreach(f)

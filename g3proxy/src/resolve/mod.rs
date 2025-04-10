@@ -35,7 +35,7 @@ mod stats;
 pub(crate) use stats::ResolverStats;
 
 mod registry;
-pub(crate) use registry::{foreach as foreach_resolver, get_handle, get_names};
+pub(crate) use registry::{get_handle, get_names};
 
 #[cfg(feature = "c-ares")]
 mod c_ares;
@@ -46,11 +46,16 @@ mod deny_all;
 mod fail_over;
 
 mod ops;
-pub(crate) use ops::reload;
 pub use ops::spawn_all;
+pub(crate) use ops::{foreach_resolver, reload};
+
+pub(crate) trait Resolver {
+    fn get_handle(&self) -> ArcIntegratedResolverHandle;
+    fn get_stats(&self) -> Arc<ResolverStats>;
+}
 
 #[async_trait]
-pub(crate) trait ResolverInternal {
+trait ResolverInternal: Resolver {
     fn _dependent_resolver(&self) -> Option<BTreeSet<NodeName>>;
 
     fn _clone_config(&self) -> AnyResolverConfig;
@@ -68,9 +73,4 @@ pub(crate) trait ResolverInternal {
     async fn _shutdown(&mut self);
 }
 
-pub(crate) trait Resolver: ResolverInternal {
-    fn get_handle(&self) -> ArcIntegratedResolverHandle;
-    fn get_stats(&self) -> Arc<ResolverStats>;
-}
-
-pub(crate) type BoxResolver = Box<dyn Resolver + Send>;
+type BoxResolverInternal = Box<dyn ResolverInternal + Send>;
