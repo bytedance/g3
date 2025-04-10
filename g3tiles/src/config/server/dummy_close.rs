@@ -80,7 +80,7 @@ impl ServerConfig for DummyCloseServerConfig {
         self.position.clone()
     }
 
-    fn server_type(&self) -> &'static str {
+    fn r#type(&self) -> &'static str {
         SERVER_CONFIG_TYPE
     }
 

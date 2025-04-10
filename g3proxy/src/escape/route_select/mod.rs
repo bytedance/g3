@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::collections::BTreeSet;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -155,10 +154,6 @@ impl Escaper for RouteSelectEscaper {
         self.config.name()
     }
 
-    fn escaper_type(&self) -> &str {
-        self.config.escaper_type()
-    }
-
     fn ref_route_stats(&self) -> Option<&Arc<RouteEscaperStats>> {
         Some(&self.stats)
     }
@@ -292,8 +287,8 @@ impl EscaperInternal for RouteSelectEscaper {
         Default::default()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
-        self.config.dependent_escaper()
+    fn _depend_on_escaper(&self, name: &NodeName) -> bool {
+        self.all_nodes.contains_key(name)
     }
 
     fn _clone_config(&self) -> AnyEscaperConfig {

@@ -29,7 +29,7 @@ pub enum ServerReloadCommand {
 
 pub trait BaseServer {
     fn name(&self) -> &NodeName;
-    fn server_type(&self) -> &'static str;
+    fn r#type(&self) -> &'static str;
     fn version(&self) -> usize;
 }
 

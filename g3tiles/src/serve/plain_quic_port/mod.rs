@@ -192,8 +192,8 @@ impl PlainQuicPort {
             let cur_config = self.config.load();
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
-                cur_config.server_type(),
-                config.server_type()
+                cur_config.r#type(),
+                config.r#type()
             ))
         }
     }
@@ -304,9 +304,9 @@ impl BaseServer for PlainQuicPort {
         &self.name
     }
 
-    fn server_type(&self) -> &'static str {
+    fn r#type(&self) -> &'static str {
         let config = self.config.load();
-        config.server_type()
+        config.r#type()
     }
 
     #[inline]

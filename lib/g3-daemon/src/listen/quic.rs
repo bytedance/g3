@@ -70,7 +70,7 @@ where
     }
 
     fn create_instance(&self) -> ListenQuicRuntimeInstance<S> {
-        let server_type = self.server.server_type();
+        let server_type = self.server.r#type();
         let server_version = self.server.version();
         ListenQuicRuntimeInstance {
             server: self.server.clone(),

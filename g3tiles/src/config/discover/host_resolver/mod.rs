@@ -67,7 +67,7 @@ impl DiscoverConfig for HostResolverDiscoverConfig {
     }
 
     #[inline]
-    fn discover_type(&self) -> &'static str {
+    fn r#type(&self) -> &'static str {
         DISCOVER_CONFIG_TYPE
     }
 

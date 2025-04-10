@@ -108,8 +108,8 @@ impl BaseServer for WrapArcServer {
         self.0.name()
     }
 
-    fn server_type(&self) -> &'static str {
-        self.0.server_type()
+    fn r#type(&self) -> &'static str {
+        self.0.r#type()
     }
 
     fn version(&self) -> usize {

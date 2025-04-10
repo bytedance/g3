@@ -60,7 +60,7 @@ pub(crate) enum ServerConfigDiffAction {
 pub(crate) trait ServerConfig {
     fn name(&self) -> &NodeName;
     fn position(&self) -> Option<YamlDocPosition>;
-    fn server_type(&self) -> &'static str;
+    fn r#type(&self) -> &'static str;
 
     fn diff_action(&self, new: &AnyServerConfig) -> ServerConfigDiffAction;
 
@@ -72,9 +72,9 @@ pub(crate) trait ServerConfig {
     }
     fn get_task_logger(&self) -> Logger {
         if let Some(shared_logger) = self.shared_logger() {
-            crate::log::task::get_shared_logger(shared_logger, self.server_type(), self.name())
+            crate::log::task::get_shared_logger(shared_logger, self.r#type(), self.name())
         } else {
-            crate::log::task::get_logger(self.server_type(), self.name())
+            crate::log::task::get_logger(self.r#type(), self.name())
         }
     }
 }
@@ -82,7 +82,7 @@ pub(crate) trait ServerConfig {
 #[derive(Clone, Debug, AnyConfig)]
 #[def_fn(name, &NodeName)]
 #[def_fn(position, Option<YamlDocPosition>)]
-#[def_fn(server_type, &'static str)]
+#[def_fn(r#type, &'static str)]
 #[def_fn(dependent_server, Option<BTreeSet<NodeName>>)]
 #[def_fn(diff_action, &Self, ServerConfigDiffAction)]
 pub(crate) enum AnyServerConfig {

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::net::IpAddr;
 use std::sync::Arc;
 
@@ -146,10 +146,6 @@ impl Escaper for RouteClientEscaper {
         self.config.name()
     }
 
-    fn escaper_type(&self) -> &str {
-        self.config.escaper_type()
-    }
-
     fn ref_route_stats(&self) -> Option<&Arc<RouteEscaperStats>> {
         Some(&self.stats)
     }
@@ -245,12 +241,8 @@ impl EscaperInternal for RouteClientEscaper {
         Default::default()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
-        let mut set = BTreeSet::new();
-        for escaper in self.next_table.keys() {
-            set.insert(escaper.clone());
-        }
-        Some(set)
+    fn _depend_on_escaper(&self, name: &NodeName) -> bool {
+        self.next_table.contains_key(name)
     }
 
     fn _clone_config(&self) -> AnyEscaperConfig {

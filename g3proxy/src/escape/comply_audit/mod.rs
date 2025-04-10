@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
@@ -100,10 +99,6 @@ impl ComplyAuditEscaper {
 impl Escaper for ComplyAuditEscaper {
     fn name(&self) -> &NodeName {
         self.config.name()
-    }
-
-    fn escaper_type(&self) -> &str {
-        self.config.escaper_type()
     }
 
     fn ref_route_stats(&self) -> Option<&Arc<RouteEscaperStats>> {
@@ -202,10 +197,8 @@ impl EscaperInternal for ComplyAuditEscaper {
         Some(&self.config.auditor)
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
-        let mut set = BTreeSet::new();
-        set.insert(self.config.next.clone());
-        Some(set)
+    fn _depend_on_escaper(&self, name: &NodeName) -> bool {
+        self.config.next.eq(name)
     }
 
     fn _clone_config(&self) -> AnyEscaperConfig {

@@ -59,7 +59,7 @@ impl FailOverResolver {
         builder.thread_name(format!("res-{}", config.name()));
         let resolver = builder.build()?;
 
-        let logger = crate::log::resolve::get_logger(config.resolver_type(), config.name());
+        let logger = crate::log::resolve::get_logger(config.r#type(), config.name());
         let stats = ResolverStats::new(config.name(), resolver.get_stats());
 
         Ok(Box::new(FailOverResolver {

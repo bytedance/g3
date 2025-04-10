@@ -77,8 +77,8 @@ impl DummyCloseServer {
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
-                self.config.server_type(),
-                config.server_type()
+                self.config.r#type(),
+                config.r#type()
             ))
         }
     }
@@ -105,7 +105,7 @@ impl ServerInternal for DummyCloseServer {
     ) -> anyhow::Result<ArcServerInternal> {
         Err(anyhow!(
             "this {} server doesn't support reload with old notifier",
-            config.server_type()
+            config.r#type()
         ))
     }
 
@@ -132,8 +132,8 @@ impl BaseServer for DummyCloseServer {
         self.config.name()
     }
 
-    fn server_type(&self) -> &'static str {
-        self.config.server_type()
+    fn r#type(&self) -> &'static str {
+        self.config.r#type()
     }
 
     fn version(&self) -> usize {

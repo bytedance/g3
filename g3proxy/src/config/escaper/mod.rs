@@ -66,7 +66,7 @@ pub(crate) enum EscaperConfigDiffAction {
 pub(crate) trait EscaperConfig {
     fn name(&self) -> &NodeName;
     fn position(&self) -> Option<YamlDocPosition>;
-    fn escaper_type(&self) -> &str;
+    fn r#type(&self) -> &str;
     fn resolver(&self) -> &NodeName;
 
     fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction;
@@ -79,9 +79,9 @@ pub(crate) trait EscaperConfig {
     }
     fn get_escape_logger(&self) -> Logger {
         if let Some(shared_logger) = self.shared_logger() {
-            crate::log::escape::get_shared_logger(shared_logger, self.escaper_type(), self.name())
+            crate::log::escape::get_shared_logger(shared_logger, self.r#type(), self.name())
         } else {
-            crate::log::escape::get_logger(self.escaper_type(), self.name())
+            crate::log::escape::get_logger(self.r#type(), self.name())
         }
     }
 }

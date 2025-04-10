@@ -50,14 +50,14 @@ pub(crate) enum DiscoverConfigDiffAction {
 pub(crate) trait DiscoverConfig {
     fn name(&self) -> &NodeName;
     fn position(&self) -> Option<YamlDocPosition>;
-    fn discover_type(&self) -> &'static str;
+    fn r#type(&self) -> &'static str;
 
     fn diff_action(&self, new: &AnyDiscoverConfig) -> DiscoverConfigDiffAction;
 }
 
 #[derive(Clone, AnyConfig)]
 #[def_fn(name, &NodeName)]
-#[def_fn(discover_type, &'static str)]
+#[def_fn(r#type, &'static str)]
 #[def_fn(position, Option<YamlDocPosition>)]
 #[def_fn(diff_action, &Self, DiscoverConfigDiffAction)]
 pub(crate) enum AnyDiscoverConfig {

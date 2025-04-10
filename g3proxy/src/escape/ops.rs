@@ -188,10 +188,8 @@ async fn update_dependency_to_escaper_unlocked(target: &NodeName, status: &str) 
     let mut names = Vec::<NodeName>::new();
 
     registry::foreach(|name, escaper| {
-        if let Some(set) = escaper._dependent_escaper() {
-            if set.contains(target) {
-                names.push(name.clone())
-            }
+        if escaper._depend_on_escaper(target) {
+            names.push(name.clone());
         }
     });
 

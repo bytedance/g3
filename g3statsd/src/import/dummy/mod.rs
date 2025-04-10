@@ -113,7 +113,7 @@ impl BaseServer for DummyImporter {
     }
 
     #[inline]
-    fn server_type(&self) -> &'static str {
+    fn r#type(&self) -> &'static str {
         self.config.importer_type()
     }
 

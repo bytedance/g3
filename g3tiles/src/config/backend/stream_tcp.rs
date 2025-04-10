@@ -121,7 +121,7 @@ impl BackendConfig for StreamTcpBackendConfig {
         self.position.clone()
     }
 
-    fn backend_type(&self) -> &'static str {
+    fn r#type(&self) -> &'static str {
         BACKEND_CONFIG_TYPE
     }
 
