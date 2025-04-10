@@ -35,6 +35,7 @@ const CONFIG_KEY_EXPORTER_NAME: &str = "name";
 pub(crate) enum ExporterConfigDiffAction {
     NoAction,
     SpawnNew,
+    #[allow(unused)]
     Reload,
 }
 

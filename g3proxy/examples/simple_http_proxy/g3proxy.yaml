@@ -1,16 +1,11 @@
 ---
 runtime:
-  thread_number: 2
-
-worker:
-  sched_affinity: true
+  thread_number: 1
 
 log: journal
 
-controller:
-  local:
-    recv_timeout: 30
-    send_timeout: 1
+stat:
+  target_udp: 127.0.0.1:8125
 
 server:
   - name: test
