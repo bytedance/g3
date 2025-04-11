@@ -2013,7 +2013,7 @@ dependencies = [
 
 [[package]]
 name = "g3tiles"
-version = "0.3.7"
+version = "0.3.8"
 dependencies = [
  "ahash",
  "anyhow",
