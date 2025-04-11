@@ -70,7 +70,7 @@ impl Exporter for ConsoleExporter {
             "{} {} {}",
             record.name.display('.'),
             record.value,
-            record.tag_map
+            record.tag_map.display_opentsdb(),
         );
     }
 }

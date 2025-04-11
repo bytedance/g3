@@ -52,7 +52,7 @@ impl<'a> LineParser<'a> {
                 b'@' => {} // sample rate
                 b'#' => {
                     tag_map
-                        .parse_buf(&part[1..], b':', b',')
+                        .parse_statsd(&part[1..])
                         .map_err(StatsdParseError::InvalidTagValue)?;
                 }
                 b'T' => {} // timestamp
