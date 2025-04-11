@@ -1,4 +1,12 @@
 
+v1.11.4:
+ - BUG FIX: fix deadlock when reload port servers
+ - Feature: allow to quit process on panic
+ - Feature: support bind to interface on more platforms when connect
+ - Feature: add tls peer closure metrics to escaper
+     - escaper.tls.peer.closure.orderly
+     - escaper.tls.peer.closure.abortive
+
 v1.11.3:
  - Feature: support to set bind interface and many other socket options in hickory resolver
  - Feature: do not require explicit server address in c-ares resolver, /etc/resolv.conf will be used in this case
