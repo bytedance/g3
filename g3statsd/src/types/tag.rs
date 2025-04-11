@@ -15,7 +15,7 @@
  */
 
 use std::collections::BTreeMap;
-use std::fmt;
+use std::fmt::{self, Write};
 use std::str::FromStr;
 
 use anyhow::anyhow;
@@ -37,35 +37,71 @@ impl MetricTagMap {
         self.inner.remove(name);
     }
 
-    pub(crate) fn parse_buf(
-        &mut self,
-        data: &[u8],
-        value_delimiter: u8,
-        multi_delimiter: u8,
-    ) -> anyhow::Result<()> {
-        let iter = TagKvIter::new(data, value_delimiter, multi_delimiter);
+    pub(crate) fn parse_statsd(&mut self, data: &[u8]) -> anyhow::Result<()> {
+        let iter = TagKvIter::new(data, b',', b':');
         for r in iter {
             let (name, value) = r?;
             self.inner.insert(name, value);
         }
         Ok(())
     }
+
+    #[allow(unused)]
+    pub(crate) fn display_graphite(&self) -> DisplayTagMap<'_> {
+        DisplayTagMap {
+            inner: self,
+            assign_delimiter: '=',
+            next_delimiter: ';',
+        }
+    }
+
+    #[allow(unused)]
+    pub(crate) fn display_influxdb(&self) -> DisplayTagMap<'_> {
+        DisplayTagMap {
+            inner: self,
+            assign_delimiter: '=',
+            next_delimiter: ',',
+        }
+    }
+
+    pub(crate) fn display_opentsdb(&self) -> DisplayTagMap<'_> {
+        DisplayTagMap {
+            inner: self,
+            assign_delimiter: '=',
+            next_delimiter: ',',
+        }
+    }
+
+    #[allow(unused)]
+    pub(crate) fn display_statsd(&self) -> DisplayTagMap<'_> {
+        DisplayTagMap {
+            inner: self,
+            assign_delimiter: ':',
+            next_delimiter: ',',
+        }
+    }
 }
 
-impl fmt::Display for MetricTagMap {
+pub(crate) struct DisplayTagMap<'a> {
+    inner: &'a MetricTagMap,
+    assign_delimiter: char,
+    next_delimiter: char,
+}
+
+impl fmt::Display for DisplayTagMap<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut iter = self.inner.iter();
+        let mut iter = self.inner.inner.iter();
         let Some((name, value)) = iter.next() else {
             return Ok(());
         };
         f.write_str(name.as_str())?;
-        f.write_str(": ")?;
+        f.write_char(self.assign_delimiter)?;
         f.write_str(value.as_str())?;
 
-        for (name, value) in &self.inner {
-            f.write_str(", ")?;
+        for (name, value) in iter {
+            f.write_char(self.next_delimiter)?;
             f.write_str(name.as_str())?;
-            f.write_str(": ")?;
+            f.write_char(self.assign_delimiter)?;
             f.write_str(value.as_str())?;
         }
         Ok(())
@@ -74,17 +110,17 @@ impl fmt::Display for MetricTagMap {
 
 struct TagKvIter<'a> {
     data: &'a [u8],
-    value_delimiter: u8,
-    multi_delimiter: u8,
+    assign_delimiter: u8,
+    next_delimiter: u8,
     offset: usize,
 }
 
 impl<'a> TagKvIter<'a> {
-    fn new(data: &'a [u8], value_delimiter: u8, multi_delimiter: u8) -> Self {
+    fn new(data: &'a [u8], next_delimiter: u8, assign_delimiter: u8) -> Self {
         TagKvIter {
             data,
-            value_delimiter,
-            multi_delimiter,
+            assign_delimiter,
+            next_delimiter,
             offset: 0,
         }
     }
@@ -95,7 +131,7 @@ impl<'a> TagKvIter<'a> {
         }
 
         let left = &self.data[self.offset..];
-        match memchr::memchr(self.multi_delimiter, left) {
+        match memchr::memchr(self.next_delimiter, left) {
             Some(p) => {
                 self.offset += p + 1;
                 Some(&left[..p])
@@ -118,7 +154,7 @@ impl Iterator for TagKvIter<'_> {
                 continue;
             }
 
-            return match memchr::memchr(self.value_delimiter, part) {
+            return match memchr::memchr(self.assign_delimiter, part) {
                 Some(p) => match parse_tag_name(&part[..p]) {
                     Ok(name) => {
                         if p + 1 >= part.len() {
@@ -158,7 +194,7 @@ mod tests {
     #[test]
     fn statsd() {
         let buf = b"daemon_group:test,server:test-tls,online:y,stat_id:406995395936281";
-        let mut iter = TagKvIter::new(buf, b':', b',');
+        let mut iter = TagKvIter::new(buf, b',', b':');
         let (name, value) = iter.next().unwrap().unwrap();
         assert_eq!(name.as_str(), "daemon_group");
         assert_eq!(value.as_str(), "test");
@@ -174,5 +210,29 @@ mod tests {
         let (name, value) = iter.next().unwrap().unwrap();
         assert_eq!(name.as_str(), "stat_id");
         assert_eq!(value.as_str(), "406995395936281");
+    }
+
+    #[test]
+    fn fmt() {
+        let buf = b"daemon_group:test,server:test-tls,online:y,stat_id:406995395936281";
+        let mut tag_map = MetricTagMap::default();
+        tag_map.parse_statsd(buf).unwrap();
+
+        assert_eq!(
+            tag_map.display_graphite().to_string().as_str(),
+            "daemon_group=test;online=y;server=test-tls;stat_id=406995395936281"
+        );
+        assert_eq!(
+            tag_map.display_influxdb().to_string().as_str(),
+            "daemon_group=test,online=y,server=test-tls,stat_id=406995395936281"
+        );
+        assert_eq!(
+            tag_map.display_opentsdb().to_string().as_str(),
+            "daemon_group=test,online=y,server=test-tls,stat_id=406995395936281"
+        );
+        assert_eq!(
+            tag_map.display_statsd().to_string().as_str(),
+            "daemon_group:test,online:y,server:test-tls,stat_id:406995395936281"
+        );
     }
 }
