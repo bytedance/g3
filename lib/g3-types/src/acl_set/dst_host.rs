@@ -16,7 +16,7 @@
 
 use crate::acl::{
     AclAction, AclChildDomainRule, AclChildDomainRuleBuilder, AclExactHostRule, AclNetworkRule,
-    AclNetworkRuleBuilder, AclRegexSetRule, AclRegexSetRuleBuilder, ActionContract,
+    AclNetworkRuleBuilder, AclRegexDomainRule, AclRegexDomainRuleBuilder, ActionContract,
     OrderedActionContract,
 };
 use crate::net::Host;
@@ -25,7 +25,7 @@ use crate::net::Host;
 pub struct AclDstHostRuleSetBuilder<Action = AclAction> {
     pub exact: Option<AclExactHostRule<Action>>,
     pub child: Option<AclChildDomainRuleBuilder<Action>>,
-    pub regex: Option<AclRegexSetRuleBuilder<Action>>,
+    pub regex: Option<AclRegexDomainRuleBuilder<Action>>,
     pub subnet: Option<AclNetworkRuleBuilder<Action>>,
 }
 
@@ -89,7 +89,7 @@ impl AclDstHostRuleSetBuilder<AclAction> {
 pub struct AclDstHostRuleSet<Action = AclAction> {
     exact: Option<AclExactHostRule<Action>>,
     child: Option<AclChildDomainRule<Action>>,
-    regex: Option<AclRegexSetRule<Action>>,
+    regex: Option<AclRegexDomainRule<Action>>,
     subnet: Option<AclNetworkRule<Action>>,
     missed_action: Action,
 }

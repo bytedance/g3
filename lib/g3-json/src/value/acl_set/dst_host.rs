@@ -35,7 +35,7 @@ pub fn as_dst_host_rule_set_builder(value: &Value) -> anyhow::Result<AclDstHostR
                     builder.child = Some(child_builder);
                 }
                 "regex_match" | "regex" => {
-                    let regex_builder = crate::value::acl::as_regex_set_rule_builder(v)
+                    let regex_builder = crate::value::acl::as_regex_domain_rule_builder(v)
                         .context(format!("invalid regex domain rule value for key {k}"))?;
                     builder.regex = Some(regex_builder);
                 }

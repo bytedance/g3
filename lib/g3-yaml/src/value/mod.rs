@@ -55,6 +55,11 @@ mod histogram;
 #[cfg(feature = "histogram")]
 pub use histogram::{as_histogram_metrics_config, as_quantile, as_quantile_list};
 
+#[cfg(feature = "regex")]
+mod regex;
+#[cfg(feature = "regex")]
+pub use regex::as_regex;
+
 #[cfg(feature = "resolve")]
 mod resolve;
 #[cfg(feature = "resolve")]

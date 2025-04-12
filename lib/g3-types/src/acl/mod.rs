@@ -25,18 +25,21 @@ mod fx_hash;
 mod network;
 mod proxy_request;
 mod radix_trie;
+mod regex_domain;
 mod regex_set;
 mod user_agent;
 
 use self::radix_trie::{AclRadixTrieRule, AclRadixTrieRuleBuilder};
 use a_hash::AclAHashRule;
 use fx_hash::AclFxHashRule;
+use regex_set::{RegexSetBuilder, RegexSetMatch};
 
 pub use child_domain::{AclChildDomainRule, AclChildDomainRuleBuilder};
 pub use exact_host::AclExactHostRule;
 pub use exact_port::AclExactPortRule;
 pub use network::{AclNetworkRule, AclNetworkRuleBuilder};
 pub use proxy_request::AclProxyRequestRule;
+pub use regex_domain::{AclRegexDomainRule, AclRegexDomainRuleBuilder};
 pub use regex_set::{AclRegexSetRule, AclRegexSetRuleBuilder};
 pub use user_agent::AclUserAgentRule;
 

@@ -24,8 +24,9 @@ g3-histogram = { workspace = true, optional = true }
 
 [features]
 default = []
+regex = ["dep:regex"]
 resolve = ["g3-types/resolve"]
-acl-rule = ["g3-types/acl-rule", "dep:ip_network", "dep:regex"]
+acl-rule = ["regex", "g3-types/acl-rule", "dep:ip_network"]
 http = ["g3-types/http"]
 rustls = ["g3-types/rustls", "dep:rustls-pki-types"]
 openssl = ["g3-types/openssl", "dep:openssl"]
