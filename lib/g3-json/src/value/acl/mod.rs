@@ -26,17 +26,19 @@ mod exact_host;
 mod exact_port;
 mod network;
 mod proxy_request;
+mod regex_domain;
 mod regex_set;
 mod user_agent;
 
 pub(crate) use child_domain::as_child_domain_rule_builder;
 pub(crate) use exact_host::as_exact_host_rule;
 pub(crate) use network::as_dst_subnet_network_rule_builder;
-pub(crate) use regex_set::as_regex_set_rule_builder;
+pub(crate) use regex_domain::as_regex_domain_rule_builder;
 
 pub use exact_port::as_exact_port_rule;
 pub use network::{as_egress_network_rule_builder, as_ingress_network_rule_builder};
 pub use proxy_request::as_proxy_request_rule;
+pub use regex_set::as_regex_set_rule_builder;
 pub use user_agent::as_user_agent_rule;
 
 fn as_action(value: &Value) -> anyhow::Result<AclAction> {

@@ -147,6 +147,33 @@ Specify the parent domain to match, all children domain in this domain will be m
 
 The record type should be :ref:`domain <conf_value_domain>`.
 
+.. _conf_value_regex_domain_acl_rule:
+
+regex domain acl rule
+---------------------
+
+**yaml value**: :ref:`acl rule <conf_value_acl_rule>`
+
+The record type should be a map or :ref:`regex str <conf_value_regex_str>`.
+
+The following keys are required for the map format:
+
+ - parent
+
+   **required**, **type**: :ref:`domain <conf_value_domain>`
+
+   Set the parent domain to match.
+
+ - regex
+
+   **required**, **type**: :ref:`regex str <conf_value_regex_str>`
+
+   Set the regex to match the sub part of the domain.
+
+For str format, the regex will match against the full domain.
+
+.. versionadded:: 1.11.5
+
 .. _conf_value_regex_set_acl_rule:
 
 regex set acl rule
@@ -154,7 +181,7 @@ regex set acl rule
 
 **yaml value**: :ref:`acl rule <conf_value_acl_rule>`
 
-The record type should be a valid regex string.
+The record type should be :ref:`regex str <conf_value_regex_str>`.
 
 .. _conf_value_dst_host_acl_rule_set:
 
@@ -179,7 +206,7 @@ Consisted of the following rules:
 
 * regex_match
 
-  **optional**, **type**: :ref:`regex set acl rule <conf_value_regex_set_acl_rule>`
+  **optional**, **type**: :ref:`regex domain acl rule <conf_value_regex_domain_acl_rule>`
 
   Match only if the host is a domain.
 

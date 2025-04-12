@@ -15,7 +15,6 @@
  */
 
 use anyhow::anyhow;
-use regex::Regex;
 use yaml_rust::Yaml;
 
 use g3_types::acl::{AclAction, AclRegexSetRuleBuilder};
@@ -36,7 +35,7 @@ impl AclRuleYamlParser for AclRegexSetRuleBuilder {
     fn add_rule_for_action(&mut self, action: AclAction, value: &Yaml) -> anyhow::Result<()> {
         match value {
             Yaml::String(_) => {
-                let regex = as_regex(value)?;
+                let regex = crate::value::as_regex(value)?;
                 self.add_regex(&regex, action);
                 Ok(())
             }
@@ -45,18 +44,7 @@ impl AclRuleYamlParser for AclRegexSetRuleBuilder {
     }
 }
 
-fn as_regex(value: &Yaml) -> anyhow::Result<Regex> {
-    if let Yaml::String(s) = value {
-        let regex = Regex::new(s).map_err(|e| anyhow!("invalid regex value: {e}"))?;
-        Ok(regex)
-    } else {
-        Err(anyhow!(
-            "the yaml value type for regex string should be 'string'"
-        ))
-    }
-}
-
-pub(crate) fn as_regex_set_rule_builder(value: &Yaml) -> anyhow::Result<AclRegexSetRuleBuilder> {
+pub fn as_regex_set_rule_builder(value: &Yaml) -> anyhow::Result<AclRegexSetRuleBuilder> {
     let mut builder = AclRegexSetRuleBuilder::new(AclAction::Forbid);
     builder.parse(value)?;
     Ok(builder)

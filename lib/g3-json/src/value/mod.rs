@@ -43,6 +43,11 @@ pub mod acl;
 #[cfg(feature = "acl-rule")]
 pub mod acl_set;
 
+#[cfg(feature = "regex")]
+mod regex;
+#[cfg(feature = "regex")]
+pub use regex::as_regex;
+
 #[cfg(feature = "resolve")]
 mod resolve;
 #[cfg(feature = "resolve")]

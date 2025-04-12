@@ -127,6 +127,15 @@ ascii str
 
 The string should only consists of ascii characters.
 
+.. _conf_value_regex_str:
+
+regex str
+=========
+
+**yaml value**: str
+
+A regex string.
+
 .. _conf_value_rfc3339_datetime_str:
 
 rfc3339 datetime str

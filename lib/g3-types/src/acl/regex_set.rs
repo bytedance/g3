@@ -20,23 +20,73 @@ use regex::{Regex, RegexSet};
 
 use super::{AclAction, ActionContract, OrderedActionContract};
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct RegexSetBuilder<Action = AclAction> {
+    inner: HashMap<String, Action>,
+}
+
+impl<Action: ActionContract> Default for RegexSetBuilder<Action> {
+    fn default() -> Self {
+        RegexSetBuilder {
+            inner: HashMap::new(),
+        }
+    }
+}
+
+impl<Action: ActionContract> RegexSetBuilder<Action> {
+    pub(super) fn add_regex(&mut self, regex: &Regex, action: Action) {
+        self.inner.insert(regex.as_str().to_string(), action);
+    }
+}
+
+impl<Action: OrderedActionContract> RegexSetBuilder<Action> {
+    pub(super) fn build(&self) -> RegexSetMatch<Action> {
+        let mut action_map: BTreeMap<Action, Vec<&str>> = BTreeMap::new();
+        for (r, action) in &self.inner {
+            action_map.entry(*action).or_default().push(r.as_str());
+        }
+
+        let action_map = action_map
+            .into_iter()
+            .map(|(action, v)| (action, RegexSet::new(v).unwrap()))
+            .collect();
+
+        RegexSetMatch { inner: action_map }
+    }
+}
+
+pub(super) struct RegexSetMatch<Action = AclAction> {
+    inner: BTreeMap<Action, RegexSet>,
+}
+
+impl<Action: ActionContract> RegexSetMatch<Action> {
+    pub fn check(&self, text: &str) -> Option<Action> {
+        for (action, rs) in &self.inner {
+            if rs.is_match(text) {
+                return Some(*action);
+            }
+        }
+        None
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AclRegexSetRuleBuilder<Action = AclAction> {
-    inner: HashMap<String, Action>,
+    inner: RegexSetBuilder<Action>,
     missed_action: Action,
 }
 
 impl<Action: ActionContract> AclRegexSetRuleBuilder<Action> {
     pub fn new(missed_action: Action) -> Self {
         AclRegexSetRuleBuilder {
-            inner: HashMap::new(),
+            inner: RegexSetBuilder::default(),
             missed_action,
         }
     }
 
     #[inline]
     pub fn add_regex(&mut self, regex: &Regex, action: Action) {
-        self.inner.insert(regex.as_str().to_string(), action);
+        self.inner.add_regex(regex, action);
     }
 
     #[inline]
@@ -52,34 +102,22 @@ impl<Action: ActionContract> AclRegexSetRuleBuilder<Action> {
 
 impl<Action: OrderedActionContract> AclRegexSetRuleBuilder<Action> {
     pub fn build(&self) -> AclRegexSetRule<Action> {
-        let mut action_map: BTreeMap<Action, Vec<&str>> = BTreeMap::new();
-        for (r, action) in &self.inner {
-            action_map.entry(*action).or_default().push(r.as_str());
-        }
-
-        let action_map = action_map
-            .into_iter()
-            .map(|(action, v)| (action, RegexSet::new(v).unwrap()))
-            .collect();
-
         AclRegexSetRule {
-            action_map,
+            action_map: self.inner.build(),
             missed_action: self.missed_action,
         }
     }
 }
 
 pub struct AclRegexSetRule<Action = AclAction> {
-    action_map: BTreeMap<Action, RegexSet>,
+    action_map: RegexSetMatch<Action>,
     missed_action: Action,
 }
 
 impl<Action: ActionContract> AclRegexSetRule<Action> {
     pub fn check(&self, text: &str) -> (bool, Action) {
-        for (action, rs) in &self.action_map {
-            if rs.is_match(text) {
-                return (true, *action);
-            }
+        if let Some(action) = self.action_map.check(text) {
+            return (true, action);
         }
 
         (false, self.missed_action)
