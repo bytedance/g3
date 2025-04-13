@@ -46,6 +46,13 @@ escaper:
       - next: deny
         subnets:
           - 192.168.0.0/16
+    regex_match:
+      - next: deny
+        rules:
+          - parent: example.net
+            regex: abc.*
+          - parent: example.org
+            regex: abc.+
     default_next: internet
   - name: deny
     type: dummy_deny

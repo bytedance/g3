@@ -15,6 +15,7 @@
  */
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::fmt;
 use std::net::IpAddr;
 use std::sync::Arc;
 
@@ -30,6 +31,22 @@ use super::{AnyEscaperConfig, EscaperConfig, EscaperConfigDiffAction, EscaperCon
 
 const ESCAPER_CONFIG_TYPE: &str = "RouteUpstream";
 
+#[derive(Debug, Default, Clone, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) struct RegexMatchValue {
+    pub(crate) parent_domain: String,
+    pub(crate) sub_domain_regex: String,
+}
+
+impl fmt::Display for RegexMatchValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "regex {} for parent domain {}",
+            self.sub_domain_regex, self.parent_domain
+        )
+    }
+}
+
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct RouteUpstreamEscaperConfig {
     pub(crate) name: NodeName,
@@ -39,6 +56,7 @@ pub(crate) struct RouteUpstreamEscaperConfig {
     pub(crate) subnet_match_ipaddr: BTreeMap<NodeName, BTreeSet<IpNetwork>>,
     pub(crate) radix_match_domain: BTreeMap<NodeName, BTreeSet<String>>,
     pub(crate) child_match_domain: BTreeMap<NodeName, BTreeSet<String>>,
+    pub(crate) regex_match_domain: BTreeMap<NodeName, BTreeSet<RegexMatchValue>>,
     pub(crate) default_next: NodeName,
 }
 
@@ -52,6 +70,7 @@ impl RouteUpstreamEscaperConfig {
             subnet_match_ipaddr: BTreeMap::new(),
             radix_match_domain: BTreeMap::new(),
             child_match_domain: BTreeMap::new(),
+            regex_match_domain: BTreeMap::new(),
             default_next: NodeName::default(),
         }
     }
@@ -105,6 +124,9 @@ impl RouteUpstreamEscaperConfig {
             "child_match" | "child_rules" => {
                 RouteUpstreamEscaperConfig::foreach_rule(k, v, |map| self.add_child_match(map))
             }
+            "regex_match" | "regex_rules" => {
+                RouteUpstreamEscaperConfig::foreach_rule(k, v, |map| self.add_regex_match(map))
+            }
             "default_next" => {
                 self.default_next = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
@@ -138,6 +160,10 @@ impl RouteUpstreamEscaperConfig {
         }
         if !self.child_match_domain.is_empty() {
             EscaperConfigVerifier::check_duplicated_rule(&self.child_match_domain)
+                .context("found duplicated domain suffix for child match")?;
+        }
+        if !self.regex_match_domain.is_empty() {
+            EscaperConfigVerifier::check_duplicated_rule(&self.regex_match_domain)
                 .context("found duplicated domain suffix for child match")?;
         }
         Ok(())
@@ -290,6 +316,66 @@ impl RouteUpstreamEscaperConfig {
         }
         Ok(())
     }
+
+    fn add_regex_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
+        let mut escaper = NodeName::default();
+        let mut all_rules = BTreeSet::<RegexMatchValue>::new();
+        g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+            "next" | "escaper" => {
+                escaper = g3_yaml::value::as_metric_node_name(v)?;
+                Ok(())
+            }
+            "rules" | "rule" => {
+                if let Yaml::Array(seq) = v {
+                    for (i, v) in seq.iter().enumerate() {
+                        let mut rule = RegexMatchValue::default();
+                        match v {
+                            Yaml::Hash(map) => g3_yaml::foreach_kv(map, |k, v| {
+                                match g3_yaml::key::normalize(k).as_str() {
+                                    "parent" => {
+                                        rule.parent_domain = g3_yaml::value::as_string(v)?;
+                                        Ok(())
+                                    }
+                                    "regex" => {
+                                        let regex = g3_yaml::value::as_regex(v)?;
+                                        rule.sub_domain_regex = regex.to_string();
+                                        Ok(())
+                                    }
+                                    _ => Err(anyhow!("invalid key {k}")),
+                                }
+                            })
+                            .context(format!("invalid regex match rule value for {k}#{i}"))?,
+                            Yaml::String(_) => {
+                                let regex = g3_yaml::value::as_regex(v).context(format!(
+                                    "invalid regex match rule value for {k}#{i}"
+                                ))?;
+                                rule.sub_domain_regex = regex.to_string();
+                            }
+                            _ => {
+                                return Err(anyhow!(
+                                    "invalid value type for regex match rule for {k}#{i}"
+                                ));
+                            }
+                        }
+                        all_rules.insert(rule);
+                    }
+                    Ok(())
+                } else {
+                    Err(anyhow!("invalid array value for key {k}"))
+                }
+            }
+            _ => Err(anyhow!("invalid key {k}")),
+        })?;
+        if escaper.is_empty() {
+            return Err(anyhow!("no next escaper set"));
+        }
+        if !all_rules.is_empty() {
+            if let Some(_old) = self.regex_match_domain.insert(escaper.clone(), all_rules) {
+                return Err(anyhow!("found multiple entries for next escaper {escaper}"));
+            }
+        }
+        Ok(())
+    }
 }
 
 impl EscaperConfig for RouteUpstreamEscaperConfig {
@@ -337,6 +423,9 @@ impl EscaperConfig for RouteUpstreamEscaperConfig {
             set.insert(key.clone());
         }
         for key in self.child_match_domain.keys() {
+            set.insert(key.clone());
+        }
+        for key in self.regex_match_domain.keys() {
             set.insert(key.clone());
         }
         Some(set)
