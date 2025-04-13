@@ -1911,6 +1911,7 @@ dependencies = [
  "radix_trie",
  "rand",
  "redis",
+ "regex",
  "rmpv",
  "rustc-hash",
  "rustls",

@@ -22,7 +22,8 @@ use ahash::AHashMap;
 use anyhow::anyhow;
 use async_trait::async_trait;
 use ip_network_table::IpNetworkTable;
-use radix_trie::Trie;
+use radix_trie::{Trie, TrieCommon};
+use regex::RegexSet;
 use rustc_hash::FxHashMap;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
@@ -63,6 +64,8 @@ pub(super) struct RouteUpstreamEscaper {
     child_match_domain: Trie<String, ArcEscaper>,
     do_radix_match: bool,
     radix_match_domain: Trie<String, ArcEscaper>,
+    do_regex_match: bool,
+    regex_match_domain: Trie<String, Vec<(RegexSet, ArcEscaper)>>,
     default_next: ArcEscaper,
 }
 
@@ -128,6 +131,32 @@ impl RouteUpstreamEscaper {
             }
         }
 
+        let do_regex_match = !config.regex_match_domain.is_empty();
+        let mut regex_match_map: BTreeMap<String, Vec<(RegexSet, ArcEscaper)>> = BTreeMap::new();
+        for (escaper, rules) in &config.regex_match_domain {
+            let mut parent_regex_map: BTreeMap<String, Vec<&str>> = BTreeMap::new();
+            for rule in rules {
+                let parent_reversed = g3_types::resolve::reverse_idna_domain(&rule.parent_domain);
+                parent_regex_map
+                    .entry(parent_reversed)
+                    .or_default()
+                    .push(&rule.sub_domain_regex);
+            }
+
+            let next = next_table.get(escaper).unwrap();
+            for (parent_domain, regexes) in parent_regex_map {
+                let regex_set = RegexSet::new(regexes).unwrap();
+                regex_match_map
+                    .entry(parent_domain)
+                    .or_default()
+                    .push((regex_set, next.clone()));
+            }
+        }
+        let mut regex_match_domain = Trie::new();
+        for (parent_domain, value) in regex_match_map {
+            regex_match_domain.insert(parent_domain, value);
+        }
+
         let escaper = RouteUpstreamEscaper {
             config,
             stats,
@@ -139,6 +168,8 @@ impl RouteUpstreamEscaper {
             child_match_domain,
             do_radix_match,
             radix_match_domain,
+            do_regex_match,
+            regex_match_domain,
             default_next,
         };
 
@@ -200,6 +231,21 @@ impl RouteUpstreamEscaper {
             let key: String = host.chars().rev().collect();
             if let Some(escaper) = self.radix_match_domain.get_ancestor_value(&key) {
                 return Arc::clone(escaper);
+            }
+        }
+
+        if self.do_regex_match {
+            let key: String = g3_types::resolve::reverse_idna_domain(host);
+            if let Some(sub_trie) = self.regex_match_domain.get_ancestor(&key) {
+                if let Some(rules) = sub_trie.value() {
+                    let prefix_len = sub_trie.prefix().as_bytes().len();
+                    let sub = &key.as_str()[..key.len() - prefix_len];
+                    for (regex, escaper) in rules {
+                        if regex.is_match(sub) {
+                            return Arc::clone(escaper);
+                        }
+                    }
+                }
             }
         }
 

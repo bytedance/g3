@@ -103,3 +103,44 @@ Each rule is in *map* format, with two keys:
   Each element should be :ref:`domain <conf_value_domain>`.
 
   Each domain suffix should not be set for different next escapers.
+
+regex_match
+-----------
+
+**optional**, **type**: seq
+
+If the domain of the upstream address matches the one of the domain regex expressions in the rules,
+that escaper will be selected.
+
+Each rule is in *map* format, with two keys:
+
+* next
+
+  **required**, **type**: str
+
+  Set the next escaper.
+
+* rules
+
+  **optional**, **type**: seq
+
+  Each element should be a map or :ref:`regex str <conf_value_regex_str>`.
+
+  The following keys are used in the map format:
+
+    - parent
+
+      **optional**, **type**: :ref:`domain <conf_value_domain>`
+
+      The parent domain to strip out (including '.') before do the regex match check.
+      If omitted the full domain will be used.
+
+    - regex
+
+      **required**, **type**: :ref:`regex str <conf_value_regex_str>`
+
+      The regex expression.
+
+  Each rule should not be set for different next escapers.
+
+.. versionadded: 1.11.5
