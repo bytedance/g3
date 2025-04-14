@@ -207,6 +207,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
             .get(header::USER_AGENT)
             .map(|v| v.to_str());
         TaskLogForHttpForward {
+            logger: &self.ctx.task_logger,
             upstream: self.host.config.upstream(),
             task_notes: &self.task_notes,
             http_notes: &self.http_notes,
@@ -243,11 +244,10 @@ impl<'a> HttpRProxyForwardTask<'a> {
         self.pre_start();
         match self.run_forward(clt_r, clt_w, fwd_ctx).await {
             Ok(()) => {
-                self.get_log_context()
-                    .log(&self.ctx.task_logger, &ServerTaskError::Finished);
+                self.get_log_context().log(&ServerTaskError::Finished);
             }
             Err(e) => {
-                self.get_log_context().log(&self.ctx.task_logger, &e);
+                self.get_log_context().log(&e);
             }
         }
     }
@@ -264,7 +264,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
         }
 
         if self.ctx.server_config.flush_task_log_on_created {
-            self.get_log_context().log_created(&self.ctx.task_logger);
+            self.get_log_context().log_created();
         }
 
         self.started = true;
@@ -530,7 +530,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
             }
 
             if self.ctx.server_config.flush_task_log_on_connected {
-                self.get_log_context().log_connected(&self.ctx.task_logger);
+                self.get_log_context().log_connected();
             }
 
             connection
@@ -548,7 +548,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 }
                 Err(e) => {
                     if self.http_notes.retry_new_connection {
-                        self.get_log_context().log(&self.ctx.task_logger, &e);
+                        self.get_log_context().log(&e);
                         self.task_stats.ups.reset();
                         // continue to make new connection
                         if let Some(user_ctx) = self.task_notes.user_ctx() {
@@ -620,7 +620,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
 
                 if self.ctx.server_config.flush_task_log_on_connected {
-                    self.get_log_context().log_connected(&self.ctx.task_logger);
+                    self.get_log_context().log_connected();
                 }
 
                 connection
@@ -745,7 +745,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
                             if self.http_notes.reused_connection
                                 && self.http_notes.retry_new_connection
                             {
-                                self.get_log_context().log(&self.ctx.task_logger, &e);
+                                self.get_log_context().log(&e);
                                 self.task_stats.ups.reset();
                                 ups_c = self.get_new_connection(fwd_ctx, clt_w).await?;
                             } else {
@@ -890,7 +890,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 Ok(rsp_header) => rsp_header,
                 Err(e) => {
                     if self.http_notes.reused_connection && self.http_notes.retry_new_connection {
-                        self.get_log_context().log(&self.ctx.task_logger, &e);
+                        self.get_log_context().log(&e);
                         self.task_stats.ups.reset();
                         ups_c = self.get_new_connection(fwd_ctx, clt_w).await?;
                         continue;
@@ -995,7 +995,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
                     break;
                 }
                 _ = log_interval.tick() => {
-                    self.get_log_context().log_periodic(&self.ctx.task_logger);
+                    self.get_log_context().log_periodic();
                 }
                 n = idle_interval.tick() => {
                     if clt_to_ups.is_idle() {
@@ -1200,7 +1200,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
                     };
                 }
                 _ = log_interval.tick() => {
-                    self.get_log_context().log_periodic(&self.ctx.task_logger);
+                    self.get_log_context().log_periodic();
                 }
                 n = idle_interval.tick() => {
                     if ups_to_clt.is_idle() {

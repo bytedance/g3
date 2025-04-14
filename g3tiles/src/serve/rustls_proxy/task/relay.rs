@@ -69,6 +69,7 @@ impl RustlsRelayTask {
 
     fn get_log_context(&self) -> TaskLogForTcpConnect {
         TaskLogForTcpConnect {
+            logger: &self.ctx.task_logger,
             task_notes: &self.task_notes,
             client_rd_bytes: self.task_stats.clt.read.get_bytes(),
             client_wr_bytes: self.task_stats.clt.write.get_bytes(),
@@ -83,7 +84,7 @@ impl RustlsRelayTask {
     {
         self.pre_start();
         if let Err(e) = self.run(tls_stream).await {
-            self.get_log_context().log(&self.ctx.task_logger, &e)
+            self.get_log_context().log(e);
         }
     }
 
@@ -91,7 +92,7 @@ impl RustlsRelayTask {
         self._alive_guard = Some(self.ctx.server_stats.add_task());
 
         if self.ctx.server_config.flush_task_log_on_created {
-            self.get_log_context().log_created(&self.ctx.task_logger);
+            self.get_log_context().log_created();
         }
     }
 
@@ -130,7 +131,7 @@ impl RustlsRelayTask {
         UW: AsyncWrite + Unpin,
     {
         if self.ctx.server_config.flush_task_log_on_connected {
-            self.get_log_context().log_connected(&self.ctx.task_logger);
+            self.get_log_context().log_connected();
         }
 
         self.task_notes.mark_relaying();
@@ -200,17 +201,15 @@ impl StreamTransitTask for RustlsRelayTask {
     }
 
     fn log_client_shutdown(&self) {
-        self.get_log_context()
-            .log_client_shutdown(&self.ctx.task_logger);
+        self.get_log_context().log_client_shutdown();
     }
 
     fn log_upstream_shutdown(&self) {
-        self.get_log_context()
-            .log_upstream_shutdown(&self.ctx.task_logger);
+        self.get_log_context().log_upstream_shutdown();
     }
 
     fn log_periodic(&self) {
-        self.get_log_context().log_periodic(&self.ctx.task_logger);
+        self.get_log_context().log_periodic();
     }
 
     fn log_flush_interval(&self) -> Option<Duration> {

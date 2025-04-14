@@ -90,6 +90,7 @@ impl SocksProxyUdpConnectTask {
 
     fn get_log_context(&self) -> TaskLogForUdpConnect {
         TaskLogForUdpConnect {
+            logger: &self.ctx.task_logger,
             task_notes: &self.task_notes,
             tcp_server_addr: self.ctx.server_addr(),
             tcp_client_addr: self.ctx.client_addr(),
@@ -116,10 +117,8 @@ impl SocksProxyUdpConnectTask {
         tokio::spawn(async move {
             self.pre_start();
             match self.run(clt_r, clt_w).await {
-                Ok(_) => self
-                    .get_log_context()
-                    .log(&self.ctx.task_logger, &ServerTaskError::ClosedByClient),
-                Err(e) => self.get_log_context().log(&self.ctx.task_logger, &e),
+                Ok(_) => self.get_log_context().log(ServerTaskError::ClosedByClient),
+                Err(e) => self.get_log_context().log(e),
             }
         });
     }
@@ -134,7 +133,7 @@ impl SocksProxyUdpConnectTask {
         }
 
         if self.ctx.server_config.flush_task_log_on_created {
-            self.get_log_context().log_created(&self.ctx.task_logger);
+            self.get_log_context().log_created();
         }
 
         self.started = true;
@@ -397,7 +396,7 @@ impl SocksProxyUdpConnectTask {
                     };
                 }
                 _ = log_interval.tick() => {
-                    self.get_log_context().log_periodic(&self.ctx.task_logger);
+                    self.get_log_context().log_periodic();
                 }
                 n = idle_interval.tick() => {
                     if c_to_r.is_idle() && r_to_c.is_idle() {
@@ -567,7 +566,7 @@ impl SocksProxyUdpConnectTask {
         self.task_notes.stage = ServerTaskStage::Connected;
 
         if self.ctx.server_config.flush_task_log_on_connected {
-            self.get_log_context().log_connected(&self.ctx.task_logger);
+            self.get_log_context().log_connected();
         }
 
         poll_fn(|cx| ups_w.poll_send_packet(cx, &buf[buf_off..buf_nr])).await?;

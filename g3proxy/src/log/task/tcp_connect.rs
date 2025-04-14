@@ -24,6 +24,7 @@ use crate::module::tcp_connect::TcpConnectTaskNotes;
 use crate::serve::{ServerTaskError, ServerTaskNotes};
 
 pub(crate) struct TaskLogForTcpConnect<'a> {
+    pub(crate) logger: &'a Logger,
     pub(crate) upstream: &'a UpstreamAddr,
     pub(crate) task_notes: &'a ServerTaskNotes,
     pub(crate) tcp_notes: &'a TcpConnectTaskNotes,
@@ -34,14 +35,14 @@ pub(crate) struct TaskLogForTcpConnect<'a> {
 }
 
 impl TaskLogForTcpConnect<'_> {
-    pub(crate) fn log_created(&self, logger: &Logger) {
+    pub(crate) fn log_created(&self) {
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             if user_ctx.skip_log() {
                 return;
             }
         }
 
-        slog_info!(logger, "";
+        slog_info!(self.logger, "";
             "task_type" => "TcpConnect",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Created.as_str(),
@@ -55,14 +56,14 @@ impl TaskLogForTcpConnect<'_> {
         )
     }
 
-    pub(crate) fn log_connected(&self, logger: &Logger) {
+    pub(crate) fn log_connected(&self) {
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             if user_ctx.skip_log() {
                 return;
             }
         }
 
-        slog_info!(logger, "";
+        slog_info!(self.logger, "";
             "task_type" => "TcpConnect",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Connected.as_str(),
@@ -84,14 +85,14 @@ impl TaskLogForTcpConnect<'_> {
         )
     }
 
-    pub(crate) fn log_periodic(&self, logger: &Logger) {
+    pub(crate) fn log_periodic(&self) {
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             if user_ctx.skip_log() {
                 return;
             }
         }
 
-        slog_info!(logger, "";
+        slog_info!(self.logger, "";
             "task_type" => "TcpConnect",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Periodic.as_str(),
@@ -118,8 +119,8 @@ impl TaskLogForTcpConnect<'_> {
         )
     }
 
-    fn log_partial_shutdown(&self, logger: &Logger, task_event: TaskEvent) {
-        slog_info!(logger, "";
+    fn log_partial_shutdown(&self, task_event: TaskEvent) {
+        slog_info!(self.logger, "";
             "task_type" => "TcpConnect",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => task_event.as_str(),
@@ -143,22 +144,22 @@ impl TaskLogForTcpConnect<'_> {
         )
     }
 
-    pub(crate) fn log_client_shutdown(&self, logger: &Logger) {
-        self.log_partial_shutdown(logger, TaskEvent::ClientShutdown);
+    pub(crate) fn log_client_shutdown(&self) {
+        self.log_partial_shutdown(TaskEvent::ClientShutdown);
     }
 
-    pub(crate) fn log_upstream_shutdown(&self, logger: &Logger) {
-        self.log_partial_shutdown(logger, TaskEvent::UpstreamShutdown);
+    pub(crate) fn log_upstream_shutdown(&self) {
+        self.log_partial_shutdown(TaskEvent::UpstreamShutdown);
     }
 
-    pub(crate) fn log(&self, logger: &Logger, e: &ServerTaskError) {
+    pub(crate) fn log(&self, e: ServerTaskError) {
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             if user_ctx.skip_log() {
                 return;
             }
         }
 
-        slog_info!(logger, "{}", e;
+        slog_info!(self.logger, "{}", e;
             "task_type" => "TcpConnect",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Finished.as_str(),

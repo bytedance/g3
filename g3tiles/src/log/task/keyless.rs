@@ -22,13 +22,14 @@ use crate::module::keyless::KeylessRelaySnapshot;
 use crate::serve::{ServerTaskError, ServerTaskNotes};
 
 pub(crate) struct TaskLogForKeyless<'a> {
+    pub(crate) logger: &'a Logger,
     pub(crate) task_notes: &'a ServerTaskNotes,
     pub(crate) task_stats: KeylessRelaySnapshot,
 }
 
 impl TaskLogForKeyless<'_> {
-    pub(crate) fn log(&self, logger: &Logger, e: &ServerTaskError) {
-        slog_info!(logger, "{}", e;
+    pub(crate) fn log(&self, e: ServerTaskError) {
+        slog_info!(self.logger, "{}", e;
             "task_type" => "Keyless",
             "task_id" => LtUuid(&self.task_notes.id),
             "stage" => self.task_notes.stage.brief(),

@@ -27,6 +27,7 @@ use crate::module::tcp_connect::TcpConnectTaskNotes;
 use crate::serve::{ServerTaskError, ServerTaskNotes};
 
 pub(crate) struct TaskLogForHttpForward<'a> {
+    pub(crate) logger: &'a Logger,
     pub(crate) upstream: &'a UpstreamAddr,
     pub(crate) task_notes: &'a ServerTaskNotes,
     pub(crate) http_notes: &'a HttpForwardTaskNotes,
@@ -39,14 +40,14 @@ pub(crate) struct TaskLogForHttpForward<'a> {
 }
 
 impl TaskLogForHttpForward<'_> {
-    pub(crate) fn log_created(&self, logger: &Logger) {
+    pub(crate) fn log_created(&self) {
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             if user_ctx.skip_log() {
                 return;
             }
         }
 
-        slog_info!(logger, "";
+        slog_info!(self.logger, "";
             "task_type" => "HttpForward",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Created.as_str(),
@@ -64,14 +65,14 @@ impl TaskLogForHttpForward<'_> {
         )
     }
 
-    pub(crate) fn log_connected(&self, logger: &Logger) {
+    pub(crate) fn log_connected(&self) {
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             if user_ctx.skip_log() {
                 return;
             }
         }
 
-        slog_info!(logger, "";
+        slog_info!(self.logger, "";
             "task_type" => "HttpForward",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Connected.as_str(),
@@ -98,14 +99,14 @@ impl TaskLogForHttpForward<'_> {
         )
     }
 
-    pub(crate) fn log_periodic(&self, logger: &Logger) {
+    pub(crate) fn log_periodic(&self) {
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             if user_ctx.skip_log() {
                 return;
             }
         }
 
-        slog_info!(logger, "";
+        slog_info!(self.logger, "";
             "task_type" => "HttpForward",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Periodic.as_str(),
@@ -143,14 +144,14 @@ impl TaskLogForHttpForward<'_> {
         )
     }
 
-    pub(crate) fn log(&self, logger: &Logger, e: &ServerTaskError) {
+    pub(crate) fn log(&self, e: &ServerTaskError) {
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             if user_ctx.skip_log() {
                 return;
             }
         }
 
-        slog_info!(logger, "{}", e;
+        slog_info!(self.logger, "{}", e;
             "task_type" => "HttpForward",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Finished.as_str(),

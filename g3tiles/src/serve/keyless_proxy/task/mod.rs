@@ -55,6 +55,7 @@ impl KeylessForwardTask {
 
     fn get_log_context(&self) -> TaskLogForKeyless {
         TaskLogForKeyless {
+            logger: &self.ctx.task_logger,
             task_notes: &self.task_notes,
             task_stats: self.stats.relay.snapshot(),
         }
@@ -68,7 +69,7 @@ impl KeylessForwardTask {
         self.pre_start();
 
         if let Err(e) = self.run(clt_r, clt_w).await {
-            self.get_log_context().log(&self.ctx.task_logger, &e);
+            self.get_log_context().log(e);
         }
     }
 
