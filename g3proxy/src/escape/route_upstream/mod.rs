@@ -18,13 +18,8 @@ use std::collections::BTreeMap;
 use std::net::IpAddr;
 use std::sync::Arc;
 
-use ahash::AHashMap;
 use anyhow::anyhow;
 use async_trait::async_trait;
-use ip_network_table::IpNetworkTable;
-use radix_trie::{Trie, TrieCommon};
-use regex::RegexSet;
-use rustc_hash::FxHashMap;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::metrics::NodeName;
@@ -32,7 +27,9 @@ use g3_types::net::{Host, UpstreamAddr};
 
 use super::{ArcEscaper, Escaper, EscaperInternal, EscaperRegistry, RouteEscaperStats};
 use crate::audit::AuditContext;
-use crate::config::escaper::route_upstream::RouteUpstreamEscaperConfig;
+use crate::config::escaper::route_upstream::{
+    ChildMatch, ExactMatch, RegexMatch, RouteUpstreamEscaperConfig, SubnetMatch, SuffixMatch,
+};
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
 use crate::module::ftp_over_http::{
     ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpConnectContext,
@@ -57,15 +54,11 @@ pub(super) struct RouteUpstreamEscaper {
     config: RouteUpstreamEscaperConfig,
     stats: Arc<RouteEscaperStats>,
     next_table: BTreeMap<NodeName, ArcEscaper>,
-    exact_match_ipaddr: FxHashMap<IpAddr, ArcEscaper>,
-    subnet_match_ipaddr: IpNetworkTable<ArcEscaper>,
-    exact_match_domain: AHashMap<Arc<str>, ArcEscaper>,
-    do_child_match: bool,
-    child_match_domain: Trie<String, ArcEscaper>,
-    do_radix_match: bool,
-    radix_match_domain: Trie<String, ArcEscaper>,
-    do_regex_match: bool,
-    regex_match_domain: Trie<String, Vec<(RegexSet, ArcEscaper)>>,
+    exact_match: ExactMatch<ArcEscaper>,
+    subnet_match: Option<SubnetMatch<ArcEscaper>>,
+    child_match: Option<ChildMatch<ArcEscaper>>,
+    suffix_match: Option<SuffixMatch<ArcEscaper>>,
+    regex_match: Option<RegexMatch<ArcEscaper>>,
     default_next: ArcEscaper,
 }
 
@@ -88,88 +81,21 @@ impl RouteUpstreamEscaper {
 
         let default_next = Arc::clone(next_table.get(&config.default_next).unwrap());
 
-        let mut exact_match_ipaddr = FxHashMap::default();
-        for (escaper, ips) in &config.exact_match_ipaddr {
-            let next = &next_table.get(escaper).unwrap();
-            for ip in ips {
-                exact_match_ipaddr.insert(*ip, Arc::clone(next));
-            }
-        }
-        let mut exact_match_domain = AHashMap::new();
-        for (escaper, hosts) in &config.exact_match_domain {
-            for host in hosts {
-                let next = &next_table.get(escaper).unwrap();
-                exact_match_domain.insert(host.clone(), Arc::clone(next));
-            }
-        }
-
-        let mut subnet_match_ipaddr = IpNetworkTable::new();
-        for (escaper, subnets) in &config.subnet_match_ipaddr {
-            for subnet in subnets {
-                let next = &next_table.get(escaper).unwrap();
-                subnet_match_ipaddr.insert(*subnet, Arc::clone(next));
-            }
-        }
-
-        let do_child_match = !config.child_match_domain.is_empty();
-        let mut child_match_domain = Trie::new();
-        for (escaper, domains) in &config.child_match_domain {
-            for domain in domains {
-                let next = &next_table.get(escaper).unwrap();
-                let reversed = g3_types::resolve::reverse_idna_domain(domain);
-                child_match_domain.insert(reversed, Arc::clone(next));
-            }
-        }
-
-        let do_radix_match = !config.radix_match_domain.is_empty();
-        let mut radix_match_domain = Trie::new();
-        for (escaper, domains) in &config.radix_match_domain {
-            for domain in domains {
-                let next = &next_table.get(escaper).unwrap();
-                let reversed = domain.chars().rev().collect();
-                radix_match_domain.insert(reversed, Arc::clone(next));
-            }
-        }
-
-        let do_regex_match = !config.regex_match_domain.is_empty();
-        let mut regex_match_map: BTreeMap<String, Vec<(RegexSet, ArcEscaper)>> = BTreeMap::new();
-        for (escaper, rules) in &config.regex_match_domain {
-            let mut parent_regex_map: BTreeMap<String, Vec<&str>> = BTreeMap::new();
-            for rule in rules {
-                let parent_reversed = g3_types::resolve::reverse_idna_domain(&rule.parent_domain);
-                parent_regex_map
-                    .entry(parent_reversed)
-                    .or_default()
-                    .push(&rule.sub_domain_regex);
-            }
-
-            let next = next_table.get(escaper).unwrap();
-            for (parent_domain, regexes) in parent_regex_map {
-                let regex_set = RegexSet::new(regexes).unwrap();
-                regex_match_map
-                    .entry(parent_domain)
-                    .or_default()
-                    .push((regex_set, next.clone()));
-            }
-        }
-        let mut regex_match_domain = Trie::new();
-        for (parent_domain, value) in regex_match_map {
-            regex_match_domain.insert(parent_domain, value);
-        }
+        let exact_match = config.exact_match.build(&next_table);
+        let subnet_match = config.subnet_match.build(&next_table);
+        let child_match = config.child_match.build(&next_table);
+        let suffix_match = config.suffix_match.build(&next_table);
+        let regex_match = config.regex_match.build(&next_table);
 
         let escaper = RouteUpstreamEscaper {
             config,
             stats,
             next_table,
-            exact_match_ipaddr,
-            subnet_match_ipaddr,
-            exact_match_domain,
-            do_child_match,
-            child_match_domain,
-            do_radix_match,
-            radix_match_domain,
-            do_regex_match,
-            regex_match_domain,
+            exact_match,
+            subnet_match,
+            child_match,
+            suffix_match,
+            regex_match,
             default_next,
         };
 
@@ -198,58 +124,37 @@ impl RouteUpstreamEscaper {
     }
 
     fn select_next_by_ip(&self, ip: IpAddr) -> ArcEscaper {
-        if !self.exact_match_ipaddr.is_empty() {
-            if let Some(escaper) = self.exact_match_ipaddr.get(&ip) {
-                return Arc::clone(escaper);
+        if let Some(escaper) = self.exact_match.check_ip(ip) {
+            return escaper.clone();
+        }
+        if let Some(subnet_match) = &self.subnet_match {
+            if let Some(escaper) = subnet_match.check_ip(ip) {
+                return escaper.clone();
             }
         }
-
-        if !self.subnet_match_ipaddr.is_empty() {
-            if let Some((_, escaper)) = self.subnet_match_ipaddr.longest_match(ip) {
-                return Arc::clone(escaper);
-            }
-        }
-
-        Arc::clone(&self.default_next)
+        self.default_next.clone()
     }
 
     fn select_next_by_domain(&self, host: &str) -> ArcEscaper {
-        if !self.exact_match_domain.is_empty() {
-            if let Some(escaper) = self.exact_match_domain.get(host) {
-                return Arc::clone(escaper);
+        if let Some(escaper) = self.exact_match.check_domain(host) {
+            return escaper.clone();
+        }
+        if let Some(child_match) = &self.child_match {
+            if let Some(escaper) = child_match.check_domain(host) {
+                return escaper.clone();
             }
         }
-
-        if self.do_child_match {
-            let key = g3_types::resolve::reverse_idna_domain(host);
-            if let Some(escaper) = self.child_match_domain.get_ancestor_value(&key) {
-                return Arc::clone(escaper);
+        if let Some(suffix_match) = &self.suffix_match {
+            if let Some(escaper) = suffix_match.check_domain(host) {
+                return escaper.clone();
             }
         }
-
-        if self.do_radix_match {
-            let key: String = host.chars().rev().collect();
-            if let Some(escaper) = self.radix_match_domain.get_ancestor_value(&key) {
-                return Arc::clone(escaper);
+        if let Some(regex_match) = &self.regex_match {
+            if let Some(escaper) = regex_match.check_domain(host) {
+                return escaper.clone();
             }
         }
-
-        if self.do_regex_match {
-            let key: String = g3_types::resolve::reverse_idna_domain(host);
-            if let Some(sub_trie) = self.regex_match_domain.get_ancestor(&key) {
-                if let Some(rules) = sub_trie.value() {
-                    let prefix_len = sub_trie.prefix().as_bytes().len();
-                    let sub = &key.as_str()[..key.len() - prefix_len];
-                    for (regex, escaper) in rules {
-                        if regex.is_match(sub) {
-                            return Arc::clone(escaper);
-                        }
-                    }
-                }
-            }
-        }
-
-        Arc::clone(&self.default_next)
+        self.default_next.clone()
     }
 
     fn select_next(&self, ups: &UpstreamAddr) -> ArcEscaper {
@@ -432,17 +337,5 @@ impl EscaperInternal for RouteUpstreamEscaper {
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         transfer_tcp_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-
-    #[test]
-    fn join_vec_str_to_string() {
-        let mut v = vec!["bc", "de"];
-        v.insert(0, "a");
-        v.push("d");
-        assert_eq!(v.join("\n"), "a\nbc\nde\nd");
     }
 }

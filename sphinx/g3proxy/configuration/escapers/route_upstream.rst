@@ -14,133 +14,279 @@ The following common keys are supported:
 exact_match
 -----------
 
-**optional**, **type**: seq
+**optional**, **type**: seq | map
 
 If the host part of upstream address exactly match the one in the rules, that escaper will be selected.
 
-Each rule is in *map* format, with two keys:
+For seq format:
 
-* next
+  Each rule is in *map* format, with two keys:
 
-  **required**, **type**: str
+  * next
 
-  Set the next escaper.
+    **required**, **type**: str
 
-* hosts
+    Set the next escaper.
 
-  **optional**, **type**: seq
+  * hosts
 
-  Each element should be :ref:`host <conf_value_host>`.
+    **optional**, **type**: seq, **alias**: host
 
-  A host should not be set duplicated in rules for different next escapers.
+    Each element should be :ref:`host <conf_value_host>`.
+
+    A host should not be set duplicated in rules for different next escapers.
+
+  Example:
+
+  .. code-block:: yaml
+
+    - next: deny
+      hosts:
+        - example.net
+    - next: allow
+      hosts:
+        - 192.168.1.1
+
+For map format:
+
+  The key should be the next escaper name, and the value should be the same as `hosts` in the seq format.
+
+  Example:
+
+  .. code-block:: yaml
+
+    deny:
+      - example.net
+    allow:
+      - 192.168.1.1
+
+.. versionchanged:: 1.11.5 support map format
 
 subnet_match
 ------------
 
-**optional**, **type**: seq
+**optional**, **type**: seq | map
 
 If the host is an IP address and match the longest subnet in the rule, that escaper will be selected.
 
-Each rule is in *map* format, with two keys:
+For seq format:
 
-* next
+  Each rule is in *map* format, with two keys:
 
-  **required**, **type**: str
+  * next
 
-  Set the next escaper.
+    **required**, **type**: str
 
-* subnets
+    Set the next escaper.
 
-  **optional**, **type**: seq
+  * subnets
 
-  Each element should be :ref:`ip network str <conf_value_ip_network_str>`.
+    **optional**, **type**: seq, **alias**: subnet
 
-  A subnet should not be set duplicated in rules for different next escapers.
+    Each element should be :ref:`ip network str <conf_value_ip_network_str>`.
+
+    A subnet should not be set duplicated in rules for different next escapers.
+
+  Example:
+
+  .. code-block:: yaml
+
+    - next: deny
+      subnets:
+        - 192.168.0.0/16
+    - next: allow
+      subnets:
+        - 192.168.0.0/24
+
+For map format:
+
+  The key should be the next escaper name, and the value should be the same as `subnets` in the seq format.
+
+  Example:
+
+  .. code-block:: yaml
+
+    deny:
+      - 192.168.0.0/16
+    allow:
+      - 192.168.0.0/24
+
+.. versionchanged:: 1.11.5 support map format
 
 child_match
 -----------
 
-**optional**, **type**: seq
+**optional**, **type**: seq | map
 
 If the domain of the upstream address is children of domains in the rules, that escaper will be selected.
 
-Each rule is in *map* format, with two keys:
+For seq format:
 
-* next
+  Each rule is in *map* format, with two keys:
 
-  **required**, **type**: str
+  * next
 
-  Set the next escaper.
+    **required**, **type**: str
 
-* domains
+    Set the next escaper.
 
-  **optional**, **type**: seq
+  * domains
 
-  Each element should be :ref:`domain <conf_value_domain>`.
+    **optional**, **type**: seq, **alias**: domain
 
-  Each domain should not be set for different next escapers.
+    Each element should be :ref:`domain <conf_value_domain>`.
 
-radix_match
------------
+    Each domain should not be set for different next escapers.
 
-**optional**, **type**: seq
+  Example:
+
+  .. code-block:: yaml
+
+    - next: deny
+      domains:
+        - example.net
+    - next: allow
+      domains:
+        - test.example.net
+
+For map format:
+
+  The key should be the next escaper name, and the value should be the same as `domains` in the seq format.
+
+  Example:
+
+  .. code-block:: yaml
+
+    deny:
+      - example.net
+    allow:
+      - test.example.net
+
+.. versionchanged:: 1.11.5 support map format
+
+suffix_match
+------------
+
+**optional**, **type**: seq | map, **alias**: radix_match
 
 If the domain of the upstream address exactly match the one of the domain suffixes in the rules,
 that escaper will be selected.
 
-Each rule is in *map* format, with two keys:
+For seq format:
 
-* next
+  Each rule is in *map* format, with two keys:
 
-  **required**, **type**: str
+  * next
 
-  Set the next escaper.
+    **required**, **type**: str
 
-* suffixes
+    Set the next escaper.
 
-  **optional**, **type**: seq
+  * suffixes
 
-  Each element should be :ref:`domain <conf_value_domain>`.
+    **optional**, **type**: seq, **alias**: suffix
 
-  Each domain suffix should not be set for different next escapers.
+    Each element should be :ref:`domain <conf_value_domain>`.
+
+    Each domain suffix should not be set for different next escapers.
+
+  Example:
+
+  .. code-block:: yaml
+
+    - next: deny
+      suffixes:
+        - example.net
+    - next: allow
+      suffixes:
+        - t.example.net
+    # test.example.net will match `allow`
+
+For map format:
+
+  The key should be the next escaper name, and the value should be the same as `suffixes` in the seq format.
+
+  .. code-block:: yaml
+
+    deny:
+      - example.net
+    allow:
+      - t.example.net
+    # test.example.net will match `allow`
+
+.. versionchanged:: 1.11.5 support map format
 
 regex_match
 -----------
 
-**optional**, **type**: seq
+**optional**, **type**: seq | map
 
 If the domain of the upstream address matches the one of the domain regex expressions in the rules,
 that escaper will be selected.
 
-Each rule is in *map* format, with two keys:
+For seq format:
 
-* next
+  Each rule is in *map* format, with two keys:
 
-  **required**, **type**: str
+  * next
 
-  Set the next escaper.
+    **required**, **type**: str
 
-* rules
+    Set the next escaper.
 
-  **optional**, **type**: seq
+  * rules
 
-  Each element should be a map or :ref:`regex str <conf_value_regex_str>`.
+    **optional**, **type**: seq, **alias**: rule
 
-  The following keys are used in the map format:
+    Each element should be a map or :ref:`regex str <conf_value_regex_str>`.
 
-    - parent
+    The following keys are used in the map format:
 
-      **optional**, **type**: :ref:`domain <conf_value_domain>`
+      - parent
 
-      The parent domain to strip out (including '.') before do the regex match check.
-      If omitted the full domain will be used.
+        **optional**, **type**: :ref:`domain <conf_value_domain>`
 
-    - regex
+        The parent domain to strip out (including '.') before do the regex match check.
+        If omitted the full domain will be used.
 
-      **required**, **type**: :ref:`regex str <conf_value_regex_str>`
+      - regex
 
-      The regex expression.
+        **required**, **type**: :ref:`regex str <conf_value_regex_str>`
 
-  Each rule should not be set for different next escapers.
+        The regex expression.
 
-.. versionadded: 1.11.5
+    Each rule should not be set for different next escapers.
+
+  Example:
+
+  .. code-block:: yaml
+
+    - next: deny
+      rules:
+        - parent: example.net
+          regex: abc.*  # only match the sub part
+    - next: allow
+      rules:
+        - parent: example.net
+          regex: tes.+ # only match the sub part
+        - .*[.]example[.]org  # match the full domain
+    # test.example.net will match `allow`
+
+For map format:
+
+  The key should be the next escaper name, and the value should be the same as `rules` in the seq format.
+
+  Example:
+
+  .. code-block:: yaml
+
+    deny:
+      - parent: example.net
+        regex: abc.*  # only match the sub part
+    allow:
+      - parent: example.net
+        regex: tes.+ # only match the sub part
+      - .*[.]example[.]org  # match the full domain
+    # test.example.net will match `allow`
+
+.. versionadded:: 1.11.5
