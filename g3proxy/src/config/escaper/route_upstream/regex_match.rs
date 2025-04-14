@@ -203,8 +203,12 @@ impl<T> RegexMatch<T> {
         let key: String = g3_types::resolve::reverse_idna_domain(domain);
         if let Some(sub_trie) = self.parent_match.get_ancestor(&key) {
             if let Some(rules) = sub_trie.value() {
-                let prefix_len = sub_trie.prefix().as_bytes().len();
-                let prefix = domain.split_at(domain.len() - prefix_len).0;
+                let suffix_len = sub_trie.prefix().as_bytes().len();
+                let prefix = if domain.len() > suffix_len {
+                    domain.split_at(domain.len() - suffix_len).0
+                } else {
+                    ""
+                };
                 for (regex, value) in rules {
                     if regex.is_match(prefix) {
                         return Some(value);
@@ -249,6 +253,7 @@ mod tests {
         value_map.insert(unsafe { NodeName::new_unchecked("escaper_2") }, "escaper_2");
         let regex_match = builder.build(&value_map).unwrap();
 
+        assert!(regex_match.check_domain("example.net").is_none());
         let value = *regex_match.check_domain("abc.example.net").unwrap();
         assert!(value.eq("escaper_1"));
         assert!(regex_match.check_domain("abcexample.net").is_none());
@@ -280,6 +285,7 @@ mod tests {
         value_map.insert(unsafe { NodeName::new_unchecked("escaper_2") }, "escaper_2");
         let regex_match = builder.build(&value_map).unwrap();
 
+        assert!(regex_match.check_domain("example.net").is_none());
         let value = *regex_match.check_domain("abc.example.net").unwrap();
         assert!(value.eq("escaper_1"));
         assert!(regex_match.check_domain("abcexample.net").is_none());
