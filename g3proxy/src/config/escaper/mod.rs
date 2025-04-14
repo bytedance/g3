@@ -77,7 +77,7 @@ pub(crate) trait EscaperConfig {
     fn shared_logger(&self) -> Option<&str> {
         None
     }
-    fn get_escape_logger(&self) -> Logger {
+    fn get_escape_logger(&self) -> Option<Logger> {
         if let Some(shared_logger) = self.shared_logger() {
             crate::log::escape::get_shared_logger(shared_logger, self.r#type(), self.name())
         } else {

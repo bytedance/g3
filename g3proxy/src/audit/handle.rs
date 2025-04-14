@@ -36,8 +36,8 @@ pub(crate) struct AuditHandle {
     server_tcp_portmap: Arc<ProtocolPortMap>,
     client_tcp_portmap: Arc<ProtocolPortMap>,
     tls_interception: Option<TlsInterceptionContext>,
-    inspect_logger: Logger,
-    intercept_logger: Logger,
+    inspect_logger: Option<Logger>,
+    intercept_logger: Option<Logger>,
     icap_reqmod_client: Option<IcapReqmodClient>,
     icap_respmod_client: Option<IcapRespmodClient>,
     #[cfg(feature = "quic")]
@@ -81,13 +81,13 @@ impl AuditHandle {
     }
 
     #[inline]
-    pub(crate) fn inspect_logger(&self) -> &Logger {
-        &self.inspect_logger
+    pub(crate) fn inspect_logger(&self) -> Option<&Logger> {
+        self.inspect_logger.as_ref()
     }
 
     #[inline]
-    pub(crate) fn intercept_logger(&self) -> &Logger {
-        &self.intercept_logger
+    pub(crate) fn intercept_logger(&self) -> Option<&Logger> {
+        self.intercept_logger.as_ref()
     }
 
     #[inline]

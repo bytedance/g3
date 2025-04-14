@@ -49,7 +49,7 @@ pub(crate) struct KeylessProxyServer {
     listen_stats: Arc<ListenStats>,
     ingress_net_filter: Option<Arc<AclNetworkRule>>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
-    task_logger: Logger,
+    task_logger: Option<Logger>,
 
     backend_selector: Arc<ArcSwap<ArcBackend>>,
     quit_policy: Arc<ServerQuitPolicy>,

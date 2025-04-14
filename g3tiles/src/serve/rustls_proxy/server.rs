@@ -50,7 +50,7 @@ pub(crate) struct RustlsProxyServer {
     ingress_net_filter: Option<AclNetworkRule>,
     tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
-    task_logger: Logger,
+    task_logger: Option<Logger>,
     hosts: HostMatch<Arc<RustlsHost>>,
 
     quit_policy: Arc<ServerQuitPolicy>,

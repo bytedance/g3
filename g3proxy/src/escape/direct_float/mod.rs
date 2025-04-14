@@ -79,7 +79,7 @@ pub(super) struct DirectFloatEscaper {
     resolve_redirection: Option<ResolveRedirection>,
     bind_v4: ArcSwap<BindSet>,
     bind_v6: ArcSwap<BindSet>,
-    escape_logger: Logger,
+    escape_logger: Option<Logger>,
 }
 
 impl DirectFloatEscaper {

@@ -108,25 +108,28 @@ impl ProxyFloatEscaper {
             }
             Ok(Err(e)) => {
                 self.stats.tcp.connect.add_error();
-
-                EscapeLogForTcpConnect {
-                    upstream: task_conf.upstream,
-                    tcp_notes,
-                    task_id: &task_notes.id,
+                if let Some(logger) = &self.escape_logger {
+                    EscapeLogForTcpConnect {
+                        upstream: task_conf.upstream,
+                        tcp_notes,
+                        task_id: &task_notes.id,
+                    }
+                    .log(logger, &e);
                 }
-                .log(&self.escape_logger, &e);
                 Err(e)
             }
             Err(_) => {
                 self.stats.tcp.connect.add_timeout();
 
                 let e = TcpConnectError::TimeoutByRule;
-                EscapeLogForTcpConnect {
-                    upstream: task_conf.upstream,
-                    tcp_notes,
-                    task_id: &task_notes.id,
+                if let Some(logger) = &self.escape_logger {
+                    EscapeLogForTcpConnect {
+                        upstream: task_conf.upstream,
+                        tcp_notes,
+                        task_id: &task_notes.id,
+                    }
+                    .log(logger, &e);
                 }
-                .log(&self.escape_logger, &e);
                 Err(e)
             }
         }

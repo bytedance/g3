@@ -37,16 +37,18 @@ use crate::serve::{ServerTaskError, ServerTaskResult};
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
-        slog_info!($obj.ctx.intercept_logger(), $($args)+;
-            "intercept_type" => "H1Websocket",
-            "task_id" => LtUuid($obj.ctx.server_task_id()),
-            "depth" => $obj.ctx.inspection_depth,
-            "upstream" => LtUpstreamAddr(&$obj.upstream),
-            "ws_resource_name" => $obj.ws_notes.resource_name(),
-            "ws_origin" => $obj.ws_notes.origin().map(LtHttpHeaderValue),
-            "ws_sub_protocol" => $obj.ws_notes.sub_protocol().map(LtHttpHeaderValue),
-            "ws_version" => $obj.ws_notes.version().map(LtHttpHeaderValue),
-        )
+        if let Some(logger) = $obj.ctx.intercept_logger() {
+            slog_info!(logger, $($args)+;
+                "intercept_type" => "H1Websocket",
+                "task_id" => LtUuid($obj.ctx.server_task_id()),
+                "depth" => $obj.ctx.inspection_depth,
+                "upstream" => LtUpstreamAddr(&$obj.upstream),
+                "ws_resource_name" => $obj.ws_notes.resource_name(),
+                "ws_origin" => $obj.ws_notes.origin().map(LtHttpHeaderValue),
+                "ws_sub_protocol" => $obj.ws_notes.sub_protocol().map(LtHttpHeaderValue),
+                "ws_version" => $obj.ws_notes.version().map(LtHttpHeaderValue),
+            );
+        }
     };
 }
 
@@ -95,17 +97,19 @@ impl<SC: ServerConfig> H1WebsocketInterceptObject<SC> {
     }
 
     fn log_partial_shutdown(&self, task_event: TaskEvent) {
-        slog_info!(self.ctx.intercept_logger(), "";
-            "intercept_type" => "H1Websocket",
-            "task_id" => LtUuid(self.ctx.server_task_id()),
-            "task_event" => task_event.as_str(),
-            "depth" => self.ctx.inspection_depth,
-            "upstream" => LtUpstreamAddr(&self.upstream),
-            "ws_resource_name" => self.ws_notes.resource_name(),
-            "ws_origin" => self.ws_notes.origin().map(LtHttpHeaderValue),
-            "ws_sub_protocol" => self.ws_notes.sub_protocol().map(LtHttpHeaderValue),
-            "ws_version" => self.ws_notes.version().map(LtHttpHeaderValue),
-        )
+        if let Some(logger) = self.ctx.intercept_logger() {
+            slog_info!(logger, "";
+                "intercept_type" => "H1Websocket",
+                "task_id" => LtUuid(self.ctx.server_task_id()),
+                "task_event" => task_event.as_str(),
+                "depth" => self.ctx.inspection_depth,
+                "upstream" => LtUpstreamAddr(&self.upstream),
+                "ws_resource_name" => self.ws_notes.resource_name(),
+                "ws_origin" => self.ws_notes.origin().map(LtHttpHeaderValue),
+                "ws_sub_protocol" => self.ws_notes.sub_protocol().map(LtHttpHeaderValue),
+                "ws_version" => self.ws_notes.version().map(LtHttpHeaderValue),
+            );
+        }
     }
 }
 

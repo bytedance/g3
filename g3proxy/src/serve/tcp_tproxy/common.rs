@@ -16,6 +16,7 @@
 
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use slog::Logger;
 
@@ -34,12 +35,17 @@ pub(super) struct CommonTaskContext {
     pub(super) idle_wheel: Arc<IdleWheel>,
     pub(super) escaper: ArcEscaper,
     pub(super) cc_info: ClientConnectionInfo,
-    pub(super) task_logger: Logger,
+    pub(super) task_logger: Option<Logger>,
 }
 
 impl CommonTaskContext {
     #[inline]
     pub(super) fn target_addr(&self) -> SocketAddr {
         self.cc_info.server_addr()
+    }
+
+    pub(super) fn log_flush_interval(&self) -> Option<Duration> {
+        self.task_logger.as_ref()?;
+        self.server_config.task_log_flush_interval
     }
 }

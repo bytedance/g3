@@ -32,7 +32,7 @@ pub(crate) type UdpRelaySetupResult = Result<
     (
         Box<dyn UdpRelayRemoteRecv + Unpin + Send + Sync>,
         Box<dyn UdpRelayRemoteSend + Unpin + Send + Sync>,
-        Logger,
+        Option<Logger>,
     ),
     UdpRelaySetupError,
 >;

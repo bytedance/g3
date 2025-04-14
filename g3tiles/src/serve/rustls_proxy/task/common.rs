@@ -15,6 +15,7 @@
  */
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use slog::Logger;
 
@@ -31,5 +32,12 @@ pub(crate) struct CommonTaskContext {
     pub server_quit_policy: Arc<ServerQuitPolicy>,
     pub idle_wheel: Arc<IdleWheel>,
     pub cc_info: ClientConnectionInfo,
-    pub task_logger: Logger,
+    pub task_logger: Option<Logger>,
+}
+
+impl CommonTaskContext {
+    pub(super) fn log_flush_interval(&self) -> Option<Duration> {
+        self.task_logger.as_ref()?;
+        self.server_config.task_log_flush_interval
+    }
 }

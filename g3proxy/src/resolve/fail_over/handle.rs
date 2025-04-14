@@ -32,19 +32,19 @@ use crate::resolve::{BoxLoggedResolveJob, IntegratedResolverHandle, LoggedResolv
 pub(crate) struct FailOverResolverHandle {
     config: Arc<FailOverResolverConfig>,
     inner: g3_resolver::ResolverHandle,
-    logger: Arc<Logger>,
+    logger: Option<Logger>,
 }
 
 impl FailOverResolverHandle {
     pub(crate) fn new(
         config: &Arc<FailOverResolverConfig>,
         inner: g3_resolver::ResolverHandle,
-        logger: &Arc<Logger>,
+        logger: Option<Logger>,
     ) -> Self {
         FailOverResolverHandle {
             config: Arc::clone(config),
             inner,
-            logger: Arc::clone(logger),
+            logger,
         }
     }
 }
@@ -65,7 +65,7 @@ impl IntegratedResolverHandle for FailOverResolverHandle {
             domain,
             query_type: ResolveQueryType::A,
             inner: job,
-            logger: Arc::clone(&self.logger),
+            logger: self.logger.clone(),
             create_ins: Instant::now(),
         }))
     }
@@ -77,7 +77,7 @@ impl IntegratedResolverHandle for FailOverResolverHandle {
             domain,
             query_type: ResolveQueryType::Aaaa,
             inner: job,
-            logger: Arc::clone(&self.logger),
+            logger: self.logger.clone(),
             create_ins: Instant::now(),
         }))
     }
@@ -92,22 +92,24 @@ struct FailOverResolverJob {
     domain: Arc<str>,
     query_type: ResolveQueryType,
     inner: g3_resolver::ResolveJob,
-    logger: Arc<Logger>,
+    logger: Option<Logger>,
     create_ins: Instant,
 }
 
 impl LoggedResolveJob for FailOverResolverJob {
     fn log_error(&self, e: &ResolveError, source: ResolvedRecordSource) {
-        slog_info!(&self.logger, "{}", e;
-            "next_primary" => &self.config.primary.as_str(),
-            "next_standby" => &self.config.standby.as_str(),
-            "query_type" => self.query_type.as_str(),
-            "duration" => LtDuration(self.create_ins.elapsed()),
-            "rr_source" => source.as_str(),
-            "error_type" => e.get_type(),
-            "error_subtype" => e.get_subtype(),
-            "domain" => &self.domain,
-        );
+        if let Some(logger) = &self.logger {
+            slog_info!(logger, "{}", e;
+                "next_primary" => &self.config.primary.as_str(),
+                "next_standby" => &self.config.standby.as_str(),
+                "query_type" => self.query_type.as_str(),
+                "duration" => LtDuration(self.create_ins.elapsed()),
+                "rr_source" => source.as_str(),
+                "error_type" => e.get_type(),
+                "error_subtype" => e.get_subtype(),
+                "domain" => &self.domain,
+            );
+        }
     }
 
     impl_logged_poll_query!();

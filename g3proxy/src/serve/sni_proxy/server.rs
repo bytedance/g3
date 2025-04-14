@@ -53,7 +53,7 @@ pub(crate) struct SniProxyServer {
     server_tcp_portmap: Arc<ProtocolPortMap>,
     client_tcp_portmap: Arc<ProtocolPortMap>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
-    task_logger: Logger,
+    task_logger: Option<Logger>,
 
     escaper: ArcSwap<ArcEscaper>,
     audit_handle: ArcSwapOption<AuditHandle>,

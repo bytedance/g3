@@ -33,7 +33,7 @@ pub(crate) struct HickoryResolver {
     config: Arc<HickoryResolverConfig>,
     inner: g3_resolver::Resolver,
     stats: Arc<ResolverStats>,
-    logger: Arc<Logger>,
+    logger: Option<Logger>,
 }
 
 impl HickoryResolver {
@@ -49,7 +49,7 @@ impl HickoryResolver {
             config: Arc::new(config),
             inner: resolver,
             stats: Arc::new(stats),
-            logger: Arc::new(logger),
+            logger,
         }))
     }
 }
@@ -99,7 +99,7 @@ impl Resolver for HickoryResolver {
         Arc::new(super::HickoryResolverHandle::new(
             &self.config,
             inner_context,
-            &self.logger,
+            self.logger.clone(),
         ))
     }
 

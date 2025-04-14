@@ -67,7 +67,7 @@ pub(crate) struct HttpProxyServer {
     ingress_net_filter: Option<AclNetworkRule>,
     dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
-    task_logger: Logger,
+    task_logger: Option<Logger>,
 
     escaper: ArcSwap<ArcEscaper>,
     user_group: ArcSwapOption<UserGroup>,

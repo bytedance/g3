@@ -122,13 +122,15 @@ pub(crate) struct TlsInterceptObject<SC: ServerConfig> {
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
-        slog_info!($obj.ctx.intercept_logger(), $($args)+;
-            "intercept_type" => "TlsHandshake",
-            "task_id" => LtUuid($obj.ctx.server_task_id()),
-            "depth" => $obj.ctx.inspection_depth,
-            "upstream" => LtUpstreamAddr(&$obj.upstream),
-            "tls_server_verify" => $obj.server_verify_result.map(LtX509VerifyResult),
-        )
+        if let Some(logger) = $obj.ctx.intercept_logger() {
+            slog_info!(logger, $($args)+;
+                "intercept_type" => "TlsHandshake",
+                "task_id" => LtUuid($obj.ctx.server_task_id()),
+                "depth" => $obj.ctx.inspection_depth,
+                "upstream" => LtUpstreamAddr(&$obj.upstream),
+                "tls_server_verify" => $obj.server_verify_result.map(LtX509VerifyResult),
+            );
+        }
     };
 }
 

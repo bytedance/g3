@@ -33,11 +33,13 @@ impl<'a, SC: ServerConfig> StreamInspectLog<'a, SC> {
     }
 
     pub(crate) fn log(&self, source: InspectSource, protocol: Protocol) {
-        slog_info!(self.ctx.inspect_logger(), "";
-            "task_id" => LtUuid(self.ctx.server_task_id()),
-            "depth" => self.ctx.current_inspection_depth(),
-            "source" => source.as_str(),
-            "protocol" => protocol.as_str(),
-        )
+        if let Some(logger) = self.ctx.inspect_logger() {
+            slog_info!(logger, "";
+                "task_id" => LtUuid(self.ctx.server_task_id()),
+                "depth" => self.ctx.current_inspection_depth(),
+                "source" => source.as_str(),
+                "protocol" => protocol.as_str(),
+            );
+        }
     }
 }

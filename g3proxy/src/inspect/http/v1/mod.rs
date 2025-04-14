@@ -98,12 +98,14 @@ impl<SC: ServerConfig> H1InterceptObject<SC> {
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
-        slog_info!($obj.ctx.intercept_logger(), $($args)+;
-            "intercept_type" => "H1Connection",
-            "task_id" => LtUuid($obj.ctx.server_task_id()),
-            "depth" => $obj.ctx.inspection_depth,
-            "current_req_id" => $obj.req_id,
-        )
+        if let Some(logger) = $obj.ctx.intercept_logger() {
+            slog_info!(logger, $($args)+;
+                "intercept_type" => "H1Connection",
+                "task_id" => LtUuid($obj.ctx.server_task_id()),
+                "depth" => $obj.ctx.inspection_depth,
+                "current_req_id" => $obj.req_id,
+            );
+        }
     };
 }
 

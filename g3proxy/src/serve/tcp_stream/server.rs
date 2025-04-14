@@ -57,7 +57,7 @@ pub(crate) struct TcpStreamServer {
     tls_client_config: Option<Arc<OpensslClientConfig>>,
     ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
-    task_logger: Logger,
+    task_logger: Option<Logger>,
 
     escaper: ArcSwap<ArcEscaper>,
     audit_handle: ArcSwapOption<AuditHandle>,

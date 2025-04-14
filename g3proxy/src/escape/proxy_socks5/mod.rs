@@ -68,7 +68,7 @@ pub(super) struct ProxySocks5Escaper {
     stats: Arc<ProxySocks5EscaperStats>,
     proxy_nodes: SelectiveVec<WeightedUpstreamAddr>,
     resolver_handle: Option<ArcIntegratedResolverHandle>,
-    escape_logger: Logger,
+    escape_logger: Option<Logger>,
 }
 
 impl ProxySocks5Escaper {

@@ -16,12 +16,14 @@
 
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use slog::Logger;
+use tokio::time::Instant;
 
 use g3_daemon::server::ClientConnectionInfo;
 use g3_icap_client::reqmod::h1::HttpAdapterErrorResponse;
-use g3_io_ext::IdleWheel;
+use g3_io_ext::{IdleWheel, OptionalInterval};
 use g3_types::acl::AclAction;
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::net::{OpensslClientConfig, UpstreamAddr};
@@ -42,7 +44,7 @@ pub(crate) struct CommonTaskContext {
     pub(crate) escaper: ArcEscaper,
     pub(crate) cc_info: ClientConnectionInfo,
     pub(crate) tls_client_config: Arc<OpensslClientConfig>,
-    pub(crate) task_logger: Logger,
+    pub(crate) task_logger: Option<Logger>,
 
     pub(crate) dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
 }
@@ -150,5 +152,20 @@ impl CommonTaskContext {
                 http_header::set_outgoing_ip(&mut rsp.headers, addr);
             }
         }
+    }
+
+    pub(super) fn log_flush_interval(&self) -> Option<Duration> {
+        self.task_logger.as_ref()?;
+        self.server_config.task_log_flush_interval
+    }
+
+    pub(super) fn get_log_interval(&self) -> OptionalInterval {
+        self.log_flush_interval()
+            .map(|log_interval| {
+                let log_interval =
+                    tokio::time::interval_at(Instant::now() + log_interval, log_interval);
+                OptionalInterval::with(log_interval)
+            })
+            .unwrap_or_default()
     }
 }

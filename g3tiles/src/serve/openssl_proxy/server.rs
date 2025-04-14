@@ -50,7 +50,7 @@ pub(crate) struct OpensslProxyServer {
     ingress_net_filter: Option<AclNetworkRule>,
     tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
-    task_logger: Logger,
+    task_logger: Option<Logger>,
     hosts: Arc<HostMatch<Arc<OpensslHost>>>,
 
     quit_policy: Arc<ServerQuitPolicy>,

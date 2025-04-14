@@ -35,7 +35,7 @@ pub(crate) struct FailOverResolver {
     driver_config: FailOverDriverConfig,
     inner: g3_resolver::Resolver,
     stats: Arc<ResolverStats>,
-    logger: Arc<Logger>,
+    logger: Option<Logger>,
 }
 
 impl FailOverResolver {
@@ -67,7 +67,7 @@ impl FailOverResolver {
             driver_config,
             inner: resolver,
             stats: Arc::new(stats),
-            logger: Arc::new(logger),
+            logger,
         }))
     }
 }
@@ -155,7 +155,7 @@ impl Resolver for FailOverResolver {
         Arc::new(super::FailOverResolverHandle::new(
             &self.config,
             inner_context,
-            &self.logger,
+            self.logger.clone(),
         ))
     }
 

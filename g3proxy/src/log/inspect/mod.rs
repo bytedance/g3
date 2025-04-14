@@ -40,6 +40,6 @@ impl InspectSource {
     }
 }
 
-pub(crate) fn get_logger(auditor_name: &NodeName) -> Logger {
+pub(crate) fn get_logger(auditor_name: &NodeName) -> Option<Logger> {
     super::audit::get_logger(super::LOG_TYPE_INSPECT, auditor_name)
 }

@@ -57,14 +57,16 @@ use forward::H2ForwardTask;
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
-        slog_info!($obj.ctx.intercept_logger(), $($args)+;
-            "intercept_type" => "H2Connection",
-            "task_id" => LtUuid($obj.ctx.server_task_id()),
-            "depth" => $obj.ctx.inspection_depth,
-            "upstream" => LtUpstreamAddr(&$obj.upstream),
-            "total_sub_task" => $obj.stats.get_total_task(),
-            "alive_sub_task" => $obj.stats.get_alive_task(),
-        )
+        if let Some(logger) = $obj.ctx.intercept_logger() {
+            slog_info!(logger, $($args)+;
+                "intercept_type" => "H2Connection",
+                "task_id" => LtUuid($obj.ctx.server_task_id()),
+                "depth" => $obj.ctx.inspection_depth,
+                "upstream" => LtUpstreamAddr(&$obj.upstream),
+                "total_sub_task" => $obj.stats.get_total_task(),
+                "alive_sub_task" => $obj.stats.get_alive_task(),
+            );
+        }
     };
 }
 
@@ -110,13 +112,15 @@ impl<SC: ServerConfig> H2InterceptObject<SC> {
     }
 
     fn log_partial_shutdown(&self, task_event: TaskEvent) {
-        slog_info!(self.ctx.intercept_logger(), "";
-            "intercept_type" => "H2Connection",
-            "task_id" => LtUuid(self.ctx.server_task_id()),
-            "task_event" => task_event.as_str(),
-            "depth" => self.ctx.inspection_depth,
-            "upstream" => LtUpstreamAddr(&self.upstream),
-        )
+        if let Some(logger) = self.ctx.intercept_logger() {
+            slog_info!(logger, "";
+                "intercept_type" => "H2Connection",
+                "task_id" => LtUuid(self.ctx.server_task_id()),
+                "task_event" => task_event.as_str(),
+                "depth" => self.ctx.inspection_depth,
+                "upstream" => LtUpstreamAddr(&self.upstream),
+            );
+        }
     }
 }
 

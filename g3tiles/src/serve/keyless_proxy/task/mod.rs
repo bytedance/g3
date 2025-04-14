@@ -53,12 +53,15 @@ impl KeylessForwardTask {
         }
     }
 
-    fn get_log_context(&self) -> TaskLogForKeyless {
-        TaskLogForKeyless {
-            logger: &self.ctx.task_logger,
-            task_notes: &self.task_notes,
-            task_stats: self.stats.relay.snapshot(),
-        }
+    fn get_log_context(&self) -> Option<TaskLogForKeyless> {
+        self.ctx
+            .task_logger
+            .as_ref()
+            .map(|logger| TaskLogForKeyless {
+                logger,
+                task_notes: &self.task_notes,
+                task_stats: self.stats.relay.snapshot(),
+            })
     }
 
     pub(super) async fn into_running<R, W>(mut self, clt_r: R, clt_w: W)
@@ -69,7 +72,9 @@ impl KeylessForwardTask {
         self.pre_start();
 
         if let Err(e) = self.run(clt_r, clt_w).await {
-            self.get_log_context().log(e);
+            if let Some(log_ctx) = self.get_log_context() {
+                log_ctx.log(e);
+            }
         }
     }
 

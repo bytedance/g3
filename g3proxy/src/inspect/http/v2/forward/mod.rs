@@ -46,24 +46,26 @@ use crate::serve::ServerIdleChecker;
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
-        slog_info!($obj.ctx.intercept_logger(), $($args)+;
-            "intercept_type" => "H2StreamForward",
-            "task_id" => LtUuid($obj.ctx.server_task_id()),
-            "depth" => $obj.ctx.inspection_depth,
-            "clt_stream" => LtH2StreamId(&$obj.clt_stream_id),
-            "ups_stream" => $obj.ups_stream_id.as_ref().map(LtH2StreamId),
-            "started_at" => LtDateTime(&$obj.http_notes.started_datetime),
-            "method" => LtHttpMethod(&$obj.http_notes.method),
-            "uri" => LtHttpUri::new(&$obj.http_notes.uri, $obj.ctx.log_uri_max_chars()),
-            "host" => $obj.http_notes.host_header.as_ref().map(LtHttpHeaderValue),
-            "ready_time" => LtDuration($obj.http_notes.ready_time),
-            "rsp_status" => $obj.http_notes.rsp_status,
-            "origin_status" => $obj.http_notes.origin_status,
-            "dur_req_send_hdr" => LtDuration($obj.http_notes.dur_req_send_hdr),
-            "dur_req_send_all" => LtDuration($obj.http_notes.dur_req_send_all),
-            "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
-            "dur_rsp_recv_all" => LtDuration($obj.http_notes.dur_rsp_recv_all),
-        )
+        if let Some(logger) = $obj.ctx.intercept_logger() {
+            slog_info!(logger, $($args)+;
+                "intercept_type" => "H2StreamForward",
+                "task_id" => LtUuid($obj.ctx.server_task_id()),
+                "depth" => $obj.ctx.inspection_depth,
+                "clt_stream" => LtH2StreamId(&$obj.clt_stream_id),
+                "ups_stream" => $obj.ups_stream_id.as_ref().map(LtH2StreamId),
+                "started_at" => LtDateTime(&$obj.http_notes.started_datetime),
+                "method" => LtHttpMethod(&$obj.http_notes.method),
+                "uri" => LtHttpUri::new(&$obj.http_notes.uri, $obj.ctx.log_uri_max_chars()),
+                "host" => $obj.http_notes.host_header.as_ref().map(LtHttpHeaderValue),
+                "ready_time" => LtDuration($obj.http_notes.ready_time),
+                "rsp_status" => $obj.http_notes.rsp_status,
+                "origin_status" => $obj.http_notes.origin_status,
+                "dur_req_send_hdr" => LtDuration($obj.http_notes.dur_req_send_hdr),
+                "dur_req_send_all" => LtDuration($obj.http_notes.dur_req_send_all),
+                "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
+                "dur_rsp_recv_all" => LtDuration($obj.http_notes.dur_rsp_recv_all),
+            );
+        }
     };
 }
 

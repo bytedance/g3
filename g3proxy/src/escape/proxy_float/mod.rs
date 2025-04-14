@@ -71,7 +71,7 @@ pub(super) struct ProxyFloatEscaper {
     quit_job_sender: Option<mpsc::Sender<()>>,
     peers: Arc<ArcSwap<PeerSet>>,
     tls_config: Arc<OpensslClientConfig>,
-    escape_logger: Logger,
+    escape_logger: Option<Logger>,
 }
 
 impl ProxyFloatEscaper {

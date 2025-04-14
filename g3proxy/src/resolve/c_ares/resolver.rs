@@ -33,7 +33,7 @@ pub(crate) struct CAresResolver {
     config: Arc<CAresResolverConfig>,
     inner: g3_resolver::Resolver,
     stats: Arc<ResolverStats>,
-    logger: Arc<Logger>,
+    logger: Option<Logger>,
 }
 
 impl CAresResolver {
@@ -49,7 +49,7 @@ impl CAresResolver {
             config: Arc::new(config),
             inner: resolver,
             stats: Arc::new(stats),
-            logger: Arc::new(logger),
+            logger,
         }))
     }
 }
@@ -99,7 +99,7 @@ impl Resolver for CAresResolver {
         Arc::new(super::CAresResolverHandle::new(
             &self.config,
             inner_context,
-            &self.logger,
+            self.logger.clone(),
         ))
     }
 

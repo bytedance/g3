@@ -50,22 +50,24 @@ pub(crate) use adaptation::HttpRequestWriterForAdaptation;
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
-        slog_info!($obj.ctx.intercept_logger(), $($args)+;
-            "intercept_type" => "HttpForward",
-            "task_id" => LtUuid($obj.ctx.server_task_id()),
-            "depth" => $obj.ctx.inspection_depth,
-            "request_id" => $obj.req_id,
-            "received_at" => LtDateTime(&$obj.http_notes.receive_datetime),
-            "method" => LtHttpMethod(&$obj.req.method),
-            "uri" => LtHttpUri::new(&$obj.req.uri, $obj.ctx.log_uri_max_chars()),
-            "rsp_status" => $obj.http_notes.rsp_status,
-            "origin_status" => $obj.http_notes.origin_status,
-            "dur_req_send_hdr" => LtDuration($obj.http_notes.dur_req_send_hdr),
-            "dur_req_pipeline" => LtDuration($obj.http_notes.dur_req_pipeline),
-            "dur_req_send_all" => LtDuration($obj.http_notes.dur_req_send_all),
-            "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
-            "dur_rsp_recv_all" => LtDuration($obj.http_notes.dur_rsp_recv_all),
-        )
+        if let Some(logger) = $obj.ctx.intercept_logger() {
+            slog_info!(logger, $($args)+;
+                "intercept_type" => "HttpForward",
+                "task_id" => LtUuid($obj.ctx.server_task_id()),
+                "depth" => $obj.ctx.inspection_depth,
+                "request_id" => $obj.req_id,
+                "received_at" => LtDateTime(&$obj.http_notes.receive_datetime),
+                "method" => LtHttpMethod(&$obj.req.method),
+                "uri" => LtHttpUri::new(&$obj.req.uri, $obj.ctx.log_uri_max_chars()),
+                "rsp_status" => $obj.http_notes.rsp_status,
+                "origin_status" => $obj.http_notes.origin_status,
+                "dur_req_send_hdr" => LtDuration($obj.http_notes.dur_req_send_hdr),
+                "dur_req_pipeline" => LtDuration($obj.http_notes.dur_req_pipeline),
+                "dur_req_send_all" => LtDuration($obj.http_notes.dur_req_send_all),
+                "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
+                "dur_rsp_recv_all" => LtDuration($obj.http_notes.dur_rsp_recv_all),
+            );
+        }
     };
 }
 

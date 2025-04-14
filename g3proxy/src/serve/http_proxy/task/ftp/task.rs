@@ -20,7 +20,6 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use http::Method;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::time::Instant;
 
 use g3_ftp_client::{
     FtpClient, FtpFileFacts, FtpFileListError, FtpFileRetrieveStartError, FtpFileStatError,
@@ -28,7 +27,7 @@ use g3_ftp_client::{
 };
 use g3_http::server::HttpProxyClientRequest;
 use g3_http::{HttpBodyDecodeReader, HttpBodyReader, HttpBodyType};
-use g3_io_ext::{GlobalLimitGroup, LimitedCopy, LimitedCopyError, OptionalInterval, SizedReader};
+use g3_io_ext::{GlobalLimitGroup, LimitedCopy, LimitedCopyError, SizedReader};
 use g3_types::acl::AclAction;
 use g3_types::net::ProxyRequestType;
 
@@ -106,14 +105,18 @@ impl<'a> FtpOverHttpTask<'a> {
         self.should_close
     }
 
-    fn get_log_context(&self) -> TaskLogForFtpOverHttp {
+    fn get_log_context(&self) -> Option<TaskLogForFtpOverHttp> {
+        let Some(logger) = &self.ctx.task_logger else {
+            return None;
+        };
+
         let http_user_agent = self
             .req
             .end_to_end_headers
             .get(http::header::USER_AGENT)
             .map(|v| v.to_str());
-        TaskLogForFtpOverHttp {
-            logger: &self.ctx.task_logger,
+        Some(TaskLogForFtpOverHttp {
+            logger,
             task_notes: &self.task_notes,
             ftp_notes: &self.ftp_notes,
             http_user_agent,
@@ -123,19 +126,7 @@ impl<'a> FtpOverHttpTask<'a> {
             ftp_c_wr_bytes: self.task_stats.ftp_server.control_write.get_bytes(),
             ftp_d_rd_bytes: self.task_stats.ftp_server.transfer_read.get_bytes(),
             ftp_d_wr_bytes: self.task_stats.ftp_server.transfer_write.get_bytes(),
-        }
-    }
-
-    fn get_log_interval(&self) -> OptionalInterval {
-        self.ctx
-            .server_config
-            .task_log_flush_interval
-            .map(|log_interval| {
-                let log_interval =
-                    tokio::time::interval_at(Instant::now() + log_interval, log_interval);
-                OptionalInterval::with(log_interval)
-            })
-            .unwrap_or_default()
+        })
     }
 
     pub(crate) async fn run<CDR, CDW>(
@@ -147,13 +138,12 @@ impl<'a> FtpOverHttpTask<'a> {
         CDW: AsyncWrite + Send + Unpin,
     {
         self.pre_start();
-        match self.run_ftp(clt_r, clt_w).await {
-            Ok(()) => {
-                self.get_log_context().log(ServerTaskError::Finished);
-            }
-            Err(e) => {
-                self.get_log_context().log(e);
-            }
+        let e = match self.run_ftp(clt_r, clt_w).await {
+            Ok(()) => ServerTaskError::Finished,
+            Err(e) => e,
+        };
+        if let Some(log_ctx) = self.get_log_context() {
+            log_ctx.log(e);
         }
     }
 
@@ -169,7 +159,9 @@ impl<'a> FtpOverHttpTask<'a> {
         }
 
         if self.ctx.server_config.flush_task_log_on_created {
-            self.get_log_context().log_created();
+            if let Some(log_ctx) = self.get_log_context() {
+                log_ctx.log_created();
+            }
         }
 
         self.started = true;
@@ -692,7 +684,9 @@ impl<'a> FtpOverHttpTask<'a> {
                     .fetch_control_tcp_notes(&mut self.ftp_notes.control_tcp_notes);
 
                 if self.ctx.server_config.flush_task_log_on_connected {
-                    self.get_log_context().log_connected();
+                    if let Some(log_ctx) = self.get_log_context() {
+                        log_ctx.log_connected();
+                    }
                 }
 
                 Ok(client)
@@ -1227,7 +1221,7 @@ impl<'a> FtpOverHttpTask<'a> {
             LimitedCopy::new(&mut data_stream, clt_w, &self.ctx.server_config.tcp_copy);
 
         let mut idle_interval = self.ctx.idle_wheel.register();
-        let mut log_interval = self.get_log_interval();
+        let mut log_interval = self.ctx.get_log_interval();
         let mut idle_count = 0;
         loop {
             tokio::select! {
@@ -1271,7 +1265,9 @@ impl<'a> FtpOverHttpTask<'a> {
                     };
                 }
                 _ = log_interval.tick() => {
-                    self.get_log_context().log_periodic();
+                    if let Some(log_ctx) = self.get_log_context() {
+                        log_ctx.log_periodic();
+                    }
                 }
                 n = idle_interval.tick() => {
                     if data_copy.is_idle() {
@@ -1439,7 +1435,7 @@ impl<'a> FtpOverHttpTask<'a> {
         );
 
         let mut idle_interval = self.ctx.idle_wheel.register();
-        let mut log_interval = self.get_log_interval();
+        let mut log_interval = self.ctx.get_log_interval();
         let mut idle_count = 0;
 
         loop {
@@ -1472,7 +1468,9 @@ impl<'a> FtpOverHttpTask<'a> {
                     ));
                 }
                 _ = log_interval.tick() => {
-                    self.get_log_context().log_periodic();
+                    if let Some(log_ctx) = self.get_log_context() {
+                        log_ctx.log_periodic();
+                    }
                 }
                 n = idle_interval.tick() => {
                     if data_copy.is_idle() {

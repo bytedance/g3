@@ -52,28 +52,32 @@ impl ProxyFloatEscaper {
             Ok(Ok(stream)) => Ok(stream),
             Ok(Err(e)) => {
                 let e = anyhow::Error::new(e);
-                EscapeLogForTlsHandshake {
-                    upstream: task_conf.tcp.upstream,
-                    tcp_notes,
-                    task_id: &task_notes.id,
-                    tls_name: task_conf.tls_name,
-                    tls_peer: task_conf.tcp.upstream,
-                    tls_application,
+                if let Some(logger) = &self.escape_logger {
+                    EscapeLogForTlsHandshake {
+                        upstream: task_conf.tcp.upstream,
+                        tcp_notes,
+                        task_id: &task_notes.id,
+                        tls_name: task_conf.tls_name,
+                        tls_peer: task_conf.tcp.upstream,
+                        tls_application,
+                    }
+                    .log(logger, &e);
                 }
-                .log(&self.escape_logger, &e);
                 Err(TcpConnectError::UpstreamTlsHandshakeFailed(e))
             }
             Err(_) => {
                 let e = anyhow!("upstream tls handshake timed out");
-                EscapeLogForTlsHandshake {
-                    upstream: task_conf.tcp.upstream,
-                    tcp_notes,
-                    task_id: &task_notes.id,
-                    tls_name: task_conf.tls_name,
-                    tls_peer: task_conf.tcp.upstream,
-                    tls_application,
+                if let Some(logger) = &self.escape_logger {
+                    EscapeLogForTlsHandshake {
+                        upstream: task_conf.tcp.upstream,
+                        tcp_notes,
+                        task_id: &task_notes.id,
+                        tls_name: task_conf.tls_name,
+                        tls_peer: task_conf.tcp.upstream,
+                        tls_application,
+                    }
+                    .log(logger, &e);
                 }
-                .log(&self.escape_logger, &e);
                 Err(TcpConnectError::UpstreamTlsHandshakeTimeout)
             }
         }

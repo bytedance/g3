@@ -32,20 +32,22 @@ use crate::inspect::StreamInspectContext;
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
-        slog_info!($obj.ctx.intercept_logger(), $($args)+;
-            "intercept_type" => "H2Connect",
-            "task_id" => LtUuid($obj.ctx.server_task_id()),
-            "depth" => $obj.ctx.inspection_depth,
-            "clt_stream" => LtH2StreamId(&$obj.clt_stream_id),
-            "ups_stream" => $obj.ups_stream_id.as_ref().map(LtH2StreamId),
-            "next_upstream" => $obj.upstream.as_ref().map(LtUpstreamAddr),
-            "started_at" => LtDateTime(&$obj.http_notes.started_datetime),
-            "ready_time" => LtDuration($obj.http_notes.ready_time),
-            "rsp_status" => $obj.http_notes.rsp_status,
-            "origin_status" => $obj.http_notes.origin_status,
-            "dur_req_send_hdr" => LtDuration($obj.http_notes.dur_req_send_hdr),
-            "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
-        )
+        if let Some(logger) = $obj.ctx.intercept_logger() {
+            slog_info!(logger, $($args)+;
+                "intercept_type" => "H2Connect",
+                "task_id" => LtUuid($obj.ctx.server_task_id()),
+                "depth" => $obj.ctx.inspection_depth,
+                "clt_stream" => LtH2StreamId(&$obj.clt_stream_id),
+                "ups_stream" => $obj.ups_stream_id.as_ref().map(LtH2StreamId),
+                "next_upstream" => $obj.upstream.as_ref().map(LtUpstreamAddr),
+                "started_at" => LtDateTime(&$obj.http_notes.started_datetime),
+                "ready_time" => LtDuration($obj.http_notes.ready_time),
+                "rsp_status" => $obj.http_notes.rsp_status,
+                "origin_status" => $obj.http_notes.origin_status,
+                "dur_req_send_hdr" => LtDuration($obj.http_notes.dur_req_send_hdr),
+                "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
+            );
+        }
     };
 }
 

@@ -15,6 +15,7 @@
  */
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use slog::Logger;
 
@@ -35,5 +36,12 @@ pub(super) struct CommonTaskContext {
     pub(super) escaper: ArcEscaper,
     pub(super) cc_info: ClientConnectionInfo,
     pub(super) tls_client_config: Option<Arc<OpensslClientConfig>>,
-    pub(super) task_logger: Logger,
+    pub(super) task_logger: Option<Logger>,
+}
+
+impl CommonTaskContext {
+    pub(super) fn log_flush_interval(&self) -> Option<Duration> {
+        self.task_logger.as_ref()?;
+        self.server_config.task_log_flush_interval
+    }
 }

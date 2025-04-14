@@ -135,7 +135,7 @@ impl KeyServerConfig {
         }
     }
 
-    pub(crate) fn get_task_logger(&self) -> Logger {
+    pub(crate) fn get_task_logger(&self) -> Option<Logger> {
         if let Some(shared_logger) = &self.shared_logger {
             crate::log::task::get_shared_logger(shared_logger.as_str(), self.name())
         } else {
@@ -143,7 +143,7 @@ impl KeyServerConfig {
         }
     }
 
-    pub(crate) fn get_request_logger(&self) -> Logger {
+    pub(crate) fn get_request_logger(&self) -> Option<Logger> {
         if let Some(shared_logger) = &self.shared_logger {
             crate::log::request::get_shared_logger(shared_logger.as_str(), self.name())
         } else {

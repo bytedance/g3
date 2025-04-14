@@ -20,14 +20,13 @@ use anyhow::anyhow;
 use futures_util::FutureExt;
 use http::header;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
-use tokio::time::Instant;
 
 use g3_http::client::HttpForwardRemoteResponse;
 use g3_http::server::HttpProxyClientRequest;
 use g3_http::{HttpBodyReader, HttpBodyType};
 use g3_io_ext::{
     GlobalLimitGroup, LimitedBufReadExt, LimitedCopy, LimitedCopyError, LimitedReadExt,
-    LimitedWriteExt, OptionalInterval,
+    LimitedWriteExt,
 };
 use g3_types::acl::AclAction;
 
@@ -200,14 +199,18 @@ impl<'a> HttpRProxyForwardTask<'a> {
         }
     }
 
-    fn get_log_context(&self) -> TaskLogForHttpForward {
+    fn get_log_context(&self) -> Option<TaskLogForHttpForward> {
+        let Some(logger) = &self.ctx.task_logger else {
+            return None;
+        };
+
         let http_user_agent = self
             .req
             .end_to_end_headers
             .get(header::USER_AGENT)
             .map(|v| v.to_str());
-        TaskLogForHttpForward {
-            logger: &self.ctx.task_logger,
+        Some(TaskLogForHttpForward {
+            logger,
             upstream: self.host.config.upstream(),
             task_notes: &self.task_notes,
             http_notes: &self.http_notes,
@@ -217,19 +220,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
             client_wr_bytes: self.task_stats.clt.write.get_bytes(),
             remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
             remote_wr_bytes: self.task_stats.ups.write.get_bytes(),
-        }
-    }
-
-    fn get_log_interval(&self) -> OptionalInterval {
-        self.ctx
-            .server_config
-            .task_log_flush_interval
-            .map(|log_interval| {
-                let log_interval =
-                    tokio::time::interval_at(Instant::now() + log_interval, log_interval);
-                OptionalInterval::with(log_interval)
-            })
-            .unwrap_or_default()
+        })
     }
 
     pub(crate) async fn run<CDR, CDW>(
@@ -242,13 +233,12 @@ impl<'a> HttpRProxyForwardTask<'a> {
         CDW: AsyncWrite + Unpin,
     {
         self.pre_start();
-        match self.run_forward(clt_r, clt_w, fwd_ctx).await {
-            Ok(()) => {
-                self.get_log_context().log(&ServerTaskError::Finished);
-            }
-            Err(e) => {
-                self.get_log_context().log(&e);
-            }
+        let e = match self.run_forward(clt_r, clt_w, fwd_ctx).await {
+            Ok(()) => ServerTaskError::Finished,
+            Err(e) => e,
+        };
+        if let Some(log_ctx) = self.get_log_context() {
+            log_ctx.log(&e);
         }
     }
 
@@ -264,7 +254,9 @@ impl<'a> HttpRProxyForwardTask<'a> {
         }
 
         if self.ctx.server_config.flush_task_log_on_created {
-            self.get_log_context().log_created();
+            if let Some(log_ctx) = self.get_log_context() {
+                log_ctx.log_created();
+            }
         }
 
         self.started = true;
@@ -530,7 +522,9 @@ impl<'a> HttpRProxyForwardTask<'a> {
             }
 
             if self.ctx.server_config.flush_task_log_on_connected {
-                self.get_log_context().log_connected();
+                if let Some(log_ctx) = self.get_log_context() {
+                    log_ctx.log_connected();
+                }
             }
 
             connection
@@ -548,7 +542,9 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 }
                 Err(e) => {
                     if self.http_notes.retry_new_connection {
-                        self.get_log_context().log(&e);
+                        if let Some(log_ctx) = self.get_log_context() {
+                            log_ctx.log(&e);
+                        }
                         self.task_stats.ups.reset();
                         // continue to make new connection
                         if let Some(user_ctx) = self.task_notes.user_ctx() {
@@ -620,7 +616,9 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
 
                 if self.ctx.server_config.flush_task_log_on_connected {
-                    self.get_log_context().log_connected();
+                    if let Some(log_ctx) = self.get_log_context() {
+                        log_ctx.log_connected();
+                    }
                 }
 
                 connection
@@ -745,7 +743,9 @@ impl<'a> HttpRProxyForwardTask<'a> {
                             if self.http_notes.reused_connection
                                 && self.http_notes.retry_new_connection
                             {
-                                self.get_log_context().log(&e);
+                                if let Some(log_ctx) = self.get_log_context() {
+                                    log_ctx.log(&e);
+                                }
                                 self.task_stats.ups.reset();
                                 ups_c = self.get_new_connection(fwd_ctx, clt_w).await?;
                             } else {
@@ -890,7 +890,9 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 Ok(rsp_header) => rsp_header,
                 Err(e) => {
                     if self.http_notes.reused_connection && self.http_notes.retry_new_connection {
-                        self.get_log_context().log(&e);
+                        if let Some(log_ctx) = self.get_log_context() {
+                            log_ctx.log(&e);
+                        }
                         self.task_stats.ups.reset();
                         ups_c = self.get_new_connection(fwd_ctx, clt_w).await?;
                         continue;
@@ -950,7 +952,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
         let mut rsp_header: Option<HttpForwardRemoteResponse> = None;
 
         let mut idle_interval = self.ctx.idle_wheel.register();
-        let mut log_interval = self.get_log_interval();
+        let mut log_interval = self.ctx.get_log_interval();
         let mut idle_count = 0;
         loop {
             tokio::select! {
@@ -995,7 +997,9 @@ impl<'a> HttpRProxyForwardTask<'a> {
                     break;
                 }
                 _ = log_interval.tick() => {
-                    self.get_log_context().log_periodic();
+                    if let Some(log_ctx) = self.get_log_context() {
+                        log_ctx.log_periodic();
+                    }
                 }
                 n = idle_interval.tick() => {
                     if clt_to_ups.is_idle() {
@@ -1177,7 +1181,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
         );
 
         let mut idle_interval = self.ctx.idle_wheel.register();
-        let mut log_interval = self.get_log_interval();
+        let mut log_interval = self.ctx.get_log_interval();
         let mut idle_count = 0;
         loop {
             tokio::select! {
@@ -1200,7 +1204,9 @@ impl<'a> HttpRProxyForwardTask<'a> {
                     };
                 }
                 _ = log_interval.tick() => {
-                    self.get_log_context().log_periodic();
+                    if let Some(log_ctx) = self.get_log_context() {
+                       log_ctx.log_periodic();
+                    }
                 }
                 n = idle_interval.tick() => {
                     if ups_to_clt.is_idle() {

@@ -18,7 +18,7 @@ use slog::{Logger, slog_o};
 
 use g3_types::metrics::NodeName;
 
-pub(crate) fn get_logger(resolver_type: &str, resolver_name: &NodeName) -> Logger {
+pub(crate) fn get_logger(resolver_type: &str, resolver_name: &NodeName) -> Option<Logger> {
     let config = crate::config::log::get_resolve_default_config();
     let logger_name = format!("lr-{resolver_name}");
     let common_values = slog_o!(

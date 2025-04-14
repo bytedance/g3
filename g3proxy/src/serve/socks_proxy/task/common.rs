@@ -16,12 +16,14 @@
 
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
+use std::time::Duration;
 
 use slog::Logger;
 use tokio::net::UdpSocket;
+use tokio::time::Instant;
 
 use g3_daemon::server::ClientConnectionInfo;
-use g3_io_ext::IdleWheel;
+use g3_io_ext::{IdleWheel, OptionalInterval};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::net::UpstreamAddr;
@@ -40,7 +42,7 @@ pub(crate) struct CommonTaskContext {
     pub(crate) ingress_net_filter: Option<Arc<AclNetworkRule>>,
     pub(crate) dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
     pub(crate) cc_info: ClientConnectionInfo,
-    pub(crate) task_logger: Logger,
+    pub(crate) task_logger: Option<Logger>,
 }
 
 impl CommonTaskContext {
@@ -168,5 +170,20 @@ impl CommonTaskContext {
             )
         })?;
         Ok((listen_addr, socket))
+    }
+
+    pub(super) fn log_flush_interval(&self) -> Option<Duration> {
+        self.task_logger.as_ref()?;
+        self.server_config.task_log_flush_interval
+    }
+
+    pub(super) fn get_log_interval(&self) -> OptionalInterval {
+        self.log_flush_interval()
+            .map(|log_interval| {
+                let log_interval =
+                    tokio::time::interval_at(Instant::now() + log_interval, log_interval);
+                OptionalInterval::with(log_interval)
+            })
+            .unwrap_or_default()
     }
 }
