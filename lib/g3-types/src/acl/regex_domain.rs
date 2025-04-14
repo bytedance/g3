@@ -93,7 +93,11 @@ impl<Action: ActionContract> AclRegexDomainRule<Action> {
             if let Some(sub_trie) = self.prefix_match_trie.get_ancestor(&s) {
                 if let Some(regex_map) = sub_trie.value() {
                     let suffix_len = sub_trie.prefix().as_bytes().len();
-                    let prefix = domain.split_at(domain.len() - suffix_len).0;
+                    let prefix = if domain.len() > suffix_len {
+                        domain.split_at(domain.len() - suffix_len).0
+                    } else {
+                        ""
+                    };
                     if let Some(action) = regex_map.check(prefix) {
                         return (true, action);
                     }
@@ -175,6 +179,7 @@ mod tests {
         builder.add_prefix_regex("example.org", &regex, AclAction::Permit);
 
         let rule = builder.build();
+        assert_eq!(rule.check("example.net"), (false, AclAction::Forbid));
         assert_eq!(rule.check("abcd.example.net"), (true, AclAction::Permit));
         assert_eq!(rule.check("abc.example.net"), (true, AclAction::Permit));
         assert_eq!(rule.check("abcdexample.net"), (false, AclAction::Forbid));
