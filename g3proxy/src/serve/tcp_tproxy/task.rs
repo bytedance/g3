@@ -59,32 +59,40 @@ impl TProxyStreamTask {
         }
     }
 
-    fn get_log_context(&self) -> TaskLogForTcpConnect {
-        TaskLogForTcpConnect {
-            logger: &self.ctx.task_logger,
-            upstream: &self.upstream,
-            task_notes: &self.task_notes,
-            tcp_notes: &self.tcp_notes,
-            client_rd_bytes: self.task_stats.clt.read.get_bytes(),
-            client_wr_bytes: self.task_stats.clt.write.get_bytes(),
-            remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
-            remote_wr_bytes: self.task_stats.ups.write.get_bytes(),
-        }
+    fn get_log_context(&self) -> Option<TaskLogForTcpConnect> {
+        self.ctx
+            .task_logger
+            .as_ref()
+            .map(|logger| TaskLogForTcpConnect {
+                logger,
+                upstream: &self.upstream,
+                task_notes: &self.task_notes,
+                tcp_notes: &self.tcp_notes,
+                client_rd_bytes: self.task_stats.clt.read.get_bytes(),
+                client_wr_bytes: self.task_stats.clt.write.get_bytes(),
+                remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
+                remote_wr_bytes: self.task_stats.ups.write.get_bytes(),
+            })
     }
 
     pub(super) async fn into_running(mut self, stream: TcpStream) {
         self.pre_start();
-        match self.run(stream).await {
-            Ok(_) => self.get_log_context().log(ServerTaskError::Finished),
-            Err(e) => self.get_log_context().log(e),
+        let e = match self.run(stream).await {
+            Ok(_) => ServerTaskError::Finished,
+            Err(e) => e,
         };
+        if let Some(log_ctx) = self.get_log_context() {
+            log_ctx.log(e);
+        }
     }
 
     fn pre_start(&mut self) {
         self._alive_guard = Some(self.ctx.server_stats.add_task());
 
         if self.ctx.server_config.flush_task_log_on_created {
-            self.get_log_context().log_created();
+            if let Some(log_ctx) = self.get_log_context() {
+                log_ctx.log_created();
+            }
         }
     }
 
@@ -129,7 +137,9 @@ impl TProxyStreamTask {
         W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
         if self.ctx.server_config.flush_task_log_on_connected {
-            self.get_log_context().log_connected();
+            if let Some(log_ctx) = self.get_log_context() {
+                log_ctx.log_connected();
+            }
         }
         self.task_notes.mark_relaying();
         self.relay(clt_stream, ups_r, ups_w).await
@@ -216,19 +226,25 @@ impl StreamTransitTask for TProxyStreamTask {
     }
 
     fn log_client_shutdown(&self) {
-        self.get_log_context().log_client_shutdown();
+        if let Some(log_ctx) = self.get_log_context() {
+            log_ctx.log_client_shutdown();
+        }
     }
 
     fn log_upstream_shutdown(&self) {
-        self.get_log_context().log_upstream_shutdown();
+        if let Some(log_ctx) = self.get_log_context() {
+            log_ctx.log_upstream_shutdown();
+        }
     }
 
     fn log_periodic(&self) {
-        self.get_log_context().log_periodic();
+        if let Some(log_ctx) = self.get_log_context() {
+            log_ctx.log_periodic();
+        }
     }
 
     fn log_flush_interval(&self) -> Option<Duration> {
-        self.ctx.server_config.task_log_flush_interval
+        self.ctx.log_flush_interval()
     }
 
     fn quit_policy(&self) -> &ServerQuitPolicy {

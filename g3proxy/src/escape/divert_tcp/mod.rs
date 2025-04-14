@@ -72,7 +72,7 @@ pub(super) struct DivertTcpEscaper {
     stats: Arc<DivertTcpEscaperStats>,
     proxy_nodes: SelectiveVec<WeightedUpstreamAddr>,
     resolver_handle: Option<ArcIntegratedResolverHandle>,
-    escape_logger: Logger,
+    escape_logger: Option<Logger>,
 }
 
 impl DivertTcpEscaper {

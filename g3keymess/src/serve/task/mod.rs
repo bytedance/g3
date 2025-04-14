@@ -147,8 +147,8 @@ pub(crate) struct KeylessTaskContext {
     pub(crate) duration_recorder: KeyServerDurationRecorder,
     pub(crate) peer_addr: SocketAddr,
     pub(crate) local_addr: SocketAddr,
-    pub(crate) task_logger: Logger,
-    pub(crate) request_logger: Logger,
+    pub(crate) task_logger: Option<Logger>,
+    pub(crate) request_logger: Option<Logger>,
     pub(crate) reload_notifier: broadcast::Receiver<ServerReloadCommand>,
     pub(crate) concurrency_limit: Option<Arc<Semaphore>>,
 }
@@ -217,12 +217,14 @@ impl KeylessTask {
         if e.ignore_log() {
             return;
         }
-        slog_info!(self.ctx.task_logger, "{}", e;
-            "task_id" => LtUuid(&self.id),
-            "start_at" => LtDateTime(&self.started),
-            "server_addr" => self.ctx.local_addr,
-            "client_addr" => self.ctx.peer_addr,
-        );
+        if let Some(logger) = &self.ctx.task_logger {
+            slog_info!(logger, "{}", e;
+                "task_id" => LtUuid(&self.id),
+                "start_at" => LtDateTime(&self.started),
+                "server_addr" => self.ctx.local_addr,
+                "client_addr" => self.ctx.peer_addr,
+            );
+        }
     }
 
     fn log_task_ok(&self) {

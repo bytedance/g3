@@ -216,12 +216,12 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     }
 
     #[inline]
-    pub(crate) fn inspect_logger(&self) -> &Logger {
+    pub(crate) fn inspect_logger(&self) -> Option<&Logger> {
         self.audit_handle.inspect_logger()
     }
 
     #[inline]
-    pub(crate) fn intercept_logger(&self) -> &Logger {
+    pub(crate) fn intercept_logger(&self) -> Option<&Logger> {
         self.audit_handle.intercept_logger()
     }
 

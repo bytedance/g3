@@ -18,7 +18,7 @@ use slog::{Logger, slog_o};
 
 use g3_types::metrics::NodeName;
 
-pub(super) fn get_logger(log_type: &'static str, auditor_name: &NodeName) -> Logger {
+pub(super) fn get_logger(log_type: &'static str, auditor_name: &NodeName) -> Option<Logger> {
     let config = crate::config::log::get_audit_default_config();
     let logger_name = format!("la-{auditor_name}");
     let common_values = slog_o!(

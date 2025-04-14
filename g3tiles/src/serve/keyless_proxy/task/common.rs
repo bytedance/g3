@@ -35,7 +35,7 @@ pub(crate) struct CommonTaskContext {
     pub server_quit_policy: Arc<ServerQuitPolicy>,
     pub idle_wheel: Arc<IdleWheel>,
     pub cc_info: ClientConnectionInfo,
-    pub task_logger: Logger,
+    pub task_logger: Option<Logger>,
     pub backend_selector: Arc<ArcSwap<ArcBackend>>,
 }
 

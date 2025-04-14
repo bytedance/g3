@@ -32,7 +32,7 @@ pub(crate) type UdpConnectResult = Result<
     (
         Box<dyn UdpCopyRemoteRecv + Unpin + Send + Sync>,
         Box<dyn UdpCopyRemoteSend + Unpin + Send + Sync>,
-        Logger,
+        Option<Logger>,
     ),
     UdpConnectError,
 >;

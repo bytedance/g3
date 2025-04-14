@@ -139,7 +139,9 @@ impl KeylessTask {
     where
         W: AsyncWrite + Send + Unpin + 'static,
     {
-        RequestErrorLogContext { task_id: &self.id }.log(&self.ctx.request_logger, &rsp);
+        if let Some(logger) = &self.ctx.request_logger {
+            RequestErrorLogContext { task_id: &self.id }.log(logger, &rsp);
+        }
 
         writer
             .write_all_flush(rsp.message())

@@ -47,21 +47,23 @@ use crate::serve::{ServerIdleChecker, ServerTaskError, ServerTaskResult};
 
 macro_rules! intercept_log {
     ($obj:tt, $r:expr, $($args:tt)+) => {
-        slog_info!($obj.ctx.intercept_logger(), $($args)+;
-            "intercept_type" => "HttpUpgrade",
-            "task_id" => LtUuid($obj.ctx.server_task_id()),
-            "depth" => $obj.ctx.inspection_depth,
-            "request_id" => $obj.req_id,
-            "next_protocol" => $r.as_ref().map(|v| v.0.to_string()),
-            "next_upstream" => $r.as_ref().map(|v| LtUpstreamAddr(&v.1)),
-            "received_at" => LtDateTime(&$obj.http_notes.receive_datetime),
-            "uri" => LtHttpUri::new(&$obj.req.uri, $obj.ctx.log_uri_max_chars()),
-            "rsp_status" => $obj.http_notes.rsp_status,
-            "origin_status" => $obj.http_notes.origin_status,
-            "dur_req_send_hdr" => LtDuration($obj.http_notes.dur_req_send_hdr),
-            "dur_req_pipeline" => LtDuration($obj.http_notes.dur_req_pipeline),
-            "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
-        )
+        if let Some(logger) = $obj.ctx.intercept_logger() {
+            slog_info!(logger, $($args)+;
+                "intercept_type" => "HttpUpgrade",
+                "task_id" => LtUuid($obj.ctx.server_task_id()),
+                "depth" => $obj.ctx.inspection_depth,
+                "request_id" => $obj.req_id,
+                "next_protocol" => $r.as_ref().map(|v| v.0.to_string()),
+                "next_upstream" => $r.as_ref().map(|v| LtUpstreamAddr(&v.1)),
+                "received_at" => LtDateTime(&$obj.http_notes.receive_datetime),
+                "uri" => LtHttpUri::new(&$obj.req.uri, $obj.ctx.log_uri_max_chars()),
+                "rsp_status" => $obj.http_notes.rsp_status,
+                "origin_status" => $obj.http_notes.origin_status,
+                "dur_req_send_hdr" => LtDuration($obj.http_notes.dur_req_send_hdr),
+                "dur_req_pipeline" => LtDuration($obj.http_notes.dur_req_pipeline),
+                "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
+            );
+        }
     };
 }
 

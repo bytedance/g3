@@ -70,7 +70,7 @@ pub(super) struct ProxySocks5sEscaper {
     proxy_nodes: SelectiveVec<WeightedUpstreamAddr>,
     tls_config: OpensslClientConfig,
     resolver_handle: Option<ArcIntegratedResolverHandle>,
-    escape_logger: Logger,
+    escape_logger: Option<Logger>,
 }
 
 impl ProxySocks5sEscaper {

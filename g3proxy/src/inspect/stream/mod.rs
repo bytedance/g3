@@ -332,13 +332,15 @@ struct UnknownStreamTransitTask<'a, SC: ServerConfig> {
 
 impl<SC: ServerConfig> UnknownStreamTransitTask<'_, SC> {
     fn log_partial_shutdown(&self, task_event: TaskEvent) {
-        slog_info!(self.ctx.intercept_logger(), "";
-            "intercept_type" => "TransitUnknown",
-            "inspect_status" => self.inspect_status.as_str(),
-            "task_id" => LtUuid(self.ctx.server_task_id()),
-            "task_event" => task_event.as_str(),
-            "depth" => self.ctx.inspection_depth,
-        );
+        if let Some(logger) = self.ctx.intercept_logger() {
+            slog_info!(logger, "";
+                "intercept_type" => "TransitUnknown",
+                "inspect_status" => self.inspect_status.as_str(),
+                "task_id" => LtUuid(self.ctx.server_task_id()),
+                "task_event" => task_event.as_str(),
+                "depth" => self.ctx.inspection_depth,
+            );
+        }
     }
 }
 

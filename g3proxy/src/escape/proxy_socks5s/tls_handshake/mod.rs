@@ -64,29 +64,33 @@ impl ProxySocks5sEscaper {
             Ok(Err(e)) => {
                 self.stats.tls.add_handshake_error();
                 let e = anyhow::Error::new(e);
-                EscapeLogForTlsHandshake {
-                    upstream: task_conf.upstream,
-                    tcp_notes,
-                    task_id: &task_notes.id,
-                    tls_name,
-                    tls_peer: &peer,
-                    tls_application: TlsApplication::HttpProxy,
+                if let Some(logger) = &self.escape_logger {
+                    EscapeLogForTlsHandshake {
+                        upstream: task_conf.upstream,
+                        tcp_notes,
+                        task_id: &task_notes.id,
+                        tls_name,
+                        tls_peer: &peer,
+                        tls_application: TlsApplication::HttpProxy,
+                    }
+                    .log(logger, &e);
                 }
-                .log(&self.escape_logger, &e);
                 Err(TcpConnectError::PeerTlsHandshakeFailed(e))
             }
             Err(_) => {
                 self.stats.tls.add_handshake_timeout();
                 let e = anyhow!("peer tls handshake timed out");
-                EscapeLogForTlsHandshake {
-                    upstream: task_conf.upstream,
-                    tcp_notes,
-                    task_id: &task_notes.id,
-                    tls_name,
-                    tls_peer: &peer,
-                    tls_application: TlsApplication::HttpProxy,
+                if let Some(logger) = &self.escape_logger {
+                    EscapeLogForTlsHandshake {
+                        upstream: task_conf.upstream,
+                        tcp_notes,
+                        task_id: &task_notes.id,
+                        tls_name,
+                        tls_peer: &peer,
+                        tls_application: TlsApplication::HttpProxy,
+                    }
+                    .log(logger, &e);
                 }
-                .log(&self.escape_logger, &e);
                 Err(TcpConnectError::PeerTlsHandshakeTimeout)
             }
         }

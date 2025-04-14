@@ -199,7 +199,7 @@ impl LogConfig {
         logger_name: String,
         daemon_group: &'static str,
         log_type: &'static str,
-    ) -> Logger {
+    ) -> Option<Logger> {
         let common_values = slog_o!(
             "daemon_name" => daemon_group,
             "log_type" => log_type,
@@ -213,7 +213,7 @@ impl LogConfig {
         logger_name: String,
         log_type: &'static str,
         common_values: OwnedKV<T>,
-    ) -> Logger
+    ) -> Option<Logger>
     where
         T: SendSyncRefUnwindSafeKV + 'static,
     {
@@ -224,24 +224,21 @@ impl LogConfig {
         };
 
         match self.driver {
-            LogConfigDriver::Discard => {
-                let drain = slog::Discard {};
-                Logger::root(drain, common_values)
-            }
+            LogConfigDriver::Discard => None,
             #[cfg(target_os = "linux")]
             LogConfigDriver::Journal(journal_conf) => {
                 let drain = g3_journal::new_async_logger(&async_conf, journal_conf);
                 let logger_stats = LoggerStats::new(&logger_name, drain.get_stats());
                 super::registry::add(logger_name.clone(), Arc::new(logger_stats));
                 let drain = ReportLogIoError::new(drain, &logger_name, self.io_err_sampling_mask);
-                Logger::root(drain, common_values)
+                Some(Logger::root(drain, common_values))
             }
             LogConfigDriver::Syslog(builder) => {
                 let drain = builder.start_async(&async_conf);
                 let logger_stats = LoggerStats::new(&logger_name, drain.get_stats());
                 super::registry::add(logger_name.clone(), Arc::new(logger_stats));
                 let drain = ReportLogIoError::new(drain, &logger_name, self.io_err_sampling_mask);
-                Logger::root(drain, common_values)
+                Some(Logger::root(drain, common_values))
             }
             LogConfigDriver::Fluentd(fluentd_conf) => {
                 let drain = g3_fluentd::new_async_logger(
@@ -252,14 +249,14 @@ impl LogConfig {
                 let logger_stats = LoggerStats::new(&logger_name, drain.get_stats());
                 super::registry::add(logger_name.clone(), Arc::new(logger_stats));
                 let drain = ReportLogIoError::new(drain, &logger_name, self.io_err_sampling_mask);
-                Logger::root(drain, common_values)
+                Some(Logger::root(drain, common_values))
             }
             LogConfigDriver::Stdout => {
                 let drain = g3_stdlog::new_async_logger(&async_conf, false, true);
                 let logger_stats = LoggerStats::new(&logger_name, drain.get_stats());
                 super::registry::add(logger_name.clone(), Arc::new(logger_stats));
                 let drain = slog::IgnoreResult::new(drain);
-                Logger::root(drain, common_values)
+                Some(Logger::root(drain, common_values))
             }
         }
     }

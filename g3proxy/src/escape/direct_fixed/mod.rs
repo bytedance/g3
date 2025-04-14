@@ -75,7 +75,7 @@ pub(super) struct DirectFixedEscaper {
     resolver_handle: ArcIntegratedResolverHandle,
     egress_net_filter: Arc<AclNetworkRule>,
     resolve_redirection: Option<ResolveRedirection>,
-    escape_logger: Logger,
+    escape_logger: Option<Logger>,
 }
 
 impl DirectFixedEscaper {

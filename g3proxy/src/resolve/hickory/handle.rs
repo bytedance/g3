@@ -32,19 +32,19 @@ use crate::resolve::{BoxLoggedResolveJob, IntegratedResolverHandle, LoggedResolv
 pub(crate) struct HickoryResolverHandle {
     config: Arc<HickoryResolverConfig>,
     inner: g3_resolver::ResolverHandle,
-    logger: Arc<Logger>,
+    logger: Option<Logger>,
 }
 
 impl HickoryResolverHandle {
     pub(crate) fn new(
         config: &Arc<HickoryResolverConfig>,
         inner: g3_resolver::ResolverHandle,
-        logger: &Arc<Logger>,
+        logger: Option<Logger>,
     ) -> Self {
         HickoryResolverHandle {
             config: Arc::clone(config),
             inner,
-            logger: Arc::clone(logger),
+            logger,
         }
     }
 }
@@ -65,7 +65,7 @@ impl IntegratedResolverHandle for HickoryResolverHandle {
             domain,
             query_type: ResolveQueryType::A,
             inner: job,
-            logger: Arc::clone(&self.logger),
+            logger: self.logger.clone(),
             create_ins: Instant::now(),
         }))
     }
@@ -77,7 +77,7 @@ impl IntegratedResolverHandle for HickoryResolverHandle {
             domain,
             query_type: ResolveQueryType::Aaaa,
             inner: job,
-            logger: Arc::clone(&self.logger),
+            logger: self.logger.clone(),
             create_ins: Instant::now(),
         }))
     }
@@ -92,12 +92,16 @@ struct HickoryResolverJob {
     domain: Arc<str>,
     query_type: ResolveQueryType,
     inner: g3_resolver::ResolveJob,
-    logger: Arc<Logger>,
+    logger: Option<Logger>,
     create_ins: Instant,
 }
 
 impl LoggedResolveJob for HickoryResolverJob {
     fn log_error(&self, e: &ResolveError, source: ResolvedRecordSource) {
+        let Some(logger) = &self.logger else {
+            return;
+        };
+
         let servers = self
             .config
             .get_servers()
@@ -105,7 +109,7 @@ impl LoggedResolveJob for HickoryResolverJob {
             .map(|server| server.to_string())
             .collect::<Vec<_>>()
             .join(" ");
-        slog_info!(&self.logger, "{}", e; // TODO add encryption info
+        slog_info!(logger, "{}", e; // TODO add encryption info
             "bind_addr" => LtBindAddr(self.config.get_bind_addr()),
             "server" => servers,
             "server_port" => self.config.get_server_port(),

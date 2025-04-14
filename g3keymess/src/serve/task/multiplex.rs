@@ -41,13 +41,13 @@ impl KeylessTask {
         let write_handle = tokio::spawn(async move {
             let mut write_error: Result<(), ServerTaskError> = Ok(());
 
-            let request_log_ctx = RequestErrorLogContext { task_id: &task_id };
-
             'outer: while let Some(rsp) = msg_receiver.recv().await {
                 let _ = rsp
                     .duration_recorder
                     .record(rsp.create_time.elapsed().as_nanos_u64());
-                request_log_ctx.log(&request_logger, &rsp.inner);
+                if let Some(logger) = &request_logger {
+                    RequestErrorLogContext { task_id: &task_id }.log(logger, &rsp.inner);
+                }
                 if let Err(e) = writer.write_all(rsp.inner.message()).await {
                     write_error = Err(ServerTaskError::WriteFailed(e));
                     break;
@@ -57,7 +57,9 @@ impl KeylessTask {
                     let _ = rsp
                         .duration_recorder
                         .record(rsp.create_time.elapsed().as_nanos_u64());
-                    request_log_ctx.log(&request_logger, &rsp.inner);
+                    if let Some(logger) = &request_logger {
+                        RequestErrorLogContext { task_id: &task_id }.log(logger, &rsp.inner);
+                    }
                     if let Err(e) = writer.write_all(rsp.inner.message()).await {
                         write_error = Err(ServerTaskError::WriteFailed(e));
                         break 'outer;

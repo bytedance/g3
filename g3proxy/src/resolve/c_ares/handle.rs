@@ -32,19 +32,19 @@ use crate::resolve::{BoxLoggedResolveJob, IntegratedResolverHandle, LoggedResolv
 pub(crate) struct CAresResolverHandle {
     config: Arc<CAresResolverConfig>,
     inner: g3_resolver::ResolverHandle,
-    logger: Arc<Logger>,
+    logger: Option<Logger>,
 }
 
 impl CAresResolverHandle {
     pub(crate) fn new(
         config: &Arc<CAresResolverConfig>,
         inner: g3_resolver::ResolverHandle,
-        logger: &Arc<Logger>,
+        logger: Option<Logger>,
     ) -> Self {
         CAresResolverHandle {
             config: Arc::clone(config),
             inner,
-            logger: Arc::clone(logger),
+            logger,
         }
     }
 }
@@ -65,7 +65,7 @@ impl IntegratedResolverHandle for CAresResolverHandle {
             domain,
             query_type: ResolveQueryType::A,
             inner: job,
-            logger: Arc::clone(&self.logger),
+            logger: self.logger.clone(),
             create_ins: Instant::now(),
         }))
     }
@@ -77,7 +77,7 @@ impl IntegratedResolverHandle for CAresResolverHandle {
             domain,
             query_type: ResolveQueryType::Aaaa,
             inner: job,
-            logger: Arc::clone(&self.logger),
+            logger: self.logger.clone(),
             create_ins: Instant::now(),
         }))
     }
@@ -92,12 +92,16 @@ struct CAresResolverJob {
     domain: Arc<str>,
     query_type: ResolveQueryType,
     inner: g3_resolver::ResolveJob,
-    logger: Arc<Logger>,
+    logger: Option<Logger>,
     create_ins: Instant,
 }
 
 impl LoggedResolveJob for CAresResolverJob {
     fn log_error(&self, e: &ResolveError, source: ResolvedRecordSource) {
+        let Some(logger) = &self.logger else {
+            return;
+        };
+
         let servers = self
             .config
             .get_servers()
@@ -105,7 +109,7 @@ impl LoggedResolveJob for CAresResolverJob {
             .map(|server| server.to_string())
             .collect::<Vec<_>>()
             .join(" ");
-        slog_info!(&self.logger, "{}", e;
+        slog_info!(logger, "{}", e;
             "bind_ipv4" => self.config.get_bind_ipv4().map(IpAddr::V4).map(LtIpAddr),
             "bind_ipv6" => self.config.get_bind_ipv6().map(IpAddr::V6).map(LtIpAddr),
             "server" => servers,

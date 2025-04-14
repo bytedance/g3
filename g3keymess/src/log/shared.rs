@@ -20,7 +20,7 @@ use std::sync::Mutex;
 use foldhash::fast::FixedState;
 use slog::Logger;
 
-static SHARED_LOGGER: Mutex<HashMap<String, Logger, FixedState>> =
+static SHARED_LOGGER: Mutex<HashMap<String, Option<Logger>, FixedState>> =
     Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub(super) enum SharedLoggerType {
@@ -32,7 +32,7 @@ pub(super) fn get_shared_logger<F>(
     logger_type: SharedLoggerType,
     logger_name: String,
     sub_logger: F,
-) -> Logger
+) -> Option<Logger>
 where
     F: Fn(&Logger) -> Logger,
 {
@@ -52,5 +52,5 @@ where
         .or_insert_with(|| {
             config.build_shared_logger(logger_name, crate::opts::daemon_group(), log_type)
         });
-    sub_logger(logger)
+    logger.as_ref().map(sub_logger)
 }

@@ -121,12 +121,14 @@ impl ProxyHttpsEscaper {
                 tcp_notes.duration = instant_now.elapsed();
 
                 let e = TcpConnectError::ConnectFailed(ConnectError::from(e));
-                EscapeLogForTcpConnect {
-                    upstream: task_conf.upstream,
-                    tcp_notes,
-                    task_id: &task_notes.id,
+                if let Some(logger) = &self.escape_logger {
+                    EscapeLogForTcpConnect {
+                        upstream: task_conf.upstream,
+                        tcp_notes,
+                        task_id: &task_notes.id,
+                    }
+                    .log(logger, &e);
                 }
-                .log(&self.escape_logger, &e);
                 Err(e)
             }
             Err(_) => {
@@ -134,12 +136,14 @@ impl ProxyHttpsEscaper {
                 tcp_notes.duration = instant_now.elapsed();
 
                 let e = TcpConnectError::TimeoutByRule;
-                EscapeLogForTcpConnect {
-                    upstream: task_conf.upstream,
-                    tcp_notes,
-                    task_id: &task_notes.id,
+                if let Some(logger) = &self.escape_logger {
+                    EscapeLogForTcpConnect {
+                        upstream: task_conf.upstream,
+                        tcp_notes,
+                        task_id: &task_notes.id,
+                    }
+                    .log(logger, &e);
                 }
-                .log(&self.escape_logger, &e);
                 Err(e)
             }
         }
@@ -239,12 +243,14 @@ impl ProxyHttpsEscaper {
                                         return Ok(ups_stream);
                                     }
                                     Err(e) => {
-                                        EscapeLogForTcpConnect {
-                                            upstream: task_conf.upstream,
-                                            tcp_notes,
-                                            task_id: &task_notes.id,
+                                        if let Some(logger) = &self.escape_logger {
+                                            EscapeLogForTcpConnect {
+                                                upstream: task_conf.upstream,
+                                                tcp_notes,
+                                                task_id: &task_notes.id,
+                                            }
+                                            .log(logger, &e);
                                         }
-                                        .log(&self.escape_logger, &e);
                                         // TODO tell resolver to remove addr
                                         returned_err = e;
                                         spawn_new_connection = true;

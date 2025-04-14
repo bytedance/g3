@@ -43,8 +43,8 @@ pub(crate) struct KeyServer {
     quit_policy: Arc<ServerQuitPolicy>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
     concurrency_limit: Option<Arc<Semaphore>>,
-    task_logger: Logger,
-    request_logger: Logger,
+    task_logger: Option<Logger>,
+    request_logger: Option<Logger>,
     dynamic_metrics_tags: Arc<ArcSwap<StaticMetricsTags>>,
 }
 

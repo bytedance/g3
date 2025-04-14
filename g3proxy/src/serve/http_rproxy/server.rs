@@ -65,7 +65,7 @@ pub(crate) struct HttpRProxyServer {
     global_tls_server: Option<RustlsServerConfig>,
     ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
-    task_logger: Logger,
+    task_logger: Option<Logger>,
     hosts: HostMatch<Arc<HttpHost>>,
 
     escaper: ArcSwap<ArcEscaper>,

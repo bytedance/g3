@@ -43,19 +43,21 @@ use crate::serve::{ServerIdleChecker, ServerTaskError, ServerTaskResult};
 
 macro_rules! intercept_log {
     ($obj:tt, $r:expr, $($args:tt)+) => {
-        slog_info!($obj.ctx.intercept_logger(), $($args)+;
-            "intercept_type" => "HttpConnect",
-            "task_id" => LtUuid($obj.ctx.server_task_id()),
-            "depth" => $obj.ctx.inspection_depth,
-            "request_id" => $obj.req_id,
-            "next_upstream" => $r.as_ref().map(LtUpstreamAddr),
-            "received_at" => LtDateTime(&$obj.http_notes.receive_datetime),
-            "rsp_status" => $obj.http_notes.rsp_status,
-            "origin_status" => $obj.http_notes.origin_status,
-            "dur_req_send_hdr" => LtDuration($obj.http_notes.dur_req_send_hdr),
-            "dur_req_pipeline" => LtDuration($obj.http_notes.dur_req_pipeline),
-            "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
-        )
+        if let Some(logger) = $obj.ctx.intercept_logger() {
+            slog_info!(logger, $($args)+;
+                "intercept_type" => "HttpConnect",
+                "task_id" => LtUuid($obj.ctx.server_task_id()),
+                "depth" => $obj.ctx.inspection_depth,
+                "request_id" => $obj.req_id,
+                "next_upstream" => $r.as_ref().map(LtUpstreamAddr),
+                "received_at" => LtDateTime(&$obj.http_notes.receive_datetime),
+                "rsp_status" => $obj.http_notes.rsp_status,
+                "origin_status" => $obj.http_notes.origin_status,
+                "dur_req_send_hdr" => LtDuration($obj.http_notes.dur_req_send_hdr),
+                "dur_req_pipeline" => LtDuration($obj.http_notes.dur_req_pipeline),
+                "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
+            );
+        }
     };
 }
 

@@ -63,14 +63,16 @@ struct SmtpRelayBuf {
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
-        slog_info!($obj.ctx.intercept_logger(), $($args)+;
-            "intercept_type" => "SmtpConnection",
-            "task_id" => LtUuid($obj.ctx.server_task_id()),
-            "depth" => $obj.ctx.inspection_depth,
-            "upstream" => LtUpstreamAddr(&$obj.upstream),
-            "client_host" => $obj.client_host.as_ref().map(LtHost),
-            "transaction_count" => $obj.transaction_count,
-        )
+        if let Some(logger) = $obj.ctx.intercept_logger() {
+            slog_info!(logger, $($args)+;
+                "intercept_type" => "SmtpConnection",
+                "task_id" => LtUuid($obj.ctx.server_task_id()),
+                "depth" => $obj.ctx.inspection_depth,
+                "upstream" => LtUpstreamAddr(&$obj.upstream),
+                "client_host" => $obj.client_host.as_ref().map(LtHost),
+                "transaction_count" => $obj.transaction_count,
+            );
+        }
     };
 }
 
@@ -123,14 +125,16 @@ impl<SC: ServerConfig> SmtpInterceptObject<SC> {
     }
 
     fn log_partial_shutdown(&self, task_event: TaskEvent) {
-        slog_info!(self.ctx.intercept_logger(), "";
-            "intercept_type" => "SmtpConnection",
-            "task_id" => LtUuid(self.ctx.server_task_id()),
-            "task_event" => task_event.as_str(),
-            "depth" => self.ctx.inspection_depth,
-            "upstream" => LtUpstreamAddr(&self.upstream),
-            "client_host" => self.client_host.as_ref().map(LtHost),
-        )
+        if let Some(logger) = self.ctx.intercept_logger() {
+            slog_info!(logger, "";
+                "intercept_type" => "SmtpConnection",
+                "task_id" => LtUuid(self.ctx.server_task_id()),
+                "task_event" => task_event.as_str(),
+                "depth" => self.ctx.inspection_depth,
+                "upstream" => LtUpstreamAddr(&self.upstream),
+                "client_host" => self.client_host.as_ref().map(LtHost),
+            );
+        }
     }
 }
 
