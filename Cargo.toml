@@ -139,7 +139,7 @@ log = "0.4"
 slog = "2"
 hdrhistogram = { version = "7.5", default-features = false }
 #
-clap = "4.5.30"
+clap = "4.5.36"
 clap_complete = "4.5.45"
 #
 tokio = "1.43.0"
