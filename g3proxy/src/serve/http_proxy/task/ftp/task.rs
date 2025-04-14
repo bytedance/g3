@@ -113,6 +113,7 @@ impl<'a> FtpOverHttpTask<'a> {
             .get(http::header::USER_AGENT)
             .map(|v| v.to_str());
         TaskLogForFtpOverHttp {
+            logger: &self.ctx.task_logger,
             task_notes: &self.task_notes,
             ftp_notes: &self.ftp_notes,
             http_user_agent,
@@ -148,11 +149,10 @@ impl<'a> FtpOverHttpTask<'a> {
         self.pre_start();
         match self.run_ftp(clt_r, clt_w).await {
             Ok(()) => {
-                self.get_log_context()
-                    .log(&self.ctx.task_logger, &ServerTaskError::Finished);
+                self.get_log_context().log(ServerTaskError::Finished);
             }
             Err(e) => {
-                self.get_log_context().log(&self.ctx.task_logger, &e);
+                self.get_log_context().log(e);
             }
         }
     }
@@ -169,7 +169,7 @@ impl<'a> FtpOverHttpTask<'a> {
         }
 
         if self.ctx.server_config.flush_task_log_on_created {
-            self.get_log_context().log_created(&self.ctx.task_logger);
+            self.get_log_context().log_created();
         }
 
         self.started = true;
@@ -692,7 +692,7 @@ impl<'a> FtpOverHttpTask<'a> {
                     .fetch_control_tcp_notes(&mut self.ftp_notes.control_tcp_notes);
 
                 if self.ctx.server_config.flush_task_log_on_connected {
-                    self.get_log_context().log_connected(&self.ctx.task_logger);
+                    self.get_log_context().log_connected();
                 }
 
                 Ok(client)
@@ -1271,7 +1271,7 @@ impl<'a> FtpOverHttpTask<'a> {
                     };
                 }
                 _ = log_interval.tick() => {
-                    self.get_log_context().log_periodic(&self.ctx.task_logger);
+                    self.get_log_context().log_periodic();
                 }
                 n = idle_interval.tick() => {
                     if data_copy.is_idle() {
@@ -1472,7 +1472,7 @@ impl<'a> FtpOverHttpTask<'a> {
                     ));
                 }
                 _ = log_interval.tick() => {
-                    self.get_log_context().log_periodic(&self.ctx.task_logger);
+                    self.get_log_context().log_periodic();
                 }
                 n = idle_interval.tick() => {
                     if data_copy.is_idle() {

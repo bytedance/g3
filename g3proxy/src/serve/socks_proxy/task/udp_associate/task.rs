@@ -91,6 +91,7 @@ impl SocksProxyUdpAssociateTask {
 
     fn get_log_context(&self) -> TaskLogForUdpAssociate {
         TaskLogForUdpAssociate {
+            logger: &self.ctx.task_logger,
             task_notes: &self.task_notes,
             tcp_server_addr: self.ctx.server_addr(),
             tcp_client_addr: self.ctx.client_addr(),
@@ -117,10 +118,8 @@ impl SocksProxyUdpAssociateTask {
         tokio::spawn(async move {
             self.pre_start();
             match self.run(clt_r, clt_w).await {
-                Ok(_) => self
-                    .get_log_context()
-                    .log(&self.ctx.task_logger, &ServerTaskError::ClosedByClient),
-                Err(e) => self.get_log_context().log(&self.ctx.task_logger, &e),
+                Ok(_) => self.get_log_context().log(ServerTaskError::ClosedByClient),
+                Err(e) => self.get_log_context().log(e),
             }
         });
     }
@@ -135,7 +134,7 @@ impl SocksProxyUdpAssociateTask {
         }
 
         if self.ctx.server_config.flush_task_log_on_created {
-            self.get_log_context().log_created(&self.ctx.task_logger);
+            self.get_log_context().log_created();
         }
 
         self.started = true;
@@ -348,7 +347,7 @@ impl SocksProxyUdpAssociateTask {
                     };
                 }
                  _ = log_interval.tick() => {
-                    self.get_log_context().log_periodic(&self.ctx.task_logger);
+                    self.get_log_context().log_periodic();
                 }
                 n = idle_interval.tick() => {
                     if c_to_r.is_idle() && r_to_c.is_idle() {
@@ -517,7 +516,7 @@ impl SocksProxyUdpAssociateTask {
         self.task_notes.stage = ServerTaskStage::Connected;
 
         if self.ctx.server_config.flush_task_log_on_connected {
-            self.get_log_context().log_connected(&self.ctx.task_logger);
+            self.get_log_context().log_connected();
         }
 
         poll_fn(|cx| ups_w.poll_send_packet(cx, &buf[buf_off..buf_nr], &self.initial_peer)).await?;

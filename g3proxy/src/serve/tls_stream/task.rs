@@ -65,6 +65,7 @@ impl TlsStreamTask {
 
     fn get_log_context(&self) -> TaskLogForTcpConnect {
         TaskLogForTcpConnect {
+            logger: &self.ctx.task_logger,
             upstream: &self.upstream,
             task_notes: &self.task_notes,
             tcp_notes: &self.tcp_notes,
@@ -78,10 +79,8 @@ impl TlsStreamTask {
     pub(super) async fn into_running(mut self, stream: TlsStream<TcpStream>) {
         self.pre_start();
         match self.run(stream).await {
-            Ok(_) => self
-                .get_log_context()
-                .log(&self.ctx.task_logger, &ServerTaskError::Finished),
-            Err(e) => self.get_log_context().log(&self.ctx.task_logger, &e),
+            Ok(_) => self.get_log_context().log(ServerTaskError::Finished),
+            Err(e) => self.get_log_context().log(e),
         };
     }
 
@@ -89,7 +88,7 @@ impl TlsStreamTask {
         self._alive_guard = Some(self.ctx.server_stats.add_task());
 
         if self.ctx.server_config.flush_task_log_on_created {
-            self.get_log_context().log_created(&self.ctx.task_logger);
+            self.get_log_context().log_created();
         }
     }
 
@@ -158,7 +157,7 @@ impl TlsStreamTask {
         W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
         if self.ctx.server_config.flush_task_log_on_connected {
-            self.get_log_context().log_connected(&self.ctx.task_logger);
+            self.get_log_context().log_connected();
         }
         self.task_notes.mark_relaying();
         self.relay(clt_stream, ups_r, ups_w).await
@@ -245,17 +244,15 @@ impl StreamTransitTask for TlsStreamTask {
     }
 
     fn log_client_shutdown(&self) {
-        self.get_log_context()
-            .log_client_shutdown(&self.ctx.task_logger);
+        self.get_log_context().log_client_shutdown();
     }
 
     fn log_upstream_shutdown(&self) {
-        self.get_log_context()
-            .log_upstream_shutdown(&self.ctx.task_logger);
+        self.get_log_context().log_upstream_shutdown();
     }
 
     fn log_periodic(&self) {
-        self.get_log_context().log_periodic(&self.ctx.task_logger);
+        self.get_log_context().log_periodic();
     }
 
     fn log_flush_interval(&self) -> Option<Duration> {
