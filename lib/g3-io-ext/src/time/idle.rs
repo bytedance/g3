@@ -22,9 +22,65 @@ use tokio::sync::broadcast;
 
 const CHANNEL_SIZE: usize = 8;
 
+struct IdleWheelSlot {
+    senders: [broadcast::Sender<()>; 16],
+}
+
+impl IdleWheelSlot {
+    fn new() -> Self {
+        IdleWheelSlot {
+            senders: [
+                broadcast::channel(CHANNEL_SIZE).0,
+                broadcast::channel(CHANNEL_SIZE).0,
+                broadcast::channel(CHANNEL_SIZE).0,
+                broadcast::channel(CHANNEL_SIZE).0,
+                broadcast::channel(CHANNEL_SIZE).0,
+                broadcast::channel(CHANNEL_SIZE).0,
+                broadcast::channel(CHANNEL_SIZE).0,
+                broadcast::channel(CHANNEL_SIZE).0,
+                broadcast::channel(CHANNEL_SIZE).0,
+                broadcast::channel(CHANNEL_SIZE).0,
+                broadcast::channel(CHANNEL_SIZE).0,
+                broadcast::channel(CHANNEL_SIZE).0,
+                broadcast::channel(CHANNEL_SIZE).0,
+                broadcast::channel(CHANNEL_SIZE).0,
+                broadcast::channel(CHANNEL_SIZE).0,
+                broadcast::channel(CHANNEL_SIZE).0,
+            ],
+        }
+    }
+
+    fn subscribe(&self) -> broadcast::Receiver<()> {
+        let mut id = 0;
+        let mut min_count = self.senders[0].receiver_count();
+        for i in 1..self.senders.len() {
+            let count = self.senders[i].receiver_count();
+            if min_count > count {
+                id = i;
+                min_count = count;
+            }
+        }
+        // the selection of min sender is not atomic operation,
+        // but we don't care as it doesn't need to be precise
+        self.senders[id].subscribe()
+    }
+
+    fn has_receiver(&self) -> bool {
+        self.senders
+            .iter()
+            .any(|sender| sender.receiver_count() > 0)
+    }
+
+    fn wake(&self) {
+        self.senders.iter().for_each(|sender| {
+            let _ = sender.send(());
+        });
+    }
+}
+
 pub struct IdleWheel {
     interval: Duration,
-    slots: Vec<broadcast::Sender<()>>,
+    slots: Vec<IdleWheelSlot>,
     register_index: AtomicUsize,
 }
 
@@ -37,8 +93,7 @@ impl IdleWheel {
         let slot_count = interval_seconds.max(2);
         let mut slots = Vec::with_capacity(slot_count);
         for _ in 0..slot_count {
-            let (sender, _) = broadcast::channel(CHANNEL_SIZE);
-            slots.push(sender);
+            slots.push(IdleWheelSlot::new());
         }
 
         let register_index = AtomicUsize::new(slot_count - 1);
@@ -57,13 +112,13 @@ impl IdleWheel {
             loop {
                 interval.tick().await;
                 if Arc::strong_count(&wheel_run) <= 1 {
-                    let has_receiver = wheel_run.slots.iter().any(|v| v.receiver_count() > 0);
+                    let has_receiver = wheel_run.slots.iter().any(|slot| slot.has_receiver());
                     if !has_receiver {
                         break;
                     }
                 }
 
-                let _ = wheel_run.slots[emit_index].send(());
+                wheel_run.slots[emit_index].wake();
                 // register new receivers to the last emit slot
                 wheel_run
                     .register_index
