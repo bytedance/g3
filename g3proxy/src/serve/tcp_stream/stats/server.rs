@@ -69,7 +69,7 @@ impl TcpStreamServerStats {
     }
 
     pub(crate) fn add_conn(&self, _addr: SocketAddr) {
-        self.conn_total.fetch_add(1, Ordering::Relaxed);
+        // self.conn_total.fetch_add(1, Ordering::Relaxed);
     }
 
     #[inline]
@@ -84,8 +84,8 @@ impl TcpStreamServerStats {
 
     #[must_use]
     pub(crate) fn add_task(self: &Arc<Self>) -> TcpStreamServerAliveTaskGuard {
-        self.task_total.fetch_add(1, Ordering::Relaxed);
-        self.task_alive_count.fetch_add(1, Ordering::Relaxed);
+        // self.task_total.fetch_add(1, Ordering::Relaxed);
+        // self.task_alive_count.fetch_add(1, Ordering::Relaxed);
         TcpStreamServerAliveTaskGuard(self.clone())
     }
 }
@@ -94,7 +94,7 @@ pub(crate) struct TcpStreamServerAliveTaskGuard(Arc<TcpStreamServerStats>);
 
 impl Drop for TcpStreamServerAliveTaskGuard {
     fn drop(&mut self) {
-        self.0.task_alive_count.fetch_sub(1, Ordering::Relaxed);
+        // self.0.task_alive_count.fetch_sub(1, Ordering::Relaxed);
     }
 }
 

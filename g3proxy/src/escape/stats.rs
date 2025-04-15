@@ -105,11 +105,11 @@ pub(crate) struct EscaperInterfaceStats {
 
 impl EscaperInterfaceStats {
     pub(crate) fn add_tcp_connect_attempted(&self) {
-        self.tcp_connect_attempted.fetch_add(1, Ordering::Relaxed);
+        // self.tcp_connect_attempted.fetch_add(1, Ordering::Relaxed);
     }
 
     pub(crate) fn add_tls_connect_attempted(&self) {
-        self.tls_connect_attempted.fetch_add(1, Ordering::Relaxed);
+        // self.tls_connect_attempted.fetch_add(1, Ordering::Relaxed);
     }
 
     pub(crate) fn add_udp_connect_attempted(&self) {
