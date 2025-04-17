@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2025 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,11 @@
  * limitations under the License.
  */
 
-mod parse;
-pub use parse::{
-    HttpChunkedLine, HttpHeaderLine, HttpLineParseError, HttpMethodLine, HttpStatusLine,
-};
+mod error;
+pub use error::UriParseError;
 
-mod body;
-pub use body::{
-    ChunkedDataDecodeReader, H1BodyToChunkedTransfer, HttpBodyDecodeReader, HttpBodyReader,
-    HttpBodyType, PreviewData, PreviewDataState, PreviewError, StreamToChunkedTransfer,
-    TrailerReadError, TrailerReader,
-};
+mod well_known;
+pub use well_known::WellKnownUri;
 
-pub mod client;
-pub mod connect;
-pub mod header;
-pub mod server;
-pub mod uri;
+mod masque;
+pub use masque::HttpMasque;

@@ -255,6 +255,11 @@ The code should comply to these, but should be more compliant to existing popula
     : Proxying IP in HTTP
  - [iana-http-upgrade-tokens](https://www.iana.org/assignments/http-upgrade-tokens/http-upgrade-tokens.xhtml)
     : Hypertext Transfer Protocol (HTTP) Upgrade Token Registry
+
+### Well-Known URI
+
+ - [rfc8615](https://datatracker.ietf.org/doc/html/rfc8615)
+    : Well-Known Uniform Resource Identifiers (URIs)
  - [iana-well-known-uris](https://www.iana.org/assignments/well-known-uris/well-known-uris.xhtml)
     : Well-Known URIs
 

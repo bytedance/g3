@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2025 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
-mod parse;
-pub use parse::{
-    HttpChunkedLine, HttpHeaderLine, HttpLineParseError, HttpMethodLine, HttpStatusLine,
-};
+use thiserror::Error;
 
-mod body;
-pub use body::{
-    ChunkedDataDecodeReader, H1BodyToChunkedTransfer, HttpBodyDecodeReader, HttpBodyReader,
-    HttpBodyType, PreviewData, PreviewDataState, PreviewError, StreamToChunkedTransfer,
-    TrailerReadError, TrailerReader,
-};
-
-pub mod client;
-pub mod connect;
-pub mod header;
-pub mod server;
-pub mod uri;
+#[derive(Debug, Error)]
+pub enum UriParseError {
+    #[error("required field {0} not found")]
+    RequiredFieldNotFound(&'static str),
+    #[error("{0} field is not valid scheme")]
+    NotValidScheme(&'static str),
+    #[error("{0} filed is not valid host string")]
+    NotValidHost(&'static str),
+    #[error("{0} field is not valid port")]
+    NotValidPort(&'static str),
+    #[error("{0} field is not valid protocol")]
+    NotValidProtocol(&'static str),
+}
