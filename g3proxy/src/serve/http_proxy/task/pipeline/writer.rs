@@ -24,9 +24,9 @@ use tokio::sync::mpsc;
 
 use g3_io_ext::{ArcLimitedWriterStats, LimitedWriter};
 use g3_types::auth::UserAuthError;
-use g3_types::net::{HttpAuth, HttpBasicAuth, HttpHeaderMap};
+use g3_types::net::{HttpAuth, HttpBasicAuth, HttpHeaderMap, HttpProxySubProtocol};
 
-use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest, HttpProxySubProtocol};
+use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest};
 use super::{
     CommonTaskContext, FtpOverHttpTask, HttpProxyCltWrapperStats, HttpProxyConnectTask,
     HttpProxyForwardTask, HttpProxyPipelineStats, HttpProxyUntrustedTask,

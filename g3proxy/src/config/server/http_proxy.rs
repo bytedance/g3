@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::collections::HashSet;
 use std::num::NonZeroUsize;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -31,7 +32,7 @@ use g3_types::acl::{AclExactPortRule, AclNetworkRuleBuilder};
 use g3_types::acl_set::AclDstHostRuleSetBuilder;
 use g3_types::metrics::{NodeName, StaticMetricsTags};
 use g3_types::net::{
-    HttpKeepAliveConfig, HttpServerId, OpensslClientConfigBuilder, RustlsServerConfigBuilder,
+    Host, HttpKeepAliveConfig, HttpServerId, OpensslClientConfigBuilder, RustlsServerConfigBuilder,
     TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
 };
 use g3_yaml::YamlDocPosition;
@@ -78,6 +79,7 @@ pub(crate) struct HttpProxyServerConfig {
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) dst_host_filter: Option<AclDstHostRuleSetBuilder>,
     pub(crate) dst_port_filter: Option<AclExactPortRule>,
+    pub(crate) local_server_names: HashSet<Host>,
     pub(crate) server_id: Option<HttpServerId>,
     pub(crate) auth_realm: AsciiString,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
@@ -124,6 +126,7 @@ impl HttpProxyServerConfig {
             ingress_net_filter: None,
             dst_host_filter: None,
             dst_port_filter: None,
+            local_server_names: HashSet::new(),
             server_id: None,
             auth_realm: AsciiString::from_ascii("proxy").unwrap(),
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
@@ -254,6 +257,12 @@ impl HttpProxyServerConfig {
                 let filter = g3_yaml::value::acl::as_exact_port_rule(v)
                     .context(format!("invalid dst port acl rule value for key {k}"))?;
                 self.dst_port_filter = Some(filter);
+                Ok(())
+            }
+            "local_server_name" => {
+                let server_names = g3_yaml::value::as_list(v, g3_yaml::value::as_host)
+                    .context(format!("invalid host name str value for key {k}"))?;
+                self.local_server_names.extend(server_names);
                 Ok(())
             }
             "server_id" => {

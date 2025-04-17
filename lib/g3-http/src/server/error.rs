@@ -33,6 +33,8 @@ pub enum HttpRequestParseError {
     UnsupportedMethod(String),
     #[error("unsupported version: {0:?}")]
     UnsupportedVersion(Version),
+    #[error("unsupported well-known uri: {0}")]
+    UnsupportedRequest(String),
     #[error("invalid request target")]
     InvalidRequestTarget,
     #[error("invalid scheme")]
@@ -68,7 +70,8 @@ impl HttpRequestParseError {
             }
             HttpRequestParseError::UpgradeIsNotSupported
             | HttpRequestParseError::UnsupportedMethod(_)
-            | HttpRequestParseError::UnsupportedScheme => Some(StatusCode::NOT_IMPLEMENTED),
+            | HttpRequestParseError::UnsupportedScheme
+            | HttpRequestParseError::UnsupportedRequest(_) => Some(StatusCode::NOT_IMPLEMENTED),
             HttpRequestParseError::UnmatchedHostAndAuthority => Some(StatusCode::CONFLICT),
             HttpRequestParseError::LoopDetected => Some(StatusCode::LOOP_DETECTED),
             _ => Some(StatusCode::BAD_REQUEST),

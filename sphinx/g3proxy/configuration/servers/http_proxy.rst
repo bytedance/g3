@@ -51,6 +51,18 @@ The instance count setting will be ignored if *listen_in_worker* is correctly en
 
 .. versionadded:: 1.7.20 change listen config to be optional
 
+local_server_name
+-----------------
+
+**optional**, **type**: :ref:`host <conf_value_host>` | seq
+
+Set a list of local server names.
+
+If the host name sent in the `Host` request header matches the server names here, and the method is not `CONNECT`,
+then the request will be considered a local request.
+
+This must be set if you want to enable well-known URI support.
+
 .. _config_server_http_proxy_server_id:
 
 server_id

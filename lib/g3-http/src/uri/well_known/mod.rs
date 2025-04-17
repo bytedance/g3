@@ -17,7 +17,7 @@
 use http::Uri;
 use smol_str::SmolStr;
 
-use g3_types::net::UpstreamAddr;
+use g3_types::net::{HttpProxySubProtocol, UpstreamAddr};
 
 use super::{HttpMasque, UriParseError};
 
@@ -25,7 +25,7 @@ mod easy_proxy;
 mod masque;
 
 pub enum WellKnownUri {
-    EasyProxy(UpstreamAddr, Uri),
+    EasyProxy(HttpProxySubProtocol, UpstreamAddr, Uri),
     Masque(HttpMasque),
     Unsupported(SmolStr),
 }
@@ -85,6 +85,14 @@ impl WellKnownUri {
     pub fn parse(uri: &Uri) -> Result<Option<WellKnownUri>, UriParseError> {
         WellKnownUriParser::new(uri).parse()
     }
+
+    pub fn suffix(&self) -> &str {
+        match self {
+            WellKnownUri::EasyProxy(_, _, _) => "easy-proxy",
+            WellKnownUri::Masque(_) => "masque",
+            WellKnownUri::Unsupported(s) => s.as_str(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -95,9 +103,10 @@ mod tests {
     fn easy_proxy() {
         let uri = Uri::from_static("/.well-known/easy-proxy/http/www.example.net/80/get?name=foo");
         let parsed = WellKnownUri::parse(&uri).unwrap().unwrap();
-        let WellKnownUri::EasyProxy(addr, uri) = parsed else {
+        let WellKnownUri::EasyProxy(protocol, addr, uri) = parsed else {
             panic!("not parsed as easy-proxy")
         };
+        assert_eq!(protocol, HttpProxySubProtocol::HttpForward);
         assert_eq!(addr.port(), 80);
         assert_eq!(addr.host_str(), "www.example.net");
         assert_eq!(uri.path(), "/get");

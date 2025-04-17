@@ -110,11 +110,9 @@ where
                 match tokio::time::timeout(
                     self.ctx.server_config.timeout.recv_req_header,
                     HttpProxyRequest::parse(
+                        &self.ctx.server_config,
                         &mut reader,
                         stream_sender.clone(),
-                        self.ctx.server_config.req_hdr_max_size,
-                        self.ctx.server_config.steal_forwarded_for,
-                        self.ctx.server_config.allow_custom_host,
                         &mut version,
                     ),
                 )

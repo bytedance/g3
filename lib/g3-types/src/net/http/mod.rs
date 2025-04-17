@@ -18,10 +18,12 @@ mod auth;
 mod capability;
 mod header;
 mod keepalive;
+mod proxy;
 mod upgrade;
 
 pub use auth::{HttpAuth, HttpBasicAuth};
 pub use capability::*;
 pub use header::*;
 pub use keepalive::HttpKeepAliveConfig;
+pub use proxy::HttpProxySubProtocol;
 pub use upgrade::{HttpUpgradeToken, HttpUpgradeTokenParseError};

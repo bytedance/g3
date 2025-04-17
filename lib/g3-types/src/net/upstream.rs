@@ -228,6 +228,9 @@ impl FromStr for UpstreamAddr {
 
 impl fmt::Display for UpstreamAddr {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if self.port == 0 {
+            return self.host.fmt(f);
+        }
         match &self.host {
             Host::Ip(IpAddr::V4(ip4)) => write!(f, "{ip4}:{}", self.port),
             Host::Ip(IpAddr::V6(ip6)) => write!(f, "[{ip6}]:{}", self.port),
