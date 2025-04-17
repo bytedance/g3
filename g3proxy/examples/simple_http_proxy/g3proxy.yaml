@@ -2,7 +2,7 @@
 runtime:
   thread_number: 1
 
-log: journal
+log: stdout
 
 stat:
   target_udp: 127.0.0.1:8125
@@ -14,6 +14,7 @@ server:
     listen:
       address: "[::]:10086"
     tls_client: { }
+    local_server_name: 127.0.0.1
     tcp_sock_speed_limit: 100M
   - name: test-tls
     tls_server:

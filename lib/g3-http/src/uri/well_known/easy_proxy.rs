@@ -17,9 +17,9 @@
 use std::str::FromStr;
 
 use http::Uri;
-use http::uri::{Authority, PathAndQuery, Scheme};
+use http::uri::PathAndQuery;
 
-use g3_types::net::{Host, UpstreamAddr};
+use g3_types::net::{Host, HttpProxySubProtocol, UpstreamAddr};
 
 use super::{UriParseError, WellKnownUri, WellKnownUriParser};
 
@@ -28,14 +28,16 @@ impl WellKnownUriParser<'_> {
         let Some(scheme) = self.next_path_segment() else {
             return Err(UriParseError::RequiredFieldNotFound("scheme"));
         };
-        let scheme =
-            Scheme::from_str(scheme).map_err(|_| UriParseError::NotValidScheme("scheme"))?;
+        let protocol = match scheme {
+            "http" => HttpProxySubProtocol::HttpForward,
+            "https" => HttpProxySubProtocol::HttpsForward,
+            "ftp" => HttpProxySubProtocol::FtpOverHttp,
+            _ => return Err(UriParseError::NotValidScheme("scheme")),
+        };
 
         let Some(host) = self.next_path_segment() else {
             return Err(UriParseError::RequiredFieldNotFound("target_host"));
         };
-        let authority =
-            Authority::from_str(host).map_err(|_| UriParseError::NotValidHost("target_host"))?;
         let host = Host::from_str(host).map_err(|_| UriParseError::NotValidHost("target_host"))?;
 
         let Some(port) = self.next_path_segment() else {
@@ -47,13 +49,12 @@ impl WellKnownUriParser<'_> {
         let left_pq = &pq[self.path_offset - 1..]; // should include the first '/'
         let path = PathAndQuery::from_str(left_pq).unwrap();
 
-        let uri = Uri::builder()
-            .scheme(scheme)
-            .authority(authority)
-            .path_and_query(path)
-            .build()
-            .unwrap();
+        let uri = Uri::builder().path_and_query(path).build().unwrap();
 
-        Ok(WellKnownUri::EasyProxy(UpstreamAddr::new(host, port), uri))
+        Ok(WellKnownUri::EasyProxy(
+            protocol,
+            UpstreamAddr::new(host, port),
+            uri,
+        ))
     }
 }

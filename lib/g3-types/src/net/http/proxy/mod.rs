@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
+ * Copyright 2025 ByteDance and/or its affiliates.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,5 @@
  * limitations under the License.
  */
 
-use g3_io_ext::{LimitedBufReader, LimitedWriter};
-
-mod request;
-pub(super) use request::HttpProxyRequest;
-
-pub(super) type HttpClientReader<CDR> = LimitedBufReader<CDR>;
-pub(super) type HttpClientWriter<CDW> = LimitedWriter<CDW>;
+mod protocol;
+pub use protocol::HttpProxySubProtocol;
