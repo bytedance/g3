@@ -1199,6 +1199,7 @@ dependencies = [
  "httparse",
  "memchr",
  "mime",
+ "smol_str",
  "thiserror",
  "tokio",
  "tokio-test",

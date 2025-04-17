@@ -15,6 +15,7 @@ atoi.workspace = true
 http.workspace = true
 mime.workspace = true
 base64.workspace = true
+smol_str.workspace = true
 g3-types = { workspace = true, features = ["http"] }
 g3-io-ext.workspace = true
 
