@@ -1,4 +1,10 @@
 
+v1.11.5:
+ - Feature: support easy-proxy Well-Known URI in http-proxy server
+ - Feature: allow to match parent domain before do regex match in dst-host acl set rules
+ - Feature: allow to do regex match in route_upstream escaper
+ - Optimization: update IDLE wheel code to improve performance
+
 v1.11.4:
  - BUG FIX: fix deadlock when reload port servers
  - Feature: allow to quit process on panic
