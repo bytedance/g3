@@ -58,10 +58,19 @@ local_server_name
 
 Set a list of local server names.
 
-If the host name sent in the `Host` request header matches the server names here, and the method is not `CONNECT`,
-then the request will be considered a local request.
+A request will be treated as a local request if:
 
-This must be set if you want to enable well-known URI support.
+- no local server name set
+
+  The URL in HTTP header is relative
+
+- local server name has been set
+
+  The method is not CONNECT and the server name in `Host` request header matches the local server name
+
+It is recommended to set local server name if you want to enable well-known URI support.
+
+.. versionadded:: 1.11.5
 
 .. _config_server_http_proxy_server_id:
 

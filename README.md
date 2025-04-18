@@ -32,6 +32,7 @@ as we have basic support built in.
 
 - Async Rust: fast and reliable
 - Http1 / Socks5 forward proxy protocol, SNI Proxy and TCP TPROXY
+- easy-proxy Well-Known URI
 - Proxy Chaining, with support for dynamic selection of upstream proxies
 - Plenty of egress route selection methods, with support for custom egress selection agent
 - TCP/TLS Stream Proxy, Basic HTTP Reverse Proxy
