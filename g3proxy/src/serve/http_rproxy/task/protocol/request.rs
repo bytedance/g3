@@ -53,7 +53,7 @@ where
                 if name.as_str() == "authorization" {
                     return req.parse_header_authorization(header.value);
                 }
-                req.append_header(name, header)?;
+                req.append_parsed_header(name, header)?;
                 Ok(())
             })
             .await?;

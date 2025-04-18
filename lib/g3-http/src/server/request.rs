@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use std::collections::HashSet;
 use std::io::Write;
 use std::str::FromStr;
 
@@ -22,7 +23,7 @@ use http::{HeaderName, Method, Uri, Version, header};
 use tokio::io::AsyncBufRead;
 
 use g3_io_ext::LimitedBufReadExt;
-use g3_types::net::{HttpAuth, HttpHeaderMap, HttpHeaderValue, UpstreamAddr};
+use g3_types::net::{Host, HttpAuth, HttpHeaderMap, HttpHeaderValue, UpstreamAddr};
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
 use crate::header::Connection;
@@ -189,6 +190,29 @@ impl HttpProxyClientRequest {
         false
     }
 
+    pub fn is_local_request(&self, local_names: &HashSet<Host>) -> bool {
+        if local_names.is_empty() {
+            // no local server name set, treat request without absolute URI as local targeted
+            self.uri.scheme().is_none()
+        } else {
+            self.host
+                .as_ref()
+                .map(|addr| local_names.contains(addr.host()))
+                .unwrap_or(false)
+        }
+    }
+
+    pub fn set_host(&mut self, host: &UpstreamAddr) {
+        let mut new_v = unsafe { HttpHeaderValue::from_string_unchecked(host.to_string()) };
+        if let Some(old_v) = self.end_to_end_headers.remove(header::HOST) {
+            if let Some(name) = old_v.original_name() {
+                new_v.set_original_name(name);
+            }
+        }
+        self.end_to_end_headers.insert(header::HOST, new_v);
+        self.host = Some(host.clone());
+    }
+
     pub async fn parse_basic<R>(
         reader: &mut R,
         max_header_size: usize,
@@ -198,7 +222,7 @@ impl HttpProxyClientRequest {
         R: AsyncBufRead + Unpin,
     {
         Self::parse(reader, max_header_size, version, |req, name, value| {
-            req.append_header(name, value)
+            req.append_parsed_header(name, value)
         })
         .await
     }
@@ -346,7 +370,7 @@ impl HttpProxyClientRequest {
         Ok(())
     }
 
-    pub fn append_header(
+    pub fn append_parsed_header(
         &mut self,
         name: HeaderName,
         header: &HttpHeaderLine,
@@ -357,16 +381,6 @@ impl HttpProxyClientRequest {
         value.set_original_name(header.name);
         self.end_to_end_headers.append(name, value);
         Ok(())
-    }
-
-    pub fn set_host(&mut self, host: &UpstreamAddr) {
-        let mut new_v = unsafe { HttpHeaderValue::from_string_unchecked(host.to_string()) };
-        if let Some(old_v) = self.end_to_end_headers.remove(header::HOST) {
-            if let Some(name) = old_v.original_name() {
-                new_v.set_original_name(name);
-            }
-        }
-        self.end_to_end_headers.insert(header::HOST, new_v);
     }
 
     fn insert_hop_by_hop_header(
@@ -546,7 +560,7 @@ mod tests {
         name: HeaderName,
         value: &HttpHeaderLine,
     ) -> Result<(), HttpRequestParseError> {
-        req.append_header(name, value)?;
+        req.append_parsed_header(name, value)?;
         Ok(())
     }
 

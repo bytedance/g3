@@ -109,6 +109,10 @@ mod tests {
         assert_eq!(protocol, HttpProxySubProtocol::HttpForward);
         assert_eq!(addr.port(), 80);
         assert_eq!(addr.host_str(), "www.example.net");
+        let scheme = uri.scheme_str().unwrap();
+        assert_eq!(scheme, "http");
+        let authority = uri.authority().unwrap().as_str();
+        assert_eq!(authority, "www.example.net:80");
         assert_eq!(uri.path(), "/get");
         let query = uri.query().unwrap();
         assert_eq!(query, "name=foo");

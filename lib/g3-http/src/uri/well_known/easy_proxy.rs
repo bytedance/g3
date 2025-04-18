@@ -16,8 +16,9 @@
 
 use std::str::FromStr;
 
+use bytes::Bytes;
 use http::Uri;
-use http::uri::PathAndQuery;
+use http::uri::{Authority, PathAndQuery, Scheme};
 
 use g3_types::net::{Host, HttpProxySubProtocol, UpstreamAddr};
 
@@ -34,6 +35,8 @@ impl WellKnownUriParser<'_> {
             "ftp" => HttpProxySubProtocol::FtpOverHttp,
             _ => return Err(UriParseError::NotValidScheme("scheme")),
         };
+        let scheme =
+            Scheme::from_str(scheme).map_err(|_| UriParseError::NotValidScheme("scheme"))?;
 
         let Some(host) = self.next_path_segment() else {
             return Err(UriParseError::RequiredFieldNotFound("target_host"));
@@ -45,16 +48,22 @@ impl WellKnownUriParser<'_> {
         };
         let port = u16::from_str(port).map_err(|_| UriParseError::NotValidPort("target_port"))?;
 
+        let target = UpstreamAddr::new(host, port);
+        let target_s = target.to_string();
+        let authority = Authority::from_maybe_shared(Bytes::from(target_s))
+            .map_err(|_| UriParseError::NotValidHost("host"))?;
+
         let pq = self.uri.path_and_query().unwrap().as_str();
         let left_pq = &pq[self.path_offset - 1..]; // should include the first '/'
         let path = PathAndQuery::from_str(left_pq).unwrap();
 
-        let uri = Uri::builder().path_and_query(path).build().unwrap();
+        let uri = Uri::builder()
+            .scheme(scheme)
+            .authority(authority)
+            .path_and_query(path)
+            .build()
+            .unwrap();
 
-        Ok(WellKnownUri::EasyProxy(
-            protocol,
-            UpstreamAddr::new(host, port),
-            uri,
-        ))
+        Ok(WellKnownUri::EasyProxy(protocol, target, uri))
     }
 }
