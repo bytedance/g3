@@ -25,28 +25,49 @@ use g3_types::net::{Host, HttpProxySubProtocol, UpstreamAddr};
 use super::{UriParseError, WellKnownUri, WellKnownUriParser};
 
 impl WellKnownUriParser<'_> {
+    fn peek_path_segment(&self) -> Option<&'_ str> {
+        let mut offset = self.path_offset;
+
+        loop {
+            let left = &self.uri.path()[offset..];
+            if left.is_empty() {
+                return None;
+            }
+
+            match memchr::memchr(b'/', left.as_bytes()) {
+                Some(0) => offset += 1,
+                Some(p) => return Some(&left[..p]),
+                None => return Some(left),
+            }
+        }
+    }
+
     pub(super) fn parse_easy_proxy(&mut self) -> Result<WellKnownUri, UriParseError> {
         let Some(scheme) = self.next_path_segment() else {
             return Err(UriParseError::RequiredFieldNotFound("scheme"));
         };
-        let protocol = match scheme {
-            "http" => HttpProxySubProtocol::HttpForward,
-            "https" => HttpProxySubProtocol::HttpsForward,
-            "ftp" => HttpProxySubProtocol::FtpOverHttp,
+        let (protocol, scheme, default_port) = match scheme {
+            "http" => (HttpProxySubProtocol::HttpForward, Scheme::HTTP, 80),
+            "https" => (HttpProxySubProtocol::HttpsForward, Scheme::HTTPS, 443),
+            "ftp" => (
+                HttpProxySubProtocol::FtpOverHttp,
+                Scheme::from_str("ftp").unwrap(),
+                21,
+            ),
             _ => return Err(UriParseError::NotValidScheme("scheme")),
         };
-        let scheme =
-            Scheme::from_str(scheme).map_err(|_| UriParseError::NotValidScheme("scheme"))?;
-
-        let Some(host) = self.next_path_segment() else {
-            return Err(UriParseError::RequiredFieldNotFound("target_host"));
+        let host_str = self
+            .next_path_segment()
+            .ok_or(UriParseError::RequiredFieldNotFound("target_host"))?;
+        let host =
+            Host::from_str(host_str).map_err(|_| UriParseError::NotValidHost("target_host"))?;
+        let port = match self.peek_path_segment() {
+            Some(seg) if seg.parse::<u16>().is_ok() => {
+                let port_str = self.next_path_segment().unwrap();
+                u16::from_str(port_str).map_err(|_| UriParseError::NotValidPort("target_port"))?
+            }
+            _ => default_port,
         };
-        let host = Host::from_str(host).map_err(|_| UriParseError::NotValidHost("target_host"))?;
-
-        let Some(port) = self.next_path_segment() else {
-            return Err(UriParseError::RequiredFieldNotFound("target_port"));
-        };
-        let port = u16::from_str(port).map_err(|_| UriParseError::NotValidPort("target_port"))?;
 
         let target = UpstreamAddr::new(host, port);
         let target_s = target.to_string();

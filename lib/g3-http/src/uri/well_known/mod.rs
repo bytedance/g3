@@ -119,6 +119,44 @@ mod tests {
     }
 
     #[test]
+    fn easy_proxy_http_default_port() {
+        let uri = Uri::from_static("/.well-known/easy-proxy/http/www.example.net/get?name=foo");
+        let parsed = WellKnownUri::parse(&uri).unwrap().unwrap();
+        let WellKnownUri::EasyProxy(protocol, addr, uri) = parsed else {
+            panic!("not parsed as easy-proxy")
+        };
+        assert_eq!(protocol, HttpProxySubProtocol::HttpForward);
+        assert_eq!(addr.port(), 80);
+        assert_eq!(addr.host_str(), "www.example.net");
+        let scheme = uri.scheme_str().unwrap();
+        assert_eq!(scheme, "http");
+        let authority = uri.authority().unwrap().as_str();
+        assert_eq!(authority, "www.example.net:80");
+        assert_eq!(uri.path(), "/get");
+        let query = uri.query().unwrap();
+        assert_eq!(query, "name=foo");
+    }
+
+    #[test]
+    fn easy_proxy_https_default_port() {
+        let uri = Uri::from_static("/.well-known/easy-proxy/https/www.example.net/get?name=foo");
+        let parsed = WellKnownUri::parse(&uri).unwrap().unwrap();
+        let WellKnownUri::EasyProxy(protocol, addr, uri) = parsed else {
+            panic!("not parsed as easy-proxy")
+        };
+        assert_eq!(protocol, HttpProxySubProtocol::HttpsForward);
+        assert_eq!(addr.port(), 443);
+        assert_eq!(addr.host_str(), "www.example.net");
+        let scheme = uri.scheme_str().unwrap();
+        assert_eq!(scheme, "https");
+        let authority = uri.authority().unwrap().as_str();
+        assert_eq!(authority, "www.example.net:443");
+        assert_eq!(uri.path(), "/get");
+        let query = uri.query().unwrap();
+        assert_eq!(query, "name=foo");
+    }
+
+    #[test]
     fn masque_udp() {
         let uri = Uri::from_static("/.well-known/masque/udp/192.0.2.6/443/");
         let parsed = WellKnownUri::parse(&uri).unwrap().unwrap();
