@@ -29,23 +29,24 @@ impl WellKnownUriParser<'_> {
         let Some(scheme) = self.next_path_segment() else {
             return Err(UriParseError::RequiredFieldNotFound("scheme"));
         };
-        let protocol = match scheme {
-            "http" => HttpProxySubProtocol::HttpForward,
-            "https" => HttpProxySubProtocol::HttpsForward,
-            "ftp" => HttpProxySubProtocol::FtpOverHttp,
+        let (protocol, scheme) = match scheme {
+            "http" => (HttpProxySubProtocol::HttpForward, Scheme::HTTP),
+            "https" => (HttpProxySubProtocol::HttpsForward, Scheme::HTTPS),
+            "ftp" => (
+                HttpProxySubProtocol::FtpOverHttp,
+                Scheme::from_str("ftp").unwrap(),
+            ),
             _ => return Err(UriParseError::NotValidScheme("scheme")),
         };
-        let scheme =
-            Scheme::from_str(scheme).map_err(|_| UriParseError::NotValidScheme("scheme"))?;
 
-        let Some(host) = self.next_path_segment() else {
-            return Err(UriParseError::RequiredFieldNotFound("target_host"));
-        };
+        let host = self
+            .next_path_segment()
+            .ok_or(UriParseError::RequiredFieldNotFound("target_host"))?;
         let host = Host::from_str(host).map_err(|_| UriParseError::NotValidHost("target_host"))?;
 
-        let Some(port) = self.next_path_segment() else {
-            return Err(UriParseError::RequiredFieldNotFound("target_port"));
-        };
+        let port = self
+            .next_path_segment()
+            .ok_or(UriParseError::RequiredFieldNotFound("target_port"))?;
         let port = u16::from_str(port).map_err(|_| UriParseError::NotValidPort("target_port"))?;
 
         let target = UpstreamAddr::new(host, port);
