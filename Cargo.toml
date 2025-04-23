@@ -59,6 +59,7 @@ members = [
     "lib/g3-udpdump",
     "lib/g3-xcrypt",
     "lib/g3-yaml",
+    "scripts/capnp-generate",
 ]
 default-members = [
     "g3bench",
@@ -76,6 +77,7 @@ default-members = [
     "g3keymess",
     "g3keymess/proto",
     "g3keymess/utils/ctl",
+    "scripts/capnp-generate",
 ]
 resolver = "3"
 
