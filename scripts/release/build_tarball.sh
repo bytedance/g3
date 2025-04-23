@@ -49,6 +49,14 @@ cargo cache --autoclean
 echo "==> adding source code from git"
 git archive --format=tar --prefix="${SOURCE_NAME}-${PKG_VERSION}/" "${GIT_REVISION}" | tar -C "${BUILD_DIR}" -xf -
 
+PROTO_DIR="${BUILD_DIR}/${SOURCE_NAME}-${PKG_VERSION}/${SOURCE_NAME}/proto"
+if [ -d ${PROTO_DIR} ]
+then
+	echo "==> generate capnp source files"
+	cargo run --bin capnp-generate -- ${PROTO_DIR}
+fi
+
+
 cd "${BUILD_DIR}/${SOURCE_NAME}-${PKG_VERSION}"
 
 echo "==> cleaning useless source files"
@@ -89,14 +97,6 @@ cargo vendor "${CARGO_VENDOR_DIR}" | tee -a "${CARGO_CONFIG_FILE}"
 
 echo "==> generate license files for bundled crates"
 cargo metadata --format-version 1 | "${SCRIPT_DIR}"/bundle_license.py > LICENSE-BUNDLED
-
-
-if [ -d ${SOURCE_NAME}/proto ]
-then
-	echo "==> generate capnp source files"
-	cargo run --bin capnp-generate -- ${SOURCE_NAME}/proto
-	cargo clean
-fi
 
 
 if [ -f sphinx/${SOURCE_NAME}/conf.py ]
