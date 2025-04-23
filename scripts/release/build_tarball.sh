@@ -91,6 +91,14 @@ echo "==> generate license files for bundled crates"
 cargo metadata --format-version 1 | "${SCRIPT_DIR}"/bundle_license.py > LICENSE-BUNDLED
 
 
+if [ -d ${SOURCE_NAME}/proto ]
+then
+	echo "==> generate capnp source files"
+	cargo run --bin capnp-generate -- ${SOURCE_NAME}/proto
+	cargo clean
+fi
+
+
 if [ -f sphinx/${SOURCE_NAME}/conf.py ]
 then
 	echo "==> building sphinx docs"

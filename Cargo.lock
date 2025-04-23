@@ -461,6 +461,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "capnp-generate"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "capnpc",
+ "clap",
+]
+
+[[package]]
 name = "capnp-rpc"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
