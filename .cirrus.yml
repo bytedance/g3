@@ -18,8 +18,8 @@ freebsd_task:
     - pkg install -y c-ares lua54 python3
     - ln -s /usr/local/libdata/pkgconfig/lua-5.4.pc /usr/local/libdata/pkgconfig/lua5.4.pc
   build_script:
-    - cargo build --features vendored-openssl
+    - cargo build
   clippy_script:
-    - cargo clippy --features vendored-openssl --tests -- --deny warnings
+    - cargo clippy --tests -- --deny warnings
   test_script:
-    - cargo test --features vendored-openssl --workspace --exclude g3-journal
+    - cargo test --workspace --exclude g3-journal
