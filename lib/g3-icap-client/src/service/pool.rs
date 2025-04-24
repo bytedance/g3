@@ -36,6 +36,7 @@ pub(super) enum IcapServiceClientCommand {
 enum IcapServicePoolCommand {
     UpdateOptions(IcapServiceOptions),
     SaveConnection(IcapClientConnection),
+    CheckConnection,
 }
 
 pub(super) struct IcapServicePool {
@@ -175,6 +176,7 @@ impl IcapServicePool {
         match cmd {
             IcapServicePoolCommand::SaveConnection(conn) => self.save_connection(conn),
             IcapServicePoolCommand::UpdateOptions(options) => self.options = Arc::new(options),
+            IcapServicePoolCommand::CheckConnection => self.check(),
         }
     }
 
@@ -189,9 +191,11 @@ impl IcapServicePool {
             // relaxed is fine as we only increase it here in the same future context
             idle_count.fetch_add(1, Ordering::Relaxed);
             let idle_timeout = self.config.connection_pool.idle_timeout();
+            let pool_sender = self.pool_cmd_sender.clone();
             tokio::spawn(async move {
                 eof_poller.into_running(idle_timeout).await;
                 idle_count.fetch_sub(1, Ordering::Relaxed);
+                let _ = pool_sender.try_send(IcapServicePoolCommand::CheckConnection);
             });
         }
     }
