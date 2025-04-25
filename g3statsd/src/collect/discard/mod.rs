@@ -17,6 +17,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use chrono::{DateTime, Utc};
 
 use g3_types::metrics::NodeName;
 
@@ -70,7 +71,7 @@ impl Collector for DiscardCollector {
         self.config.collector_type()
     }
 
-    fn add_metric(&self, _record: MetricRecord, _worker_id: Option<usize>) {}
+    fn add_metric(&self, _time: DateTime<Utc>, _record: MetricRecord, _worker_id: Option<usize>) {}
 }
 
 impl CollectorInternal for DiscardCollector {

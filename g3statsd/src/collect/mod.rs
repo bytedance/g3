@@ -16,6 +16,8 @@
 
 use std::sync::Arc;
 
+use chrono::{DateTime, Utc};
+
 use g3_types::metrics::NodeName;
 
 use crate::config::collector::AnyCollectorConfig;
@@ -39,7 +41,7 @@ pub(crate) trait Collector {
     #[allow(unused)]
     fn r#type(&self) -> &'static str;
 
-    fn add_metric(&self, record: MetricRecord, worker_id: Option<usize>);
+    fn add_metric(&self, time: DateTime<Utc>, record: MetricRecord, worker_id: Option<usize>);
 }
 
 trait CollectorInternal: Collector {

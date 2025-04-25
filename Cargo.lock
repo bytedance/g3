@@ -2017,6 +2017,7 @@ dependencies = [
  "async-recursion",
  "capnp",
  "capnp-rpc",
+ "chrono",
  "clap",
  "clap_complete",
  "foldhash",

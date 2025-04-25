@@ -16,6 +16,8 @@
 
 use std::sync::Arc;
 
+use chrono::{DateTime, Utc};
+
 use g3_types::metrics::NodeName;
 
 use crate::config::exporter::AnyExporterConfig;
@@ -30,13 +32,14 @@ pub(crate) use ops::reload;
 
 mod console;
 mod discard;
+mod memory;
 
 pub(crate) trait Exporter {
     fn name(&self) -> &NodeName;
     #[allow(unused)]
     fn r#type(&self) -> &str;
 
-    fn add_metric(&self, record: &MetricRecord);
+    fn add_metric(&self, time: DateTime<Utc>, record: &MetricRecord);
 }
 
 trait ExporterInternal: Exporter {

@@ -18,6 +18,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
+use chrono::{DateTime, Utc};
 use tokio::sync::broadcast;
 
 use g3_types::metrics::NodeName;
@@ -62,7 +63,7 @@ impl Collector for InternalCollector {
         self.config.load().collector_type()
     }
 
-    fn add_metric(&self, _record: MetricRecord, _worker_id: Option<usize>) {}
+    fn add_metric(&self, _time: DateTime<Utc>, _record: MetricRecord, _worker_id: Option<usize>) {}
 }
 
 impl CollectorInternal for InternalCollector {
