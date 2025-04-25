@@ -28,6 +28,7 @@ pub(crate) use registry::{clear, get_all};
 
 pub(crate) mod console;
 pub(crate) mod discard;
+pub(crate) mod memory;
 
 const CONFIG_KEY_EXPORTER_TYPE: &str = "type";
 const CONFIG_KEY_EXPORTER_NAME: &str = "name";
@@ -35,7 +36,6 @@ const CONFIG_KEY_EXPORTER_NAME: &str = "name";
 pub(crate) enum ExporterConfigDiffAction {
     NoAction,
     SpawnNew,
-    #[allow(unused)]
     Reload,
 }
 
@@ -55,6 +55,7 @@ pub(crate) trait ExporterConfig {
 pub(crate) enum AnyExporterConfig {
     Discard(discard::DiscardExporterConfig),
     Console(console::ConsoleExporterConfig),
+    Memory(memory::MemoryExporterConfig),
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
@@ -99,6 +100,11 @@ fn load_exporter(
             let exporter = console::ConsoleExporterConfig::parse(map, position)
                 .context("failed to load this Console exporter")?;
             Ok(AnyExporterConfig::Console(exporter))
+        }
+        "memory" => {
+            let exporter = memory::MemoryExporterConfig::parse(map, position)
+                .context("failed to load this Memory exporter")?;
+            Ok(AnyExporterConfig::Memory(exporter))
         }
         _ => Err(anyhow!("unsupported exporter type {}", exporter_type)),
     }

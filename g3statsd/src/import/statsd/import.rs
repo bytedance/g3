@@ -19,6 +19,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
+use chrono::Utc;
 use log::debug;
 use tokio::sync::broadcast;
 
@@ -176,10 +177,11 @@ impl ReceiveUdpServer for StatsdImporter {
             return;
         }
 
+        let time = Utc::now();
         let iter = StatsdRecordVisitor::new(packet);
         for r in iter {
             match r {
-                Ok(r) => self.collector.load().add_metric(r, worker_id),
+                Ok(r) => self.collector.load().add_metric(time, r, worker_id),
                 Err(e) => {
                     debug!("invalid StatsD record from {}: {e}", client_addr);
                 }

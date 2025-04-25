@@ -19,6 +19,7 @@ memchr.workspace = true
 itoa.workspace = true
 ryu.workspace = true
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
+chrono.workspace = true
 yaml-rust.workspace = true
 tokio = { workspace = true, features = ["time", "signal"] }
 capnp.workspace = true

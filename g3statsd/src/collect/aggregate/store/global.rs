@@ -17,6 +17,7 @@
 use std::sync::Arc;
 
 use ahash::AHashMap;
+use chrono::Utc;
 use tokio::sync::{broadcast, mpsc};
 
 use super::Command;
@@ -163,6 +164,7 @@ impl GlobalStore {
 
     async fn emit(&mut self) -> usize {
         let mut emit_total = 0;
+        let time = Utc::now();
 
         macro_rules! emit_orig {
             ($map:ident, $metric_type:expr) => {
@@ -176,11 +178,11 @@ impl GlobalStore {
                         };
 
                         for exporter in &self.exporters {
-                            exporter.add_metric(&record);
+                            exporter.add_metric(time, &record);
                         }
 
                         if let Some(next) = &self.next {
-                            next.add_metric(record, None);
+                            next.add_metric(time, record, None);
                         }
 
                         emit_total += 1;
@@ -221,11 +223,11 @@ impl GlobalStore {
                         };
 
                         for exporter in &self.exporters {
-                            exporter.add_metric(&record);
+                            exporter.add_metric(time, &record);
                         }
 
                         if let Some(next) = &self.next {
-                            next.add_metric(record, None);
+                            next.add_metric(time, record, None);
                         }
 
                         emit_total += 1;

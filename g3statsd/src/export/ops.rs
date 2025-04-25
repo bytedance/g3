@@ -151,6 +151,9 @@ async fn spawn_new_unlocked(config: AnyExporterConfig) -> anyhow::Result<()> {
         AnyExporterConfig::Console(config) => {
             super::console::ConsoleExporter::prepare_initial(config)?
         }
+        AnyExporterConfig::Memory(config) => {
+            super::memory::MemoryExporter::prepare_initial(config)?
+        }
     };
     let name = exporter.name().clone();
     registry::add(exporter);

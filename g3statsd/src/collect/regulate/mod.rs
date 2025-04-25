@@ -17,6 +17,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use chrono::{DateTime, Utc};
 
 use g3_types::metrics::NodeName;
 
@@ -88,7 +89,7 @@ impl Collector for RegulateCollector {
         self.config.collector_type()
     }
 
-    fn add_metric(&self, mut record: MetricRecord, worker_id: Option<usize>) {
+    fn add_metric(&self, time: DateTime<Utc>, mut record: MetricRecord, worker_id: Option<usize>) {
         if let Some(prefix) = &self.config.prefix {
             let name = Arc::make_mut(&mut record.name);
             name.add_prefix(prefix);
@@ -101,11 +102,11 @@ impl Collector for RegulateCollector {
         }
 
         for exporter in &self.exporters {
-            exporter.add_metric(&record);
+            exporter.add_metric(time, &record);
         }
 
         if let Some(next) = &self.next {
-            next.add_metric(record, worker_id);
+            next.add_metric(time, record, worker_id);
         }
     }
 }
