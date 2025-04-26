@@ -28,7 +28,7 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   VCPKG_ROOT: C:\vcpkg
-  WIN_FEATURES: rustls-ring,quic,vendored-c-ares,hickory
+  WIN_FEATURES: rustls-ring,quic,vendored-c-ares
 
 jobs:
   build:

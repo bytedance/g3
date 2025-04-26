@@ -21,10 +21,6 @@ fn main() {
     g3_build_env::check_openssl();
     g3_build_env::check_rustls_provider();
 
-    if env::var("CARGO_FEATURE_HICKORY").is_ok() {
-        println!("cargo:rustc-env=G3_HICKORY_FEATURE=hickory-dns");
-    }
-
     if env::var("CARGO_FEATURE_QUIC").is_ok() {
         println!("cargo:rustc-env=G3_QUIC_FEATURE=quinn");
     }
