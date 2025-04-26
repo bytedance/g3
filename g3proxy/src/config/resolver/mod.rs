@@ -28,7 +28,6 @@ use g3_yaml::{HybridParser, YamlDocPosition};
 
 #[cfg(feature = "c-ares")]
 pub(crate) mod c_ares;
-#[cfg(feature = "hickory")]
 pub(crate) mod hickory;
 
 pub(crate) mod deny_all;
@@ -63,7 +62,6 @@ pub(crate) trait ResolverConfig {
 pub(crate) enum AnyResolverConfig {
     #[cfg(feature = "c-ares")]
     CAres(c_ares::CAresResolverConfig),
-    #[cfg(feature = "hickory")]
     Hickory(Box<hickory::HickoryResolverConfig>),
     DenyAll(deny_all::DenyAllResolverConfig),
     FailOver(fail_over::FailOverResolverConfig),
@@ -119,7 +117,6 @@ fn load_resolver(
                 .context("failed to load this c-ares resolver")?;
             Ok(AnyResolverConfig::CAres(resolver))
         }
-        #[cfg(feature = "hickory")]
         "hickory" | "hickory_dns" | "hickorydns" | "trust_dns" | "trustdns" => {
             let resolver = hickory::HickoryResolverConfig::parse(map, position)
                 .context("failed to load this hickory resolver")?;

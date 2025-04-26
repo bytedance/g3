@@ -54,7 +54,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install capnproto musl-tools
       - name: Cargo build
-        run: cargo build --target=x86_64-unknown-linux-musl --no-default-features --features ${{ matrix.feature }},quic,vendored-c-ares,hickory
+        run: cargo build --target=x86_64-unknown-linux-musl --no-default-features --features ${{ matrix.feature }},quic,vendored-c-ares
   msvc:
     name: msvc
     runs-on: windows-latest
@@ -80,4 +80,4 @@ jobs:
           toolchain: stable
           components: clippy
       - name: Cargo build
-        run: cargo build --no-default-features --features ${{ matrix.feature }},quic,vendored-c-ares,hickory
+        run: cargo build --no-default-features --features ${{ matrix.feature }},quic,vendored-c-ares

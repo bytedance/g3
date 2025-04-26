@@ -28,7 +28,6 @@ use crate::config::resolver::{AnyResolverConfig, ResolverConfigDiffAction};
 
 #[cfg(feature = "c-ares")]
 use super::c_ares::CAresResolver;
-#[cfg(feature = "hickory")]
 use super::hickory::HickoryResolver;
 
 use super::deny_all::DenyAllResolver;
@@ -187,7 +186,6 @@ async fn spawn_new_unlocked(config: AnyResolverConfig) -> anyhow::Result<()> {
     let resolver = match config {
         #[cfg(feature = "c-ares")]
         AnyResolverConfig::CAres(c) => CAresResolver::new_obj(c)?,
-        #[cfg(feature = "hickory")]
         AnyResolverConfig::Hickory(c) => HickoryResolver::new_obj(*c)?,
         AnyResolverConfig::DenyAll(c) => DenyAllResolver::new_obj(c)?,
         AnyResolverConfig::FailOver(c) => FailOverResolver::new_obj(c)?,

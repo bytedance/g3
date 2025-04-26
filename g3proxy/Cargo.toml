@@ -80,8 +80,8 @@ g3-macros.workspace = true
 g3-msgpack.workspace = true
 g3-openssl.workspace = true
 g3-redis-client = { workspace = true, features = ["yaml"] }
-g3-resolver = { workspace = true, features = ["yaml"] }
-g3-slog-types = { workspace = true, features = ["http", "openssl"] }
+g3-resolver = { workspace = true, features = ["yaml", "hickory"] }
+g3-slog-types = { workspace = true, features = ["http", "openssl", "socket"] }
 g3-smtp-proto.workspace = true
 g3-socket.workspace = true
 g3-socks.workspace = true
@@ -101,7 +101,7 @@ tokio-test.workspace = true
 g3-build-env.workspace = true
 
 [features]
-default = ["lua54", "python", "c-ares", "hickory", "quic", "rustls-ring"]
+default = ["lua54", "python", "c-ares", "quic", "rustls-ring"]
 lua = ["mlua"]
 luajit = ["lua", "mlua/luajit"]
 lua51 = ["lua", "mlua/lua51"]
@@ -109,7 +109,6 @@ lua53 = ["lua", "mlua/lua53"]
 lua54 = ["lua", "mlua/lua54"]
 python = ["pyo3"]
 c-ares = ["g3-resolver/c-ares"]
-hickory = ["g3-resolver/hickory", "g3-slog-types/socket"]
 quic = ["g3-daemon/quic", "g3-resolver/quic", "g3-yaml/quinn", "g3-types/quinn", "g3-dpi/quic", "dep:quinn"]
 rustls-ring = ["g3-types/rustls-ring", "rustls/ring", "quinn?/rustls-ring"]
 vendored-openssl = ["openssl/vendored", "openssl-probe"]
