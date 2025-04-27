@@ -46,7 +46,6 @@ impl MetricTagMap {
         Ok(())
     }
 
-    #[allow(unused)]
     pub(crate) fn display_graphite(&self) -> DisplayTagMap<'_> {
         DisplayTagMap {
             inner: self,

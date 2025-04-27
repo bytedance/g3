@@ -28,6 +28,7 @@ pub(crate) use registry::{clear, get_all};
 
 pub(crate) mod console;
 pub(crate) mod discard;
+pub(crate) mod graphite;
 pub(crate) mod memory;
 
 const CONFIG_KEY_EXPORTER_TYPE: &str = "type";
@@ -56,6 +57,7 @@ pub(crate) enum AnyExporterConfig {
     Discard(discard::DiscardExporterConfig),
     Console(console::ConsoleExporterConfig),
     Memory(memory::MemoryExporterConfig),
+    Graphite(graphite::GraphiteExporterConfig),
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
@@ -105,6 +107,11 @@ fn load_exporter(
             let exporter = memory::MemoryExporterConfig::parse(map, position)
                 .context("failed to load this Memory exporter")?;
             Ok(AnyExporterConfig::Memory(exporter))
+        }
+        "graphite" => {
+            let exporter = graphite::GraphiteExporterConfig::parse(map, position)
+                .context("failed to load this Graphite exporter")?;
+            Ok(AnyExporterConfig::Graphite(exporter))
         }
         _ => Err(anyhow!("unsupported exporter type {}", exporter_type)),
     }

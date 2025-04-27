@@ -32,6 +32,7 @@ pub(crate) use ops::reload;
 
 mod console;
 mod discard;
+mod graphite;
 mod memory;
 
 pub(crate) trait Exporter {

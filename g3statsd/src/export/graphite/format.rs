@@ -14,27 +14,25 @@
  * limitations under the License.
  */
 
-use std::sync::Arc;
+use std::io::Write;
 
-mod name;
-pub(crate) use name::MetricName;
+use chrono::{DateTime, Utc};
 
-mod tag;
-pub(crate) use tag::MetricTagMap;
+use crate::runtime::export::StreamExport;
+use crate::types::MetricRecord;
 
-mod value;
-pub(crate) use value::MetricValue;
+#[derive(Default)]
+pub(super) struct GraphitePlaintextFormatter {}
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum MetricType {
-    Counter,
-    Gauge,
-}
-
-#[derive(Clone)]
-pub(crate) struct MetricRecord {
-    pub(crate) r#type: MetricType,
-    pub(crate) name: Arc<MetricName>,
-    pub(crate) tag_map: Arc<MetricTagMap>,
-    pub(crate) value: MetricValue,
+impl StreamExport for GraphitePlaintextFormatter {
+    fn serialize(&self, time: DateTime<Utc>, record: &MetricRecord, buf: &mut Vec<u8>) {
+        let _ = writeln!(
+            buf,
+            "{};{} {} {}",
+            record.name.display('.'),
+            record.tag_map.display_graphite(),
+            record.value,
+            time.timestamp()
+        );
+    }
 }
