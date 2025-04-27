@@ -13,28 +13,3 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-use std::sync::Arc;
-
-mod name;
-pub(crate) use name::MetricName;
-
-mod tag;
-pub(crate) use tag::MetricTagMap;
-
-mod value;
-pub(crate) use value::MetricValue;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum MetricType {
-    Counter,
-    Gauge,
-}
-
-#[derive(Clone)]
-pub(crate) struct MetricRecord {
-    pub(crate) r#type: MetricType,
-    pub(crate) name: Arc<MetricName>,
-    pub(crate) tag_map: Arc<MetricTagMap>,
-    pub(crate) value: MetricValue,
-}
