@@ -32,8 +32,7 @@ pub(crate) fn log_cmd(cmd: &str) {
     log::log!(
         target: FTP_DEBUG_LOG_TARGET,
         FTP_DEBUG_LOG_LEVEL,
-        "> {}",
-        cmd
+        "> {cmd}",
     );
 }
 
@@ -43,7 +42,6 @@ pub(crate) fn log_rsp(rsp: &str) {
     log::log!(
         target: FTP_DEBUG_LOG_TARGET,
         FTP_DEBUG_LOG_LEVEL,
-        "< {}",
-        rsp
+        "< {rsp}",
     );
 }

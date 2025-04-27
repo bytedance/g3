@@ -46,8 +46,7 @@ pub async fn connect(
         ServerName::IpAddress(ip) => IpAddr::from(*ip).to_string(),
         _ => {
             return Err(ProtoError::from(format!(
-                "unsupported tls name: {:?}",
-                tls_name
+                "unsupported tls name: {tls_name:?}",
             )));
         }
     };

@@ -183,7 +183,7 @@ impl ReceiveUdpServer for StatsdImporter {
             match r {
                 Ok(r) => self.collector.load().add_metric(time, r, worker_id),
                 Err(e) => {
-                    debug!("invalid StatsD record from {}: {e}", client_addr);
+                    debug!("invalid StatsD record from {client_addr}: {e}");
                 }
             }
         }
