@@ -106,8 +106,7 @@ impl TopoMap {
         let mut parents = Vec::new();
         self.add_node_internal(name, &mut parents, resolve_children)
             .context(format!(
-                "error detected when checking dependency chain {:?}",
-                parents
+                "error detected when checking dependency chain {parents:?}",
             ))?;
         Ok(())
     }

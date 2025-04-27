@@ -286,7 +286,7 @@ impl UnaidedRuntimeConfig {
                             error!("failed to create tokio runtime on worker thread {i}: {e}");
                         }
                     }
-                    trace!("stopped worker thread #{}", i);
+                    trace!("stopped worker thread #{i}");
                 })
                 .map_err(|e| anyhow!("failed to spawn worker thread {i}: {e}"))?;
 

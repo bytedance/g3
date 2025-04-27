@@ -52,7 +52,7 @@ fn main() -> anyhow::Result<()> {
     match ret {
         Ok(_) => Ok(()),
         Err(e) => {
-            error!("{:?}", e);
+            error!("{e:?}");
             Err(e)
         }
     }
