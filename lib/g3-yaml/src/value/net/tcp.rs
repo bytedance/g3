@@ -90,6 +90,19 @@ pub fn as_tcp_listen_config(value: &Yaml) -> anyhow::Result<TcpListenConfig> {
                     config.set_socket_address(addr);
                     Ok(())
                 }
+                #[cfg(any(
+                    target_os = "linux",
+                    target_os = "android",
+                    target_os = "macos",
+                    target_os = "illumos",
+                    target_os = "solaris"
+                ))]
+                "interface" => {
+                    let interface = crate::value::as_interface(v)
+                        .context(format!("invalid interface name value for key {k}"))?;
+                    config.set_interface(interface);
+                    Ok(())
+                }
                 "backlog" => {
                     let backlog = crate::value::as_u32(v)
                         .context(format!("invalid u32 value for key {k}"))?;

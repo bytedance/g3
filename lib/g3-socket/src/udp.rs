@@ -111,13 +111,25 @@ pub fn new_std_bind_relay(
 
 pub fn new_std_bind_listen(config: &UdpListenConfig) -> io::Result<UdpSocket> {
     let addr = config.address();
-    let socket = new_udp_socket(AddressFamily::from(&addr), config.socket_buffer())?;
+    let family = AddressFamily::from(&addr);
+    let socket = new_udp_socket(family, config.socket_buffer())?;
     super::listen::set_addr_reuse(&socket, addr)?;
     if let Some(enable) = config.is_ipv6only() {
         super::listen::set_only_v6(&socket, addr, enable)?;
     }
     let bind_addr = SockAddr::from(addr);
     socket.bind(&bind_addr)?;
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    if let Some(iface) = config.interface() {
+        socket.bind_device(Some(iface.c_bytes()))?;
+    }
+    #[cfg(any(target_os = "macos", target_os = "illumos", target_os = "solaris"))]
+    if let Some(iface) = config.interface() {
+        match family {
+            AddressFamily::Ipv4 => socket.bind_device_by_index_v4(Some(iface.id()))?,
+            AddressFamily::Ipv6 => socket.bind_device_by_index_v6(Some(iface.id()))?,
+        }
+    }
     #[cfg(unix)]
     super::listen::set_udp_recv_pktinfo(&socket, addr)?;
     #[cfg(windows)]
@@ -261,6 +273,51 @@ mod tests {
         let local_addr = socket.local_addr().unwrap();
         assert_ne!(local_addr.port(), 0);
         assert!(local_addr.ip().is_unspecified());
+        drop(socket);
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "illumos",
+        target_os = "solaris"
+    ))]
+    #[test]
+    fn listen_interface() {
+        use g3_types::net::Interface;
+
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        const LOOPBACK_INTERFACE: &str = "lo";
+        #[cfg(not(any(target_os = "linux", target_os = "android")))]
+        const LOOPBACK_INTERFACE: &str = "lo0";
+
+        let interface = Interface::from_str(LOOPBACK_INTERFACE).unwrap();
+
+        let mut config = UdpListenConfig::default();
+        config.set_interface(interface);
+
+        let socket = new_std_bind_listen(&config).unwrap();
+        let local_addr = socket.local_addr().unwrap();
+        assert_ne!(local_addr.port(), 0);
+        drop(socket);
+
+        config.set_ipv6_only(true);
+        let socket = new_std_bind_listen(&config).unwrap();
+        let local_addr = socket.local_addr().unwrap();
+        assert_ne!(local_addr.port(), 0);
+        drop(socket);
+
+        config.set_ipv6_only(false);
+        let socket = new_std_bind_listen(&config).unwrap();
+        let local_addr = socket.local_addr().unwrap();
+        assert_ne!(local_addr.port(), 0);
+        drop(socket);
+
+        config.set_socket_address(SocketAddr::from_str("0.0.0.0:0").unwrap());
+        let socket = new_std_bind_listen(&config).unwrap();
+        let local_addr = socket.local_addr().unwrap();
+        assert_ne!(local_addr.port(), 0);
         drop(socket);
     }
 }

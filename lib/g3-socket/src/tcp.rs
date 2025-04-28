@@ -28,7 +28,8 @@ use super::{BindAddr, RawSocket};
 
 pub fn new_std_listener(config: &TcpListenConfig) -> io::Result<std::net::TcpListener> {
     let addr = config.address();
-    let socket = new_tcp_socket(AddressFamily::from(&addr))?;
+    let family = AddressFamily::from(&addr);
+    let socket = new_tcp_socket(family)?;
     super::listen::set_addr_reuse(&socket, addr)?;
     if let Some(enable) = config.is_ipv6only() {
         super::listen::set_only_v6(&socket, addr, enable)?;
@@ -43,6 +44,17 @@ pub fn new_std_listener(config: &TcpListenConfig) -> io::Result<std::net::TcpLis
     }
     let bind_addr: SockAddr = addr.into();
     socket.bind(&bind_addr)?;
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    if let Some(iface) = config.interface() {
+        socket.bind_device(Some(iface.c_bytes()))?;
+    }
+    #[cfg(any(target_os = "macos", target_os = "illumos", target_os = "solaris"))]
+    if let Some(iface) = config.interface() {
+        match family {
+            AddressFamily::Ipv4 => socket.bind_device_by_index_v4(Some(iface.id()))?,
+            AddressFamily::Ipv6 => socket.bind_device_by_index_v6(Some(iface.id()))?,
+        }
+    }
     socket.listen(config.backlog() as i32)?;
     Ok(std::net::TcpListener::from(socket))
 }
