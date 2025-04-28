@@ -122,6 +122,19 @@ pub fn as_udp_listen_config(value: &Yaml) -> anyhow::Result<UdpListenConfig> {
                     config.set_socket_address(addr);
                     Ok(())
                 }
+                #[cfg(any(
+                    target_os = "linux",
+                    target_os = "android",
+                    target_os = "macos",
+                    target_os = "illumos",
+                    target_os = "solaris"
+                ))]
+                "interface" => {
+                    let interface = crate::value::as_interface(v)
+                        .context(format!("invalid interface name value for key {k}"))?;
+                    config.set_interface(interface);
+                    Ok(())
+                }
                 "ipv6only" | "ipv6_only" => {
                     let ipv6only = crate::value::as_bool(v)
                         .context(format!("invalid bool value for key {k}"))?;

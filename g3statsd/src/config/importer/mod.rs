@@ -55,6 +55,7 @@ pub(crate) trait ImporterConfig {
 #[def_fn(importer_type, &'static str)]
 #[def_fn(diff_action, &Self, ImporterConfigDiffAction)]
 #[def_fn(collector, &NodeName)]
+#[allow(clippy::large_enum_variant)]
 pub(crate) enum AnyImporterConfig {
     Dummy(dummy::DummyImporterConfig),
     StatsD(statsd::StatsdImporterConfig),

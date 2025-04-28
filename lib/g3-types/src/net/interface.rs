@@ -133,22 +133,23 @@ mod tests {
     #[test]
     fn lo_by_name() {
         let iface = Interface::from_str(LOOPBACK_INTERFACE).unwrap();
-        assert_eq!(iface.id.get(), 1);
+        let iface_id = iface.id.get();
         let bytes = iface.c_bytes();
         let len = bytes.len();
         assert_eq!(len, LOOPBACK_INTERFACE.len() + 1);
         assert_eq!(&bytes[..len - 1], LOOPBACK_INTERFACE.as_bytes());
         assert_eq!(bytes[len - 1], 0);
+
+        let iface = Interface::try_from(iface_id).unwrap();
+        assert_eq!(iface.name(), LOOPBACK_INTERFACE);
     }
 
     #[test]
     fn lo_by_id() {
         let iface = Interface::try_from(1).unwrap();
-        assert_eq!(iface.name(), LOOPBACK_INTERFACE);
-        let bytes = iface.c_bytes();
-        let len = bytes.len();
-        assert_eq!(len, LOOPBACK_INTERFACE.len() + 1);
-        assert_eq!(&bytes[..len - 1], LOOPBACK_INTERFACE.as_bytes());
-        assert_eq!(bytes[len - 1], 0);
+        let iface_name = iface.name();
+
+        let iface = Interface::from_str(iface_name).unwrap();
+        assert_eq!(iface.id.get(), 1);
     }
 }

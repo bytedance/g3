@@ -19,12 +19,29 @@ use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use anyhow::anyhow;
 use num_traits::ToPrimitive;
 
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos",
+    target_os = "illumos",
+    target_os = "solaris"
+))]
+use crate::net::Interface;
+
 const DEFAULT_LISTEN_BACKLOG: u32 = 4096;
 const MINIMAL_LISTEN_BACKLOG: u32 = 8;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TcpListenConfig {
     address: SocketAddr,
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "illumos",
+        target_os = "solaris"
+    ))]
+    interface: Option<Interface>,
     ipv6only: Option<bool>,
     #[cfg(target_os = "linux")]
     transparent: bool,
@@ -46,6 +63,14 @@ impl TcpListenConfig {
     pub fn new(address: SocketAddr) -> Self {
         TcpListenConfig {
             address,
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "illumos",
+                target_os = "solaris"
+            ))]
+            interface: None,
             ipv6only: None,
             #[cfg(target_os = "linux")]
             transparent: false,
@@ -69,6 +94,18 @@ impl TcpListenConfig {
     #[inline]
     pub fn address(&self) -> SocketAddr {
         self.address
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "illumos",
+        target_os = "solaris"
+    ))]
+    #[inline]
+    pub fn interface(&self) -> Option<&Interface> {
+        self.interface.as_ref()
     }
 
     #[inline]
@@ -101,6 +138,18 @@ impl TcpListenConfig {
     #[inline]
     pub fn set_socket_address(&mut self, addr: SocketAddr) {
         self.address = addr;
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "illumos",
+        target_os = "solaris"
+    ))]
+    #[inline]
+    pub fn set_interface(&mut self, interface: Interface) {
+        self.interface = Some(interface);
     }
 
     #[inline]
