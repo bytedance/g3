@@ -59,7 +59,7 @@ impl AsyncWaitCtx {
             return Err(ErrorStack::get());
         }
 
-        Ok(fds.into_iter().map(RawFd::from).collect())
+        Ok(fds.into_iter().collect())
     }
 
     pub fn get_changed_fds(&self) -> Result<(Vec<RawFd>, Vec<RawFd>), ErrorStack> {
@@ -93,10 +93,7 @@ impl AsyncWaitCtx {
             return Err(ErrorStack::get());
         }
 
-        Ok((
-            add_fds.into_iter().map(RawFd::from).collect(),
-            del_fds.into_iter().map(RawFd::from).collect(),
-        ))
+        Ok((add_fds.into_iter().collect(), del_fds.into_iter().collect()))
     }
 }
 

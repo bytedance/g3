@@ -142,3 +142,30 @@ jobs:
         run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
       - name: Cargo clippy
         run: cargo clippy --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }} -- --deny warnings
+
+  openssl-async-job:
+    name: Build with OpenSSL Async Job
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component:
+          - g3keymess
+          - g3tiles
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0 # v1
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto libssl-dev
+      - name: Cargo build
+        run: cargo build --features openssl-async-job -p ${{ matrix.component }}
+      - name: Cargo clippy
+        run: cargo clippy --features openssl-async-job -p ${{ matrix.component }} -- --deny warnings
