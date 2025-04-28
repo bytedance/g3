@@ -25,7 +25,7 @@ use yaml_rust::{Yaml, yaml};
 
 use g3_histogram::HistogramMetricsConfig;
 use g3_types::metrics::{NodeName, StaticMetricsTags};
-use g3_types::net::TcpListenConfig;
+use g3_types::net::{OpensslServerConfigBuilder, TcpListenConfig};
 use g3_yaml::{HybridParser, YamlDocPosition};
 
 mod registry;
@@ -38,6 +38,7 @@ pub(crate) struct KeyServerConfig {
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: TcpListenConfig,
+    pub(crate) tls_server: Option<OpensslServerConfigBuilder>,
     pub(crate) multiplex_queue_depth: usize,
     pub(crate) request_read_timeout: Duration,
     pub(crate) duration_stats: HistogramMetricsConfig,
@@ -54,6 +55,7 @@ impl KeyServerConfig {
             position,
             shared_logger: None,
             listen: TcpListenConfig::default(),
+            tls_server: None,
             multiplex_queue_depth: 0,
             request_read_timeout: Duration::from_millis(100),
             duration_stats: HistogramMetricsConfig::default(),
@@ -106,6 +108,14 @@ impl KeyServerConfig {
             "listen" => {
                 self.listen = g3_yaml::value::as_tcp_listen_config(v)
                     .context(format!("invalid tcp listen config value for key {k}"))?;
+                Ok(())
+            }
+            "tls" | "tls_server" => {
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let tls_server =
+                    g3_yaml::value::as_openssl_tls_server_config_builder(v, Some(lookup_dir))
+                        .context(format!("invalid server tls config value for key {k}"))?;
+                self.tls_server = Some(tls_server);
                 Ok(())
             }
             "multiplex_queue_depth" => {

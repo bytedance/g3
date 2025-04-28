@@ -159,8 +159,8 @@ async fn load_and_spawn(unique_ctl_path: String) -> anyhow::Result<()> {
 
     g3keymess::serve::spawn_offline_clean();
     if let Some(config) = g3_daemon::register::get_pre_config() {
+        g3keymess::serve::create_all_stopped().await?;
         tokio::spawn(async move {
-            g3keymess::serve::create_all_stopped().await;
             if let Err(e) = g3keymess::register::startup(config, unique_ctl_path).await {
                 warn!("register failed: {e:?}");
                 g3_daemon::control::quit::trigger_force_shutdown();

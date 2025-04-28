@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::net::SocketAddr;
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
@@ -25,6 +24,7 @@ use tokio::sync::{OwnedSemaphorePermit, Semaphore, broadcast};
 use tokio::time::Instant;
 use uuid::Uuid;
 
+use g3_daemon::server::ClientConnectionInfo;
 use g3_histogram::HistogramRecorder;
 use g3_slog_types::{LtDateTime, LtUuid};
 
@@ -145,8 +145,7 @@ pub(crate) struct KeylessTaskContext {
     pub(crate) server_config: Arc<KeyServerConfig>,
     pub(crate) server_stats: Arc<KeyServerStats>,
     pub(crate) duration_recorder: KeyServerDurationRecorder,
-    pub(crate) peer_addr: SocketAddr,
-    pub(crate) local_addr: SocketAddr,
+    pub(crate) cc_info: ClientConnectionInfo,
     pub(crate) task_logger: Option<Logger>,
     pub(crate) request_logger: Option<Logger>,
     pub(crate) reload_notifier: broadcast::Receiver<ServerReloadCommand>,
@@ -221,8 +220,8 @@ impl KeylessTask {
             slog_info!(logger, "{}", e;
                 "task_id" => LtUuid(&self.id),
                 "start_at" => LtDateTime(&self.started),
-                "server_addr" => self.ctx.local_addr,
-                "client_addr" => self.ctx.peer_addr,
+                "server_addr" => self.ctx.cc_info.server_addr(),
+                "client_addr" => self.ctx.cc_info.client_addr(),
             );
         }
     }
