@@ -6,7 +6,7 @@ Discover
 
 The type for each discover config is *map*, with two always required keys:
 
-* :ref:`name <conf_discover_common_name>`, which specify the name of the server.
+* :ref:`name <conf_discover_common_name>`, which specify the name of the discover.
 * :ref:`type <conf_discover_common_type>`, which specify the real type of the discover, decides how to parse other keys.
 
 There are many types of discover, each with a section below.
@@ -27,11 +27,17 @@ This section describes the common keys, they may be used by many discovers.
 
 .. _conf_discover_common_name:
 
+name
+----
+
 **required**, **type**: :ref:`metrics name <conf_value_metrics_name>`
 
 Set the name of the discover.
 
 .. _conf_discover_common_type:
+
+type
+----
 
 **required**, **type**: str
 

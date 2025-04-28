@@ -29,11 +29,17 @@ This section describes the common keys, they may be used by many backends.
 
 .. _conf_backend_common_name:
 
+name
+----
+
 **required**, **type**: :ref:`metrics name <conf_value_metrics_name>`
 
 Set the name of the backend.
 
 .. _conf_backend_common_type:
+
+type
+----
 
 **required**, **type**: str
 
