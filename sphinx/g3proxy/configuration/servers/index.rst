@@ -38,11 +38,17 @@ This section describes the common keys, they may be used by many servers.
 
 .. _conf_server_common_name:
 
+name
+----
+
 **required**, **type**: :ref:`metrics name <conf_value_metrics_name>`
 
 Set the name of the server.
 
 .. _conf_server_common_type:
+
+type
+----
 
 **required**, **type**: str
 

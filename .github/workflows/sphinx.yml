@@ -21,6 +21,7 @@ jobs:
         component:
           - g3proxy
           - g3tiles
+          - g3keymess
     steps:
       - uses: actions/checkout@v4
       - run: |
