@@ -22,7 +22,9 @@ use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
 use g3_daemon::listen::{ListenAliveGuard, ListenStats};
+use g3_daemon::server::ClientConnectionInfo;
 use g3_io_ext::LimitedTcpListener;
+use g3_socket::RawSocket;
 use g3_types::ext::SocketAddrExt;
 use g3_types::net::TcpListenConfig;
 
@@ -121,8 +123,10 @@ impl KeyServerRuntime {
 
     fn run_task(&self, stream: TcpStream, peer_addr: SocketAddr, local_addr: SocketAddr) {
         let server = Arc::clone(&self.server);
+        let mut cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
+        cc_info.set_tcp_raw_socket(RawSocket::from(&stream));
         tokio::spawn(async move {
-            server.run_tcp_task(stream, peer_addr, local_addr).await;
+            server.run_tcp_task(stream, cc_info).await;
         });
     }
 

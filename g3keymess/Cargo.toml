@@ -30,7 +30,7 @@ serde_json.workspace = true
 g3-daemon = { workspace = true, features = ["register", "event-log"] }
 g3-macros.workspace = true
 g3-yaml = { workspace = true, features = ["histogram"] }
-g3-types = { workspace = true, features = [] }
+g3-types = { workspace = true, features = ["openssl"] }
 g3-socket.workspace = true
 g3-io-ext.workspace = true
 g3-tls-cert.workspace = true

@@ -65,7 +65,9 @@ where
 }
 
 pub(super) fn add(name: NodeName, server: Arc<KeyServer>) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
+    let mut ht = RUNTIME_SERVER_REGISTRY
+        .lock()
+        .map_err(|e| anyhow!("failed to lock server registry: {e}"))?;
     server.start_runtime(&server)?;
     if let Some(old_server) = ht.insert(name, server) {
         old_server.abort_runtime();
@@ -110,13 +112,15 @@ pub(crate) fn get_server(name: &NodeName) -> Option<Arc<KeyServer>> {
 }
 
 pub(super) fn reload_and_respawn(name: &NodeName, config: KeyServerConfig) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
+    let mut ht = RUNTIME_SERVER_REGISTRY
+        .lock()
+        .map_err(|e| anyhow!("failed to lock server registry: {e}"))?;
     let old_server = match ht.get(name) {
         Some(server) => server,
         None => return Err(anyhow!("no server with name {name} found")),
     };
 
-    let server = Arc::new(old_server.reload_with_new_notifier(config));
+    let server = old_server.reload_with_new_notifier(config)?;
     server.start_runtime(&server)?;
     if let Some(old_server) = ht.insert(name.clone(), server) {
         old_server.abort_runtime();
@@ -136,7 +140,9 @@ where
 }
 
 pub(crate) fn foreach_start_runtime() -> anyhow::Result<()> {
-    let ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
+    let ht = RUNTIME_SERVER_REGISTRY
+        .lock()
+        .map_err(|e| anyhow!("failed to lock server registry: {e}"))?;
     for (name, server) in ht.iter() {
         server
             .start_runtime(server)
