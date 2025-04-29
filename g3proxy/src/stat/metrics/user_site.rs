@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-
-use foldhash::fast::FixedState;
 
 use g3_daemon::metrics::TAG_KEY_QUANTILE;
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
 use g3_types::metrics::NodeName;
-use g3_types::stats::StatId;
+use g3_types::stats::GlobalStatsMap;
 
 use super::{RequestStatsNamesRef, TrafficStatsNamesRef, UserMetricExt};
 use crate::auth::{
@@ -30,25 +27,23 @@ use crate::auth::{
     UserTrafficStats, UserUpstreamTrafficSnapshot, UserUpstreamTrafficStats,
 };
 
-static STORE_REQUEST_STATS_MAP: Mutex<HashMap<StatId, RequestStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
-static STORE_TRAFFIC_STATS_MAP: Mutex<HashMap<StatId, TrafficStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
-static STORE_DURATION_STATS_MAP: Mutex<HashMap<StatId, DurationStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
-static STORE_UPSTREAM_TRAFFIC_STATS_MAP: Mutex<
-    HashMap<StatId, UpstreamTrafficStatsValue, FixedState>,
-> = Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static STORE_REQUEST_STATS_MAP: Mutex<GlobalStatsMap<RequestStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static STORE_TRAFFIC_STATS_MAP: Mutex<GlobalStatsMap<TrafficStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static STORE_DURATION_STATS_MAP: Mutex<GlobalStatsMap<DurationStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static STORE_UPSTREAM_TRAFFIC_STATS_MAP: Mutex<GlobalStatsMap<UpstreamTrafficStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
 
-static USER_SITE_REQUEST_STATS_MAP: Mutex<HashMap<StatId, RequestStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
-static USER_SITE_TRAFFIC_STATS_MAP: Mutex<HashMap<StatId, TrafficStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
-static USER_SITE_DURATION_STATS_MAP: Mutex<HashMap<StatId, DurationStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
-static USER_SITE_UPSTREAM_TRAFFIC_STATS_MAP: Mutex<
-    HashMap<StatId, UpstreamTrafficStatsValue, FixedState>,
-> = Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static USER_SITE_REQUEST_STATS_MAP: Mutex<GlobalStatsMap<RequestStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static USER_SITE_TRAFFIC_STATS_MAP: Mutex<GlobalStatsMap<TrafficStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static USER_SITE_DURATION_STATS_MAP: Mutex<GlobalStatsMap<DurationStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static USER_SITE_UPSTREAM_TRAFFIC_STATS_MAP: Mutex<GlobalStatsMap<UpstreamTrafficStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
 
 struct RequestStatsNames {
     connection_total: String,
@@ -220,7 +215,7 @@ pub(in crate::stat) fn sync_stats() {
 
 pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     let mut req_stats_map = USER_SITE_REQUEST_STATS_MAP.lock().unwrap();
-    req_stats_map.retain(|_, v| {
+    req_stats_map.retain(|v| {
         let names = RequestStatsNamesRef {
             connection_total: &v.names.connection_total,
             request_total: &v.names.request_total,
@@ -237,7 +232,7 @@ pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     drop(req_stats_map);
 
     let mut io_stats_map = USER_SITE_TRAFFIC_STATS_MAP.lock().unwrap();
-    io_stats_map.retain(|_, v| {
+    io_stats_map.retain(|v| {
         let names = TrafficStatsNamesRef {
             in_bytes: &v.names.in_bytes,
             in_packets: &v.names.in_packets,
@@ -251,7 +246,7 @@ pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     drop(io_stats_map);
 
     let mut dur_stats_map = USER_SITE_DURATION_STATS_MAP.lock().unwrap();
-    dur_stats_map.retain(|_, v| {
+    dur_stats_map.retain(|v| {
         emit_site_duration_stats(client, &v.stats, &v.names);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(&v.stats) > 1
@@ -259,7 +254,7 @@ pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     drop(dur_stats_map);
 
     let mut upstream_io_stats_map = USER_SITE_UPSTREAM_TRAFFIC_STATS_MAP.lock().unwrap();
-    upstream_io_stats_map.retain(|_, v| {
+    upstream_io_stats_map.retain(|v| {
         let names = TrafficStatsNamesRef {
             in_bytes: &v.tags.in_bytes,
             in_packets: &v.tags.in_packets,

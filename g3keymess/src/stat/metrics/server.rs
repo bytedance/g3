@@ -14,16 +14,13 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-
-use foldhash::fast::FixedState;
 
 use g3_daemon::listen::{ListenSnapshot, ListenStats};
 use g3_daemon::metrics::{ServerMetricExt, TAG_KEY_QUANTILE, TAG_KEY_REQUEST};
 use g3_histogram::HistogramStats;
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
-use g3_types::stats::StatId;
+use g3_types::stats::GlobalStatsMap;
 
 use crate::serve::{
     KeyServerDurationStats, KeyServerRequestSnapshot, KeyServerSnapshot, KeyServerStats,
@@ -57,46 +54,40 @@ const FAIL_REASON_OTHER_FAIL: &str = "other_fail";
 type ServerStatsValue = (Arc<KeyServerStats>, KeyServerSnapshot);
 type ListenStatsValue = (Arc<ListenStats>, ListenSnapshot);
 
-static SERVER_STATS_MAP: Mutex<HashMap<StatId, ServerStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
-static LISTEN_STATS_MAP: Mutex<HashMap<StatId, ListenStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
-static DURATION_STATS_MAP: Mutex<HashMap<StatId, Arc<KeyServerDurationStats>, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static SERVER_STATS_MAP: Mutex<GlobalStatsMap<ServerStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static LISTEN_STATS_MAP: Mutex<GlobalStatsMap<ListenStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static DURATION_STATS_MAP: Mutex<GlobalStatsMap<Arc<KeyServerDurationStats>>> =
+    Mutex::new(GlobalStatsMap::new());
 
 pub(in crate::stat) fn sync_stats() {
     let mut server_stats_map = SERVER_STATS_MAP.lock().unwrap();
     crate::serve::foreach_server(|_, server| {
         let stats = server.get_server_stats();
-        let stat_id = stats.stat_id();
         server_stats_map
-            .entry(stat_id)
-            .or_insert_with(|| (stats, KeyServerSnapshot::default()));
+            .get_or_insert_with(stats.stat_id(), || (stats, KeyServerSnapshot::default()));
     });
     drop(server_stats_map);
 
     let mut listen_stats_map = LISTEN_STATS_MAP.lock().unwrap();
     crate::serve::foreach_server(|_, server| {
         let stats = server.get_listen_stats();
-        let stat_id = stats.stat_id();
-        listen_stats_map
-            .entry(stat_id)
-            .or_insert_with(|| (stats, ListenSnapshot::default()));
+        listen_stats_map.get_or_insert_with(stats.stat_id(), || (stats, ListenSnapshot::default()));
     });
     drop(listen_stats_map);
 
     let mut duration_stats_map = DURATION_STATS_MAP.lock().unwrap();
     crate::serve::foreach_server(|_, server| {
         let stats = server.get_duration_stats();
-        let stat_id = stats.stat_id();
-        duration_stats_map.entry(stat_id).or_insert_with(|| stats);
+        duration_stats_map.get_or_insert_with(stats.stat_id(), || stats);
     });
     drop(duration_stats_map);
 }
 
 pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     let mut server_stats_map = SERVER_STATS_MAP.lock().unwrap();
-    server_stats_map.retain(|_, (stats, snap)| {
+    server_stats_map.retain(|(stats, snap)| {
         emit_server_stats(client, stats, snap);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1
@@ -104,7 +95,7 @@ pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     drop(server_stats_map);
 
     let mut listen_stats_map = LISTEN_STATS_MAP.lock().unwrap();
-    listen_stats_map.retain(|_, (stats, snap)| {
+    listen_stats_map.retain(|(stats, snap)| {
         g3_daemon::metrics::emit_listen_stats(client, stats, snap);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1
@@ -112,7 +103,7 @@ pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     drop(listen_stats_map);
 
     let mut duration_stats_map = DURATION_STATS_MAP.lock().unwrap();
-    duration_stats_map.retain(|_, stats| {
+    duration_stats_map.retain(|stats| {
         emit_server_duration_stats(client, stats);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1

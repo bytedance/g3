@@ -14,15 +14,12 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-
-use foldhash::fast::FixedState;
 
 use g3_daemon::metrics::TAG_KEY_QUANTILE;
 use g3_histogram::HistogramStats;
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
-use g3_types::stats::StatId;
+use g3_types::stats::GlobalStatsMap;
 
 use super::BackendMetricExt;
 use crate::module::stream::{StreamBackendDurationStats, StreamBackendStats};
@@ -34,16 +31,14 @@ const METRIC_NAME_STREAM_CONNECT_DURATION: &str = "backend.stream.connect.durati
 
 type StreamBackendStatsValue = (Arc<StreamBackendStats>, StreamBackendSnapshot);
 
-static STORE_STREAM_STATS_MAP: Mutex<HashMap<StatId, StreamBackendStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
-static STREAM_STATS_MAP: Mutex<HashMap<StatId, StreamBackendStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
-static STORE_STREAM_DURATION_STATS_MAP: Mutex<
-    HashMap<StatId, Arc<StreamBackendDurationStats>, FixedState>,
-> = Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
-static STREAM_DURATION_STATS_MAP: Mutex<
-    HashMap<StatId, Arc<StreamBackendDurationStats>, FixedState>,
-> = Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static STORE_STREAM_STATS_MAP: Mutex<GlobalStatsMap<StreamBackendStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static STREAM_STATS_MAP: Mutex<GlobalStatsMap<StreamBackendStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static STORE_STREAM_DURATION_STATS_MAP: Mutex<GlobalStatsMap<Arc<StreamBackendDurationStats>>> =
+    Mutex::new(GlobalStatsMap::new());
+static STREAM_DURATION_STATS_MAP: Mutex<GlobalStatsMap<Arc<StreamBackendDurationStats>>> =
+    Mutex::new(GlobalStatsMap::new());
 
 #[derive(Default)]
 struct StreamBackendSnapshot {
@@ -72,7 +67,7 @@ pub(super) fn sync_stats() {
 
 pub(super) fn emit_stats(client: &mut StatsdClient) {
     let mut backend_stats_map = STREAM_STATS_MAP.lock().unwrap();
-    backend_stats_map.retain(|_, (stats, snap)| {
+    backend_stats_map.retain(|(stats, snap)| {
         emit_stream_stats(client, stats, snap);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1
@@ -80,7 +75,7 @@ pub(super) fn emit_stats(client: &mut StatsdClient) {
     drop(backend_stats_map);
 
     let mut duration_stats_map = STREAM_DURATION_STATS_MAP.lock().unwrap();
-    duration_stats_map.retain(|_, stats| {
+    duration_stats_map.retain(|stats| {
         emit_stream_duration_stats(client, stats);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1

@@ -14,10 +14,7 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-
-use foldhash::fast::FixedState;
 
 use g3_daemon::metrics::{
     MetricTransportType, TAG_KEY_CONNECTION, TAG_KEY_REQUEST, TAG_KEY_SERVER, TAG_KEY_STAT_ID,
@@ -25,7 +22,7 @@ use g3_daemon::metrics::{
 };
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
 use g3_types::metrics::NodeName;
-use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
+use g3_types::stats::{GlobalStatsMap, StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use super::TAG_KEY_ESCAPER;
 use super::{MetricUserConnectionType, MetricUserRequestType};
@@ -101,15 +98,14 @@ type RequestStatsValue = (Arc<UserRequestStats>, UserRequestSnapshot);
 type TrafficStatsValue = (Arc<UserTrafficStats>, UserTrafficSnapshot);
 type UpstreamTrafficStatsValue = (Arc<UserUpstreamTrafficStats>, UserUpstreamTrafficSnapshot);
 
-static USER_FORBIDDEN_STATS_MAP: Mutex<HashMap<StatId, ForbiddenStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
-static USER_REQUEST_STATS_MAP: Mutex<HashMap<StatId, RequestStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
-static USER_TRAFFIC_STATS_MAP: Mutex<HashMap<StatId, TrafficStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
-static USER_UPSTREAM_TRAFFIC_STATS_MAP: Mutex<
-    HashMap<StatId, UpstreamTrafficStatsValue, FixedState>,
-> = Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static USER_FORBIDDEN_STATS_MAP: Mutex<GlobalStatsMap<ForbiddenStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static USER_REQUEST_STATS_MAP: Mutex<GlobalStatsMap<RequestStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static USER_TRAFFIC_STATS_MAP: Mutex<GlobalStatsMap<TrafficStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static USER_UPSTREAM_TRAFFIC_STATS_MAP: Mutex<GlobalStatsMap<UpstreamTrafficStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
 
 pub(super) trait UserMetricExt {
     fn add_user_request_tags(
@@ -174,10 +170,9 @@ pub(in crate::stat) fn sync_stats() {
         user_group.foreach_user(|_, user: &Arc<User>| {
             let all_stats = user.all_forbidden_stats();
             for stats in all_stats {
-                let stat_id = stats.stat_id();
-                fbd_stats_map
-                    .entry(stat_id)
-                    .or_insert_with(|| (stats, UserForbiddenSnapshot::default()));
+                fbd_stats_map.get_or_insert_with(stats.stat_id(), || {
+                    (stats, UserForbiddenSnapshot::default())
+                });
             }
         });
     }
@@ -188,10 +183,9 @@ pub(in crate::stat) fn sync_stats() {
         user_group.foreach_user(|_, user: &Arc<User>| {
             let all_stats = user.all_request_stats();
             for stats in all_stats {
-                let stat_id = stats.stat_id();
-                req_stats_map
-                    .entry(stat_id)
-                    .or_insert_with(|| (stats, UserRequestSnapshot::default()));
+                req_stats_map.get_or_insert_with(stats.stat_id(), || {
+                    (stats, UserRequestSnapshot::default())
+                });
             }
         });
     }
@@ -202,10 +196,9 @@ pub(in crate::stat) fn sync_stats() {
         user_group.foreach_user(|_, user: &Arc<User>| {
             let all_stats = user.all_traffic_stats();
             for stats in all_stats {
-                let stat_id = stats.stat_id();
-                io_stats_map
-                    .entry(stat_id)
-                    .or_insert_with(|| (stats, UserTrafficSnapshot::default()));
+                io_stats_map.get_or_insert_with(stats.stat_id(), || {
+                    (stats, UserTrafficSnapshot::default())
+                });
             }
         });
     }
@@ -216,10 +209,9 @@ pub(in crate::stat) fn sync_stats() {
         user_group.foreach_user(|_, user: &Arc<User>| {
             let all_stats = user.all_upstream_traffic_stats();
             for stats in all_stats {
-                let stat_id = stats.stat_id();
-                upstream_io_stats_map
-                    .entry(stat_id)
-                    .or_insert_with(|| (stats, UserUpstreamTrafficSnapshot::default()));
+                upstream_io_stats_map.get_or_insert_with(stats.stat_id(), || {
+                    (stats, UserUpstreamTrafficSnapshot::default())
+                });
             }
         });
     }
@@ -228,7 +220,7 @@ pub(in crate::stat) fn sync_stats() {
 
 pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     let mut fbd_stats_map = USER_FORBIDDEN_STATS_MAP.lock().unwrap();
-    fbd_stats_map.retain(|_, (stats, snap)| {
+    fbd_stats_map.retain(|(stats, snap)| {
         emit_user_forbidden_stats(client, stats, snap);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1
@@ -236,7 +228,7 @@ pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     drop(fbd_stats_map);
 
     let mut req_stats_map = USER_REQUEST_STATS_MAP.lock().unwrap();
-    req_stats_map.retain(|_, (stats, snap)| {
+    req_stats_map.retain(|(stats, snap)| {
         emit_user_request_stats(client, stats, snap, &REQUEST_STATS_NAMES);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1
@@ -244,7 +236,7 @@ pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     drop(req_stats_map);
 
     let mut io_stats_map = USER_TRAFFIC_STATS_MAP.lock().unwrap();
-    io_stats_map.retain(|_, (stats, snap)| {
+    io_stats_map.retain(|(stats, snap)| {
         emit_user_traffic_stats(client, stats, snap, &TRAFFIC_STATS_NAMES);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1
@@ -252,7 +244,7 @@ pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     drop(io_stats_map);
 
     let mut upstream_io_stats_map = USER_UPSTREAM_TRAFFIC_STATS_MAP.lock().unwrap();
-    upstream_io_stats_map.retain(|_, (stats, snap)| {
+    upstream_io_stats_map.retain(|(stats, snap)| {
         emit_user_upstream_traffic_stats(client, stats, snap, &UPSTREAM_TRAFFIC_STATS_NAMES);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1
