@@ -23,7 +23,7 @@ use g3_yaml::YamlDocPosition;
 use super::{AnyExporterConfig, ExporterConfig, ExporterConfigDiffAction};
 use crate::runtime::export::StreamExportConfig;
 
-const EXPORTER_CONFIG_TYPE: &str = "graphite";
+const EXPORTER_CONFIG_TYPE: &str = "Graphite";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct GraphiteExporterConfig {

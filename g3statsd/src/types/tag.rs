@@ -67,7 +67,7 @@ impl MetricTagMap {
         DisplayTagMap {
             inner: self,
             assign_delimiter: '=',
-            next_delimiter: ',',
+            next_delimiter: ' ',
         }
     }
 
@@ -227,7 +227,7 @@ mod tests {
         );
         assert_eq!(
             tag_map.display_opentsdb().to_string().as_str(),
-            "daemon_group=test,online=y,server=test-tls,stat_id=406995395936281"
+            "daemon_group=test online=y server=test-tls stat_id=406995395936281"
         );
         assert_eq!(
             tag_map.display_statsd().to_string().as_str(),

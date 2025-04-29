@@ -34,6 +34,7 @@ mod console;
 mod discard;
 mod graphite;
 mod memory;
+mod opentsdb;
 
 pub(crate) trait Exporter {
     fn name(&self) -> &NodeName;

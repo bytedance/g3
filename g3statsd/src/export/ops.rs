@@ -157,6 +157,9 @@ async fn spawn_new_unlocked(config: AnyExporterConfig) -> anyhow::Result<()> {
         AnyExporterConfig::Graphite(config) => {
             super::graphite::GraphiteExporter::prepare_initial(config)?
         }
+        AnyExporterConfig::Opentsdb(config) => {
+            super::opentsdb::OpentsdbExporter::prepare_initial(config)?
+        }
     };
     let name = exporter.name().clone();
     registry::add(exporter);

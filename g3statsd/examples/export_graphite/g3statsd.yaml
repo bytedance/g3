@@ -1,0 +1,20 @@
+importer:
+  - name: statsd
+    type: statsd
+    collector: aggregate_4s
+    listen: 127.0.0.1:8125
+
+collector:
+  - name: aggregate_4s
+    type: aggregate
+    next: regulate_4s
+    emit_interval: 4s
+    join_tags:
+      - stat_id
+    exporter: graphite
+
+exporter:
+  - name: graphite
+    type: graphite
+    server: 127.0.0.1
+    port: 2003
