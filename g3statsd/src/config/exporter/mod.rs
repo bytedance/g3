@@ -30,6 +30,7 @@ pub(crate) mod console;
 pub(crate) mod discard;
 pub(crate) mod graphite;
 pub(crate) mod memory;
+pub(crate) mod opentsdb;
 
 const CONFIG_KEY_EXPORTER_TYPE: &str = "type";
 const CONFIG_KEY_EXPORTER_NAME: &str = "name";
@@ -58,6 +59,7 @@ pub(crate) enum AnyExporterConfig {
     Console(console::ConsoleExporterConfig),
     Memory(memory::MemoryExporterConfig),
     Graphite(graphite::GraphiteExporterConfig),
+    Opentsdb(opentsdb::OpentsdbExporterConfig),
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
@@ -112,6 +114,11 @@ fn load_exporter(
             let exporter = graphite::GraphiteExporterConfig::parse(map, position)
                 .context("failed to load this Graphite exporter")?;
             Ok(AnyExporterConfig::Graphite(exporter))
+        }
+        "opentsdb" => {
+            let exporter = opentsdb::OpentsdbExporterConfig::parse(map, position)
+                .context("failed to load this OpenTSDB exporter")?;
+            Ok(AnyExporterConfig::Opentsdb(exporter))
         }
         _ => Err(anyhow!("unsupported exporter type {}", exporter_type)),
     }
