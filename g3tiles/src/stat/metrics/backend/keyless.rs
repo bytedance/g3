@@ -14,14 +14,11 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-
-use foldhash::fast::FixedState;
 
 use g3_daemon::metrics::TAG_KEY_QUANTILE;
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
-use g3_types::stats::StatId;
+use g3_types::stats::GlobalStatsMap;
 
 use super::BackendMetricExt;
 use crate::module::keyless::{KeylessBackendStats, KeylessUpstreamDurationStats};
@@ -43,16 +40,14 @@ const METRIC_NAME_KEYLESS_RESPONSE_DURATION: &str = "backend.keyless.response.du
 
 type KeylessBackendStatsValue = (Arc<KeylessBackendStats>, KeylessBackendSnapshot);
 
-static STORE_KEYLESS_STATS_MAP: Mutex<HashMap<StatId, KeylessBackendStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
-static KEYLESS_STATS_MAP: Mutex<HashMap<StatId, KeylessBackendStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
-static STORE_KEYLESS_DURATION_STATS_MAP: Mutex<
-    HashMap<StatId, Arc<KeylessUpstreamDurationStats>, FixedState>,
-> = Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
-static KEYLESS_DURATION_STATS_MAP: Mutex<
-    HashMap<StatId, Arc<KeylessUpstreamDurationStats>, FixedState>,
-> = Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static STORE_KEYLESS_STATS_MAP: Mutex<GlobalStatsMap<KeylessBackendStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static KEYLESS_STATS_MAP: Mutex<GlobalStatsMap<KeylessBackendStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static STORE_KEYLESS_DURATION_STATS_MAP: Mutex<GlobalStatsMap<Arc<KeylessUpstreamDurationStats>>> =
+    Mutex::new(GlobalStatsMap::new());
+static KEYLESS_DURATION_STATS_MAP: Mutex<GlobalStatsMap<Arc<KeylessUpstreamDurationStats>>> =
+    Mutex::new(GlobalStatsMap::new());
 
 #[derive(Default)]
 struct KeylessBackendSnapshot {
@@ -91,7 +86,7 @@ pub(super) fn sync_stats() {
 
 pub(super) fn emit_stats(client: &mut StatsdClient) {
     let mut backend_stats_map = KEYLESS_STATS_MAP.lock().unwrap();
-    backend_stats_map.retain(|_, (stats, snap)| {
+    backend_stats_map.retain(|(stats, snap)| {
         emit_keyless_stats(client, stats, snap);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1
@@ -99,7 +94,7 @@ pub(super) fn emit_stats(client: &mut StatsdClient) {
     drop(backend_stats_map);
 
     let mut duration_stats_map = KEYLESS_DURATION_STATS_MAP.lock().unwrap();
-    duration_stats_map.retain(|_, stats| {
+    duration_stats_map.retain(|stats| {
         emit_keyless_duration_stats(client, stats);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1

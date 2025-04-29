@@ -14,16 +14,12 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
-use std::hash::{BuildHasher, Hash};
 use std::sync::Mutex;
 
-pub fn move_ht<K, V, S>(in_ht_lock: &Mutex<HashMap<K, V, S>>, out_ht_lock: &Mutex<HashMap<K, V, S>>)
-where
-    K: Hash + Eq,
-    S: BuildHasher + Default,
-{
-    let mut tmp_req_map = HashMap::<K, V, S>::default();
+use g3_types::stats::GlobalStatsMap;
+
+pub fn move_ht<T>(in_ht_lock: &Mutex<GlobalStatsMap<T>>, out_ht_lock: &Mutex<GlobalStatsMap<T>>) {
+    let mut tmp_req_map = GlobalStatsMap::new();
     let mut in_req_map = in_ht_lock.lock().unwrap();
     for (k, v) in in_req_map.drain() {
         tmp_req_map.insert(k, v);

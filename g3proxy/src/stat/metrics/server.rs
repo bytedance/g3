@@ -14,17 +14,14 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-
-use foldhash::fast::FixedState;
 
 use g3_daemon::listen::{ListenSnapshot, ListenStats};
 use g3_daemon::metrics::{
     ServerMetricExt, TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP, TRANSPORT_TYPE_UDP,
 };
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
-use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
+use g3_types::stats::{GlobalStatsMap, TcpIoSnapshot, UdpIoSnapshot};
 
 use crate::serve::{ArcServerStats, ServerForbiddenSnapshot};
 use crate::stat::types::UntrustedTaskStatsSnapshot;
@@ -46,10 +43,10 @@ const METRIC_NAME_SERVER_IO_UNTRUSTED_IN_BYTES: &str = "server.traffic.untrusted
 type ServerStatsValue = (ArcServerStats, ServerSnapshot);
 type ListenStatsValue = (Arc<ListenStats>, ListenSnapshot);
 
-static SERVER_STATS_MAP: Mutex<HashMap<StatId, ServerStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
-static LISTEN_STATS_MAP: Mutex<HashMap<StatId, ListenStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static SERVER_STATS_MAP: Mutex<GlobalStatsMap<ServerStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static LISTEN_STATS_MAP: Mutex<GlobalStatsMap<ListenStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
 
 #[derive(Default)]
 struct ServerSnapshot {
@@ -65,10 +62,8 @@ pub(in crate::stat) fn sync_stats() {
     let mut server_stats_map = SERVER_STATS_MAP.lock().unwrap();
     crate::serve::foreach_server(|_, server| {
         if let Some(stats) = server.get_server_stats() {
-            let stat_id = stats.stat_id();
             server_stats_map
-                .entry(stat_id)
-                .or_insert_with(|| (stats, ServerSnapshot::default()));
+                .get_or_insert_with(stats.stat_id(), || (stats, ServerSnapshot::default()));
         }
     });
     drop(server_stats_map);
@@ -76,17 +71,14 @@ pub(in crate::stat) fn sync_stats() {
     let mut listen_stats_map = LISTEN_STATS_MAP.lock().unwrap();
     crate::serve::foreach_server(|_, server| {
         let stats = server.get_listen_stats();
-        let stat_id = stats.stat_id();
-        listen_stats_map
-            .entry(stat_id)
-            .or_insert_with(|| (stats, ListenSnapshot::default()));
+        listen_stats_map.get_or_insert_with(stats.stat_id(), || (stats, ListenSnapshot::default()));
     });
     drop(listen_stats_map);
 }
 
 pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     let mut server_stats_map = SERVER_STATS_MAP.lock().unwrap();
-    server_stats_map.retain(|_, (stats, snap)| {
+    server_stats_map.retain(|(stats, snap)| {
         emit_server_stats(client, stats, snap);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1
@@ -94,7 +86,7 @@ pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     drop(server_stats_map);
 
     let mut listen_stats_map = LISTEN_STATS_MAP.lock().unwrap();
-    listen_stats_map.retain(|_, (stats, snap)| {
+    listen_stats_map.retain(|(stats, snap)| {
         g3_daemon::metrics::emit_listen_stats(client, stats, snap);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1

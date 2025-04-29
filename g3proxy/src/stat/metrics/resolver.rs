@@ -14,10 +14,7 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-
-use foldhash::fast::FixedState;
 
 use g3_daemon::metrics::TAG_KEY_STAT_ID;
 use g3_resolver::{
@@ -25,7 +22,7 @@ use g3_resolver::{
 };
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
 use g3_types::metrics::NodeName;
-use g3_types::stats::StatId;
+use g3_types::stats::{GlobalStatsMap, StatId};
 
 use crate::resolve::ResolverStats;
 
@@ -49,8 +46,8 @@ const METRIC_NAME_MEMORY_DOING_LENGTH: &str = "resolver.memory.doing.length";
 
 type ResolverStatsValue = (Arc<ResolverStats>, ResolverSnapshot);
 
-static RESOLVER_STATS_MAP: Mutex<HashMap<StatId, ResolverStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static RESOLVER_STATS_MAP: Mutex<GlobalStatsMap<ResolverStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
 
 trait ResolverMetricExt {
     fn add_resolver_tags(&mut self, resolver: &NodeName, stat_id: StatId);
@@ -69,16 +66,13 @@ pub(in crate::stat) fn sync_stats() {
     let mut stats_map = RESOLVER_STATS_MAP.lock().unwrap();
     crate::resolve::foreach_resolver(|_, server| {
         let stats = server.get_stats();
-        let stat_id = stats.stat_id();
-        stats_map
-            .entry(stat_id)
-            .or_insert_with(|| (stats, ResolverSnapshot::default()));
+        stats_map.get_or_insert_with(stats.stat_id(), || (stats, ResolverSnapshot::default()));
     });
 }
 
 pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     let mut stats_map = RESOLVER_STATS_MAP.lock().unwrap();
-    stats_map.retain(|_, (stats, snap)| {
+    stats_map.retain(|(stats, snap)| {
         emit_to_statsd(client, stats, snap);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1

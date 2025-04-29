@@ -14,17 +14,14 @@
  * limitations under the License.
  */
 
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-
-use foldhash::fast::FixedState;
 
 use g3_daemon::metrics::{
     TAG_KEY_STAT_ID, TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP, TRANSPORT_TYPE_UDP,
 };
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
 use g3_types::metrics::NodeName;
-use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
+use g3_types::stats::{GlobalStatsMap, StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use super::TAG_KEY_ESCAPER;
 use crate::escape::{
@@ -57,10 +54,9 @@ const METRIC_NAME_ROUTE_REQUEST_FAILED: &str = "route.request.failed";
 type EscaperStatsValue = (ArcEscaperStats, EscaperSnapshot);
 type RouterStatsValue = (Arc<RouteEscaperStats>, RouteEscaperSnapshot);
 
-static ESCAPER_STATS_MAP: Mutex<HashMap<StatId, EscaperStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
-static ROUTE_STATS_MAP: Mutex<HashMap<StatId, RouterStatsValue, FixedState>> =
-    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static ESCAPER_STATS_MAP: Mutex<GlobalStatsMap<EscaperStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static ROUTE_STATS_MAP: Mutex<GlobalStatsMap<RouterStatsValue>> = Mutex::new(GlobalStatsMap::new());
 
 trait EscaperMetricExt {
     fn add_escaper_tags(&mut self, escaper: &NodeName, stat_id: StatId);
@@ -91,10 +87,8 @@ pub(in crate::stat) fn sync_stats() {
     let mut escaper_stats_map = ESCAPER_STATS_MAP.lock().unwrap();
     crate::escape::foreach_escaper(|_, escaper| {
         if let Some(stats) = escaper.get_escape_stats() {
-            let stat_id = stats.stat_id();
             escaper_stats_map
-                .entry(stat_id)
-                .or_insert_with(|| (stats, EscaperSnapshot::default()));
+                .get_or_insert_with(stats.stat_id(), || (stats, EscaperSnapshot::default()));
         }
     });
     drop(escaper_stats_map);
@@ -103,10 +97,8 @@ pub(in crate::stat) fn sync_stats() {
     crate::escape::foreach_escaper(|_, escaper| {
         if let Some(stats) = escaper.ref_route_stats() {
             let stats = Arc::clone(stats);
-            let stat_id = stats.stat_id();
             route_stats_map
-                .entry(stat_id)
-                .or_insert_with(|| (stats, RouteEscaperSnapshot::default()));
+                .get_or_insert_with(stats.stat_id(), || (stats, RouteEscaperSnapshot::default()));
         }
     });
     drop(route_stats_map);
@@ -114,7 +106,7 @@ pub(in crate::stat) fn sync_stats() {
 
 pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     let mut escaper_stats_map = ESCAPER_STATS_MAP.lock().unwrap();
-    escaper_stats_map.retain(|_, (stats, snap)| {
+    escaper_stats_map.retain(|(stats, snap)| {
         emit_escaper_stats(client, stats, snap);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1
@@ -122,7 +114,7 @@ pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     drop(escaper_stats_map);
 
     let mut route_stats_map = ROUTE_STATS_MAP.lock().unwrap();
-    route_stats_map.retain(|_, (stats, snap)| {
+    route_stats_map.retain(|(stats, snap)| {
         emit_route_stats(client, stats, snap);
         Arc::strong_count(stats) > 1
     });
