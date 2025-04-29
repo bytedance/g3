@@ -25,11 +25,14 @@ fastrand.workspace = true
 tokio = { workspace = true, features = ["time", "signal", "net", "macros"] }
 capnp.workspace = true
 capnp-rpc.workspace = true
+http.workspace = true
 g3-daemon.workspace = true
+g3-http.workspace = true
+g3-io-ext.workspace = true
 g3-macros.workspace = true
 g3-socket.workspace = true
 g3-types = { workspace = true, features = ["acl-rule"] }
-g3-yaml = { workspace = true, features = ["acl-rule"] }
+g3-yaml = { workspace = true, features = ["acl-rule", "http"] }
 g3statsd-proto = { path = "proto" }
 
 [build-dependencies]
