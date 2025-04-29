@@ -22,7 +22,9 @@ use tokio::io::{AsyncBufRead, AsyncRead, ReadBuf};
 
 use g3_types::net::HttpHeaderMap;
 
-use crate::{ChunkedDataDecodeReader, HttpBodyReader, TrailerReadError, TrailerReader};
+use crate::{
+    ChunkedDataDecodeReader, HttpBodyReader, HttpBodyType, TrailerReadError, TrailerReader,
+};
 
 enum HttpBodyDecodeState<'a, R> {
     Plain(HttpBodyReader<'a, R>),
@@ -44,6 +46,14 @@ where
             read_data_done: false,
             finished: false,
             decode_state: Some(state),
+        }
+    }
+
+    pub fn new(stream: &'a mut R, body_type: HttpBodyType, body_line_max_size: usize) -> Self {
+        match body_type {
+            HttpBodyType::ReadUntilEnd => Self::new_read_until_end(stream),
+            HttpBodyType::ContentLength(size) => Self::new_fixed_length(stream, size),
+            HttpBodyType::Chunked => Self::new_chunked(stream, body_line_max_size),
         }
     }
 

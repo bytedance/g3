@@ -115,7 +115,7 @@ where
                         break;
                     }
 
-                    if let Err(e) = self.send_msg(&mut stream, &buf).await {
+                    if let Err(e) = self.send_records(&mut stream, &buf).await {
                         warn!("exporter {}: failed to send records: {e}", self.config.exporter);
                         break;
                     }
@@ -124,7 +124,7 @@ where
         }
     }
 
-    async fn send_msg<W>(
+    async fn send_records<W>(
         &mut self,
         writer: &mut W,
         records: &[(DateTime<Utc>, MetricRecord)],

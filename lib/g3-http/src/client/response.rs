@@ -302,6 +302,10 @@ impl HttpForwardRemoteResponse {
         Ok(())
     }
 
+    pub fn append_trailer_header(&mut self, name: HeaderName, value: HttpHeaderValue) {
+        self.end_to_end_headers.append(name, value);
+    }
+
     fn handle_header(&mut self, header: HttpHeaderLine) -> Result<(), HttpResponseParseError> {
         let name = HeaderName::from_str(header.name).map_err(|_| {
             HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderName)

@@ -14,4 +14,227 @@
  * limitations under the License.
  */
 
+use std::io::{self, IoSlice};
+use std::time::Duration;
+
+use anyhow::anyhow;
+use chrono::{DateTime, Utc};
+use http::{HeaderMap, Method};
+use itoa::Buffer;
+use log::{debug, warn};
+use tokio::io::{AsyncBufRead, AsyncReadExt, AsyncWrite, BufStream};
+use tokio::sync::mpsc;
+
+use g3_http::HttpBodyDecodeReader;
+use g3_http::client::HttpForwardRemoteResponse;
+use g3_io_ext::LimitedWriteExt;
+
+use crate::types::MetricRecord;
+
 mod config;
+use config::HttpExportConfig;
+
+pub(crate) trait HttpExport {
+    fn serialize(
+        &self,
+        records: &[(DateTime<Utc>, MetricRecord)],
+        headers: &mut HeaderMap,
+        body_buf: &mut Vec<u8>,
+    );
+    fn check_response(&self, rsp: HttpForwardRemoteResponse, body: &[u8]) -> anyhow::Result<()>;
+    fn close_connection(&self) -> bool;
+}
+
+struct HttpExportRuntime<T: HttpExport> {
+    config: HttpExportConfig,
+    formatter: T,
+    receiver: mpsc::Receiver<(DateTime<Utc>, MetricRecord)>,
+
+    header_buf: Vec<u8>,
+    fixed_header_len: usize,
+    req_body_buf: Vec<u8>,
+    rsp_body_buf: Vec<u8>,
+    quit: bool,
+}
+
+impl<T: HttpExport> HttpExportRuntime<T> {
+    fn new(
+        config: HttpExportConfig,
+        formatter: T,
+        receiver: mpsc::Receiver<(DateTime<Utc>, MetricRecord)>,
+    ) -> Self {
+        let mut header_buf = Vec::with_capacity(1024);
+        config.write_fixed_header(&mut header_buf);
+        let fixed_header_len = header_buf.len();
+        HttpExportRuntime {
+            config,
+            formatter,
+            receiver,
+            header_buf,
+            fixed_header_len,
+            req_body_buf: Vec::with_capacity(2048),
+            rsp_body_buf: Vec::with_capacity(256),
+            quit: false,
+        }
+    }
+
+    async fn into_running(mut self) {
+        loop {
+            match self.config.connect().await {
+                Ok(stream) => self.run_with_stream(BufStream::new(stream)).await,
+                Err(wait) => self.drop_wait(wait).await,
+            }
+            if self.quit {
+                break;
+            }
+        }
+    }
+
+    async fn drop_wait(&mut self, wait: Duration) {
+        if tokio::time::timeout(wait, async {
+            while self.receiver.recv().await.is_some() {
+                // TODO add metrics
+            }
+        })
+        .await
+        .is_ok()
+        {
+            self.quit = true
+        }
+    }
+
+    async fn run_with_stream<S>(&mut self, mut stream: S)
+    where
+        S: AsyncBufRead + AsyncWrite + Unpin,
+    {
+        const BATCH_SIZE: usize = 16;
+
+        let mut buf = Vec::with_capacity(BATCH_SIZE);
+        let mut read_buf = [0u8; BATCH_SIZE];
+
+        loop {
+            buf.clear();
+
+            tokio::select! {
+                biased;
+
+                r =  stream.read(&mut read_buf) => {
+                    match r {
+                        Ok(_) => {
+                            debug!("exporter {}: connection closed by peer", self.config.exporter);
+                        }
+                        Err(e) => {
+                            debug!("exporter {}: connection closed by peer: {e}", self.config.exporter);
+                        }
+                    }
+                    break;
+                }
+                n = self.receiver.recv_many(&mut buf, BATCH_SIZE) => {
+                    if n == 0 {
+                        self.quit = true;
+                        break;
+                    }
+
+                    if let Err(e) = self.send_records(&mut stream, &buf).await {
+                        warn!("exporter {}: failed to send records: {e:?}", self.config.exporter);
+                        break;
+                    }
+                    if self.formatter.close_connection() {
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    async fn send_records<S>(
+        &mut self,
+        stream: &mut S,
+        records: &[(DateTime<Utc>, MetricRecord)],
+    ) -> anyhow::Result<()>
+    where
+        S: AsyncBufRead + AsyncWrite + Unpin,
+    {
+        self.send_request(stream, records)
+            .await
+            .map_err(|e| anyhow!("failed to send request: {e}"))?;
+        let rsp = self.recv_response(stream).await?;
+        self.formatter.check_response(rsp, &self.rsp_body_buf)
+    }
+
+    async fn send_request<W>(
+        &mut self,
+        writer: &mut W,
+        records: &[(DateTime<Utc>, MetricRecord)],
+    ) -> io::Result<()>
+    where
+        W: AsyncWrite + Unpin,
+    {
+        self.header_buf.truncate(self.fixed_header_len);
+        self.req_body_buf.clear();
+
+        let mut headers = HeaderMap::new();
+        self.formatter
+            .serialize(records, &mut headers, &mut self.req_body_buf);
+
+        for (header, value) in &headers {
+            self.header_buf
+                .extend_from_slice(header.as_str().as_bytes());
+            self.header_buf.extend_from_slice(b": ");
+            self.header_buf.extend_from_slice(value.as_bytes());
+            self.header_buf.extend_from_slice(b"\r\n");
+        }
+        self.header_buf.extend_from_slice(b"Content-Length: ");
+        let mut usize_buf = Buffer::new();
+        let content_length = usize_buf.format(self.req_body_buf.len());
+        self.header_buf.extend_from_slice(content_length.as_bytes());
+        self.header_buf.extend_from_slice(b"\r\n\r\n");
+
+        writer
+            .write_all_vectored([
+                IoSlice::new(&self.header_buf),
+                IoSlice::new(&self.req_body_buf),
+            ])
+            .await?;
+
+        Ok(())
+    }
+
+    async fn recv_response<R>(
+        &mut self,
+        reader: &mut R,
+    ) -> anyhow::Result<HttpForwardRemoteResponse>
+    where
+        R: AsyncBufRead + Unpin,
+    {
+        self.rsp_body_buf.clear();
+
+        let mut rsp = HttpForwardRemoteResponse::parse(reader, &Method::POST, true, 4096)
+            .await
+            .map_err(|e| anyhow!("failed to read response header: {e}"))?;
+        if let Some(body_type) = rsp.body_type(&Method::POST) {
+            let mut body_reader = HttpBodyDecodeReader::new(reader, body_type, 1024);
+            body_reader
+                .read_to_end(&mut self.rsp_body_buf)
+                .await
+                .map_err(|e| anyhow!("failed to read response body: {e}"))?;
+            let trailer = body_reader
+                .trailer(1024)
+                .await
+                .map_err(|e| anyhow!("failed to read response trailer: {e}"))?;
+            if let Some(mut trailer) = trailer {
+                let mut last_name = None;
+                for (name, value) in trailer.drain() {
+                    if let Some(n) = name {
+                        last_name = Some(n);
+                    };
+                    if let Some(n) = &last_name {
+                        rsp.append_trailer_header(n.clone(), value);
+                    }
+                }
+            }
+        }
+
+        Ok(rsp)
+    }
+}
