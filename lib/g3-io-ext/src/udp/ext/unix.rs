@@ -34,6 +34,7 @@ thread_local! {
 use super::{RecvMsgHdr, UdpSocketExt};
 
 #[derive(Default)]
+#[repr(align(8))]
 pub(super) struct RawSocketAddr {
     buf: [u8; size_of::<libc::sockaddr_in6>()],
 }
