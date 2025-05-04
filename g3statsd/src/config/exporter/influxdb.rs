@@ -21,23 +21,23 @@ use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyExporterConfig, ExporterConfig, ExporterConfigDiffAction};
-use crate::runtime::export::StreamExportConfig;
+use crate::runtime::export::HttpExportConfig;
 
-const EXPORTER_CONFIG_TYPE: &str = "OpenTSDB";
+const EXPORTER_CONFIG_TYPE: &str = "InfluxDB";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct OpentsdbExporterConfig {
+pub(crate) struct InfluxdbExporterConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) stream_export: StreamExportConfig,
+    pub(crate) http_export: HttpExportConfig,
 }
 
-impl OpentsdbExporterConfig {
+impl InfluxdbExporterConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
-        OpentsdbExporterConfig {
+        InfluxdbExporterConfig {
             name: NodeName::default(),
             position,
-            stream_export: StreamExportConfig::new(4242),
+            http_export: HttpExportConfig::new(8086, "/api/v2/write"),
         }
     }
 
@@ -45,7 +45,7 @@ impl OpentsdbExporterConfig {
         map: &yaml::Hash,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
-        let mut collector = OpentsdbExporterConfig::new(position);
+        let mut collector = InfluxdbExporterConfig::new(position);
 
         g3_yaml::foreach_kv(map, |k, v| collector.set(k, v))?;
 
@@ -60,7 +60,7 @@ impl OpentsdbExporterConfig {
                 self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
-            _ => self.stream_export.set_by_yaml_kv(k, v),
+            _ => self.http_export.set_by_yaml_kv(k, v),
         }
     }
 
@@ -68,12 +68,12 @@ impl OpentsdbExporterConfig {
         if self.name.is_empty() {
             return Err(anyhow!("name is not set"));
         }
-        self.stream_export.check(self.name.clone())?;
+        self.http_export.check(self.name.clone())?;
         Ok(())
     }
 }
 
-impl ExporterConfig for OpentsdbExporterConfig {
+impl ExporterConfig for InfluxdbExporterConfig {
     fn name(&self) -> &NodeName {
         &self.name
     }
@@ -87,7 +87,7 @@ impl ExporterConfig for OpentsdbExporterConfig {
     }
 
     fn diff_action(&self, new: &AnyExporterConfig) -> ExporterConfigDiffAction {
-        let AnyExporterConfig::Opentsdb(_new) = new else {
+        let AnyExporterConfig::Influxdb(_new) = new else {
             return ExporterConfigDiffAction::SpawnNew;
         };
 

@@ -33,6 +33,7 @@ pub(crate) use ops::reload;
 mod console;
 mod discard;
 mod graphite;
+mod influxdb;
 mod memory;
 mod opentsdb;
 

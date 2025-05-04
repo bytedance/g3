@@ -32,16 +32,17 @@ use g3_io_ext::LimitedWriteExt;
 use crate::types::MetricRecord;
 
 mod config;
-use config::HttpExportConfig;
+pub(crate) use config::HttpExportConfig;
 
 pub(crate) trait HttpExport {
     fn serialize(
-        &self,
+        &mut self,
         records: &[(DateTime<Utc>, MetricRecord)],
         headers: &mut HeaderMap,
         body_buf: &mut Vec<u8>,
     );
-    fn check_response(&self, rsp: HttpForwardRemoteResponse, body: &[u8]) -> anyhow::Result<()>;
+    fn check_response(&mut self, rsp: HttpForwardRemoteResponse, body: &[u8])
+    -> anyhow::Result<()>;
     fn close_connection(&self) -> bool;
 }
 
@@ -137,10 +138,9 @@ impl<T: HttpExport> HttpExportRuntime<T> {
 
                     if let Err(e) = self.send_records(&mut stream, &buf).await {
                         warn!("exporter {}: failed to send records: {e:?}", self.config.exporter);
-                        break;
                     }
                     if self.formatter.close_connection() {
-                        return;
+                        break;
                     }
                 }
             }

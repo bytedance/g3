@@ -54,7 +54,6 @@ impl MetricTagMap {
         }
     }
 
-    #[allow(unused)]
     pub(crate) fn display_influxdb(&self) -> DisplayTagMap<'_> {
         DisplayTagMap {
             inner: self,
