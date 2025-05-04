@@ -31,8 +31,9 @@ use tokio::net::UdpSocket;
 use super::UdpSocketExt;
 
 #[derive(Default)]
-struct RawSocketAddr {
-    buf: [u8; mem::size_of::<libc::sockaddr_in6>()],
+#[repr(align(8))]
+pub(super) struct RawSocketAddr {
+    buf: [u8; size_of::<libc::sockaddr_in6>()],
 }
 
 impl RawSocketAddr {
