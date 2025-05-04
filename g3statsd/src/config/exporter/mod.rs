@@ -29,6 +29,7 @@ pub(crate) use registry::{clear, get_all};
 pub(crate) mod console;
 pub(crate) mod discard;
 pub(crate) mod graphite;
+pub(crate) mod influxdb;
 pub(crate) mod memory;
 pub(crate) mod opentsdb;
 
@@ -60,6 +61,7 @@ pub(crate) enum AnyExporterConfig {
     Memory(memory::MemoryExporterConfig),
     Graphite(graphite::GraphiteExporterConfig),
     Opentsdb(opentsdb::OpentsdbExporterConfig),
+    Influxdb(influxdb::InfluxdbExporterConfig),
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
@@ -119,6 +121,11 @@ fn load_exporter(
             let exporter = opentsdb::OpentsdbExporterConfig::parse(map, position)
                 .context("failed to load this OpenTSDB exporter")?;
             Ok(AnyExporterConfig::Opentsdb(exporter))
+        }
+        "influxdb" => {
+            let exporter = influxdb::InfluxdbExporterConfig::parse(map, position)
+                .context("failed to load this InfluxDB exporter")?;
+            Ok(AnyExporterConfig::Influxdb(exporter))
         }
         _ => Err(anyhow!("unsupported exporter type {}", exporter_type)),
     }

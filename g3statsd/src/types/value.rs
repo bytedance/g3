@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::fmt;
+use std::fmt::{self, Write};
 use std::ops;
 use std::str::FromStr;
 
@@ -26,6 +26,12 @@ pub(crate) enum MetricValue {
     Double(f64),
     Signed(i64),
     Unsigned(u64),
+}
+
+impl MetricValue {
+    pub(crate) fn display_influxdb(&self) -> DisplayInfluxdbValue {
+        DisplayInfluxdbValue(self)
+    }
 }
 
 impl FromStr for MetricValue {
@@ -109,5 +115,40 @@ impl ops::Add for MetricValue {
 impl ops::AddAssign for MetricValue {
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
+    }
+}
+
+pub(crate) struct DisplayInfluxdbValue<'a>(&'a MetricValue);
+
+impl fmt::Display for DisplayInfluxdbValue<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.0 {
+            MetricValue::Unsigned(u) => {
+                itoa::Buffer::new().format(*u).fmt(f)?;
+                f.write_char('u')
+            }
+            MetricValue::Signed(i) => {
+                itoa::Buffer::new().format(*i).fmt(f)?;
+                f.write_char('i')
+            }
+            MetricValue::Double(v) => ryu::Buffer::new().format(*v).fmt(f),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn influxdb() {
+        let v = MetricValue::Unsigned(10);
+        assert_eq!(v.display_influxdb().to_string(), "10u");
+
+        let v = MetricValue::Signed(10);
+        assert_eq!(v.display_influxdb().to_string(), "10i");
+
+        let v = MetricValue::Double(1.0);
+        assert_eq!(v.display_influxdb().to_string(), "1.0");
     }
 }

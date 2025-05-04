@@ -87,7 +87,7 @@ impl ExporterConfig for GraphiteExporterConfig {
     }
 
     fn diff_action(&self, new: &AnyExporterConfig) -> ExporterConfigDiffAction {
-        let AnyExporterConfig::Memory(_new) = new else {
+        let AnyExporterConfig::Graphite(_new) = new else {
             return ExporterConfigDiffAction::SpawnNew;
         };
 
