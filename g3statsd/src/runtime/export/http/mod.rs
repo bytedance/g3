@@ -38,10 +38,8 @@ pub(crate) use config::HttpExportConfig;
 pub(crate) trait HttpExport {
     fn api_path(&self) -> &PathAndQuery;
     fn static_headers(&self) -> &HeaderMap;
-    fn fill_body(&mut self, records: &[(DateTime<Utc>, MetricRecord)], body_buf: &mut Vec<u8>);
-    fn check_response(&mut self, rsp: HttpForwardRemoteResponse, body: &[u8])
-    -> anyhow::Result<()>;
-    fn close_connection(&self) -> bool;
+    fn fill_body(&self, records: &[(DateTime<Utc>, MetricRecord)], body_buf: &mut Vec<u8>);
+    fn check_response(&self, rsp: HttpForwardRemoteResponse, body: &[u8]) -> anyhow::Result<()>;
 }
 
 struct HttpExportRuntime<T: HttpExport> {
@@ -54,6 +52,7 @@ struct HttpExportRuntime<T: HttpExport> {
     req_body_buf: Vec<u8>,
     rsp_body_buf: Vec<u8>,
     quit: bool,
+    close_connection: bool,
 }
 
 impl<T: HttpExport> HttpExportRuntime<T> {
@@ -78,6 +77,7 @@ impl<T: HttpExport> HttpExportRuntime<T> {
             req_body_buf: Vec::with_capacity(2048),
             rsp_body_buf: Vec::with_capacity(256),
             quit: false,
+            close_connection: false,
         }
     }
 
@@ -141,7 +141,7 @@ impl<T: HttpExport> HttpExportRuntime<T> {
                     if let Err(e) = self.send_records(&mut stream, &buf).await {
                         warn!("exporter {}: failed to send records: {e:?}", self.config.exporter);
                     }
-                    if self.formatter.close_connection() {
+                    if self.close_connection {
                         break;
                     }
                 }
@@ -161,7 +161,11 @@ impl<T: HttpExport> HttpExportRuntime<T> {
             .await
             .map_err(|e| anyhow!("failed to send request: {e}"))?;
         let rsp = self.recv_response(stream).await?;
-        self.formatter.check_response(rsp, &self.rsp_body_buf)
+        self.close_connection = !rsp.keep_alive();
+        if let Err(e) = self.formatter.check_response(rsp, &self.rsp_body_buf) {
+            warn!("exporter {}: error response: {e:?}", self.config.exporter);
+        }
+        Ok(())
     }
 
     async fn send_request<W>(
