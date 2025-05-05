@@ -69,6 +69,7 @@ fn record_to_json(time: &DateTime<Utc>, record: &MetricRecord) -> Value {
     Value::Object(map)
 }
 
+// https://opentsdb.net/docs/build/html/api_http/put.html
 impl HttpExport for OpentsdbHttpFormatter {
     fn api_path(&self) -> &PathAndQuery {
         &self.api_path
