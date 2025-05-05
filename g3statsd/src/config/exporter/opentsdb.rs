@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
-use anyhow::anyhow;
+use std::str::FromStr;
+use std::time::Duration;
+
+use anyhow::{Context, anyhow};
+use http::uri::PathAndQuery;
 use yaml_rust::{Yaml, yaml};
 
 use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyExporterConfig, ExporterConfig, ExporterConfigDiffAction};
-use crate::runtime::export::StreamExportConfig;
+use crate::runtime::export::HttpExportConfig;
 
 const EXPORTER_CONFIG_TYPE: &str = "OpenTSDB";
 
@@ -29,7 +33,8 @@ const EXPORTER_CONFIG_TYPE: &str = "OpenTSDB";
 pub(crate) struct OpentsdbExporterConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) stream_export: StreamExportConfig,
+    pub(crate) http_export: HttpExportConfig,
+    sync_timeout: Option<Duration>,
 }
 
 impl OpentsdbExporterConfig {
@@ -37,7 +42,21 @@ impl OpentsdbExporterConfig {
         OpentsdbExporterConfig {
             name: NodeName::default(),
             position,
-            stream_export: StreamExportConfig::new(4242),
+            http_export: HttpExportConfig::new(4242),
+            sync_timeout: None,
+        }
+    }
+
+    pub(crate) fn build_api_path(&self) -> anyhow::Result<PathAndQuery> {
+        match self.sync_timeout {
+            Some(Duration::ZERO) => Ok(PathAndQuery::from_static("/api/put?sync")),
+            Some(dur) => {
+                let timeout_ms = dur.as_millis().max(1);
+                let path = format!("/api/put?sync&sync_timeout={timeout_ms}");
+                PathAndQuery::from_str(&path)
+                    .map_err(|e| anyhow!("invalid opentsdb api path {path}: {e}"))
+            }
+            None => Ok(PathAndQuery::from_static("/api/put")),
         }
     }
 
@@ -60,7 +79,13 @@ impl OpentsdbExporterConfig {
                 self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
-            _ => self.stream_export.set_by_yaml_kv(k, v),
+            "sync_timeout" => {
+                let timeout = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                self.sync_timeout = Some(timeout);
+                Ok(())
+            }
+            _ => self.http_export.set_by_yaml_kv(k, v),
         }
     }
 
@@ -68,7 +93,7 @@ impl OpentsdbExporterConfig {
         if self.name.is_empty() {
             return Err(anyhow!("name is not set"));
         }
-        self.stream_export.check(self.name.clone())?;
+        self.http_export.check(self.name.clone())?;
         Ok(())
     }
 }

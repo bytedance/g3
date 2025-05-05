@@ -28,7 +28,7 @@ use crate::config::exporter::{AnyExporterConfig, ExporterConfig};
 use crate::types::MetricRecord;
 
 mod format;
-use format::OpentsdbTelnetFormatter;
+use format::OpentsdbHttpFormatter;
 
 pub(crate) struct OpentsdbExporter {
     config: OpentsdbExporterConfig,
@@ -36,23 +36,22 @@ pub(crate) struct OpentsdbExporter {
 }
 
 impl OpentsdbExporter {
-    fn new(config: OpentsdbExporterConfig) -> Self {
-        let sender = config
-            .stream_export
-            .spawn(OpentsdbTelnetFormatter::default());
-        OpentsdbExporter { config, sender }
+    fn new(config: OpentsdbExporterConfig) -> anyhow::Result<Self> {
+        let formatter = OpentsdbHttpFormatter::new(&config)?;
+        let sender = config.http_export.spawn(formatter);
+        Ok(OpentsdbExporter { config, sender })
     }
 
     pub(crate) fn prepare_initial(
         config: OpentsdbExporterConfig,
     ) -> anyhow::Result<ArcExporterInternal> {
-        let server = OpentsdbExporter::new(config);
+        let server = OpentsdbExporter::new(config)?;
         Ok(Arc::new(server))
     }
 
     fn prepare_reload(&self, config: AnyExporterConfig) -> anyhow::Result<OpentsdbExporter> {
         if let AnyExporterConfig::Opentsdb(config) = config {
-            Ok(OpentsdbExporter::new(config))
+            OpentsdbExporter::new(config)
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",

@@ -32,9 +32,17 @@ impl MetricTagMap {
         self.inner.is_empty()
     }
 
+    pub(crate) fn len(&self) -> usize {
+        self.inner.len()
+    }
+
     #[cfg(test)]
     pub(crate) fn get(&self, key: &MetricTagName) -> Option<&MetricTagValue> {
         self.inner.get(key)
+    }
+
+    pub(crate) fn iter(&self) -> impl Iterator<Item = (&MetricTagName, &MetricTagValue)> {
+        self.inner.iter()
     }
 
     pub(crate) fn drop(&mut self, name: &MetricTagName) {

@@ -32,7 +32,6 @@ pub(super) struct InfluxdbHttpFormatter {
     api_path: PathAndQuery,
     static_headers: HeaderMap,
     precision: TimestampPrecision,
-    close_connection: bool,
 }
 
 impl InfluxdbHttpFormatter {
@@ -49,7 +48,6 @@ impl InfluxdbHttpFormatter {
             api_path,
             static_headers,
             precision: config.precision,
-            close_connection: false,
         })
     }
 }
@@ -63,21 +61,19 @@ impl HttpExport for InfluxdbHttpFormatter {
         &self.static_headers
     }
 
-    fn fill_body(&mut self, records: &[(DateTime<Utc>, MetricRecord)], body_buf: &mut Vec<u8>) {
-        self.close_connection = true;
-
+    fn fill_body(&self, records: &[(DateTime<Utc>, MetricRecord)], body_buf: &mut Vec<u8>) {
         for (time, record) in records {
-            let _ = write!(body_buf, "{}", record.name.display('.'),);
+            let _ = write!(body_buf, "{}", record.name.display('.'));
             if !record.tag_map.is_empty() {
-                let _ = write!(body_buf, ",{}", record.tag_map.display_influxdb(),);
+                let _ = write!(body_buf, ",{}", record.tag_map.display_influxdb());
             }
 
             match record.r#type {
                 MetricType::Counter => {
-                    let _ = write!(body_buf, " count={}", record.value.display_influxdb(),);
+                    let _ = write!(body_buf, " count={}", record.value.display_influxdb());
                 }
                 MetricType::Gauge => {
-                    let _ = write!(body_buf, " value={}", record.value.display_influxdb(),);
+                    let _ = write!(body_buf, " value={}", record.value.display_influxdb());
                 }
             }
 
@@ -108,17 +104,9 @@ impl HttpExport for InfluxdbHttpFormatter {
             };
             body_buf.push(b'\n');
         }
-
-        self.close_connection = false;
     }
 
-    fn check_response(
-        &mut self,
-        rsp: HttpForwardRemoteResponse,
-        body: &[u8],
-    ) -> anyhow::Result<()> {
-        self.close_connection = true;
-
+    fn check_response(&self, rsp: HttpForwardRemoteResponse, body: &[u8]) -> anyhow::Result<()> {
         if rsp.code != 200 && rsp.code != 204 {
             if let Ok(detail) = std::str::from_utf8(body) {
                 Err(anyhow!("error response: {} {detail}", rsp.code))
@@ -126,12 +114,7 @@ impl HttpExport for InfluxdbHttpFormatter {
                 Err(anyhow!("error response: {}", rsp.code))
             }
         } else {
-            self.close_connection = !rsp.keep_alive();
             Ok(())
         }
-    }
-
-    fn close_connection(&self) -> bool {
-        self.close_connection
     }
 }

@@ -2036,6 +2036,7 @@ dependencies = [
  "log",
  "memchr",
  "ryu",
+ "serde_json",
  "thiserror",
  "tokio",
  "yaml-rust2",

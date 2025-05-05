@@ -20,6 +20,7 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 use memchr::memchr;
+use serde_json::Number;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum MetricValue {
@@ -74,6 +75,16 @@ impl fmt::Display for MetricValue {
             MetricValue::Unsigned(u) => itoa::Buffer::new().format(*u).fmt(f),
             MetricValue::Signed(i) => itoa::Buffer::new().format(*i).fmt(f),
             MetricValue::Double(v) => ryu::Buffer::new().format(*v).fmt(f),
+        }
+    }
+}
+
+impl From<MetricValue> for Number {
+    fn from(value: MetricValue) -> Self {
+        match value {
+            MetricValue::Double(f) => Number::from_f64(f).unwrap(),
+            MetricValue::Signed(i) => i.into(),
+            MetricValue::Unsigned(u) => u.into(),
         }
     }
 }
