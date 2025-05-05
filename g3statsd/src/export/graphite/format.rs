@@ -17,6 +17,7 @@
 use std::io::Write;
 
 use chrono::{DateTime, Utc};
+use itoa::Buffer;
 
 use crate::runtime::export::StreamExport;
 use crate::types::MetricRecord;
@@ -26,13 +27,15 @@ pub(super) struct GraphitePlaintextFormatter {}
 
 impl StreamExport for GraphitePlaintextFormatter {
     fn serialize(&self, time: DateTime<Utc>, record: &MetricRecord, buf: &mut Vec<u8>) {
-        let _ = writeln!(
-            buf,
-            "{};{} {} {}",
-            record.name.display('.'),
-            record.tag_map.display_graphite(),
-            record.value,
-            time.timestamp()
-        );
+        let _ = write!(buf, "{}", record.name.display('.'));
+        if !record.tag_map.is_empty() {
+            let _ = write!(buf, ";{}", record.tag_map.display_graphite());
+        }
+        let _ = write!(buf, " {}", record.value);
+        let mut ts_buffer = Buffer::new();
+        let ts = ts_buffer.format(time.timestamp());
+        buf.push(b' ');
+        buf.extend_from_slice(ts.as_bytes());
+        buf.push(b'\n');
     }
 }

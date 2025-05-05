@@ -1,0 +1,47 @@
+/*
+ * Copyright 2025 ByteDance and/or its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+use anyhow::anyhow;
+use yaml_rust::Yaml;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum ApiVersion {
+    V1,
+    V2,
+    V3,
+}
+
+impl ApiVersion {
+    pub(super) fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
+        match value {
+            Yaml::Integer(i) => match *i {
+                1 => Ok(ApiVersion::V1),
+                2 => Ok(ApiVersion::V2),
+                3 => Ok(ApiVersion::V3),
+                v => Err(anyhow!("unsupported api version {v}")),
+            },
+            Yaml::String(s) => match s.as_str() {
+                "1" | "v1" | "V1" => Ok(ApiVersion::V1),
+                "2" | "v2" | "V2" => Ok(ApiVersion::V2),
+                "3" | "v3" | "V3" => Ok(ApiVersion::V3),
+                _ => Err(anyhow!("unsupported api version {s}")),
+            },
+            _ => Err(anyhow!(
+                "yaml value type for influxdb api version should be integer or string"
+            )),
+        }
+    }
+}

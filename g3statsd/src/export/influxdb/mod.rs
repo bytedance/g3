@@ -36,21 +36,22 @@ pub(crate) struct InfluxdbExporter {
 }
 
 impl InfluxdbExporter {
-    fn new(config: InfluxdbExporterConfig) -> Self {
-        let sender = config.http_export.spawn(InfluxdbHttpFormatter::default());
-        InfluxdbExporter { config, sender }
+    fn new(config: InfluxdbExporterConfig) -> anyhow::Result<Self> {
+        let formatter = InfluxdbHttpFormatter::new(&config)?;
+        let sender = config.http_export.spawn(formatter);
+        Ok(InfluxdbExporter { config, sender })
     }
 
     pub(crate) fn prepare_initial(
         config: InfluxdbExporterConfig,
     ) -> anyhow::Result<ArcExporterInternal> {
-        let server = InfluxdbExporter::new(config);
+        let server = InfluxdbExporter::new(config)?;
         Ok(Arc::new(server))
     }
 
     fn prepare_reload(&self, config: AnyExporterConfig) -> anyhow::Result<InfluxdbExporter> {
         if let AnyExporterConfig::Influxdb(config) = config {
-            Ok(InfluxdbExporter::new(config))
+            InfluxdbExporter::new(config)
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
