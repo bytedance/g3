@@ -14,7 +14,10 @@
  * limitations under the License.
  */
 
-use anyhow::anyhow;
+use std::str::FromStr;
+
+use anyhow::{Context, anyhow};
+use http::uri::PathAndQuery;
 use yaml_rust::{Yaml, yaml};
 
 use g3_types::metrics::NodeName;
@@ -23,6 +26,12 @@ use g3_yaml::YamlDocPosition;
 use super::{AnyExporterConfig, ExporterConfig, ExporterConfigDiffAction};
 use crate::runtime::export::HttpExportConfig;
 
+mod precision;
+pub(crate) use precision::TimestampPrecision;
+
+mod version;
+use version::ApiVersion;
+
 const EXPORTER_CONFIG_TYPE: &str = "InfluxDB";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -30,6 +39,10 @@ pub(crate) struct InfluxdbExporterConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) http_export: HttpExportConfig,
+    version: ApiVersion,
+    database: String,
+    pub(crate) precision: TimestampPrecision,
+    v3_no_sync: bool,
 }
 
 impl InfluxdbExporterConfig {
@@ -37,8 +50,47 @@ impl InfluxdbExporterConfig {
         InfluxdbExporterConfig {
             name: NodeName::default(),
             position,
-            http_export: HttpExportConfig::new(8086, "/api/v2/write"),
+            http_export: HttpExportConfig::new(8181),
+            version: ApiVersion::V2,
+            database: String::new(),
+            precision: TimestampPrecision::Seconds,
+            v3_no_sync: false,
         }
+    }
+
+    pub(crate) fn build_api_path(&self) -> anyhow::Result<PathAndQuery> {
+        let path = match self.version {
+            ApiVersion::V1 => {
+                format!(
+                    "/write?db={}&precision={}",
+                    self.database,
+                    self.precision.query_value()
+                )
+            }
+            ApiVersion::V2 => {
+                format!(
+                    "/api/v2/write?bucket={}&precision={}",
+                    self.database,
+                    self.precision.query_value()
+                )
+            }
+            ApiVersion::V3 => {
+                if self.v3_no_sync {
+                    format!(
+                        "/api/v3/write_lp?db={}&precision={}&no_sync=true",
+                        self.database,
+                        self.precision.query_value()
+                    )
+                } else {
+                    format!(
+                        "/api/v3/write_lp?db={}&precision={}",
+                        self.database,
+                        self.precision.query_value()
+                    )
+                }
+            }
+        };
+        PathAndQuery::from_str(&path).map_err(|e| anyhow!("invalid influxdb api path {path}: {e}"))
     }
 
     pub(crate) fn parse(
@@ -60,6 +112,24 @@ impl InfluxdbExporterConfig {
                 self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
+            "api_version" | "version" => {
+                self.version = ApiVersion::parse_yaml(v)
+                    .context(format!("invalid influxdb api version value for key {k}"))?;
+                Ok(())
+            }
+            "database" => {
+                self.database = g3_yaml::value::as_string(v)?;
+                Ok(())
+            }
+            "precision" => {
+                self.precision = TimestampPrecision::parse_yaml(v)
+                    .context(format!("invalid timestamp precision value for key {k}"))?;
+                Ok(())
+            }
+            "v3_no_sync" => {
+                self.v3_no_sync = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
             _ => self.http_export.set_by_yaml_kv(k, v),
         }
     }
@@ -67,6 +137,9 @@ impl InfluxdbExporterConfig {
     fn check(&mut self) -> anyhow::Result<()> {
         if self.name.is_empty() {
             return Err(anyhow!("name is not set"));
+        }
+        if self.database.is_empty() {
+            return Err(anyhow!("database is not set"));
         }
         self.http_export.check(self.name.clone())?;
         Ok(())

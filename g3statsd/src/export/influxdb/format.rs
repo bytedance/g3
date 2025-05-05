@@ -18,58 +18,95 @@ use std::io::Write;
 
 use anyhow::anyhow;
 use chrono::{DateTime, Utc};
+use http::uri::PathAndQuery;
 use http::{HeaderMap, HeaderValue, header};
+use itoa::Buffer;
 
 use g3_http::client::HttpForwardRemoteResponse;
 
+use crate::config::exporter::influxdb::{InfluxdbExporterConfig, TimestampPrecision};
 use crate::runtime::export::HttpExport;
 use crate::types::{MetricRecord, MetricType};
 
-#[derive(Default)]
 pub(super) struct InfluxdbHttpFormatter {
+    api_path: PathAndQuery,
+    static_headers: HeaderMap,
+    precision: TimestampPrecision,
     close_connection: bool,
 }
 
-impl HttpExport for InfluxdbHttpFormatter {
-    fn serialize(
-        &mut self,
-        records: &[(DateTime<Utc>, MetricRecord)],
-        headers: &mut HeaderMap,
-        body_buf: &mut Vec<u8>,
-    ) {
-        self.close_connection = true;
-
-        headers.insert(
+impl InfluxdbHttpFormatter {
+    pub(super) fn new(config: &InfluxdbExporterConfig) -> anyhow::Result<Self> {
+        let api_path = config.build_api_path()?;
+        let mut static_headers = HeaderMap::new();
+        static_headers.insert(
             header::CONTENT_TYPE,
             HeaderValue::from_static("text/plain; charset=utf-8"),
         );
-        headers.insert(header::ACCEPT, HeaderValue::from_static("application/json"));
-
+        static_headers.insert(header::ACCEPT, HeaderValue::from_static("application/json"));
         // TODO add auth headers, Basic / Token
+        Ok(InfluxdbHttpFormatter {
+            api_path,
+            static_headers,
+            precision: config.precision,
+            close_connection: false,
+        })
+    }
+}
+
+impl HttpExport for InfluxdbHttpFormatter {
+    fn api_path(&self) -> &PathAndQuery {
+        &self.api_path
+    }
+
+    fn static_headers(&self) -> &HeaderMap {
+        &self.static_headers
+    }
+
+    fn fill_body(&mut self, records: &[(DateTime<Utc>, MetricRecord)], body_buf: &mut Vec<u8>) {
+        self.close_connection = true;
 
         for (time, record) in records {
-            let timestamp_ns = time.timestamp_nanos_opt().unwrap();
+            let _ = write!(body_buf, "{}", record.name.display('.'),);
+            if !record.tag_map.is_empty() {
+                let _ = write!(body_buf, ",{}", record.tag_map.display_influxdb(),);
+            }
 
             match record.r#type {
                 MetricType::Counter => {
-                    let _ = writeln!(
-                        body_buf,
-                        "{},{} count={} {timestamp_ns}",
-                        record.name.display('.'),
-                        record.tag_map.display_influxdb(),
-                        record.value.display_influxdb(),
-                    );
+                    let _ = write!(body_buf, " count={}", record.value.display_influxdb(),);
                 }
                 MetricType::Gauge => {
-                    let _ = writeln!(
-                        body_buf,
-                        "{},{} value={} {timestamp_ns}",
-                        record.name.display('.'),
-                        record.tag_map.display_influxdb(),
-                        record.value.display_influxdb(),
-                    );
+                    let _ = write!(body_buf, " value={}", record.value.display_influxdb(),);
                 }
             }
+
+            let mut ts_buffer = Buffer::new();
+            match self.precision {
+                TimestampPrecision::Seconds => {
+                    let ts = ts_buffer.format(time.timestamp());
+                    body_buf.push(b' ');
+                    body_buf.extend_from_slice(ts.as_bytes());
+                }
+                TimestampPrecision::MilliSeconds => {
+                    let ts = ts_buffer.format(time.timestamp_millis());
+                    body_buf.push(b' ');
+                    body_buf.extend_from_slice(ts.as_bytes());
+                }
+                TimestampPrecision::MicroSeconds => {
+                    let ts = ts_buffer.format(time.timestamp_micros());
+                    body_buf.push(b' ');
+                    body_buf.extend_from_slice(ts.as_bytes());
+                }
+                TimestampPrecision::NanoSeconds => {
+                    if let Some(ts_nanos) = time.timestamp_nanos_opt() {
+                        let ts = ts_buffer.format(ts_nanos);
+                        body_buf.push(b' ');
+                        body_buf.extend_from_slice(ts.as_bytes());
+                    }
+                }
+            };
+            body_buf.push(b'\n');
         }
 
         self.close_connection = false;
@@ -82,11 +119,11 @@ impl HttpExport for InfluxdbHttpFormatter {
     ) -> anyhow::Result<()> {
         self.close_connection = true;
 
-        if rsp.code != 200 {
+        if rsp.code != 200 && rsp.code != 204 {
             if let Ok(detail) = std::str::from_utf8(body) {
-                Err(anyhow!("Post data failed: {} {detail}", rsp.code))
+                Err(anyhow!("error response: {} {detail}", rsp.code))
             } else {
-                Err(anyhow!("Post data failed: {}", rsp.code))
+                Err(anyhow!("error response: {}", rsp.code))
             }
         } else {
             self.close_connection = !rsp.keep_alive();

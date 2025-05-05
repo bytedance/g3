@@ -28,6 +28,10 @@ pub(crate) struct MetricTagMap {
 }
 
 impl MetricTagMap {
+    pub(crate) fn is_empty(&self) -> bool {
+        self.inner.is_empty()
+    }
+
     #[cfg(test)]
     pub(crate) fn get(&self, key: &MetricTagName) -> Option<&MetricTagValue> {
         self.inner.get(key)

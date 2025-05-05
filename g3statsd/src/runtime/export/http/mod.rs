@@ -19,6 +19,7 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use chrono::{DateTime, Utc};
+use http::uri::PathAndQuery;
 use http::{HeaderMap, Method};
 use itoa::Buffer;
 use log::{debug, warn};
@@ -35,12 +36,9 @@ mod config;
 pub(crate) use config::HttpExportConfig;
 
 pub(crate) trait HttpExport {
-    fn serialize(
-        &mut self,
-        records: &[(DateTime<Utc>, MetricRecord)],
-        headers: &mut HeaderMap,
-        body_buf: &mut Vec<u8>,
-    );
+    fn api_path(&self) -> &PathAndQuery;
+    fn static_headers(&self) -> &HeaderMap;
+    fn fill_body(&mut self, records: &[(DateTime<Utc>, MetricRecord)], body_buf: &mut Vec<u8>);
     fn check_response(&mut self, rsp: HttpForwardRemoteResponse, body: &[u8])
     -> anyhow::Result<()>;
     fn close_connection(&self) -> bool;
@@ -65,7 +63,11 @@ impl<T: HttpExport> HttpExportRuntime<T> {
         receiver: mpsc::Receiver<(DateTime<Utc>, MetricRecord)>,
     ) -> Self {
         let mut header_buf = Vec::with_capacity(1024);
-        config.write_fixed_header(&mut header_buf);
+        config.write_fixed_header(
+            formatter.api_path(),
+            &mut header_buf,
+            formatter.static_headers(),
+        );
         let fixed_header_len = header_buf.len();
         HttpExportRuntime {
             config,
@@ -108,7 +110,7 @@ impl<T: HttpExport> HttpExportRuntime<T> {
     where
         S: AsyncBufRead + AsyncWrite + Unpin,
     {
-        const BATCH_SIZE: usize = 16;
+        const BATCH_SIZE: usize = 128;
 
         let mut buf = Vec::with_capacity(BATCH_SIZE);
         let mut read_buf = [0u8; BATCH_SIZE];
@@ -173,17 +175,9 @@ impl<T: HttpExport> HttpExportRuntime<T> {
         self.header_buf.truncate(self.fixed_header_len);
         self.req_body_buf.clear();
 
-        let mut headers = HeaderMap::new();
-        self.formatter
-            .serialize(records, &mut headers, &mut self.req_body_buf);
+        self.formatter.fill_body(records, &mut self.req_body_buf);
 
-        for (header, value) in &headers {
-            self.header_buf
-                .extend_from_slice(header.as_str().as_bytes());
-            self.header_buf.extend_from_slice(b": ");
-            self.header_buf.extend_from_slice(value.as_bytes());
-            self.header_buf.extend_from_slice(b"\r\n");
-        }
+        // set content-length
         self.header_buf.extend_from_slice(b"Content-Length: ");
         let mut usize_buf = Buffer::new();
         let content_length = usize_buf.format(self.req_body_buf.len());

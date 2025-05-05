@@ -20,6 +20,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use chrono::{DateTime, Utc};
+use http::HeaderMap;
 use http::uri::PathAndQuery;
 use log::warn;
 use tokio::net::TcpStream;
@@ -38,7 +39,6 @@ pub(crate) struct HttpExportConfig {
     pub(super) exporter: NodeName,
     pub(super) server: Host,
     port: u16,
-    pub(super) api_path: PathAndQuery,
     resolve_retry_wait: Duration,
     connect_retry_wait: Duration,
 
@@ -47,12 +47,11 @@ pub(crate) struct HttpExportConfig {
 }
 
 impl HttpExportConfig {
-    pub(crate) fn new(default_port: u16, default_path: &'static str) -> Self {
+    pub(crate) fn new(default_port: u16) -> Self {
         HttpExportConfig {
             exporter: NodeName::default(),
             server: Host::empty(),
             port: default_port,
-            api_path: PathAndQuery::from_static(default_path),
             resolve_retry_wait: Duration::from_secs(30),
             connect_retry_wait: Duration::from_secs(10),
             peer_s: String::new(),
@@ -79,11 +78,6 @@ impl HttpExportConfig {
             }
             "port" => {
                 self.port = g3_yaml::value::as_u16(v)?;
-                Ok(())
-            }
-            "api_path" => {
-                self.api_path = g3_yaml::value::as_http_path_and_query(v)
-                    .context(format!("invalid http path_query value for key {k}"))?;
                 Ok(())
             }
             "resolve_retry_wait" => {
@@ -145,14 +139,25 @@ impl HttpExportConfig {
         }
     }
 
-    pub(super) fn write_fixed_header(&self, header_buf: &mut Vec<u8>) {
+    pub(super) fn write_fixed_header(
+        &self,
+        api_path: &PathAndQuery,
+        header_buf: &mut Vec<u8>,
+        static_headers: &HeaderMap,
+    ) {
         header_buf.extend_from_slice(b"POST ");
-        header_buf.extend_from_slice(self.api_path.as_str().as_bytes());
+        header_buf.extend_from_slice(api_path.as_str().as_bytes());
         header_buf.extend_from_slice(b" HTTP/1.1\r\n");
         header_buf.extend_from_slice(b"Host: ");
         let _ = write!(header_buf, "{}", self.server);
         header_buf.extend_from_slice(b"\r\n");
         header_buf.extend_from_slice(b"Connection: keep-alive\r\n");
+        for (header, value) in static_headers {
+            header_buf.extend_from_slice(header.as_str().as_bytes());
+            header_buf.extend_from_slice(b": ");
+            header_buf.extend_from_slice(value.as_bytes());
+            header_buf.extend_from_slice(b"\r\n");
+        }
     }
 
     pub(crate) fn spawn<T>(&self, formatter: T) -> mpsc::Sender<(DateTime<Utc>, MetricRecord)>
