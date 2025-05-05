@@ -52,6 +52,7 @@ impl InfluxdbHttpFormatter {
     }
 }
 
+// https://docs.influxdata.com/influxdb3/core/write-data/api-client-libraries/
 impl HttpExport for InfluxdbHttpFormatter {
     fn api_path(&self) -> &PathAndQuery {
         &self.api_path

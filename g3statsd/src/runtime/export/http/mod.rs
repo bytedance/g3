@@ -140,6 +140,7 @@ impl<T: HttpExport> HttpExportRuntime<T> {
 
                     if let Err(e) = self.send_records(&mut stream, &buf).await {
                         warn!("exporter {}: failed to send records: {e:?}", self.config.exporter);
+                        break;
                     }
                     if self.close_connection {
                         break;
@@ -207,9 +208,14 @@ impl<T: HttpExport> HttpExportRuntime<T> {
     {
         self.rsp_body_buf.clear();
 
-        let mut rsp = HttpForwardRemoteResponse::parse(reader, &Method::POST, true, 4096)
-            .await
-            .map_err(|e| anyhow!("failed to read response header: {e}"))?;
+        let mut rsp = HttpForwardRemoteResponse::parse(
+            reader,
+            &Method::POST,
+            true,
+            self.config.rsp_head_max_size,
+        )
+        .await
+        .map_err(|e| anyhow!("failed to read response header: {e}"))?;
         if let Some(body_type) = rsp.body_type(&Method::POST) {
             let mut body_reader = HttpBodyDecodeReader::new(reader, body_type, 1024);
             body_reader
@@ -217,7 +223,7 @@ impl<T: HttpExport> HttpExportRuntime<T> {
                 .await
                 .map_err(|e| anyhow!("failed to read response body: {e}"))?;
             let trailer = body_reader
-                .trailer(1024)
+                .trailer(self.config.body_line_max_len)
                 .await
                 .map_err(|e| anyhow!("failed to read response trailer: {e}"))?;
             if let Some(mut trailer) = trailer {

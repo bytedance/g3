@@ -41,6 +41,8 @@ pub(crate) struct HttpExportConfig {
     port: u16,
     resolve_retry_wait: Duration,
     connect_retry_wait: Duration,
+    pub(super) rsp_head_max_size: usize,
+    pub(super) body_line_max_len: usize,
 
     peer_s: String,
     peer_addrs: Vec<SocketAddr>,
@@ -54,6 +56,8 @@ impl HttpExportConfig {
             port: default_port,
             resolve_retry_wait: Duration::from_secs(30),
             connect_retry_wait: Duration::from_secs(10),
+            rsp_head_max_size: 8192,
+            body_line_max_len: 512,
             peer_s: String::new(),
             peer_addrs: Vec::new(),
         }
@@ -88,6 +92,16 @@ impl HttpExportConfig {
             "connect_retry_wait" => {
                 self.connect_retry_wait = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            "rsp_header_max_size" => {
+                self.rsp_head_max_size = g3_yaml::humanize::as_usize(v)
+                    .context(format!("invalid humanize usize value for key {k}"))?;
+                Ok(())
+            }
+            "body_line_max_length" => {
+                self.body_line_max_len = g3_yaml::value::as_usize(v)
+                    .context(format!("invalid usize value for key {k}"))?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
