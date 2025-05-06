@@ -37,7 +37,7 @@ radix_trie = { workspace = true, optional = true }
 rustls = { workspace = true, optional = true }
 rustls-pki-types = { workspace = true, optional = true }
 quinn = { workspace = true, optional = true }
-webpki-roots = { version = "0.26", optional = true }
+webpki-roots = { version = "1.0", optional = true }
 rustls-native-certs = { version = "0.8", optional = true }
 openssl = { workspace = true, optional = true }
 lru = { workspace = true, optional = true }
