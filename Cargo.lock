@@ -306,34 +306,13 @@ dependencies = [
 
 [[package]]
 name = "brotli"
-version = "7.0.0"
+version = "8.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cc97b8f16f944bba54f0433f07e30be199b6dc2bd25937444bbad560bcea29bd"
+checksum = "9991eea70ea4f293524138648e41ee89b0b2b12ddef3b255effa43c8056e0e0d"
 dependencies = [
  "alloc-no-stdlib",
  "alloc-stdlib",
- "brotli-decompressor 4.0.3",
-]
-
-[[package]]
-name = "brotli"
-version = "8.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cf19e729cdbd51af9a397fb9ef8ac8378007b797f8273cfbfdf45dcaa316167b"
-dependencies = [
- "alloc-no-stdlib",
- "alloc-stdlib",
- "brotli-decompressor 5.0.0",
-]
-
-[[package]]
-name = "brotli-decompressor"
-version = "4.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a334ef7c9e23abf0ce748e8cd309037da93e606ad52eb372e4ce327a0dcfbdfd"
-dependencies = [
- "alloc-no-stdlib",
- "alloc-stdlib",
+ "brotli-decompressor",
 ]
 
 [[package]]
@@ -575,9 +554,9 @@ dependencies = [
 
 [[package]]
 name = "clap_complete"
-version = "4.5.48"
+version = "4.5.49"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "be8c97f3a6f02b9e24cadc12aaba75201d18754b53ea0a9d99642f806ccdb4c9"
+checksum = "07ae023020f3bbb76bfd6c7b9dd3f903b40f60e4dc60696c303457c5c01e6cbe"
 dependencies = [
  "clap",
 ]
@@ -1601,7 +1580,7 @@ dependencies = [
  "arc-swap",
  "base64",
  "blake3",
- "brotli 8.0.0",
+ "brotli",
  "bytes",
  "constant_time_eq 0.4.2",
  "crc32fast",
@@ -2185,9 +2164,9 @@ dependencies = [
 
 [[package]]
 name = "h2"
-version = "0.4.9"
+version = "0.4.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "75249d144030531f8dee69fe9cea04d3edf809a017ae445e2abdff6629e86633"
+checksum = "a9421a676d1b147b16b82c9225157dc629087ef8ec4d5e2960f9437a90dac0a5"
 dependencies = [
  "atomic-waker",
  "bytes",
@@ -2742,9 +2721,9 @@ dependencies = [
 
 [[package]]
 name = "mlua"
-version = "0.10.3"
+version = "0.10.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3f763c1041eff92ffb5d7169968a327e1ed2ebfe425dac0ee5a35f29082534b"
+checksum = "b5619fa178bc56c0de854abbaec912d405c7a611496da1dba664f67f4b59face"
 dependencies = [
  "bstr",
  "either",
@@ -2752,13 +2731,14 @@ dependencies = [
  "num-traits",
  "parking_lot",
  "rustc-hash",
+ "rustversion",
 ]
 
 [[package]]
 name = "mlua-sys"
-version = "0.6.7"
+version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1901c1a635a22fe9250ffcc4fcc937c16b47c2e9e71adba8784af8bca1f69594"
+checksum = "097b5f46dfbe4ffec2e9d1a13b035569a1e20d48aad8b83c9cdfe3d545dce849"
 dependencies = [
  "cc",
  "cfg-if",
@@ -3279,12 +3259,12 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.23.26"
+version = "0.23.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df51b5869f3a441595eac5e8ff14d486ff285f7b8c0df8770e49c3b56351f0f0"
+checksum = "730944ca083c1c233a75c09f199e973ca499344a2b7ba9e755c457e86fb4a321"
 dependencies = [
- "brotli 7.0.0",
- "brotli-decompressor 4.0.3",
+ "brotli",
+ "brotli-decompressor",
  "once_cell",
  "ring",
  "rustls-pki-types",
@@ -3316,9 +3296,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.1"
+version = "0.103.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fef8b8769aaccf73098557a87cd1816b4f9c7c16811c9c77142aa695c16f2c03"
+checksum = "7149975849f1abb3832b246010ef62ccc80d3a76169517ada7188252b9cfb437"
 dependencies = [
  "ring",
  "rustls-pki-types",
@@ -3820,9 +3800,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.16.2"
+version = "0.16.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8fb887ba4fc6b27e9917bf0dba908f9e3f086593ed23e7dff584a57e779fcab0"
+checksum = "21b81e773370f73479bf47cf8fafbfabd777537d4b99af638cb6483558b60f98"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -3835,9 +3815,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl-sys"
-version = "0.16.2"
+version = "0.16.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d45dc5a413ffccd9e14bed020a0cef4739a4722ec7ec5febdc286d8bbb13426"
+checksum = "8192bbcf83e96b2fececabacedca4ca66f41afd029a86568d3932cf989618937"
 dependencies = [
  "bssl-cmake-sys",
  "cc",
