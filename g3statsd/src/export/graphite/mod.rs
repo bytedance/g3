@@ -43,11 +43,9 @@ impl GraphiteExporter {
         GraphiteExporter { config, sender }
     }
 
-    pub(crate) fn prepare_initial(
-        config: GraphiteExporterConfig,
-    ) -> anyhow::Result<ArcExporterInternal> {
+    pub(crate) fn prepare_initial(config: GraphiteExporterConfig) -> ArcExporterInternal {
         let server = GraphiteExporter::new(config);
-        Ok(Arc::new(server))
+        Arc::new(server)
     }
 
     fn prepare_reload(&self, config: AnyExporterConfig) -> anyhow::Result<GraphiteExporter> {

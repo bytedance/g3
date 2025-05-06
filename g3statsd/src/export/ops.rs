@@ -146,16 +146,14 @@ async fn spawn_new_unlocked(config: AnyExporterConfig) -> anyhow::Result<()> {
 
     let exporter = match config {
         AnyExporterConfig::Discard(config) => {
-            super::discard::DiscardExporter::prepare_initial(config)?
+            super::discard::DiscardExporter::prepare_initial(config)
         }
         AnyExporterConfig::Console(config) => {
-            super::console::ConsoleExporter::prepare_initial(config)?
+            super::console::ConsoleExporter::prepare_initial(config)
         }
-        AnyExporterConfig::Memory(config) => {
-            super::memory::MemoryExporter::prepare_initial(config)?
-        }
+        AnyExporterConfig::Memory(config) => super::memory::MemoryExporter::prepare_initial(config),
         AnyExporterConfig::Graphite(config) => {
-            super::graphite::GraphiteExporter::prepare_initial(config)?
+            super::graphite::GraphiteExporter::prepare_initial(config)
         }
         AnyExporterConfig::Opentsdb(config) => {
             super::opentsdb::OpentsdbExporter::prepare_initial(config)?
