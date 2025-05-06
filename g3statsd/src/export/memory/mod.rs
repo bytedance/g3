@@ -39,12 +39,10 @@ impl MemoryExporter {
         MemoryExporter { config, store }
     }
 
-    pub(crate) fn prepare_initial(
-        config: MemoryExporterConfig,
-    ) -> anyhow::Result<ArcExporterInternal> {
+    pub(crate) fn prepare_initial(config: MemoryExporterConfig) -> ArcExporterInternal {
         let store = MemoryStore::default();
         let server = MemoryExporter::new(config, Arc::new(store));
-        Ok(Arc::new(server))
+        Arc::new(server)
     }
 
     fn prepare_reload(&self, config: AnyExporterConfig) -> anyhow::Result<MemoryExporter> {

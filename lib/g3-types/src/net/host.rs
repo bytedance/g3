@@ -30,8 +30,12 @@ pub enum Host {
 }
 
 impl Host {
-    pub fn empty() -> Self {
+    pub const fn empty() -> Self {
         Host::Ip(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)))
+    }
+
+    pub const fn localhost_v4() -> Self {
+        Host::Ip(IpAddr::V4(Ipv4Addr::LOCALHOST))
     }
 
     pub fn is_empty(&self) -> bool {

@@ -35,11 +35,9 @@ impl ConsoleExporter {
         ConsoleExporter { config }
     }
 
-    pub(crate) fn prepare_initial(
-        config: ConsoleExporterConfig,
-    ) -> anyhow::Result<ArcExporterInternal> {
+    pub(crate) fn prepare_initial(config: ConsoleExporterConfig) -> ArcExporterInternal {
         let server = ConsoleExporter::new(config);
-        Ok(Arc::new(server))
+        Arc::new(server)
     }
 
     fn prepare_reload(&self, config: AnyExporterConfig) -> anyhow::Result<ConsoleExporter> {

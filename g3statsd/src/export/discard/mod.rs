@@ -35,11 +35,9 @@ impl DiscardExporter {
         DiscardExporter { config }
     }
 
-    pub(crate) fn prepare_initial(
-        config: DiscardExporterConfig,
-    ) -> anyhow::Result<ArcExporterInternal> {
+    pub(crate) fn prepare_initial(config: DiscardExporterConfig) -> ArcExporterInternal {
         let server = DiscardExporter::new(config);
-        Ok(Arc::new(server))
+        Arc::new(server)
     }
 
     pub(crate) fn prepare_default(name: &NodeName) -> ArcExporterInternal {

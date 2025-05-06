@@ -37,7 +37,7 @@ use crate::types::MetricRecord;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct HttpExportConfig {
     pub(super) exporter: NodeName,
-    pub(super) server: Host,
+    pub(super) host: Host,
     port: u16,
     resolve_retry_wait: Duration,
     connect_retry_wait: Duration,
@@ -50,10 +50,14 @@ pub(crate) struct HttpExportConfig {
 
 impl HttpExportConfig {
     pub(crate) fn new(default_port: u16) -> Self {
+        HttpExportConfig::with_server(Host::empty(), default_port)
+    }
+
+    pub(crate) fn with_server(host: Host, port: u16) -> Self {
         HttpExportConfig {
             exporter: NodeName::default(),
-            server: Host::empty(),
-            port: default_port,
+            host,
+            port,
             resolve_retry_wait: Duration::from_secs(30),
             connect_retry_wait: Duration::from_secs(10),
             rsp_head_max_size: 8192,
@@ -64,20 +68,20 @@ impl HttpExportConfig {
     }
 
     pub(crate) fn check(&mut self, exporter: NodeName) -> anyhow::Result<()> {
-        if self.server.is_empty() {
+        if self.host.is_empty() {
             return Err(anyhow!("peer address is not set"));
         }
 
         self.exporter = exporter;
-        let peer = UpstreamAddr::new(self.server.clone(), self.port);
+        let peer = UpstreamAddr::new(self.host.clone(), self.port);
         self.peer_s = peer.to_string();
         Ok(())
     }
 
     pub(crate) fn set_by_yaml_kv(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
-            "server" => {
-                self.server = g3_yaml::value::as_host(v)?;
+            "host" | "server" => {
+                self.host = g3_yaml::value::as_host(v)?;
                 Ok(())
             }
             "port" => {
@@ -163,7 +167,7 @@ impl HttpExportConfig {
         header_buf.extend_from_slice(api_path.as_str().as_bytes());
         header_buf.extend_from_slice(b" HTTP/1.1\r\n");
         header_buf.extend_from_slice(b"Host: ");
-        let _ = write!(header_buf, "{}", self.server);
+        let _ = write!(header_buf, "{}", self.host);
         header_buf.extend_from_slice(b"\r\n");
         header_buf.extend_from_slice(b"Connection: keep-alive\r\n");
         for (header, value) in static_headers {
