@@ -33,6 +33,23 @@ impl MetricValue {
     pub(crate) fn display_influxdb(&self) -> DisplayInfluxdbValue {
         DisplayInfluxdbValue(self)
     }
+
+    #[allow(unused)]
+    pub(crate) fn as_f64(&self) -> f64 {
+        match self {
+            MetricValue::Double(f) => *f,
+            MetricValue::Signed(i) => *i as f64,
+            MetricValue::Unsigned(u) => *u as f64,
+        }
+    }
+
+    pub(crate) fn as_json_number(&self) -> Number {
+        match self {
+            MetricValue::Double(f) => Number::from_f64(*f).unwrap(),
+            MetricValue::Signed(i) => Number::from(*i),
+            MetricValue::Unsigned(u) => Number::from(*u),
+        }
+    }
 }
 
 impl FromStr for MetricValue {
@@ -75,16 +92,6 @@ impl fmt::Display for MetricValue {
             MetricValue::Unsigned(u) => itoa::Buffer::new().format(*u).fmt(f),
             MetricValue::Signed(i) => itoa::Buffer::new().format(*i).fmt(f),
             MetricValue::Double(v) => ryu::Buffer::new().format(*v).fmt(f),
-        }
-    }
-}
-
-impl From<MetricValue> for Number {
-    fn from(value: MetricValue) -> Self {
-        match value {
-            MetricValue::Double(f) => Number::from_f64(f).unwrap(),
-            MetricValue::Signed(i) => i.into(),
-            MetricValue::Unsigned(u) => u.into(),
         }
     }
 }

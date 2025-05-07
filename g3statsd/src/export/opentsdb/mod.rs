@@ -25,10 +25,11 @@ use g3_types::metrics::NodeName;
 use super::{ArcExporterInternal, Exporter, ExporterInternal};
 use crate::config::exporter::opentsdb::OpentsdbExporterConfig;
 use crate::config::exporter::{AnyExporterConfig, ExporterConfig};
+use crate::runtime::export::{AggregateExportRuntime, HttpExportRuntime};
 use crate::types::MetricRecord;
 
-mod format;
-use format::OpentsdbHttpFormatter;
+mod export;
+use export::{OpentsdbAggregateExport, OpentsdbHttpExport};
 
 pub(crate) struct OpentsdbExporter {
     config: OpentsdbExporterConfig,
@@ -37,8 +38,17 @@ pub(crate) struct OpentsdbExporter {
 
 impl OpentsdbExporter {
     fn new(config: OpentsdbExporterConfig) -> anyhow::Result<Self> {
-        let formatter = OpentsdbHttpFormatter::new(&config)?;
-        let sender = config.http_export.spawn(formatter);
+        let (sender, receiver) = mpsc::channel(1024);
+        let (agg_sender, agg_receiver) = mpsc::channel(1024);
+        let aggregate_export = OpentsdbAggregateExport::new(&config, agg_sender);
+        let aggregate_runtime = AggregateExportRuntime::new(aggregate_export, receiver)?;
+
+        let http_export = OpentsdbHttpExport::new(&config)?;
+        let http_runtime =
+            HttpExportRuntime::new(config.http_export.clone(), http_export, agg_receiver);
+
+        tokio::spawn(async move { aggregate_runtime.into_running().await });
+        tokio::spawn(http_runtime.into_running());
         Ok(OpentsdbExporter { config, sender })
     }
 

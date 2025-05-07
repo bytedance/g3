@@ -14,8 +14,13 @@
  * limitations under the License.
  */
 
+mod aggregate;
+pub(crate) use aggregate::{
+    AggregateExport, AggregateExportRuntime, CounterStoreValue, GaugeStoreValue,
+};
+
 mod stream;
 pub(crate) use stream::{StreamExport, StreamExportConfig};
 
 mod http;
-pub(crate) use http::{HttpExport, HttpExportConfig};
+pub(crate) use http::{HttpExport, HttpExportConfig, HttpExportRuntime};

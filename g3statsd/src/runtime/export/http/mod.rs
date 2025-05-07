@@ -18,7 +18,6 @@ use std::io::{self, IoSlice};
 use std::time::Duration;
 
 use anyhow::anyhow;
-use chrono::{DateTime, Utc};
 use http::uri::PathAndQuery;
 use http::{HeaderMap, Method};
 use itoa::Buffer;
@@ -30,23 +29,27 @@ use g3_http::HttpBodyDecodeReader;
 use g3_http::client::HttpForwardRemoteResponse;
 use g3_io_ext::LimitedWriteExt;
 
-use crate::types::MetricRecord;
-
 mod config;
 pub(crate) use config::HttpExportConfig;
 
+const BATCH_SIZE: usize = 128;
+
 pub(crate) trait HttpExport {
+    type BodyPiece;
+
     fn api_path(&self) -> &PathAndQuery;
     fn static_headers(&self) -> &HeaderMap;
-    fn fill_body(&self, records: &[(DateTime<Utc>, MetricRecord)], body_buf: &mut Vec<u8>);
+    fn fill_body(&mut self, piece: &[Self::BodyPiece], body_buf: &mut Vec<u8>) -> usize;
     fn check_response(&self, rsp: HttpForwardRemoteResponse, body: &[u8]) -> anyhow::Result<()>;
 }
 
-struct HttpExportRuntime<T: HttpExport> {
+pub(crate) struct HttpExportRuntime<T: HttpExport> {
     config: HttpExportConfig,
     formatter: T,
-    receiver: mpsc::Receiver<(DateTime<Utc>, MetricRecord)>,
+    receiver: mpsc::Receiver<T::BodyPiece>,
 
+    recv_buf: Vec<T::BodyPiece>,
+    recv_handled: usize,
     header_buf: Vec<u8>,
     fixed_header_len: usize,
     req_body_buf: Vec<u8>,
@@ -56,10 +59,10 @@ struct HttpExportRuntime<T: HttpExport> {
 }
 
 impl<T: HttpExport> HttpExportRuntime<T> {
-    fn new(
+    pub(crate) fn new(
         config: HttpExportConfig,
         formatter: T,
-        receiver: mpsc::Receiver<(DateTime<Utc>, MetricRecord)>,
+        receiver: mpsc::Receiver<T::BodyPiece>,
     ) -> Self {
         let mut header_buf = Vec::with_capacity(1024);
         config.write_fixed_header(
@@ -72,6 +75,8 @@ impl<T: HttpExport> HttpExportRuntime<T> {
             config,
             formatter,
             receiver,
+            recv_buf: Vec::with_capacity(BATCH_SIZE),
+            recv_handled: 0,
             header_buf,
             fixed_header_len,
             req_body_buf: Vec::with_capacity(2048),
@@ -81,7 +86,7 @@ impl<T: HttpExport> HttpExportRuntime<T> {
         }
     }
 
-    async fn into_running(mut self) {
+    pub(crate) async fn into_running(mut self) {
         loop {
             match self.config.connect().await {
                 Ok(stream) => self.run_with_stream(BufStream::new(stream)).await,
@@ -110,13 +115,25 @@ impl<T: HttpExport> HttpExportRuntime<T> {
     where
         S: AsyncBufRead + AsyncWrite + Unpin,
     {
-        const BATCH_SIZE: usize = 128;
-
-        let mut buf = Vec::with_capacity(BATCH_SIZE);
         let mut read_buf = [0u8; BATCH_SIZE];
 
         loop {
-            buf.clear();
+            if self.recv_handled < self.recv_buf.len() {
+                if let Err(e) = self.send_records(&mut stream).await {
+                    warn!(
+                        "exporter {}: failed to send records: {e:?}",
+                        self.config.exporter
+                    );
+                    break;
+                }
+                if self.close_connection {
+                    break;
+                }
+                continue;
+            } else {
+                self.recv_buf.clear();
+                self.recv_handled = 0;
+            }
 
             tokio::select! {
                 biased;
@@ -132,17 +149,9 @@ impl<T: HttpExport> HttpExportRuntime<T> {
                     }
                     break;
                 }
-                n = self.receiver.recv_many(&mut buf, BATCH_SIZE) => {
+                n = self.receiver.recv_many(&mut self.recv_buf, BATCH_SIZE) => {
                     if n == 0 {
                         self.quit = true;
-                        break;
-                    }
-
-                    if let Err(e) = self.send_records(&mut stream, &buf).await {
-                        warn!("exporter {}: failed to send records: {e:?}", self.config.exporter);
-                        break;
-                    }
-                    if self.close_connection {
                         break;
                     }
                 }
@@ -150,15 +159,11 @@ impl<T: HttpExport> HttpExportRuntime<T> {
         }
     }
 
-    async fn send_records<S>(
-        &mut self,
-        stream: &mut S,
-        records: &[(DateTime<Utc>, MetricRecord)],
-    ) -> anyhow::Result<()>
+    async fn send_records<S>(&mut self, stream: &mut S) -> anyhow::Result<()>
     where
         S: AsyncBufRead + AsyncWrite + Unpin,
     {
-        self.send_request(stream, records)
+        self.send_request(stream)
             .await
             .map_err(|e| anyhow!("failed to send request: {e}"))?;
         let rsp = self.recv_response(stream).await?;
@@ -169,18 +174,16 @@ impl<T: HttpExport> HttpExportRuntime<T> {
         Ok(())
     }
 
-    async fn send_request<W>(
-        &mut self,
-        writer: &mut W,
-        records: &[(DateTime<Utc>, MetricRecord)],
-    ) -> io::Result<()>
+    async fn send_request<W>(&mut self, writer: &mut W) -> io::Result<()>
     where
         W: AsyncWrite + Unpin,
     {
         self.header_buf.truncate(self.fixed_header_len);
         self.req_body_buf.clear();
 
-        self.formatter.fill_body(records, &mut self.req_body_buf);
+        let records = &self.recv_buf[self.recv_handled..];
+        let handled = self.formatter.fill_body(records, &mut self.req_body_buf);
+        self.recv_handled += handled;
 
         // set content-length
         self.header_buf.extend_from_slice(b"Content-Length: ");

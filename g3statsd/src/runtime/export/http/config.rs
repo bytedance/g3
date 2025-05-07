@@ -19,20 +19,15 @@ use std::net::SocketAddr;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use chrono::{DateTime, Utc};
 use http::HeaderMap;
 use http::uri::PathAndQuery;
 use log::warn;
 use tokio::net::TcpStream;
-use tokio::sync::mpsc;
 use yaml_rust::Yaml;
 
 use g3_socket::BindAddr;
 use g3_types::metrics::NodeName;
 use g3_types::net::{Host, UpstreamAddr};
-
-use super::{HttpExport, HttpExportRuntime};
-use crate::types::MetricRecord;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct HttpExportConfig {
@@ -176,17 +171,5 @@ impl HttpExportConfig {
             header_buf.extend_from_slice(value.as_bytes());
             header_buf.extend_from_slice(b"\r\n");
         }
-    }
-
-    pub(crate) fn spawn<T>(&self, formatter: T) -> mpsc::Sender<(DateTime<Utc>, MetricRecord)>
-    where
-        T: HttpExport + Send + Sync + 'static,
-    {
-        let (sender, receiver) = mpsc::channel(1024);
-
-        let runtime = HttpExportRuntime::new(self.clone(), formatter, receiver);
-        tokio::spawn(runtime.into_running());
-
-        sender
     }
 }
