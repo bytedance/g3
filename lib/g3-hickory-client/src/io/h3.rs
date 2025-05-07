@@ -129,9 +129,8 @@ impl Stream for H3ClientStream {
 
         // just checking if the connection is ok
         match self.driver.poll_close(cx) {
-            Poll::Ready(Ok(())) => Poll::Ready(None),
             Poll::Pending => Poll::Pending,
-            Poll::Ready(Err(e)) => Poll::Ready(Some(Err(ProtoError::from(format!(
+            Poll::Ready(e) => Poll::Ready(Some(Err(ProtoError::from(format!(
                 "h3 stream errored: {e}",
             ))))),
         }
