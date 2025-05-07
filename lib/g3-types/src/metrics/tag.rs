@@ -33,7 +33,7 @@ pub type StaticMetricsTags = BTreeMap<MetricTagName, MetricTagValue>;
 impl MetricTagName {
     /// # Safety
     /// The characters in `s` is not checked
-    pub unsafe fn new_static_unchecked(s: &'static str) -> Self {
+    pub const unsafe fn new_static_unchecked(s: &'static str) -> Self {
         MetricTagName(SmolStr::new_static(s))
     }
 
