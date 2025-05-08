@@ -18,8 +18,10 @@ use std::io;
 use std::time::Duration;
 
 use log::{debug, warn};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::sync::mpsc;
+
+use g3_io_ext::LimitedWriteExt;
 
 mod config;
 pub(crate) use config::StreamExportConfig;
@@ -152,6 +154,6 @@ where
             self.recv_handled += handled;
         }
 
-        writer.write_all(&self.write_buf).await
+        writer.write_all_flush(&self.write_buf).await
     }
 }

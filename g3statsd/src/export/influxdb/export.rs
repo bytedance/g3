@@ -190,7 +190,9 @@ impl InfluxdbHttpExport {
             HeaderValue::from_static("text/plain; charset=utf-8"),
         );
         static_headers.insert(header::ACCEPT, HeaderValue::from_static("application/json"));
-        // TODO add auth headers, Basic / Token
+        if let Some(v) = config.build_api_token() {
+            static_headers.insert(header::AUTHORIZATION, v);
+        }
         Ok(InfluxdbHttpExport {
             api_path,
             static_headers,

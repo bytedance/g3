@@ -1,14 +1,13 @@
 importer:
   - name: statsd
     type: statsd
-    collector: aggregate_4s
+    collector: aggregate_1s
     listen: 127.0.0.1:8125
 
 collector:
-  - name: aggregate_4s
+  - name: aggregate_1s
     type: aggregate
-    next: regulate_4s
-    emit_interval: 4s
+    emit_interval: 1s
     join_tags:
       - stat_id
     exporter: opentsdb

@@ -13,6 +13,12 @@ FCGEN_PID=$!
 "${PROJECT_DIR}"/target/debug/g3iploc -c "${RUN_DIR}"/g3iploc.yaml -G port2888 &
 IPLOC_PID=$!
 
+# start g3statsd
+[ -n "${INFLUXDB3_AUTH_TOKEN}" ] || INFLUXDB3_AUTH_TOKEN=$(curl -X POST http://127.0.0.1:8181/api/v3/configure/token/admin | jq ".token" -r)
+export INFLUXDB3_AUTH_TOKEN
+"${PROJECT_DIR}"/target/debug/g3statsd -c "${RUN_DIR}"/g3statsd.yaml -G ${TEST_NAME} &
+STATSD_PID=$!
+
 # run g3proxy integration tests
 
 export TEST_CA_CERT_FILE="${RUN_DIR}/rootCA.pem"
@@ -50,6 +56,7 @@ done
 
 set +x
 
+kill -INT $STATSD_PID
 kill -INT $IPLOC_PID
 kill -INT $FCGEN_PID
 NGINX_PID=$(cat /tmp/nginx.pid)

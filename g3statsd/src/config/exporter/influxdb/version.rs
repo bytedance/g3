@@ -19,7 +19,6 @@ use yaml_rust::Yaml;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum ApiVersion {
-    V1,
     V2,
     V3,
 }
@@ -28,13 +27,11 @@ impl ApiVersion {
     pub(super) fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
         match value {
             Yaml::Integer(i) => match *i {
-                1 => Ok(ApiVersion::V1),
                 2 => Ok(ApiVersion::V2),
                 3 => Ok(ApiVersion::V3),
                 v => Err(anyhow!("unsupported api version {v}")),
             },
             Yaml::String(s) => match s.as_str() {
-                "1" | "v1" | "V1" => Ok(ApiVersion::V1),
                 "2" | "v2" | "V2" => Ok(ApiVersion::V2),
                 "3" | "v3" | "V3" => Ok(ApiVersion::V3),
                 _ => Err(anyhow!("unsupported api version {s}")),

@@ -22,12 +22,12 @@ use http::uri::PathAndQuery;
 use http::{HeaderMap, Method};
 use itoa::Buffer;
 use log::{debug, warn};
-use tokio::io::{AsyncBufRead, AsyncReadExt, AsyncWrite, BufStream};
+use tokio::io::{AsyncBufRead, AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc;
 
 use g3_http::HttpBodyDecodeReader;
 use g3_http::client::HttpForwardRemoteResponse;
-use g3_io_ext::LimitedWriteExt;
+use g3_io_ext::{AsyncStream, LimitedWriteExt};
 
 mod config;
 pub(crate) use config::HttpExportConfig;
@@ -89,7 +89,7 @@ impl<T: HttpExport> HttpExportRuntime<T> {
     pub(crate) async fn into_running(mut self) {
         loop {
             match self.config.connect().await {
-                Ok(stream) => self.run_with_stream(BufStream::new(stream)).await,
+                Ok(stream) => self.run_with_stream(stream).await,
                 Err(wait) => self.drop_wait(wait).await,
             }
             if self.quit {
@@ -111,15 +111,20 @@ impl<T: HttpExport> HttpExportRuntime<T> {
         }
     }
 
-    async fn run_with_stream<S>(&mut self, mut stream: S)
+    async fn run_with_stream<S>(&mut self, stream: S)
     where
-        S: AsyncBufRead + AsyncWrite + Unpin,
+        S: AsyncStream + Unpin,
+        S::R: AsyncRead + Unpin,
+        S::W: AsyncWrite + Unpin,
     {
+        let (reader, mut writer) = stream.into_split();
+        let mut buf_reader = BufReader::new(reader);
+
         let mut read_buf = [0u8; BATCH_SIZE];
 
         loop {
             if self.recv_handled < self.recv_buf.len() {
-                if let Err(e) = self.send_records(&mut stream).await {
+                if let Err(e) = self.send_records(&mut buf_reader, &mut writer).await {
                     warn!(
                         "exporter {}: failed to send records: {e:?}",
                         self.config.exporter
@@ -138,7 +143,7 @@ impl<T: HttpExport> HttpExportRuntime<T> {
             tokio::select! {
                 biased;
 
-                r =  stream.read(&mut read_buf) => {
+                r =  buf_reader.read(&mut read_buf) => {
                     match r {
                         Ok(_) => {
                             debug!("exporter {}: connection closed by peer", self.config.exporter);
@@ -159,14 +164,15 @@ impl<T: HttpExport> HttpExportRuntime<T> {
         }
     }
 
-    async fn send_records<S>(&mut self, stream: &mut S) -> anyhow::Result<()>
+    async fn send_records<R, W>(&mut self, reader: &mut R, writer: &mut W) -> anyhow::Result<()>
     where
-        S: AsyncBufRead + AsyncWrite + Unpin,
+        R: AsyncBufRead + Unpin,
+        W: AsyncWrite + Unpin,
     {
-        self.send_request(stream)
+        self.send_request(writer)
             .await
             .map_err(|e| anyhow!("failed to send request: {e}"))?;
-        let rsp = self.recv_response(stream).await?;
+        let rsp = self.recv_response(reader).await?;
         self.close_connection = !rsp.keep_alive();
         if let Err(e) = self.exporter.check_response(rsp, &self.rsp_body_buf) {
             warn!("exporter {}: error response: {e:?}", self.config.exporter);
@@ -207,6 +213,7 @@ impl<T: HttpExport> HttpExportRuntime<T> {
                 IoSlice::new(&self.req_body_buf),
             ])
             .await?;
+        writer.flush().await?;
 
         Ok(())
     }

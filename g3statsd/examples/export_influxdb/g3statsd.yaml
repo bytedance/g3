@@ -10,10 +10,13 @@ collector:
     emit_interval: 1s
     join_tags:
       - stat_id
-    exporter: graphite
+    exporter: influxdb
 
 exporter:
-  - name: graphite
-    type: graphite
+  - name: influxdb
+    type: influxdb
     server: 127.0.0.1
-    port: 2003
+    port: 8181
+    database: test
+    version: v3
+    # token: apiv3_xxxx

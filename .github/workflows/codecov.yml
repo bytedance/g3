@@ -81,6 +81,13 @@ jobs:
         image: ghcr.io/psf/httpbin:0.10.2
         ports:
           - 80:8080
+      influxdb:
+        image: influxdb:3-core
+        env:
+          INFLUXDB3_NODE_IDENTIFIER_PREFIX: local
+          INFLUXDB3_OBJECT_STORE: memory
+        ports:
+          - 8181:8181
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
