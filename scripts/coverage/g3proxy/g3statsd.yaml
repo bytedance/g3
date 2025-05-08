@@ -23,7 +23,7 @@ collector:
 
 exporter:
   - name: influxdb
-    type: influxdb
+    type: influxdb_v3
     server: 127.0.0.1
     port: 8181
     database: test
