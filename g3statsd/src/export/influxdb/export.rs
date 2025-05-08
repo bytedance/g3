@@ -30,7 +30,7 @@ use g3_http::client::HttpForwardRemoteResponse;
 
 use crate::config::exporter::influxdb::{InfluxdbExporterConfig, TimestampPrecision};
 use crate::runtime::export::{AggregateExport, CounterStoreValue, GaugeStoreValue, HttpExport};
-use crate::types::{MetricName, MetricTagMap};
+use crate::types::{MetricName, MetricTagMap, MetricValue};
 
 pub(super) struct InfluxdbEncodedLines {
     len: usize,
@@ -39,7 +39,6 @@ pub(super) struct InfluxdbEncodedLines {
 
 pub(super) struct InfluxdbAggregateExport {
     emit_interval: Duration,
-    expire_timeout: Duration,
     precision: TimestampPrecision,
     max_body_lines: usize,
     max_body_size: usize,
@@ -55,7 +54,6 @@ impl InfluxdbAggregateExport {
     ) -> Self {
         InfluxdbAggregateExport {
             emit_interval: config.emit_interval,
-            expire_timeout: config.expire_timeout,
             precision: config.precision,
             max_body_lines: config.max_body_lines,
             max_body_size: config.max_body_size,
@@ -119,10 +117,6 @@ impl AggregateExport for InfluxdbAggregateExport {
         self.emit_interval
     }
 
-    fn expire_timeout(&self) -> Duration {
-        self.expire_timeout
-    }
-
     async fn emit_gauge(
         &mut self,
         name: &MetricName,
@@ -160,11 +154,13 @@ impl AggregateExport for InfluxdbAggregateExport {
         for (tag_map, gauge) in values {
             self.serialize_name_tags(name, tag_map);
 
+            let rate = MetricValue::Double(gauge.diff.as_f64() / self.emit_interval.as_secs_f64());
             let _ = write!(
                 &mut self.buf,
-                " count={},diff={}",
+                " count={},diff={},rate={}",
                 gauge.sum.display_influxdb(),
-                gauge.diff.display_influxdb()
+                gauge.diff.display_influxdb(),
+                rate.display_influxdb(),
             );
 
             self.serialize_timestamp(&gauge.time);

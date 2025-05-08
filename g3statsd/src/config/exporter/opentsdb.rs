@@ -34,7 +34,6 @@ pub(crate) struct OpentsdbExporterConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) emit_interval: Duration,
-    pub(crate) expire_timeout: Duration,
     pub(crate) max_data_points: usize,
     pub(crate) http_export: HttpExportConfig,
     sync_timeout: Option<Duration>,
@@ -46,7 +45,6 @@ impl OpentsdbExporterConfig {
             name: NodeName::default(),
             position,
             emit_interval: Duration::from_secs(10),
-            expire_timeout: Duration::from_secs(30),
             max_data_points: 50,
             http_export: HttpExportConfig::new(4242),
             sync_timeout: None,
@@ -93,11 +91,6 @@ impl OpentsdbExporterConfig {
             }
             "emit_interval" => {
                 self.emit_interval = g3_yaml::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
-                Ok(())
-            }
-            "expire_timeout" => {
-                self.expire_timeout = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }

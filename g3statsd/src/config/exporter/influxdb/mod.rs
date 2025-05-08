@@ -40,7 +40,6 @@ pub(crate) struct InfluxdbExporterConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) emit_interval: Duration,
-    pub(crate) expire_timeout: Duration,
     pub(crate) max_body_lines: usize,
     pub(crate) max_body_size: usize,
     pub(crate) http_export: HttpExportConfig,
@@ -56,7 +55,6 @@ impl InfluxdbExporterConfig {
             name: NodeName::default(),
             position,
             emit_interval: Duration::from_secs(10),
-            expire_timeout: Duration::from_secs(30),
             max_body_lines: 10000,
             max_body_size: 10 * 1024 * 1024,
             http_export: HttpExportConfig::new(8181),
@@ -141,11 +139,6 @@ impl InfluxdbExporterConfig {
             }
             "emit_interval" => {
                 self.emit_interval = g3_yaml::humanize::as_duration(v)
-                    .context(format!("invalid humanize duration value for key {k}"))?;
-                Ok(())
-            }
-            "expire_timeout" => {
-                self.expire_timeout = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
