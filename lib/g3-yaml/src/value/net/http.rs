@@ -17,8 +17,8 @@
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
-use http::HeaderName;
 use http::uri::PathAndQuery;
+use http::{HeaderName, HeaderValue};
 use yaml_rust::Yaml;
 
 use g3_types::net::{
@@ -136,6 +136,12 @@ pub fn as_http_header_name(value: &Yaml) -> anyhow::Result<HeaderName> {
             "yaml value type for 'HttpHeaderName' should be 'string'"
         ))
     }
+}
+
+pub fn as_http_header_value_string(value: &Yaml) -> anyhow::Result<String> {
+    let s = crate::value::as_string(value)?;
+    HeaderValue::from_str(&s).map_err(|e| anyhow!("invalid http header value string {s}: {e}"))?;
+    Ok(s)
 }
 
 pub fn as_http_path_and_query(value: &Yaml) -> anyhow::Result<PathAndQuery> {

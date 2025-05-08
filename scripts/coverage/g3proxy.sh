@@ -10,7 +10,7 @@ TEST_NAME="g3proxy-ci"
 . "${SCRIPTS_DIR}/enter.sh"
 
 # build
-cargo build -p g3proxy -p g3proxy-ctl -p g3proxy-ftp -p g3mkcert -p g3fcgen -p g3iploc
+cargo build -p g3proxy -p g3proxy-ctl -p g3proxy-ftp -p g3mkcert -p g3fcgen -p g3iploc -p g3statsd
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
 
@@ -38,7 +38,6 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=g3bench \
     --ignore-filename-regex=g3mkcert \
     --ignore-filename-regex=g3tiles \
-    --ignore-filename-regex=g3statsd \
     --ignore-filename-regex=g3keymess"
 
 echo "==== Coverage for all ===="

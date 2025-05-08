@@ -58,7 +58,8 @@ pub use base::as_ip_network;
 #[cfg(feature = "http")]
 pub use self::http::{
     as_http_forward_capability, as_http_forwarded_header_type, as_http_header_name,
-    as_http_keepalive_config, as_http_path_and_query, as_http_server_id,
+    as_http_header_value_string, as_http_keepalive_config, as_http_path_and_query,
+    as_http_server_id,
 };
 
 #[cfg(feature = "rustls")]

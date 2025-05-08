@@ -1,0 +1,36 @@
+importer:
+  - name: statsd
+    type: statsd
+    collector: aggregate_1s
+    listen: 127.0.0.1:8125
+
+collector:
+  - name: aggregate_1s
+    type: aggregate
+    emit_interval: 1s
+    join_tags:
+      - stat_id
+    next: aggregate_30s
+    exporter:
+      - influxdb
+      - memory-1s
+  - name: aggregate_30s
+    type: aggregate
+    emit_interval: 30s
+    join_tags:
+      - online
+    exporter: memory-30s
+
+exporter:
+  - name: influxdb
+    type: influxdb
+    server: 127.0.0.1
+    port: 8181
+    database: test
+    emit-interval: 10s
+  - name: memory-1s
+    type: memory
+    store-count: 3600
+  - name: memory-30s
+    type: memory
+    store-count: 3600

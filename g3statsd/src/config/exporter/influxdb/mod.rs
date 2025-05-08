@@ -18,6 +18,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
+use http::HeaderValue;
 use http::uri::PathAndQuery;
 use yaml_rust::{Yaml, yaml};
 
@@ -44,6 +45,7 @@ pub(crate) struct InfluxdbExporterConfig {
     pub(crate) http_export: HttpExportConfig,
     version: ApiVersion,
     database: String,
+    pub(crate) token: String,
     pub(crate) precision: TimestampPrecision,
     v3_no_sync: bool,
 }
@@ -58,6 +60,7 @@ impl InfluxdbExporterConfig {
             http_export: HttpExportConfig::new(8181),
             version: ApiVersion::V2,
             database: String::new(),
+            token: String::new(),
             precision: TimestampPrecision::Seconds,
             v3_no_sync: false,
         }
@@ -65,18 +68,11 @@ impl InfluxdbExporterConfig {
 
     pub(crate) fn build_api_path(&self) -> anyhow::Result<PathAndQuery> {
         let path = match self.version {
-            ApiVersion::V1 => {
-                format!(
-                    "/write?db={}&precision={}",
-                    self.database,
-                    self.precision.query_value()
-                )
-            }
             ApiVersion::V2 => {
                 format!(
                     "/api/v2/write?bucket={}&precision={}",
                     self.database,
-                    self.precision.query_value()
+                    self.precision.v2_query_value()
                 )
             }
             ApiVersion::V3 => {
@@ -84,18 +80,33 @@ impl InfluxdbExporterConfig {
                     format!(
                         "/api/v3/write_lp?db={}&precision={}&no_sync=true",
                         self.database,
-                        self.precision.query_value()
+                        self.precision.v3_query_value()
                     )
                 } else {
                     format!(
                         "/api/v3/write_lp?db={}&precision={}",
                         self.database,
-                        self.precision.query_value()
+                        self.precision.v3_query_value()
                     )
                 }
             }
         };
         PathAndQuery::from_str(&path).map_err(|e| anyhow!("invalid influxdb api path {path}: {e}"))
+    }
+
+    pub(crate) fn build_api_token(&self) -> Option<HeaderValue> {
+        if self.token.is_empty() {
+            return None;
+        }
+        let s = match self.version {
+            ApiVersion::V2 => {
+                format!("Token {}", self.token)
+            }
+            ApiVersion::V3 => {
+                format!("Bearer {}", self.token)
+            }
+        };
+        HeaderValue::from_str(&s).ok()
     }
 
     pub(crate) fn parse(
@@ -126,6 +137,11 @@ impl InfluxdbExporterConfig {
                 self.database = g3_yaml::value::as_string(v)?;
                 Ok(())
             }
+            "token" => {
+                self.token = g3_yaml::value::as_http_header_value_string(v)
+                    .context(format!("invalid http header value string for key {k}"))?;
+                Ok(())
+            }
             "precision" => {
                 self.precision = TimestampPrecision::parse_yaml(v)
                     .context(format!("invalid timestamp precision value for key {k}"))?;
@@ -154,6 +170,17 @@ impl InfluxdbExporterConfig {
         }
         if self.database.is_empty() {
             return Err(anyhow!("database is not set"));
+        }
+        if self.token.is_empty() {
+            let var_name = match self.version {
+                ApiVersion::V2 => "INFLUX_TOKEN",
+                ApiVersion::V3 => "INFLUXDB3_AUTH_TOKEN",
+            };
+            println!("check env var {}", var_name);
+            if let Ok(token) = std::env::var(var_name) {
+                println!("use token {}", token);
+                self.token = token;
+            }
         }
         self.http_export.check(self.name.clone())?;
         Ok(())

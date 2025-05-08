@@ -28,12 +28,21 @@ pub(crate) enum TimestampPrecision {
 }
 
 impl TimestampPrecision {
-    pub(crate) fn query_value(self) -> &'static str {
+    pub(crate) fn v2_query_value(self) -> &'static str {
         match self {
             Self::Seconds => "s",
             Self::MilliSeconds => "ms",
             Self::MicroSeconds => "us",
             Self::NanoSeconds => "ns",
+        }
+    }
+
+    pub(crate) fn v3_query_value(self) -> &'static str {
+        match self {
+            Self::Seconds => "second",
+            Self::MilliSeconds => "millisecond",
+            Self::MicroSeconds => "microsecond",
+            Self::NanoSeconds => "nanosecond",
         }
     }
 
