@@ -183,7 +183,16 @@ impl<T: HttpExport> HttpExportRuntime<T> {
 
         let records = &self.recv_buf[self.recv_handled..];
         let handled = self.exporter.fill_body(records, &mut self.req_body_buf);
-        self.recv_handled += handled;
+        if handled == 0 {
+            warn!(
+                "exporter {}: found too large piece when send request",
+                self.config.exporter
+            );
+            // TODO add drop metrics
+            self.recv_handled += 1;
+        } else {
+            self.recv_handled += handled;
+        }
 
         // set content-length
         self.header_buf.extend_from_slice(b"Content-Length: ");

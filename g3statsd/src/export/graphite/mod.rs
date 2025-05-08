@@ -25,10 +25,11 @@ use g3_types::metrics::NodeName;
 use super::{ArcExporterInternal, Exporter, ExporterInternal};
 use crate::config::exporter::graphite::GraphiteExporterConfig;
 use crate::config::exporter::{AnyExporterConfig, ExporterConfig};
+use crate::runtime::export::{AggregateExportRuntime, StreamExportRuntime};
 use crate::types::MetricRecord;
 
 mod format;
-use format::GraphitePlaintextFormatter;
+use format::{GraphitePlaintextAggregateExport, GraphitePlaintextStreamExport};
 
 pub(crate) struct GraphiteExporter {
     config: GraphiteExporterConfig,
@@ -37,9 +38,17 @@ pub(crate) struct GraphiteExporter {
 
 impl GraphiteExporter {
     fn new(config: GraphiteExporterConfig) -> Self {
-        let sender = config
-            .stream_export
-            .spawn(GraphitePlaintextFormatter::default());
+        let (sender, receiver) = mpsc::channel(1024);
+        let (agg_sender, agg_receiver) = mpsc::channel(1024);
+        let aggregate_export = GraphitePlaintextAggregateExport::new(&config, agg_sender);
+        let aggregate_runtime = AggregateExportRuntime::new(aggregate_export, receiver);
+
+        let http_export = GraphitePlaintextStreamExport::default();
+        let http_runtime =
+            StreamExportRuntime::new(config.stream_export.clone(), http_export, agg_receiver);
+
+        tokio::spawn(async move { aggregate_runtime.into_running().await });
+        tokio::spawn(http_runtime.into_running());
         GraphiteExporter { config, sender }
     }
 

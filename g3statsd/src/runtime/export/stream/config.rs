@@ -19,18 +19,13 @@ use std::net::SocketAddr;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use chrono::{DateTime, Utc};
 use log::warn;
 use tokio::net::TcpStream;
-use tokio::sync::mpsc;
 use yaml_rust::Yaml;
 
 use g3_socket::BindAddr;
 use g3_types::metrics::NodeName;
 use g3_types::net::{Host, UpstreamAddr};
-
-use super::{StreamExport, StreamExportRuntime};
-use crate::types::MetricRecord;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct StreamExportConfig {
@@ -135,17 +130,5 @@ impl StreamExportConfig {
                 Err(self.connect_retry_wait)
             }
         }
-    }
-
-    pub(crate) fn spawn<T>(&self, formatter: T) -> mpsc::Sender<(DateTime<Utc>, MetricRecord)>
-    where
-        T: StreamExport + Send + Sync + 'static,
-    {
-        let (sender, receiver) = mpsc::channel(1024);
-
-        let runtime = StreamExportRuntime::new(self.clone(), formatter, receiver);
-        tokio::spawn(runtime.into_running());
-
-        sender
     }
 }
