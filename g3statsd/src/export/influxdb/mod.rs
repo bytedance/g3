@@ -41,7 +41,7 @@ impl InfluxdbExporter {
         let (sender, receiver) = mpsc::channel(1024);
         let (agg_sender, agg_receiver) = mpsc::channel(1024);
         let aggregate_export = InfluxdbAggregateExport::new(&config, agg_sender);
-        let aggregate_runtime = AggregateExportRuntime::new(aggregate_export, receiver)?;
+        let aggregate_runtime = AggregateExportRuntime::new(aggregate_export, receiver);
 
         let http_export = InfluxdbHttpExport::new(&config)?;
         let http_runtime =

@@ -18,8 +18,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ahash::AHashMap;
-use anyhow::anyhow;
-use chrono::{DateTime, TimeDelta, Utc};
+use chrono::{DateTime, Utc};
 use tokio::sync::mpsc;
 
 use crate::types::{MetricName, MetricRecord, MetricTagMap, MetricType, MetricValue};
@@ -38,7 +37,6 @@ impl<T> Default for InnerMap<T> {
 
 pub(crate) trait AggregateExport {
     fn emit_interval(&self) -> Duration;
-    fn expire_timeout(&self) -> Duration;
 
     async fn emit_gauge(
         &mut self,
@@ -55,7 +53,7 @@ pub(crate) trait AggregateExport {
 pub(crate) struct AggregateExportRuntime<T: AggregateExport> {
     exporter: T,
     receiver: mpsc::Receiver<(DateTime<Utc>, MetricRecord)>,
-    expire_timeout: TimeDelta,
+    store_time: DateTime<Utc>,
 
     counter: AHashMap<Arc<MetricName>, InnerMap<CounterStoreValue>>,
     gauge: AHashMap<Arc<MetricName>, InnerMap<GaugeStoreValue>>,
@@ -76,17 +74,14 @@ impl<T: AggregateExport> AggregateExportRuntime<T> {
     pub(crate) fn new(
         exporter: T,
         receiver: mpsc::Receiver<(DateTime<Utc>, MetricRecord)>,
-    ) -> anyhow::Result<Self> {
-        let expire_timeout = TimeDelta::from_std(exporter.expire_timeout())
-            .map_err(|e| anyhow!("invalid expire timeout value: {e}"))?;
-
-        Ok(AggregateExportRuntime {
+    ) -> Self {
+        AggregateExportRuntime {
             exporter,
             receiver,
-            expire_timeout,
+            store_time: Utc::now(),
             counter: AHashMap::default(),
             gauge: AHashMap::default(),
-        })
+        }
     }
 
     pub(crate) async fn into_running(mut self) {
@@ -113,8 +108,8 @@ impl<T: AggregateExport> AggregateExportRuntime<T> {
                         break;
                     }
 
-                    while let Some((time, record)) = buf.pop() {
-                        self.add_record(time, record);
+                    while let Some((_time, record)) = buf.pop() {
+                        self.add_record(record);
                     }
                 }
             }
@@ -122,19 +117,15 @@ impl<T: AggregateExport> AggregateExportRuntime<T> {
     }
 
     fn retain(&mut self) {
-        let now = Utc::now();
-        let expire = now
-            .checked_sub_signed(self.expire_timeout)
-            .unwrap_or(DateTime::from_timestamp_nanos(0));
-
         self.gauge.retain(|_, inner| {
-            inner.inner.retain(|_, v| v.time > expire);
+            inner.inner.retain(|_, v| v.time >= self.store_time);
             !inner.inner.is_empty()
         });
         self.counter.retain(|_, inner| {
-            inner.inner.retain(|_, v| v.time > expire);
+            inner.inner.retain(|_, v| v.time >= self.store_time);
             !inner.inner.is_empty()
         });
+        self.store_time = Utc::now();
     }
 
     async fn emit(&mut self) {
@@ -146,7 +137,7 @@ impl<T: AggregateExport> AggregateExportRuntime<T> {
         }
     }
 
-    fn add_record(&mut self, time: DateTime<Utc>, record: MetricRecord) {
+    fn add_record(&mut self, record: MetricRecord) {
         match record.r#type {
             MetricType::Counter => {
                 self.counter
@@ -155,12 +146,12 @@ impl<T: AggregateExport> AggregateExportRuntime<T> {
                     .inner
                     .entry(record.tag_map.clone())
                     .and_modify(|v| {
-                        v.time = time;
+                        v.time = self.store_time;
                         v.sum += record.value;
                         v.diff = record.value;
                     })
                     .or_insert(CounterStoreValue {
-                        time,
+                        time: self.store_time,
                         sum: record.value,
                         diff: record.value,
                     });
@@ -170,7 +161,7 @@ impl<T: AggregateExport> AggregateExportRuntime<T> {
                 inner.inner.insert(
                     record.tag_map,
                     GaugeStoreValue {
-                        time,
+                        time: self.store_time,
                         value: record.value,
                     },
                 );

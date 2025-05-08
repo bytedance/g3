@@ -34,7 +34,6 @@ use crate::types::{MetricName, MetricTagMap, MetricValue};
 
 pub(super) struct OpentsdbAggregateExport {
     emit_interval: Duration,
-    expire_timeout: Duration,
     max_data_points: usize,
     lines_sender: mpsc::Sender<Vec<Value>>,
 }
@@ -46,7 +45,6 @@ impl OpentsdbAggregateExport {
     ) -> Self {
         OpentsdbAggregateExport {
             emit_interval: config.emit_interval,
-            expire_timeout: config.expire_timeout,
             max_data_points: config.max_data_points,
             lines_sender,
         }
@@ -80,10 +78,6 @@ impl OpentsdbAggregateExport {
 impl AggregateExport for OpentsdbAggregateExport {
     fn emit_interval(&self) -> Duration {
         self.emit_interval
-    }
-
-    fn expire_timeout(&self) -> Duration {
-        self.expire_timeout
     }
 
     async fn emit_gauge(

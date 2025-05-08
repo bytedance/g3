@@ -41,7 +41,7 @@ impl OpentsdbExporter {
         let (sender, receiver) = mpsc::channel(1024);
         let (agg_sender, agg_receiver) = mpsc::channel(1024);
         let aggregate_export = OpentsdbAggregateExport::new(&config, agg_sender);
-        let aggregate_runtime = AggregateExportRuntime::new(aggregate_export, receiver)?;
+        let aggregate_runtime = AggregateExportRuntime::new(aggregate_export, receiver);
 
         let http_export = OpentsdbHttpExport::new(&config)?;
         let http_runtime =

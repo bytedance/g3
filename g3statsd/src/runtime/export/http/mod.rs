@@ -45,7 +45,7 @@ pub(crate) trait HttpExport {
 
 pub(crate) struct HttpExportRuntime<T: HttpExport> {
     config: HttpExportConfig,
-    formatter: T,
+    exporter: T,
     receiver: mpsc::Receiver<T::BodyPiece>,
 
     recv_buf: Vec<T::BodyPiece>,
@@ -61,19 +61,19 @@ pub(crate) struct HttpExportRuntime<T: HttpExport> {
 impl<T: HttpExport> HttpExportRuntime<T> {
     pub(crate) fn new(
         config: HttpExportConfig,
-        formatter: T,
+        exporter: T,
         receiver: mpsc::Receiver<T::BodyPiece>,
     ) -> Self {
         let mut header_buf = Vec::with_capacity(1024);
         config.write_fixed_header(
-            formatter.api_path(),
+            exporter.api_path(),
             &mut header_buf,
-            formatter.static_headers(),
+            exporter.static_headers(),
         );
         let fixed_header_len = header_buf.len();
         HttpExportRuntime {
             config,
-            formatter,
+            exporter,
             receiver,
             recv_buf: Vec::with_capacity(BATCH_SIZE),
             recv_handled: 0,
@@ -168,7 +168,7 @@ impl<T: HttpExport> HttpExportRuntime<T> {
             .map_err(|e| anyhow!("failed to send request: {e}"))?;
         let rsp = self.recv_response(stream).await?;
         self.close_connection = !rsp.keep_alive();
-        if let Err(e) = self.formatter.check_response(rsp, &self.rsp_body_buf) {
+        if let Err(e) = self.exporter.check_response(rsp, &self.rsp_body_buf) {
             warn!("exporter {}: error response: {e:?}", self.config.exporter);
         }
         Ok(())
@@ -182,7 +182,7 @@ impl<T: HttpExport> HttpExportRuntime<T> {
         self.req_body_buf.clear();
 
         let records = &self.recv_buf[self.recv_handled..];
-        let handled = self.formatter.fill_body(records, &mut self.req_body_buf);
+        let handled = self.exporter.fill_body(records, &mut self.req_body_buf);
         self.recv_handled += handled;
 
         // set content-length
