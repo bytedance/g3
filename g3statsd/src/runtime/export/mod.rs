@@ -20,7 +20,7 @@ pub(crate) use aggregate::{
 };
 
 mod stream;
-pub(crate) use stream::{StreamExport, StreamExportConfig};
+pub(crate) use stream::{StreamExport, StreamExportConfig, StreamExportRuntime};
 
 mod http;
 pub(crate) use http::{HttpExport, HttpExportConfig, HttpExportRuntime};

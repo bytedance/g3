@@ -17,25 +17,28 @@
 use std::io;
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
 use log::{debug, warn};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::sync::mpsc;
 
-use crate::types::MetricRecord;
-
 mod config;
 pub(crate) use config::StreamExportConfig;
 
+const BATCH_SIZE: usize = 16;
+
 pub(crate) trait StreamExport {
-    fn serialize(&self, time: DateTime<Utc>, record: &MetricRecord, buf: &mut Vec<u8>);
+    type Piece;
+
+    fn serialize(&self, record: &[Self::Piece], buf: &mut Vec<u8>) -> usize;
 }
 
-struct StreamExportRuntime<T: StreamExport> {
+pub(crate) struct StreamExportRuntime<T: StreamExport> {
     config: StreamExportConfig,
     formatter: T,
-    receiver: mpsc::Receiver<(DateTime<Utc>, MetricRecord)>,
+    receiver: mpsc::Receiver<T::Piece>,
 
+    recv_buf: Vec<T::Piece>,
+    recv_handled: usize,
     write_buf: Vec<u8>,
     quit: bool,
 }
@@ -44,21 +47,23 @@ impl<T> StreamExportRuntime<T>
 where
     T: StreamExport,
 {
-    fn new(
+    pub(crate) fn new(
         config: StreamExportConfig,
         formatter: T,
-        receiver: mpsc::Receiver<(DateTime<Utc>, MetricRecord)>,
+        receiver: mpsc::Receiver<T::Piece>,
     ) -> Self {
         StreamExportRuntime {
             config,
             formatter,
             receiver,
+            recv_buf: Vec::with_capacity(BATCH_SIZE),
+            recv_handled: 0,
             write_buf: Vec::with_capacity(2048),
             quit: false,
         }
     }
 
-    async fn into_running(mut self) {
+    pub(crate) async fn into_running(mut self) {
         loop {
             match self.config.connect().await {
                 Ok(stream) => self.run_with_stream(stream).await,
@@ -87,13 +92,22 @@ where
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
-        const BATCH_SIZE: usize = 16;
-
-        let mut buf = Vec::with_capacity(BATCH_SIZE);
         let mut read_buf = [0u8; BATCH_SIZE];
 
         loop {
-            buf.clear();
+            if self.recv_handled < self.recv_buf.len() {
+                if let Err(e) = self.send_records(&mut stream).await {
+                    warn!(
+                        "exporter {}: failed to send records: {e:?}",
+                        self.config.exporter
+                    );
+                    break;
+                }
+                continue;
+            } else {
+                self.recv_buf.clear();
+                self.recv_handled = 0;
+            }
 
             tokio::select! {
                 biased;
@@ -109,14 +123,9 @@ where
                     }
                     break;
                 }
-                n = self.receiver.recv_many(&mut buf, BATCH_SIZE) => {
+                n = self.receiver.recv_many(&mut self.recv_buf, BATCH_SIZE) => {
                     if n == 0 {
                         self.quit = true;
-                        break;
-                    }
-
-                    if let Err(e) = self.send_records(&mut stream, &buf).await {
-                        warn!("exporter {}: failed to send records: {e}", self.config.exporter);
                         break;
                     }
                 }
@@ -124,18 +133,23 @@ where
         }
     }
 
-    async fn send_records<W>(
-        &mut self,
-        writer: &mut W,
-        records: &[(DateTime<Utc>, MetricRecord)],
-    ) -> io::Result<()>
+    async fn send_records<W>(&mut self, writer: &mut W) -> io::Result<()>
     where
         W: AsyncWrite + Unpin,
     {
         self.write_buf.clear();
 
-        for r in records {
-            self.formatter.serialize(r.0, &r.1, &mut self.write_buf);
+        let records = &self.recv_buf[self.recv_handled..];
+        let handled = self.formatter.serialize(records, &mut self.write_buf);
+        if handled == 0 {
+            warn!(
+                "exporter {}: found too large piece when send data",
+                self.config.exporter
+            );
+            // TODO add drop metrics
+            self.recv_handled += 1;
+        } else {
+            self.recv_handled += handled;
         }
 
         writer.write_all(&self.write_buf).await
