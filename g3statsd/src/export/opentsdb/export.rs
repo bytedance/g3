@@ -36,6 +36,8 @@ pub(super) struct OpentsdbAggregateExport {
     emit_interval: Duration,
     max_data_points: usize,
     lines_sender: mpsc::Sender<Vec<Value>>,
+
+    value_buf: Vec<Value>,
 }
 
 impl OpentsdbAggregateExport {
@@ -47,6 +49,7 @@ impl OpentsdbAggregateExport {
             emit_interval: config.emit_interval,
             max_data_points: config.max_data_points,
             lines_sender,
+            value_buf: Vec::with_capacity(32),
         }
     }
 
@@ -73,6 +76,14 @@ impl OpentsdbAggregateExport {
         map.insert("tags".to_string(), Value::Object(tag_map));
         Value::Object(map)
     }
+
+    async fn send_data_points(&mut self) {
+        let new_buf = Vec::with_capacity(self.value_buf.capacity());
+        let data_points = std::mem::replace(&mut self.value_buf, new_buf);
+        if !data_points.is_empty() {
+            let _ = self.lines_sender.send(data_points).await;
+        }
+    }
 }
 
 impl AggregateExport for OpentsdbAggregateExport {
@@ -85,15 +96,15 @@ impl AggregateExport for OpentsdbAggregateExport {
         name: &MetricName,
         values: &AHashMap<Arc<MetricTagMap>, GaugeStoreValue>,
     ) {
-        let mut data_points = Vec::with_capacity(self.max_data_points);
+        self.value_buf.clear();
         for (tag_map, v) in values {
-            if data_points.len() >= self.max_data_points {
-                let _ = self.lines_sender.send(data_points).await;
-                data_points = Vec::with_capacity(self.max_data_points);
+            if self.value_buf.len() >= self.max_data_points {
+                self.send_data_points().await;
             }
             let data = Self::build_data_point(name, &v.time, tag_map, &v.value);
-            data_points.push(data);
+            self.value_buf.push(data);
         }
+        self.send_data_points().await;
     }
 
     async fn emit_counter(
@@ -101,15 +112,15 @@ impl AggregateExport for OpentsdbAggregateExport {
         name: &MetricName,
         values: &AHashMap<Arc<MetricTagMap>, CounterStoreValue>,
     ) {
-        let mut data_points = Vec::with_capacity(self.max_data_points);
+        self.value_buf.clear();
         for (tag_map, v) in values {
-            if data_points.len() >= self.max_data_points {
-                let _ = self.lines_sender.send(data_points).await;
-                data_points = Vec::with_capacity(self.max_data_points);
+            if self.value_buf.len() >= self.max_data_points {
+                self.send_data_points().await;
             }
             let data = Self::build_data_point(name, &v.time, tag_map, &v.sum);
-            data_points.push(data);
+            self.value_buf.push(data);
         }
+        self.send_data_points().await;
     }
 }
 
