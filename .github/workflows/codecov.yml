@@ -88,6 +88,10 @@ jobs:
           INFLUXDB3_OBJECT_STORE: memory
         ports:
           - 8181:8181
+      graphite:
+        image: graphiteapp/graphite-statsd:latest
+        ports:
+          - 2003:2003
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -121,9 +125,6 @@ jobs:
       - name: Install netcat-openbsd
         run: |
           sudo apt-get install netcat-openbsd
-      - name: Listen StatsD port
-        run: |
-          nc -u -l -k 127.0.0.1 8125 >/dev/null &
       - name: Listen udpdump port
         run: |
           nc -u -l -k 127.0.0.1 5555 >/dev/null &
@@ -168,6 +169,17 @@ jobs:
         image: ghcr.io/psf/httpbin:0.10.2
         ports:
           - 80:8080
+      influxdb:
+        image: influxdb:3-core
+        env:
+          INFLUXDB3_NODE_IDENTIFIER_PREFIX: local
+          INFLUXDB3_OBJECT_STORE: memory
+        ports:
+          - 8181:8181
+      graphite:
+        image: graphiteapp/graphite-statsd:latest
+        ports:
+          - 2003:2003
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -194,9 +206,6 @@ jobs:
       - name: Install netcat-openbsd
         run: |
           sudo apt-get install netcat-openbsd
-      - name: Listen StatsD port
-        run: |
-          nc -u -l -k 127.0.0.1 8125 >/dev/null &
       - name: Install dnsmasq
         run: |
           sudo apt-get install dnsmasq-base
