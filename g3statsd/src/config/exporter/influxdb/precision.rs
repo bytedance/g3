@@ -46,7 +46,7 @@ impl TimestampPrecision {
         }
     }
 
-    pub(super) fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
+    pub(crate) fn parse_yaml(value: &Yaml) -> anyhow::Result<Self> {
         if let Yaml::String(s) = value {
             TimestampPrecision::from_str(s)
         } else {

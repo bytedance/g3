@@ -61,7 +61,8 @@ pub(crate) enum AnyExporterConfig {
     Memory(memory::MemoryExporterConfig),
     Graphite(graphite::GraphiteExporterConfig),
     Opentsdb(opentsdb::OpentsdbExporterConfig),
-    Influxdb(influxdb::InfluxdbExporterConfig),
+    InfluxdbV2(influxdb::InfluxdbV2ExporterConfig),
+    InfluxdbV3(influxdb::InfluxdbV3ExporterConfig),
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
@@ -122,10 +123,15 @@ fn load_exporter(
                 .context("failed to load this OpenTSDB exporter")?;
             Ok(AnyExporterConfig::Opentsdb(exporter))
         }
-        "influxdb" => {
-            let exporter = influxdb::InfluxdbExporterConfig::parse(map, position)
-                .context("failed to load this InfluxDB exporter")?;
-            Ok(AnyExporterConfig::Influxdb(exporter))
+        "influxdb_v2" => {
+            let exporter = influxdb::InfluxdbV2ExporterConfig::parse(map, position)
+                .context("failed to load this InfluxDB v2 exporter")?;
+            Ok(AnyExporterConfig::InfluxdbV2(exporter))
+        }
+        "influxdb_v3" => {
+            let exporter = influxdb::InfluxdbV3ExporterConfig::parse(map, position)
+                .context("failed to load this InfluxDB v3 exporter")?;
+            Ok(AnyExporterConfig::InfluxdbV3(exporter))
         }
         _ => Err(anyhow!("unsupported exporter type {}", exporter_type)),
     }

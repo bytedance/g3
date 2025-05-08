@@ -47,14 +47,14 @@ pub(super) struct InfluxdbAggregateExport {
 }
 
 impl InfluxdbAggregateExport {
-    pub(super) fn new(
-        config: &InfluxdbExporterConfig,
+    pub(super) fn new<T: InfluxdbExporterConfig>(
+        config: &T,
         lines_sender: mpsc::Sender<InfluxdbEncodedLines>,
     ) -> Self {
         InfluxdbAggregateExport {
-            emit_interval: config.emit_interval,
-            precision: config.precision,
-            max_body_lines: config.max_body_lines,
+            emit_interval: config.emit_interval(),
+            precision: config.precision(),
+            max_body_lines: config.max_body_lines(),
             lines_sender,
             buf: Vec::new(),
         }
@@ -182,7 +182,7 @@ pub(super) struct InfluxdbHttpExport {
 }
 
 impl InfluxdbHttpExport {
-    pub(super) fn new(config: &InfluxdbExporterConfig) -> anyhow::Result<Self> {
+    pub(super) fn new<T: InfluxdbExporterConfig>(config: &T) -> anyhow::Result<Self> {
         let api_path = config.build_api_path()?;
         let mut static_headers = HeaderMap::new();
         static_headers.insert(
@@ -196,7 +196,7 @@ impl InfluxdbHttpExport {
         Ok(InfluxdbHttpExport {
             api_path,
             static_headers,
-            max_body_lines: config.max_body_lines,
+            max_body_lines: config.max_body_lines(),
         })
     }
 }

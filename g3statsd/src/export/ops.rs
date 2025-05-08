@@ -158,8 +158,11 @@ async fn spawn_new_unlocked(config: AnyExporterConfig) -> anyhow::Result<()> {
         AnyExporterConfig::Opentsdb(config) => {
             super::opentsdb::OpentsdbExporter::prepare_initial(config)?
         }
-        AnyExporterConfig::Influxdb(config) => {
-            super::influxdb::InfluxdbExporter::prepare_initial(config)?
+        AnyExporterConfig::InfluxdbV2(config) => {
+            super::influxdb::InfluxdbV2Exporter::prepare_initial(config)?
+        }
+        AnyExporterConfig::InfluxdbV3(config) => {
+            super::influxdb::InfluxdbV3Exporter::prepare_initial(config)?
         }
     };
     let name = exporter.name().clone();
