@@ -41,7 +41,6 @@ pub(crate) struct InfluxdbExporterConfig {
     position: Option<YamlDocPosition>,
     pub(crate) emit_interval: Duration,
     pub(crate) max_body_lines: usize,
-    pub(crate) max_body_size: usize,
     pub(crate) http_export: HttpExportConfig,
     version: ApiVersion,
     database: String,
@@ -56,7 +55,6 @@ impl InfluxdbExporterConfig {
             position,
             emit_interval: Duration::from_secs(10),
             max_body_lines: 10000,
-            max_body_size: 10 * 1024 * 1024,
             http_export: HttpExportConfig::new(8181),
             version: ApiVersion::V2,
             database: String::new(),
@@ -144,11 +142,6 @@ impl InfluxdbExporterConfig {
             }
             "max_body_lines" => {
                 self.max_body_lines = g3_yaml::value::as_usize(v)?;
-                Ok(())
-            }
-            "max_body_size" => {
-                self.max_body_size = g3_yaml::humanize::as_usize(v)
-                    .context(format!("invalid humanize usize value for key {k}"))?;
                 Ok(())
             }
             _ => self.http_export.set_by_yaml_kv(k, v),

@@ -41,7 +41,6 @@ pub(super) struct InfluxdbAggregateExport {
     emit_interval: Duration,
     precision: TimestampPrecision,
     max_body_lines: usize,
-    max_body_size: usize,
     lines_sender: mpsc::Sender<InfluxdbEncodedLines>,
 
     buf: Vec<u8>,
@@ -56,7 +55,6 @@ impl InfluxdbAggregateExport {
             emit_interval: config.emit_interval,
             precision: config.precision,
             max_body_lines: config.max_body_lines,
-            max_body_size: config.max_body_size,
             lines_sender,
             buf: Vec::new(),
         }
@@ -134,7 +132,7 @@ impl AggregateExport for InfluxdbAggregateExport {
             self.buf.push(b'\n');
 
             line_number += 1;
-            if line_number >= self.max_body_lines || self.buf.len() > self.max_body_size {
+            if line_number >= self.max_body_lines {
                 self.send_lines(line_number).await;
                 line_number = 0;
             }
@@ -167,7 +165,7 @@ impl AggregateExport for InfluxdbAggregateExport {
             self.buf.push(b'\n');
 
             line_number += 1;
-            if line_number >= self.max_body_lines || self.buf.len() > self.max_body_size {
+            if line_number >= self.max_body_lines {
                 self.send_lines(line_number).await;
                 line_number = 0;
             }
@@ -181,7 +179,6 @@ pub(super) struct InfluxdbHttpExport {
     api_path: PathAndQuery,
     static_headers: HeaderMap,
     max_body_lines: usize,
-    max_body_size: usize,
 }
 
 impl InfluxdbHttpExport {
@@ -198,7 +195,6 @@ impl InfluxdbHttpExport {
             api_path,
             static_headers,
             max_body_lines: config.max_body_lines,
-            max_body_size: config.max_body_size,
         })
     }
 }
@@ -219,9 +215,7 @@ impl HttpExport for InfluxdbHttpExport {
         let mut added_lines = 0;
         let mut handled_pieces = 0;
         for piece in pieces {
-            if added_lines + piece.len > self.max_body_lines
-                || body_buf.len() + piece.buf.len() > self.max_body_size
-            {
+            if added_lines + piece.len > self.max_body_lines {
                 return handled_pieces;
             }
 
