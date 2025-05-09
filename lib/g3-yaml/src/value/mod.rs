@@ -30,7 +30,8 @@ pub use collection::as_selective_pick_policy;
 pub use datetime::as_rfc3339_datetime;
 pub use fs::{as_absolute_path, as_config_file_format, as_dir_path, as_file, as_file_path};
 pub use metrics::{
-    as_metric_node_name, as_metric_tag_name, as_static_metrics_tags, as_weighted_metric_node_name,
+    as_metric_node_name, as_metric_tag_name, as_metric_tag_value, as_static_metrics_tags,
+    as_weighted_metric_node_name,
 };
 pub use net::*;
 pub use primary::{

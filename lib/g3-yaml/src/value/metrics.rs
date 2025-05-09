@@ -46,13 +46,17 @@ pub fn as_metric_tag_name(v: &Yaml) -> anyhow::Result<MetricTagName> {
     }
 }
 
+pub fn as_metric_tag_value(v: &Yaml) -> anyhow::Result<MetricTagValue> {
+    let s = crate::value::as_string(v).context("invalid yaml value for metric tag value")?;
+    MetricTagValue::from_str(&s).map_err(|e| anyhow!("invalid metric tag value string {s}: {e}"))
+}
+
 pub fn as_static_metrics_tags(v: &Yaml) -> anyhow::Result<StaticMetricsTags> {
     if let Yaml::Hash(map) = v {
         let mut tags = BTreeMap::new();
         crate::foreach_kv(map, |k, v| {
             let name = MetricTagName::from_str(k).context("invalid metrics tag name")?;
-            let value_s = crate::value::as_string(v).context("invalid metrics tag yaml value")?;
-            let value = MetricTagValue::from_str(&value_s).context("invalid metrics tag value")?;
+            let value = as_metric_tag_value(v)?;
 
             if tags.insert(name, value).is_some() {
                 Err(anyhow!("found duplicate value for tag name {k}"))
