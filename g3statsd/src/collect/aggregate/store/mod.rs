@@ -36,8 +36,8 @@ enum Command {
 }
 
 pub(super) struct AggregateHandle {
-    worker: Vec<mpsc::Sender<Command>>,
-    global: mpsc::Sender<Command>,
+    worker: Vec<mpsc::UnboundedSender<Command>>,
+    global: mpsc::UnboundedSender<Command>,
 }
 
 impl AggregateHandle {
@@ -45,7 +45,7 @@ impl AggregateHandle {
         config: Arc<AggregateCollectorConfig>,
         cfg_receiver: broadcast::Receiver<Arc<AggregateCollectorConfig>>,
     ) -> Arc<Self> {
-        let (global_cmd_sender, global_cmd_receiver) = mpsc::channel(512);
+        let (global_cmd_sender, global_cmd_receiver) = mpsc::unbounded_channel();
 
         let global_store = GlobalStore::new(
             config.clone(),
@@ -56,7 +56,7 @@ impl AggregateHandle {
 
         let mut worker_senders = Vec::new();
         let _: Result<usize, ()> = g3_daemon::runtime::worker::foreach(|handle| {
-            let (worker_sender, worker_receiver) = mpsc::channel(128);
+            let (worker_sender, worker_receiver) = mpsc::unbounded_channel();
 
             let worker_store = WorkerStore::new(worker_receiver, global_cmd_sender.clone());
             handle.handle.spawn(worker_store.into_running());
@@ -76,23 +76,12 @@ impl AggregateHandle {
     }
 
     pub(super) fn add_metric(&self, record: MetricRecord, worker_id: Option<usize>) {
-        use mpsc::error::TrySendError;
-
         match record.r#type {
             MetricType::Counter => {
                 if let Some(id) = worker_id {
                     if let Some(sender) = self.worker.get(id) {
-                        match sender.try_send(Command::Add(record)) {
-                            Ok(_) => {}
-                            Err(TrySendError::Full(msg)) => {
-                                let sender = sender.clone();
-                                tokio::spawn(async move {
-                                    let _ = sender.send(msg).await; // TODO add stats
-                                });
-                            }
-                            Err(TrySendError::Closed(_msg)) => {
-                                // TODO add stats
-                            }
+                        if sender.send(Command::Add(record)).is_err() {
+                            // TODO add stats
                         }
                         return;
                     }
@@ -101,17 +90,8 @@ impl AggregateHandle {
             MetricType::Gauge => {}
         }
 
-        match self.global.try_send(Command::Add(record)) {
-            Ok(_) => {}
-            Err(TrySendError::Full(msg)) => {
-                let sender = self.global.clone();
-                tokio::spawn(async move {
-                    let _ = sender.send(msg).await; // TODO add stats
-                });
-            }
-            Err(TrySendError::Closed(_msg)) => {
-                // TODO add stats
-            }
+        if self.global.send(Command::Add(record)).is_err() {
+            // TODO add stats
         }
     }
 }

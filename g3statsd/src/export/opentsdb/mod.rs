@@ -33,13 +33,13 @@ use export::{OpentsdbAggregateExport, OpentsdbHttpExport};
 
 pub(crate) struct OpentsdbExporter {
     config: OpentsdbExporterConfig,
-    sender: mpsc::Sender<(DateTime<Utc>, MetricRecord)>,
+    sender: mpsc::UnboundedSender<(DateTime<Utc>, MetricRecord)>,
 }
 
 impl OpentsdbExporter {
     fn new(config: OpentsdbExporterConfig) -> anyhow::Result<Self> {
-        let (sender, receiver) = mpsc::channel(1024);
-        let (agg_sender, agg_receiver) = mpsc::channel(1024);
+        let (sender, receiver) = mpsc::unbounded_channel();
+        let (agg_sender, agg_receiver) = mpsc::unbounded_channel();
         let aggregate_export = OpentsdbAggregateExport::new(&config, agg_sender);
         let aggregate_runtime = AggregateExportRuntime::new(aggregate_export, receiver);
 
@@ -84,7 +84,7 @@ impl Exporter for OpentsdbExporter {
     }
 
     fn add_metric(&self, time: DateTime<Utc>, record: &MetricRecord) {
-        let _ = self.sender.try_send((time, record.clone())); // TODO record drop
+        let _ = self.sender.send((time, record.clone())); // TODO record drop
     }
 }
 

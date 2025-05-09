@@ -38,12 +38,12 @@ impl<T> Default for InnerMap<T> {
 pub(crate) trait AggregateExport {
     fn emit_interval(&self) -> Duration;
 
-    async fn emit_gauge(
+    fn emit_gauge(
         &mut self,
         name: &MetricName,
         values: &AHashMap<Arc<MetricTagMap>, GaugeStoreValue>,
     );
-    async fn emit_counter(
+    fn emit_counter(
         &mut self,
         name: &MetricName,
         values: &AHashMap<Arc<MetricTagMap>, CounterStoreValue>,
@@ -52,7 +52,7 @@ pub(crate) trait AggregateExport {
 
 pub(crate) struct AggregateExportRuntime<T: AggregateExport> {
     exporter: T,
-    receiver: mpsc::Receiver<(DateTime<Utc>, MetricRecord)>,
+    receiver: mpsc::UnboundedReceiver<(DateTime<Utc>, MetricRecord)>,
     store_time: DateTime<Utc>,
 
     counter: AHashMap<Arc<MetricName>, InnerMap<CounterStoreValue>>,
@@ -73,7 +73,7 @@ pub(crate) struct GaugeStoreValue {
 impl<T: AggregateExport> AggregateExportRuntime<T> {
     pub(crate) fn new(
         exporter: T,
-        receiver: mpsc::Receiver<(DateTime<Utc>, MetricRecord)>,
+        receiver: mpsc::UnboundedReceiver<(DateTime<Utc>, MetricRecord)>,
     ) -> Self {
         AggregateExportRuntime {
             exporter,
@@ -100,11 +100,11 @@ impl<T: AggregateExport> AggregateExportRuntime<T> {
 
                 _ = emit_interval.tick() => {
                     self.retain();
-                    self.emit().await;
+                    self.emit();
                 }
                 n = self.receiver.recv_many(&mut buf, BATCH_SIZE) => {
                     if n == 0 {
-                        self.emit().await;
+                        self.emit();
                         break;
                     }
 
@@ -128,12 +128,12 @@ impl<T: AggregateExport> AggregateExportRuntime<T> {
         self.store_time = Utc::now();
     }
 
-    async fn emit(&mut self) {
+    fn emit(&mut self) {
         for (name, inner) in &self.gauge {
-            self.exporter.emit_gauge(name, &inner.inner).await;
+            self.exporter.emit_gauge(name, &inner.inner);
         }
         for (name, inner) in &self.counter {
-            self.exporter.emit_counter(name, &inner.inner).await;
+            self.exporter.emit_counter(name, &inner.inner);
         }
     }
 

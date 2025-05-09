@@ -30,13 +30,16 @@ use crate::types::{MetricName, MetricTagMap, MetricValue};
 pub(super) struct GraphitePlaintextAggregateExport {
     emit_interval: Duration,
     prefix: Option<MetricName>,
-    data_sender: mpsc::Sender<Vec<u8>>,
+    data_sender: mpsc::UnboundedSender<Vec<u8>>,
 
     buf: Vec<u8>,
 }
 
 impl GraphitePlaintextAggregateExport {
-    pub(super) fn new(config: &GraphiteExporterConfig, data_sender: mpsc::Sender<Vec<u8>>) -> Self {
+    pub(super) fn new(
+        config: &GraphiteExporterConfig,
+        data_sender: mpsc::UnboundedSender<Vec<u8>>,
+    ) -> Self {
         GraphitePlaintextAggregateExport {
             emit_interval: config.emit_interval,
             prefix: config.prefix.clone(),
@@ -74,7 +77,7 @@ impl AggregateExport for GraphitePlaintextAggregateExport {
         self.emit_interval
     }
 
-    async fn emit_gauge(
+    fn emit_gauge(
         &mut self,
         name: &MetricName,
         values: &AHashMap<Arc<MetricTagMap>, GaugeStoreValue>,
@@ -84,10 +87,10 @@ impl AggregateExport for GraphitePlaintextAggregateExport {
         for (tags, v) in values {
             self.serialize(&now, name, tags, &v.value);
         }
-        let _ = self.data_sender.send(self.buf.clone()).await;
+        let _ = self.data_sender.send(self.buf.clone());
     }
 
-    async fn emit_counter(
+    fn emit_counter(
         &mut self,
         name: &MetricName,
         values: &AHashMap<Arc<MetricTagMap>, CounterStoreValue>,
@@ -97,7 +100,7 @@ impl AggregateExport for GraphitePlaintextAggregateExport {
         for (tags, v) in values {
             self.serialize(&now, name, tags, &v.sum);
         }
-        let _ = self.data_sender.send(self.buf.clone()).await;
+        let _ = self.data_sender.send(self.buf.clone());
     }
 }
 

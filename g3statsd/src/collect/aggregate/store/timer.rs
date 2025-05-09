@@ -73,7 +73,7 @@ impl EmitTimer {
             let worker = worker.clone();
             join_set.spawn(async move {
                 let (sender, receiver) = oneshot::channel();
-                let r = if worker.send(Command::Emit(sender)).await.is_ok() {
+                let r = if worker.send(Command::Emit(sender)).is_ok() {
                     receiver.await
                 } else {
                     Ok(0)
@@ -98,7 +98,7 @@ impl EmitTimer {
         }
 
         let (sender, receiver) = oneshot::channel();
-        if self.handle.global.send(Command::Emit(sender)).await.is_ok() {
+        if self.handle.global.send(Command::Emit(sender)).is_ok() {
             let _ = receiver.await;
         }
     }

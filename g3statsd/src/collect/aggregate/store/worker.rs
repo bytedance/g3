@@ -25,16 +25,16 @@ use crate::types::{MetricName, MetricRecord, MetricTagMap, MetricType, MetricVal
 const BATCH_SIZE: usize = 128;
 
 pub(super) struct WorkerStore {
-    receiver: mpsc::Receiver<Command>,
-    global_sender: mpsc::Sender<Command>,
+    receiver: mpsc::UnboundedReceiver<Command>,
+    global_sender: mpsc::UnboundedSender<Command>,
 
     counter: AHashMap<Arc<MetricName>, AHashMap<Arc<MetricTagMap>, MetricValue>>,
 }
 
 impl WorkerStore {
     pub(super) fn new(
-        receiver: mpsc::Receiver<Command>,
-        global_sender: mpsc::Sender<Command>,
+        receiver: mpsc::UnboundedReceiver<Command>,
+        global_sender: mpsc::UnboundedSender<Command>,
     ) -> Self {
         WorkerStore {
             receiver,
@@ -48,14 +48,14 @@ impl WorkerStore {
         loop {
             let nr = self.receiver.recv_many(&mut buffer, BATCH_SIZE).await;
             if nr == 0 {
-                let _ = self.emit().await;
+                let _ = self.emit();
                 break;
             }
 
             while let Some(cmd) = buffer.pop() {
                 match cmd {
-                    Command::Add(record) => self.add_record(record).await,
-                    Command::Emit(sender) => match self.emit().await {
+                    Command::Add(record) => self.add_record(record),
+                    Command::Emit(sender) => match self.emit() {
                         Ok(n) => {
                             let _ = sender.send(n);
                         }
@@ -68,7 +68,7 @@ impl WorkerStore {
         }
     }
 
-    async fn add_record(&mut self, record: MetricRecord) {
+    fn add_record(&mut self, record: MetricRecord) {
         match record.r#type {
             MetricType::Counter => {
                 let MetricRecord {
@@ -86,12 +86,12 @@ impl WorkerStore {
                     .or_insert(value);
             }
             MetricType::Gauge => {
-                let _ = self.global_sender.send(Command::Add(record)).await;
+                let _ = self.global_sender.send(Command::Add(record));
             }
         }
     }
 
-    async fn emit(&mut self) -> Result<usize, usize> {
+    fn emit(&mut self) -> Result<usize, usize> {
         let mut emit_total = 0;
 
         for (name, mut inner_map) in self.counter.drain() {
@@ -102,7 +102,7 @@ impl WorkerStore {
                     tag_map,
                     value,
                 };
-                match self.global_sender.send(Command::Add(record)).await {
+                match self.global_sender.send(Command::Add(record)) {
                     Ok(_) => {
                         emit_total += 1;
                     }
