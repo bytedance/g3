@@ -139,7 +139,7 @@ pub fn as_http_header_name(value: &Yaml) -> anyhow::Result<HeaderName> {
 }
 
 pub fn as_http_header_value_string(value: &Yaml) -> anyhow::Result<String> {
-    let s = crate::value::as_string(value)?;
+    let s = crate::value::as_string(value).context("invalid yaml value for http header value")?;
     HeaderValue::from_str(&s).map_err(|e| anyhow!("invalid http header value string {s}: {e}"))?;
     Ok(s)
 }
