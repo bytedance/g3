@@ -1,4 +1,4 @@
-Setup for g3proxy coverage tests
+Setup for g3bench coverage tests
 ================================
 
 # Install Required Tools
@@ -52,21 +52,6 @@ Then restart **NetworkManager** or **dnsmasq** which should respawn the real dns
 
 ```shell
 docker run -p 127.0.0.1:80:80 -d --name httpbin kennethreitz/httpbin
-```
-
-## vsftpd
-
-```shell
-mkdir /tmp/vsftpd
-docker run -d -v /tmp/vsftpd:/home/vsftpd \
-                -p 127.0.0.1:20:20 \
-                -p 127.0.0.1:21:21 \
-                -p 127.0.0.1:47400-47470:47400-47470 \
-                -e FTP_USER=ftpuser \
-                -e FTP_PASS=ftppass \
-                -e PASV_ADDRESS=127.0.0.1 \
-                --name ftp \
-                -d bogem/ftp
 ```
 
 ## influxdb
