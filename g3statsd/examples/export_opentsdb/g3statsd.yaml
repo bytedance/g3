@@ -17,3 +17,4 @@ exporter:
     type: opentsdb
     server: 127.0.0.1
     port: 4242
+    prefix: g3.example

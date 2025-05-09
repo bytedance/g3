@@ -24,6 +24,7 @@ use g3_yaml::YamlDocPosition;
 
 use super::{AnyExporterConfig, ExporterConfig, ExporterConfigDiffAction};
 use crate::runtime::export::StreamExportConfig;
+use crate::types::MetricName;
 
 const EXPORTER_CONFIG_TYPE: &str = "Graphite";
 
@@ -33,6 +34,7 @@ pub(crate) struct GraphiteExporterConfig {
     position: Option<YamlDocPosition>,
     pub(crate) emit_interval: Duration,
     pub(crate) stream_export: StreamExportConfig,
+    pub(crate) prefix: Option<MetricName>,
 }
 
 impl GraphiteExporterConfig {
@@ -42,6 +44,7 @@ impl GraphiteExporterConfig {
             position,
             emit_interval: Duration::from_secs(10),
             stream_export: StreamExportConfig::new(2003),
+            prefix: None,
         }
     }
 
@@ -67,6 +70,12 @@ impl GraphiteExporterConfig {
             "emit_interval" => {
                 self.emit_interval = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            "prefix" => {
+                let prefix = MetricName::parse_yaml(v)
+                    .context(format!("invalid metric name value for key {k}"))?;
+                self.prefix = Some(prefix);
                 Ok(())
             }
             _ => self.stream_export.set_by_yaml_kv(k, v),

@@ -17,3 +17,4 @@ exporter:
     type: graphite
     server: 127.0.0.1
     port: 2003
+    prefix: g3.example

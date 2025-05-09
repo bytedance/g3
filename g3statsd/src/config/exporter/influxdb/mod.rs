@@ -21,6 +21,7 @@ use http::uri::PathAndQuery;
 
 use super::{AnyExporterConfig, ExporterConfig, ExporterConfigDiffAction};
 use super::{CONFIG_KEY_EXPORTER_NAME, CONFIG_KEY_EXPORTER_TYPE};
+use crate::types::MetricName;
 
 mod precision;
 pub(crate) use precision::TimestampPrecision;
@@ -35,6 +36,7 @@ pub(crate) trait InfluxdbExporterConfig {
     fn emit_interval(&self) -> Duration;
     fn precision(&self) -> TimestampPrecision;
     fn max_body_lines(&self) -> usize;
+    fn prefix(&self) -> Option<MetricName>;
     fn build_api_path(&self) -> anyhow::Result<PathAndQuery>;
     fn build_api_token(&self) -> Option<HeaderValue>;
 }

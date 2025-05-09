@@ -30,6 +30,7 @@ use super::{
     TimestampPrecision,
 };
 use crate::runtime::export::HttpExportConfig;
+use crate::types::MetricName;
 
 const EXPORTER_CONFIG_TYPE: &str = "InfluxDB_V3";
 
@@ -46,6 +47,7 @@ pub(crate) struct InfluxdbV3ExporterConfig {
     token: String,
     precision: TimestampPrecision,
     no_sync: bool,
+    prefix: Option<MetricName>,
 }
 
 impl InfluxdbV3ExporterConfig {
@@ -60,6 +62,7 @@ impl InfluxdbV3ExporterConfig {
             token: String::new(),
             precision: TimestampPrecision::Seconds,
             no_sync: false,
+            prefix: None,
         }
     }
 
@@ -107,6 +110,12 @@ impl InfluxdbV3ExporterConfig {
             }
             "max_body_lines" => {
                 self.max_body_lines = g3_yaml::value::as_usize(v)?;
+                Ok(())
+            }
+            "prefix" => {
+                let prefix = MetricName::parse_yaml(v)
+                    .context(format!("invalid metric name value for key {k}"))?;
+                self.prefix = Some(prefix);
                 Ok(())
             }
             _ => self.http_export.set_by_yaml_kv(k, v),
@@ -163,6 +172,10 @@ impl InfluxdbExporterConfig for InfluxdbV3ExporterConfig {
 
     fn max_body_lines(&self) -> usize {
         self.max_body_lines
+    }
+
+    fn prefix(&self) -> Option<MetricName> {
+        self.prefix.clone()
     }
 
     fn build_api_path(&self) -> anyhow::Result<PathAndQuery> {

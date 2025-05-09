@@ -29,6 +29,7 @@ use crate::types::{MetricName, MetricTagMap, MetricValue};
 
 pub(super) struct GraphitePlaintextAggregateExport {
     emit_interval: Duration,
+    prefix: Option<MetricName>,
     data_sender: mpsc::Sender<Vec<u8>>,
 
     buf: Vec<u8>,
@@ -38,6 +39,7 @@ impl GraphitePlaintextAggregateExport {
     pub(super) fn new(config: &GraphiteExporterConfig, data_sender: mpsc::Sender<Vec<u8>>) -> Self {
         GraphitePlaintextAggregateExport {
             emit_interval: config.emit_interval,
+            prefix: config.prefix.clone(),
             data_sender,
             buf: Vec::with_capacity(2048),
         }
@@ -50,7 +52,11 @@ impl GraphitePlaintextAggregateExport {
         tags: &MetricTagMap,
         value: &MetricValue,
     ) {
-        let _ = write!(self.buf, "{}", name.display('.'));
+        if let Some(prefix) = &self.prefix {
+            let _ = write!(self.buf, "{}.{}", prefix.display('.'), name.display('.'));
+        } else {
+            let _ = write!(self.buf, "{}", name.display('.'));
+        }
         if !tags.is_empty() {
             let _ = write!(self.buf, ";{}", tags.display_graphite());
         }
