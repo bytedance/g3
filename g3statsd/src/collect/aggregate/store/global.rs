@@ -152,7 +152,7 @@ impl GlobalStore {
                     value,
                 } = record;
 
-                self.counter
+                self.gauge
                     .entry(name)
                     .or_default()
                     .entry(tag_map)
