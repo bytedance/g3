@@ -35,6 +35,7 @@ use crate::types::{MetricName, MetricTagMap, MetricValue};
 pub(super) struct OpentsdbAggregateExport {
     emit_interval: Duration,
     max_data_points: usize,
+    prefix: Option<MetricName>,
     lines_sender: mpsc::Sender<Vec<Value>>,
 
     value_buf: Vec<Value>,
@@ -48,22 +49,26 @@ impl OpentsdbAggregateExport {
         OpentsdbAggregateExport {
             emit_interval: config.emit_interval,
             max_data_points: config.max_data_points,
+            prefix: config.prefix.clone(),
             lines_sender,
             value_buf: Vec::with_capacity(32),
         }
     }
 
     fn build_data_point(
+        &self,
         name: &MetricName,
         time: &DateTime<Utc>,
         tags: &MetricTagMap,
         value: &MetricValue,
     ) -> Value {
         let mut map = Map::with_capacity(4);
-        map.insert(
-            "metric".to_string(),
-            Value::String(name.display('.').to_string()),
-        );
+        let name = self
+            .prefix
+            .as_ref()
+            .map(|p| format!("{}.{}", p.display('.'), name.display('.')))
+            .unwrap_or_else(|| name.display('.').to_string());
+        map.insert("metric".to_string(), Value::String(name));
         map.insert(
             "timestamp".to_string(),
             Value::Number(Number::from(time.timestamp())),
@@ -101,7 +106,7 @@ impl AggregateExport for OpentsdbAggregateExport {
             if self.value_buf.len() >= self.max_data_points {
                 self.send_data_points().await;
             }
-            let data = Self::build_data_point(name, &v.time, tag_map, &v.value);
+            let data = self.build_data_point(name, &v.time, tag_map, &v.value);
             self.value_buf.push(data);
         }
         self.send_data_points().await;
@@ -117,7 +122,7 @@ impl AggregateExport for OpentsdbAggregateExport {
             if self.value_buf.len() >= self.max_data_points {
                 self.send_data_points().await;
             }
-            let data = Self::build_data_point(name, &v.time, tag_map, &v.sum);
+            let data = self.build_data_point(name, &v.time, tag_map, &v.sum);
             self.value_buf.push(data);
         }
         self.send_data_points().await;

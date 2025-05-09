@@ -41,6 +41,7 @@ pub(super) struct InfluxdbAggregateExport {
     emit_interval: Duration,
     precision: TimestampPrecision,
     max_body_lines: usize,
+    prefix: Option<MetricName>,
     lines_sender: mpsc::Sender<InfluxdbEncodedLines>,
 
     buf: Vec<u8>,
@@ -55,13 +56,23 @@ impl InfluxdbAggregateExport {
             emit_interval: config.emit_interval(),
             precision: config.precision(),
             max_body_lines: config.max_body_lines(),
+            prefix: config.prefix(),
             lines_sender,
             buf: Vec::new(),
         }
     }
 
     fn serialize_name_tags(&mut self, name: &MetricName, tag_map: &MetricTagMap) {
-        let _ = write!(&mut self.buf, "{}", name.display('.'));
+        if let Some(prefix) = &self.prefix {
+            let _ = write!(
+                &mut self.buf,
+                "{}.{}",
+                prefix.display('.'),
+                name.display('.')
+            );
+        } else {
+            let _ = write!(&mut self.buf, "{}", name.display('.'));
+        }
         if !tag_map.is_empty() {
             let _ = write!(&mut self.buf, ",{}", tag_map.display_influxdb());
         }

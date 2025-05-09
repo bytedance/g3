@@ -29,11 +29,13 @@ exporter:
     port: 8181
     bucket: test
     emit-interval: 10s
+    prefix: g3.test
   - name: graphite
     type: graphite
     server: 127.0.0.1
     port: 2003
     emit-interval: 10s
+    prefix: g3.test
   - name: memory-1s
     type: memory
     store-count: 3600

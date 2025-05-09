@@ -26,6 +26,7 @@ use g3_yaml::YamlDocPosition;
 
 use super::{AnyExporterConfig, ExporterConfig, ExporterConfigDiffAction};
 use crate::runtime::export::HttpExportConfig;
+use crate::types::MetricName;
 
 const EXPORTER_CONFIG_TYPE: &str = "OpenTSDB";
 
@@ -37,6 +38,7 @@ pub(crate) struct OpentsdbExporterConfig {
     pub(crate) max_data_points: usize,
     pub(crate) http_export: HttpExportConfig,
     sync_timeout: Option<Duration>,
+    pub(crate) prefix: Option<MetricName>,
 }
 
 impl OpentsdbExporterConfig {
@@ -48,6 +50,7 @@ impl OpentsdbExporterConfig {
             max_data_points: 50,
             http_export: HttpExportConfig::new(4242),
             sync_timeout: None,
+            prefix: None,
         }
     }
 
@@ -96,6 +99,12 @@ impl OpentsdbExporterConfig {
             }
             "max_data_points" => {
                 self.max_data_points = g3_yaml::value::as_usize(v)?;
+                Ok(())
+            }
+            "prefix" => {
+                let prefix = MetricName::parse_yaml(v)
+                    .context(format!("invalid metric name value for key {k}"))?;
+                self.prefix = Some(prefix);
                 Ok(())
             }
             _ => self.http_export.set_by_yaml_kv(k, v),

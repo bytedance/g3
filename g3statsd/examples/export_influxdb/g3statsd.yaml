@@ -19,3 +19,4 @@ exporter:
     port: 8181
     database: test
     # token: apiv3_xxxx
+    prefix: g3.example
