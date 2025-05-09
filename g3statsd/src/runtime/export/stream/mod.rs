@@ -114,7 +114,7 @@ where
             tokio::select! {
                 biased;
 
-                r =  stream.read(&mut read_buf) => {
+                r = stream.read(&mut read_buf) => {
                     match r {
                         Ok(_) => {
                             debug!("exporter {}: connection closed by peer", self.config.exporter);
