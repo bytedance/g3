@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicI32, AtomicIsize, AtomicU64, Ordering};
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::stats::StatId;
 
 use crate::module::keyless::KeylessRelayStats;
@@ -30,7 +30,7 @@ pub(crate) struct KeylessProxyServerStats {
     name: NodeName,
     id: StatId,
 
-    extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
+    extra_metrics_tags: Arc<ArcSwapOption<MetricTagMap>>,
 
     online: AtomicIsize,
     conn_total: AtomicU64,
@@ -63,7 +63,7 @@ impl KeylessProxyServerStats {
         self.online.fetch_sub(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<StaticMetricsTags>>) {
+    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<MetricTagMap>>) {
         self.extra_metrics_tags.store(tags);
     }
 
@@ -99,7 +99,7 @@ impl ServerStats for KeylessProxyServerStats {
     }
 
     #[inline]
-    fn load_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
+    fn load_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
         self.extra_metrics_tags.load_full()
     }
 

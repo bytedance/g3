@@ -26,7 +26,7 @@ use ip_network_table::IpNetworkTable;
 use radix_trie::Trie;
 use rustc_hash::FxHashMap;
 
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
 use g3_types::resolve::ResolveStrategy;
 
@@ -127,7 +127,7 @@ impl UserSite {
         &self,
         user_type: UserType,
         server: &NodeName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Arc<UserSiteDurationRecorder> {
         let mut new_stats = None;
 

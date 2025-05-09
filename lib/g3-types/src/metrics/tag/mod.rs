@@ -14,26 +14,11 @@
  * limitations under the License.
  */
 
-use std::sync::Arc;
-
-use g3_types::metrics::MetricTagMap;
-
 mod name;
-pub(crate) use name::MetricName;
+pub use name::MetricTagName;
 
 mod value;
-pub(crate) use value::MetricValue;
+pub use value::MetricTagValue;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum MetricType {
-    Counter,
-    Gauge,
-}
-
-#[derive(Clone)]
-pub(crate) struct MetricRecord {
-    pub(crate) r#type: MetricType,
-    pub(crate) name: Arc<MetricName>,
-    pub(crate) tag_map: Arc<MetricTagMap>,
-    pub(crate) value: MetricValue,
-}
+mod map;
+pub use map::MetricTagMap;

@@ -27,15 +27,17 @@ use serde_json::{Map, Number, Value};
 use tokio::sync::mpsc;
 
 use g3_http::client::HttpForwardRemoteResponse;
+use g3_types::metrics::MetricTagMap;
 
 use crate::config::exporter::opentsdb::OpentsdbExporterConfig;
 use crate::runtime::export::{AggregateExport, CounterStoreValue, GaugeStoreValue, HttpExport};
-use crate::types::{MetricName, MetricTagMap, MetricValue};
+use crate::types::{MetricName, MetricValue};
 
 pub(super) struct OpentsdbAggregateExport {
     emit_interval: Duration,
     max_data_points: usize,
     prefix: Option<MetricName>,
+    global_tags: MetricTagMap,
     values_sender: mpsc::UnboundedSender<Vec<Value>>,
 
     value_buf: Vec<Value>,
@@ -50,6 +52,7 @@ impl OpentsdbAggregateExport {
             emit_interval: config.emit_interval,
             max_data_points: config.max_data_points,
             prefix: config.prefix.clone(),
+            global_tags: config.global_tags.clone(),
             values_sender,
             value_buf: Vec::with_capacity(32),
         }
@@ -75,6 +78,9 @@ impl OpentsdbAggregateExport {
         );
         map.insert("value".to_string(), Value::Number(value.as_json_number()));
         let mut tag_map = Map::with_capacity(tags.len());
+        for (name, value) in self.global_tags.iter() {
+            tag_map.insert(name.to_string(), Value::String(value.to_string()));
+        }
         for (name, value) in tags.iter() {
             tag_map.insert(name.to_string(), Value::String(value.to_string()));
         }

@@ -24,7 +24,7 @@ use yaml_rust::{Yaml, yaml};
 use g3_io_ext::LimitedCopyConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
 use g3_types::collection::SelectivePickPolicy;
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{
     Host, OpensslClientConfigBuilder, TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
     WeightedUpstreamAddr,
@@ -60,7 +60,7 @@ pub(crate) struct TcpStreamServerConfig {
     pub(crate) task_log_flush_interval: Option<Duration>,
     pub(crate) tcp_copy: LimitedCopyConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
 impl TcpStreamServerConfig {

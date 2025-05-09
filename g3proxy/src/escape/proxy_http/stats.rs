@@ -20,7 +20,7 @@ use arc_swap::ArcSwapOption;
 
 use g3_daemon::stat::remote::TcpConnectionTaskRemoteStats;
 use g3_io_ext::{LimitedReaderStats, LimitedWriterStats};
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::stats::{StatId, TcpIoSnapshot};
 
 use crate::escape::{
@@ -32,7 +32,7 @@ use crate::module::http_forward::HttpForwardTaskRemoteStats;
 pub(crate) struct ProxyHttpEscaperStats {
     name: NodeName,
     id: StatId,
-    extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
+    extra_metrics_tags: Arc<ArcSwapOption<MetricTagMap>>,
     pub(crate) interface: EscaperInterfaceStats,
     pub(crate) tcp: EscaperTcpStats,
 }
@@ -48,7 +48,7 @@ impl ProxyHttpEscaperStats {
         }
     }
 
-    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<StaticMetricsTags>>) {
+    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<MetricTagMap>>) {
         self.extra_metrics_tags.store(tags);
     }
 }
@@ -74,11 +74,11 @@ impl EscaperStats for ProxyHttpEscaperStats {
         self.id
     }
 
-    fn load_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
+    fn load_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
         self.extra_metrics_tags.load_full()
     }
 
-    fn share_extra_tags(&self) -> &Arc<ArcSwapOption<StaticMetricsTags>> {
+    fn share_extra_tags(&self) -> &Arc<ArcSwapOption<MetricTagMap>> {
         &self.extra_metrics_tags
     }
 

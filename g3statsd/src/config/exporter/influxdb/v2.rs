@@ -22,7 +22,7 @@ use http::HeaderValue;
 use http::uri::PathAndQuery;
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::NodeName;
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_yaml::YamlDocPosition;
 
 use super::{
@@ -47,6 +47,7 @@ pub(crate) struct InfluxdbV2ExporterConfig {
     token: String,
     precision: TimestampPrecision,
     prefix: Option<MetricName>,
+    global_tags: MetricTagMap,
 }
 
 impl InfluxdbV2ExporterConfig {
@@ -61,6 +62,7 @@ impl InfluxdbV2ExporterConfig {
             token: String::new(),
             precision: TimestampPrecision::Seconds,
             prefix: None,
+            global_tags: MetricTagMap::default(),
         }
     }
 
@@ -110,6 +112,11 @@ impl InfluxdbV2ExporterConfig {
                 let prefix = MetricName::parse_yaml(v)
                     .context(format!("invalid metric name value for key {k}"))?;
                 self.prefix = Some(prefix);
+                Ok(())
+            }
+            "global_tags" => {
+                self.global_tags = g3_yaml::value::as_static_metrics_tags(v)
+                    .context(format!("invalid static metrics tags value for key {k}"))?;
                 Ok(())
             }
             _ => self.http_export.set_by_yaml_kv(k, v),
@@ -170,6 +177,10 @@ impl InfluxdbExporterConfig for InfluxdbV2ExporterConfig {
 
     fn prefix(&self) -> Option<MetricName> {
         self.prefix.clone()
+    }
+
+    fn global_tags(&self) -> MetricTagMap {
+        self.global_tags.clone()
     }
 
     fn build_api_path(&self) -> anyhow::Result<PathAndQuery> {

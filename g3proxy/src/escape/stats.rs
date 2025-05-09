@@ -19,7 +19,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::stats::{StatId, TcpIoSnapshot, TcpIoStats, UdpIoSnapshot, UdpIoStats};
 
 pub(crate) trait EscaperInternalStats {
@@ -30,8 +30,8 @@ pub(crate) trait EscaperInternalStats {
 pub(crate) trait EscaperStats: EscaperInternalStats {
     fn name(&self) -> &NodeName;
     fn stat_id(&self) -> StatId;
-    fn load_extra_tags(&self) -> Option<Arc<StaticMetricsTags>>;
-    fn share_extra_tags(&self) -> &Arc<ArcSwapOption<StaticMetricsTags>>;
+    fn load_extra_tags(&self) -> Option<Arc<MetricTagMap>>;
+    fn share_extra_tags(&self) -> &Arc<ArcSwapOption<MetricTagMap>>;
 
     /// count for tasks
     fn get_task_total(&self) -> u64;

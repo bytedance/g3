@@ -39,7 +39,7 @@ use log::warn;
 use yaml_rust::{Yaml, yaml};
 
 use g3_types::acl::{AclAction, AclNetworkRuleBuilder};
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{HappyEyeballsConfig, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts};
 use g3_types::resolve::{QueryStrategy, ResolveRedirectionBuilder, ResolveStrategy};
 use g3_yaml::YamlDocPosition;
@@ -69,7 +69,7 @@ pub(crate) struct DirectFloatEscaperConfig {
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
 impl DirectFloatEscaperConfig {

@@ -19,7 +19,7 @@ use std::sync::{Arc, Mutex};
 use arc_swap::ArcSwapOption;
 use foldhash::HashMap;
 
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 
 use super::{UserRequestStats, UserTrafficStats, UserUpstreamTrafficStats};
 use crate::auth::UserType;
@@ -59,7 +59,7 @@ impl UserSiteStats {
         &self,
         user_type: UserType,
         server: &NodeName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Arc<UserRequestStats> {
         let mut new_stats = None;
 
@@ -91,7 +91,7 @@ impl UserSiteStats {
         &self,
         user_type: UserType,
         server: &NodeName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Arc<UserTrafficStats> {
         let mut new_stats = None;
 
@@ -123,7 +123,7 @@ impl UserSiteStats {
         &self,
         user_type: UserType,
         escaper: &NodeName,
-        escaper_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        escaper_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Arc<UserUpstreamTrafficStats> {
         let mut new_stats = None;
 

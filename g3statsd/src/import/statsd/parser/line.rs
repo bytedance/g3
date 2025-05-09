@@ -19,8 +19,10 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 
+use g3_types::metrics::MetricTagMap;
+
 use super::StatsdParseError;
-use crate::types::{MetricName, MetricRecord, MetricTagMap, MetricType, MetricValue};
+use crate::types::{MetricName, MetricRecord, MetricType, MetricValue};
 
 pub(super) struct LineParser<'a> {
     line: &'a [u8],

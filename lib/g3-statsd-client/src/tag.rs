@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::MetricTagMap;
 
 #[derive(Clone, Default)]
 pub struct StatsdTagGroup {
@@ -31,7 +31,7 @@ impl StatsdTagGroup {
         self.buf.extend_from_slice(value.as_ref().as_bytes());
     }
 
-    pub fn add_static_tags(&mut self, tags: &StaticMetricsTags) {
+    pub fn add_static_tags(&mut self, tags: &MetricTagMap) {
         for (k, v) in tags.iter() {
             self.add_tag(k.as_str(), v);
         }

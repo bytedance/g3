@@ -22,7 +22,7 @@ use ascii::AsciiString;
 use yaml_rust::{Yaml, yaml};
 
 use g3_types::collection::SelectivePickPolicy;
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -66,7 +66,7 @@ pub(crate) struct DivertTcpEscaperConfig {
     pub(crate) happy_eyeballs: HappyEyeballsConfig,
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
 impl DivertTcpEscaperConfig {

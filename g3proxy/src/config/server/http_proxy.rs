@@ -30,7 +30,7 @@ use g3_io_ext::LimitedCopyConfig;
 use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::{AclExactPortRule, AclNetworkRuleBuilder};
 use g3_types::acl_set::AclDstHostRuleSetBuilder;
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{
     Host, HttpKeepAliveConfig, HttpServerId, OpensslClientConfigBuilder, RustlsServerConfigBuilder,
     TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
@@ -105,7 +105,7 @@ pub(crate) struct HttpProxyServerConfig {
     pub(crate) untrusted_read_limit: Option<TcpSockSpeedLimitConfig>,
     pub(crate) egress_path_selection_header: Option<HeaderName>,
     pub(crate) steal_forwarded_for: bool,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
 impl HttpProxyServerConfig {

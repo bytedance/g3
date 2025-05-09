@@ -26,7 +26,7 @@ use yaml_rust::{Yaml, yaml};
 use g3_io_ext::{LimitedCopyConfig, LimitedUdpRelayConfig};
 use g3_types::acl::{AclExactPortRule, AclNetworkRuleBuilder};
 use g3_types::acl_set::AclDstHostRuleSetBuilder;
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{
     PortRange, SocketBufferConfig, TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
     UdpMiscSockOpts, UdpSockSpeedLimitConfig,
@@ -90,7 +90,7 @@ pub(crate) struct SocksProxyServerConfig {
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
     pub(crate) transmute_udp_echo_ip: Option<FxHashMap<IpAddr, IpAddr>>,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
 impl SocksProxyServerConfig {

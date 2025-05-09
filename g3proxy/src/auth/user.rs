@@ -31,7 +31,7 @@ use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::auth::UserAuthError;
 use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{HttpHeaderMap, ProxyRequestType, UpstreamAddr};
 use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
 
@@ -426,7 +426,7 @@ impl User {
         &self,
         user_type: UserType,
         server: &NodeName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Arc<UserForbiddenStats> {
         let mut map = self.forbid_stats.lock().unwrap();
         let stats = map.entry(server.clone()).or_insert_with(|| {
@@ -454,7 +454,7 @@ impl User {
         &self,
         user_type: UserType,
         server: &NodeName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Arc<UserRequestStats> {
         let mut map = self.req_stats.lock().unwrap();
         let stats = map.entry(server.clone()).or_insert_with(|| {
@@ -482,7 +482,7 @@ impl User {
         &self,
         user_type: UserType,
         server: &NodeName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Arc<UserTrafficStats> {
         let mut map = self.io_stats.lock().unwrap();
         let stats = map.entry(server.clone()).or_insert_with(|| {
@@ -510,7 +510,7 @@ impl User {
         &self,
         user_type: UserType,
         escaper: &NodeName,
-        escaper_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        escaper_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Arc<UserUpstreamTrafficStats> {
         let mut map = self.upstream_io_stats.lock().unwrap();
         let stats = map.entry(escaper.clone()).or_insert_with(|| {
@@ -704,7 +704,7 @@ impl UserContext {
         user: Arc<User>,
         user_type: UserType,
         server: &NodeName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Self {
         let forbid_stats = user.fetch_forbidden_stats(user_type, server, server_extra_tags);
         let req_stats = user.fetch_request_stats(user_type, server, server_extra_tags);
@@ -729,7 +729,7 @@ impl UserContext {
     pub(crate) fn check_in_site(
         &mut self,
         server: &NodeName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
         ups: &UpstreamAddr,
     ) {
         if let Some(user_site) = self.user.explicit_sites.fetch_site(ups) {
@@ -812,7 +812,7 @@ impl UserContext {
     pub(crate) fn fetch_traffic_stats(
         &self,
         server: &NodeName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Vec<Arc<UserTrafficStats>> {
         let mut all_stats = Vec::with_capacity(2);
 
@@ -831,7 +831,7 @@ impl UserContext {
     pub(crate) fn fetch_upstream_traffic_stats(
         &self,
         escaper: &NodeName,
-        escaper_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        escaper_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Vec<Arc<UserUpstreamTrafficStats>> {
         let mut all_stats = Vec::with_capacity(2);
 

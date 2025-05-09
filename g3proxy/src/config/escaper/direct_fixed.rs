@@ -22,7 +22,7 @@ use ascii::AsciiString;
 use yaml_rust::{Yaml, yaml};
 
 use g3_types::acl::{AclAction, AclNetworkRuleBuilder};
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -69,7 +69,7 @@ pub(crate) struct DirectFixedEscaperConfig {
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
     pub(crate) enable_path_selection: bool,
     pub(crate) use_proxy_protocol: Option<ProxyProtocolVersion>,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
 impl DirectFixedEscaperConfig {

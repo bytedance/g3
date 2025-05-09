@@ -21,7 +21,7 @@ use arc_swap::ArcSwapOption;
 
 use g3_histogram::{HistogramMetricsConfig, HistogramRecorder, HistogramStats};
 use g3_types::ext::DurationExt;
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::stats::StatId;
 
 use crate::auth::UserType;
@@ -36,7 +36,7 @@ impl UserSiteDurationRecorder {
         user: &str,
         user_type: UserType,
         server: &NodeName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
         config: &HistogramMetricsConfig,
     ) -> (Self, Arc<UserSiteDurationStats>) {
         let (task_ready_r, task_ready_s) =
@@ -68,7 +68,7 @@ pub(crate) struct UserSiteDurationStats {
     user: String,
     user_type: UserType,
     server: NodeName,
-    server_extra_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
+    server_extra_tags: Arc<ArcSwapOption<MetricTagMap>>,
 
     pub(crate) task_ready: Arc<HistogramStats>,
 }
@@ -100,7 +100,7 @@ impl UserSiteDurationStats {
     }
 
     #[inline]
-    pub(crate) fn server_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
+    pub(crate) fn server_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
         self.server_extra_tags.load_full()
     }
 }

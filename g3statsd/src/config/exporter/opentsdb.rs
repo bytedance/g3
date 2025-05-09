@@ -21,7 +21,7 @@ use anyhow::{Context, anyhow};
 use http::uri::PathAndQuery;
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::NodeName;
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyExporterConfig, ExporterConfig, ExporterConfigDiffAction};
@@ -39,6 +39,7 @@ pub(crate) struct OpentsdbExporterConfig {
     pub(crate) http_export: HttpExportConfig,
     sync_timeout: Option<Duration>,
     pub(crate) prefix: Option<MetricName>,
+    pub(crate) global_tags: MetricTagMap,
 }
 
 impl OpentsdbExporterConfig {
@@ -51,6 +52,7 @@ impl OpentsdbExporterConfig {
             http_export: HttpExportConfig::new(4242),
             sync_timeout: None,
             prefix: None,
+            global_tags: MetricTagMap::default(),
         }
     }
 
@@ -105,6 +107,11 @@ impl OpentsdbExporterConfig {
                 let prefix = MetricName::parse_yaml(v)
                     .context(format!("invalid metric name value for key {k}"))?;
                 self.prefix = Some(prefix);
+                Ok(())
+            }
+            "global_tags" => {
+                self.global_tags = g3_yaml::value::as_static_metrics_tags(v)
+                    .context(format!("invalid static metrics tags value for key {k}"))?;
                 Ok(())
             }
             _ => self.http_export.set_by_yaml_kv(k, v),

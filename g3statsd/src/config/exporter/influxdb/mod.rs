@@ -19,6 +19,8 @@ use std::time::Duration;
 use http::HeaderValue;
 use http::uri::PathAndQuery;
 
+use g3_types::metrics::MetricTagMap;
+
 use super::{AnyExporterConfig, ExporterConfig, ExporterConfigDiffAction};
 use super::{CONFIG_KEY_EXPORTER_NAME, CONFIG_KEY_EXPORTER_TYPE};
 use crate::types::MetricName;
@@ -37,6 +39,7 @@ pub(crate) trait InfluxdbExporterConfig {
     fn precision(&self) -> TimestampPrecision;
     fn max_body_lines(&self) -> usize;
     fn prefix(&self) -> Option<MetricName>;
+    fn global_tags(&self) -> MetricTagMap;
     fn build_api_path(&self) -> anyhow::Result<PathAndQuery>;
     fn build_api_token(&self) -> Option<HeaderValue>;
 }
