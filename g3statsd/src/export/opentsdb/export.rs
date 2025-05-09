@@ -83,11 +83,12 @@ impl OpentsdbAggregateExport {
     }
 
     fn send_data_points(&mut self) {
+        if self.value_buf.is_empty() {
+            return;
+        }
         let new_buf = Vec::with_capacity(self.value_buf.capacity());
         let data_points = std::mem::replace(&mut self.value_buf, new_buf);
-        if !data_points.is_empty() {
-            let _ = self.values_sender.send(data_points);
-        }
+        let _ = self.values_sender.send(data_points);
     }
 }
 

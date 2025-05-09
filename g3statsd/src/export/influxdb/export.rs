@@ -157,19 +157,20 @@ impl AggregateExport for InfluxdbAggregateExport {
         let mut line_number = 0;
         self.buf.clear();
 
-        for (tag_map, gauge) in values {
+        for (tag_map, counter) in values {
             self.serialize_name_tags(name, tag_map);
 
-            let rate = MetricValue::Double(gauge.diff.as_f64() / self.emit_interval.as_secs_f64());
+            let rate =
+                MetricValue::Double(counter.diff.as_f64() / self.emit_interval.as_secs_f64());
             let _ = write!(
                 &mut self.buf,
                 " count={},diff={},rate={}",
-                gauge.sum.display_influxdb(),
-                gauge.diff.display_influxdb(),
+                counter.sum.display_influxdb(),
+                counter.diff.display_influxdb(),
                 rate.display_influxdb(),
             );
 
-            self.serialize_timestamp(&gauge.time);
+            self.serialize_timestamp(&counter.time);
             self.buf.push(b'\n');
 
             line_number += 1;
