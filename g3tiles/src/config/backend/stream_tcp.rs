@@ -21,7 +21,7 @@ use yaml_rust::{Yaml, yaml};
 
 use g3_histogram::HistogramMetricsConfig;
 use g3_types::collection::SelectivePickPolicy;
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyBackendConfig, BackendConfig, BackendConfigDiffAction};
@@ -36,7 +36,7 @@ pub(crate) struct StreamTcpBackendConfig {
     pub(crate) discover: NodeName,
     pub(crate) discover_data: DiscoverRegisterData,
     pub(crate) peer_pick_policy: SelectivePickPolicy,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
     pub(crate) duration_stats: HistogramMetricsConfig,
 }
 

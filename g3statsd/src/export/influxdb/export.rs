@@ -27,10 +27,11 @@ use itoa::Buffer;
 use tokio::sync::mpsc;
 
 use g3_http::client::HttpForwardRemoteResponse;
+use g3_types::metrics::MetricTagMap;
 
 use crate::config::exporter::influxdb::{InfluxdbExporterConfig, TimestampPrecision};
 use crate::runtime::export::{AggregateExport, CounterStoreValue, GaugeStoreValue, HttpExport};
-use crate::types::{MetricName, MetricTagMap, MetricValue};
+use crate::types::{MetricName, MetricValue};
 
 pub(super) struct InfluxdbEncodedLines {
     len: usize,
@@ -42,6 +43,7 @@ pub(super) struct InfluxdbAggregateExport {
     precision: TimestampPrecision,
     max_body_lines: usize,
     prefix: Option<MetricName>,
+    global_tags: MetricTagMap,
     lines_sender: mpsc::UnboundedSender<InfluxdbEncodedLines>,
 
     buf: Vec<u8>,
@@ -57,6 +59,7 @@ impl InfluxdbAggregateExport {
             precision: config.precision(),
             max_body_lines: config.max_body_lines(),
             prefix: config.prefix(),
+            global_tags: config.global_tags(),
             lines_sender,
             buf: Vec::new(),
         }
@@ -72,6 +75,9 @@ impl InfluxdbAggregateExport {
             );
         } else {
             let _ = write!(&mut self.buf, "{}", name.display('.'));
+        }
+        if !self.global_tags.is_empty() {
+            let _ = write!(&mut self.buf, ",{}", self.global_tags.display_influxdb());
         }
         if !tag_map.is_empty() {
             let _ = write!(&mut self.buf, ",{}", tag_map.display_influxdb());

@@ -24,7 +24,7 @@ use slog::Logger;
 use yaml_rust::{Yaml, yaml};
 
 use g3_histogram::HistogramMetricsConfig;
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{OpensslServerConfigBuilder, TcpListenConfig};
 use g3_yaml::{HybridParser, YamlDocPosition};
 
@@ -45,7 +45,7 @@ pub(crate) struct KeyServerConfig {
     #[cfg(feature = "openssl-async-job")]
     pub(crate) async_op_timeout: Duration,
     pub(crate) concurrency_limit: usize,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
 impl KeyServerConfig {

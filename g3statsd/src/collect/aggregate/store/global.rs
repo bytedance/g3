@@ -20,11 +20,13 @@ use ahash::AHashMap;
 use chrono::Utc;
 use tokio::sync::{broadcast, mpsc};
 
+use g3_types::metrics::MetricTagMap;
+
 use super::Command;
 use crate::collect::ArcCollector;
 use crate::config::collector::aggregate::AggregateCollectorConfig;
 use crate::export::ArcExporter;
-use crate::types::{MetricName, MetricRecord, MetricTagMap, MetricType, MetricValue};
+use crate::types::{MetricName, MetricRecord, MetricType, MetricValue};
 
 const BATCH_SIZE: usize = 128;
 

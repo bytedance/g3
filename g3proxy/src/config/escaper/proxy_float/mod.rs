@@ -25,7 +25,7 @@ use ascii::AsciiString;
 use log::warn;
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -71,7 +71,7 @@ pub(crate) struct ProxyFloatEscaperConfig {
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
     pub(crate) expire_guard_duration: chrono::Duration,
     pub(crate) peer_negotiation_timeout: Duration,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
 impl ProxyFloatEscaperConfig {

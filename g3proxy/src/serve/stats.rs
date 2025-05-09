@@ -19,7 +19,7 @@ use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 use crate::stat::types::UntrustedTaskStatsSnapshot;
@@ -27,8 +27,8 @@ use crate::stat::types::UntrustedTaskStatsSnapshot;
 pub(crate) trait ServerStats {
     fn name(&self) -> &NodeName;
     fn stat_id(&self) -> StatId;
-    fn load_extra_tags(&self) -> Option<Arc<StaticMetricsTags>>;
-    fn share_extra_tags(&self) -> &Arc<ArcSwapOption<StaticMetricsTags>>;
+    fn load_extra_tags(&self) -> Option<Arc<MetricTagMap>>;
+    fn share_extra_tags(&self) -> &Arc<ArcSwapOption<MetricTagMap>>;
 
     fn is_online(&self) -> bool;
 

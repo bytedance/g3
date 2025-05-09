@@ -24,7 +24,7 @@ use yaml_rust::{Yaml, yaml};
 
 use g3_types::auth::{Password, Username};
 use g3_types::collection::SelectivePickPolicy;
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -77,7 +77,7 @@ pub(crate) struct ProxyHttpEscaperConfig {
     pub(crate) pass_proxy_userid: bool,
     pub(crate) use_proxy_protocol: Option<ProxyProtocolVersion>,
     pub(crate) peer_negotiation_timeout: Duration,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
 impl ProxyHttpEscaperConfig {

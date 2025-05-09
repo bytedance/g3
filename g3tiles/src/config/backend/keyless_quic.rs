@@ -21,7 +21,7 @@ use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
 use g3_histogram::HistogramMetricsConfig;
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{
     ConnectionPoolConfig, QuinnTransportConfigBuilder, RustlsClientConfigBuilder,
     SocketBufferConfig,
@@ -40,7 +40,7 @@ pub(crate) struct KeylessQuicBackendConfig {
     position: Option<YamlDocPosition>,
     pub(crate) discover: NodeName,
     pub(crate) discover_data: DiscoverRegisterData,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
     pub(crate) tls_client: RustlsClientConfigBuilder,
     pub(crate) tls_name: Option<String>,
     pub(crate) duration_stats: HistogramMetricsConfig,

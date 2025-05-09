@@ -31,7 +31,7 @@ use tokio::sync::{Semaphore, broadcast};
 use g3_daemon::listen::ListenStats;
 use g3_daemon::server::{ClientConnectionInfo, ServerQuitPolicy};
 use g3_openssl::SslAcceptor;
-use g3_types::metrics::{MetricTagName, MetricTagValue, NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, MetricTagName, MetricTagValue, NodeName};
 use g3_types::net::OpensslServerConfig;
 
 use super::{
@@ -52,7 +52,7 @@ pub(crate) struct KeyServer {
     concurrency_limit: Option<Arc<Semaphore>>,
     task_logger: Option<Logger>,
     request_logger: Option<Logger>,
-    dynamic_metrics_tags: Arc<ArcSwap<StaticMetricsTags>>,
+    dynamic_metrics_tags: Arc<ArcSwap<MetricTagMap>>,
 }
 
 impl KeyServer {
@@ -63,7 +63,7 @@ impl KeyServer {
         duration_recorder: KeyServerDurationRecorder,
         duration_stats: Arc<KeyServerDurationStats>,
         concurrency_limit: Option<Arc<Semaphore>>,
-        dynamic_metrics_tags: Arc<ArcSwap<StaticMetricsTags>>,
+        dynamic_metrics_tags: Arc<ArcSwap<MetricTagMap>>,
     ) -> anyhow::Result<Self> {
         let reload_sender = broadcast::Sender::new(16);
 

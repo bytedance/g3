@@ -25,7 +25,7 @@ use yaml_rust::{Yaml, yaml};
 use g3_io_ext::LimitedCopyConfig;
 use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{
     HttpForwardedHeaderType, HttpKeepAliveConfig, HttpServerId, RustlsServerConfigBuilder,
     TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
@@ -92,7 +92,7 @@ pub(crate) struct HttpRProxyServerConfig {
     pub(crate) http_forward_upstream_keepalive: HttpKeepAliveConfig,
     pub(crate) untrusted_read_limit: Option<TcpSockSpeedLimitConfig>,
     pub(crate) append_forwarded_for: HttpForwardedHeaderType,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
     pub(crate) hosts: HostMatch<Arc<HttpHostConfig>>,
     pub(crate) enable_tls_server: bool,
     pub(crate) global_tls_server: Option<RustlsServerConfigBuilder>,

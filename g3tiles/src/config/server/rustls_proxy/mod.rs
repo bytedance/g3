@@ -24,7 +24,7 @@ use yaml_rust::{Yaml, yaml};
 use g3_io_ext::LimitedCopyConfig;
 use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig};
 use g3_types::route::HostMatch;
 use g3_yaml::YamlDocPosition;
@@ -48,7 +48,7 @@ pub(crate) struct RustlsProxyServerConfig {
     pub(crate) listen: TcpListenConfig,
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
     pub(crate) client_hello_recv_timeout: Duration,
     pub(crate) hosts: HostMatch<Arc<RustlsHostConfig>>,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,

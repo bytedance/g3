@@ -20,7 +20,7 @@ use anyhow::{Context, anyhow};
 use http::uri::PathAndQuery;
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::MetricTagMap;
 use g3_types::net::UpstreamAddr;
 
 pub struct RegisterConfig {
@@ -30,7 +30,7 @@ pub struct RegisterConfig {
     pub(crate) register_path: PathAndQuery,
     pub(crate) ping_path: PathAndQuery,
     pub(crate) ping_interval: Duration,
-    pub(crate) extra_data: StaticMetricsTags,
+    pub(crate) extra_data: MetricTagMap,
 }
 
 impl Default for RegisterConfig {
@@ -42,7 +42,7 @@ impl Default for RegisterConfig {
             register_path: PathAndQuery::from_static("/register"),
             ping_path: PathAndQuery::from_static("/ping"),
             ping_interval: Duration::from_secs(60),
-            extra_data: StaticMetricsTags::default(),
+            extra_data: MetricTagMap::default(),
         }
     }
 }

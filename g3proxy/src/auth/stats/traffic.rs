@@ -19,7 +19,7 @@ use std::sync::Arc;
 use arc_swap::ArcSwapOption;
 
 use g3_daemon::stat::remote::*;
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::stats::StatId;
 
 use crate::auth::UserType;
@@ -33,7 +33,7 @@ pub(crate) struct UserTrafficStats {
     user: Arc<str>,
     user_type: UserType,
     server: NodeName,
-    server_extra_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
+    server_extra_tags: Arc<ArcSwapOption<MetricTagMap>>,
     pub(crate) io: TrafficStats,
 }
 
@@ -48,7 +48,7 @@ impl UserTrafficStats {
         user: Arc<str>,
         user_type: UserType,
         server: &NodeName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Self {
         UserTrafficStats {
             id: StatId::new_unique(),
@@ -87,7 +87,7 @@ impl UserTrafficStats {
     }
 
     #[inline]
-    pub(crate) fn server_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
+    pub(crate) fn server_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
         self.server_extra_tags.load_full()
     }
 }
@@ -98,7 +98,7 @@ pub(crate) struct UserUpstreamTrafficStats {
     user: Arc<str>,
     user_type: UserType,
     escaper: NodeName,
-    escaper_extra_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
+    escaper_extra_tags: Arc<ArcSwapOption<MetricTagMap>>,
     pub(crate) io: UpstreamTrafficStats,
 }
 
@@ -113,7 +113,7 @@ impl UserUpstreamTrafficStats {
         user: Arc<str>,
         user_type: UserType,
         escaper: &NodeName,
-        escaper_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        escaper_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Self {
         UserUpstreamTrafficStats {
             id: StatId::new_unique(),
@@ -152,7 +152,7 @@ impl UserUpstreamTrafficStats {
     }
 
     #[inline]
-    pub(crate) fn escaper_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
+    pub(crate) fn escaper_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
         self.escaper_extra_tags.load_full()
     }
 }

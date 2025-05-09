@@ -21,7 +21,9 @@ use ahash::AHashMap;
 use chrono::{DateTime, Utc};
 use tokio::sync::mpsc;
 
-use crate::types::{MetricName, MetricRecord, MetricTagMap, MetricType, MetricValue};
+use g3_types::metrics::MetricTagMap;
+
+use crate::types::{MetricName, MetricRecord, MetricType, MetricValue};
 
 struct InnerMap<T> {
     inner: AHashMap<Arc<MetricTagMap>, T>,

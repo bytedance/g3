@@ -25,7 +25,7 @@ use yaml_rust::{Yaml, yaml};
 
 use g3_types::auth::{Password, Username};
 use g3_types::collection::SelectivePickPolicy;
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -77,7 +77,7 @@ pub(crate) struct ProxySocks5EscaperConfig {
     pub(crate) peer_negotiation_timeout: Duration,
     transmute_udp_peer_ip: Option<FxHashMap<IpAddr, IpAddr>>,
     pub(crate) end_on_control_closed: bool,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
 impl ProxySocks5EscaperConfig {

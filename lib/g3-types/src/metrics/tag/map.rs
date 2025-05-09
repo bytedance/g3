@@ -16,40 +16,51 @@
 
 use std::collections::BTreeMap;
 use std::fmt::{self, Write};
-use std::str::FromStr;
 
-use anyhow::anyhow;
+use crate::metrics::{MetricTagName, MetricTagValue, ParseError};
 
-use g3_types::metrics::{MetricTagName, MetricTagValue};
-
-#[derive(Clone, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct MetricTagMap {
+#[derive(Clone, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct MetricTagMap {
     inner: BTreeMap<MetricTagName, MetricTagValue>,
 }
 
 impl MetricTagMap {
-    pub(crate) fn is_empty(&self) -> bool {
+    #[inline]
+    pub fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
 
-    pub(crate) fn len(&self) -> usize {
+    #[inline]
+    pub fn len(&self) -> usize {
         self.inner.len()
     }
 
-    #[cfg(test)]
-    pub(crate) fn get(&self, key: &MetricTagName) -> Option<&MetricTagValue> {
+    #[inline]
+    pub fn insert(&mut self, name: MetricTagName, value: MetricTagValue) -> Option<MetricTagValue> {
+        self.inner.insert(name, value)
+    }
+
+    #[inline]
+    pub fn extend(&mut self, other: Self) {
+        self.inner.extend(other.inner)
+    }
+
+    #[inline]
+    pub fn get(&self, key: &MetricTagName) -> Option<&MetricTagValue> {
         self.inner.get(key)
     }
 
-    pub(crate) fn iter(&self) -> impl Iterator<Item = (&MetricTagName, &MetricTagValue)> {
+    #[inline]
+    pub fn iter(&self) -> impl Iterator<Item = (&MetricTagName, &MetricTagValue)> {
         self.inner.iter()
     }
 
-    pub(crate) fn drop(&mut self, name: &MetricTagName) {
+    #[inline]
+    pub fn drop(&mut self, name: &MetricTagName) {
         self.inner.remove(name);
     }
 
-    pub(crate) fn parse_statsd(&mut self, data: &[u8]) -> anyhow::Result<()> {
+    pub fn parse_statsd(&mut self, data: &[u8]) -> anyhow::Result<()> {
         let iter = TagKvIter::new(data, b',', b':');
         for r in iter {
             let (name, value) = r?;
@@ -58,7 +69,7 @@ impl MetricTagMap {
         Ok(())
     }
 
-    pub(crate) fn display_graphite(&self) -> DisplayTagMap<'_> {
+    pub fn display_graphite(&self) -> DisplayTagMap<'_> {
         DisplayTagMap {
             inner: self,
             assign_delimiter: '=',
@@ -66,7 +77,7 @@ impl MetricTagMap {
         }
     }
 
-    pub(crate) fn display_influxdb(&self) -> DisplayTagMap<'_> {
+    pub fn display_influxdb(&self) -> DisplayTagMap<'_> {
         DisplayTagMap {
             inner: self,
             assign_delimiter: '=',
@@ -74,7 +85,7 @@ impl MetricTagMap {
         }
     }
 
-    pub(crate) fn display_opentsdb(&self) -> DisplayTagMap<'_> {
+    pub fn display_opentsdb(&self) -> DisplayTagMap<'_> {
         DisplayTagMap {
             inner: self,
             assign_delimiter: '=',
@@ -82,8 +93,7 @@ impl MetricTagMap {
         }
     }
 
-    #[allow(unused)]
-    pub(crate) fn display_statsd(&self) -> DisplayTagMap<'_> {
+    pub fn display_statsd(&self) -> DisplayTagMap<'_> {
         DisplayTagMap {
             inner: self,
             assign_delimiter: ':',
@@ -92,7 +102,7 @@ impl MetricTagMap {
     }
 }
 
-pub(crate) struct DisplayTagMap<'a> {
+pub struct DisplayTagMap<'a> {
     inner: &'a MetricTagMap,
     assign_delimiter: char,
     next_delimiter: char,
@@ -155,7 +165,7 @@ impl<'a> TagKvIter<'a> {
 }
 
 impl Iterator for TagKvIter<'_> {
-    type Item = anyhow::Result<(MetricTagName, MetricTagValue)>;
+    type Item = Result<(MetricTagName, MetricTagValue), ParseError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -165,12 +175,12 @@ impl Iterator for TagKvIter<'_> {
             }
 
             return match memchr::memchr(self.assign_delimiter, part) {
-                Some(p) => match parse_tag_name(&part[..p]) {
+                Some(p) => match MetricTagName::parse_buf(&part[..p]) {
                     Ok(name) => {
                         if p + 1 >= part.len() {
                             Some(Ok((name, MetricTagValue::EMPTY)))
                         } else {
-                            match parse_tag_value(&part[p + 1..]) {
+                            match MetricTagValue::parse_buf(&part[p + 1..]) {
                                 Ok(value) => Some(Ok((name, value))),
                                 Err(e) => Some(Err(e)),
                             }
@@ -178,23 +188,13 @@ impl Iterator for TagKvIter<'_> {
                     }
                     Err(e) => Some(Err(e)),
                 },
-                None => match parse_tag_name(part) {
+                None => match MetricTagName::parse_buf(part) {
                     Ok(name) => Some(Ok((name, MetricTagValue::EMPTY))),
                     Err(e) => Some(Err(e)),
                 },
             };
         }
     }
-}
-
-fn parse_tag_name(buf: &[u8]) -> anyhow::Result<MetricTagName> {
-    let name = std::str::from_utf8(buf).map_err(|e| anyhow!("invalid tag name: {e}"))?;
-    MetricTagName::from_str(name).map_err(|e| anyhow!("invalid tag name: {e}"))
-}
-
-fn parse_tag_value(buf: &[u8]) -> anyhow::Result<MetricTagValue> {
-    let value = std::str::from_utf8(buf).map_err(|e| anyhow!("invalid tag value: {e}"))?;
-    MetricTagValue::from_str(value).map_err(|e| anyhow!("invalid tag value: {e}"))
 }
 
 #[cfg(test)]

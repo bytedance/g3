@@ -19,7 +19,7 @@ use std::sync::Arc;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_yaml::YamlDocPosition;
 
 use super::{EscaperConfig, EscaperConfigDiffAction};
@@ -32,7 +32,7 @@ pub(crate) struct DummyDenyEscaperConfig {
     pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
     custom_type: String,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
 impl DummyDenyEscaperConfig {

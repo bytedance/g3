@@ -16,13 +16,13 @@
 
 use std::sync::Arc;
 
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
 
 pub(crate) trait ServerStats {
     fn name(&self) -> &NodeName;
     fn stat_id(&self) -> StatId;
-    fn load_extra_tags(&self) -> Option<Arc<StaticMetricsTags>>;
+    fn load_extra_tags(&self) -> Option<Arc<MetricTagMap>>;
 
     fn is_online(&self) -> bool;
 

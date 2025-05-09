@@ -19,7 +19,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::stats::StatId;
 
 use crate::auth::UserType;
@@ -30,7 +30,7 @@ pub(crate) struct UserForbiddenStats {
     user: Arc<str>,
     user_type: UserType,
     server: NodeName,
-    server_extra_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
+    server_extra_tags: Arc<ArcSwapOption<MetricTagMap>>,
     auth_failed: AtomicU64,
     user_expired: AtomicU64,
     user_blocked: AtomicU64,
@@ -65,7 +65,7 @@ impl UserForbiddenStats {
         user: Arc<str>,
         user_type: UserType,
         server: &NodeName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Self {
         UserForbiddenStats {
             id: StatId::new_unique(),
@@ -114,7 +114,7 @@ impl UserForbiddenStats {
     }
 
     #[inline]
-    pub(crate) fn server_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
+    pub(crate) fn server_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
         self.server_extra_tags.load_full()
     }
 

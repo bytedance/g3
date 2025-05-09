@@ -22,7 +22,7 @@ use rustls_pki_types::ServerName;
 use yaml_rust::{Yaml, yaml};
 
 use g3_histogram::HistogramMetricsConfig;
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{ConnectionPoolConfig, RustlsClientConfigBuilder, TcpKeepAliveConfig};
 use g3_yaml::YamlDocPosition;
 
@@ -38,7 +38,7 @@ pub(crate) struct KeylessTcpBackendConfig {
     position: Option<YamlDocPosition>,
     pub(crate) discover: NodeName,
     pub(crate) discover_data: DiscoverRegisterData,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
     pub(crate) tls_client: Option<RustlsClientConfigBuilder>,
     pub(crate) tls_name: Option<ServerName<'static>>,
     pub(crate) duration_stats: HistogramMetricsConfig,

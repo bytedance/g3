@@ -19,7 +19,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::NodeName;
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyExporterConfig, ExporterConfig, ExporterConfigDiffAction};
@@ -35,6 +35,7 @@ pub(crate) struct GraphiteExporterConfig {
     pub(crate) emit_interval: Duration,
     pub(crate) stream_export: StreamExportConfig,
     pub(crate) prefix: Option<MetricName>,
+    pub(crate) global_tags: MetricTagMap,
 }
 
 impl GraphiteExporterConfig {
@@ -45,6 +46,7 @@ impl GraphiteExporterConfig {
             emit_interval: Duration::from_secs(10),
             stream_export: StreamExportConfig::new(2003),
             prefix: None,
+            global_tags: MetricTagMap::default(),
         }
     }
 
@@ -76,6 +78,11 @@ impl GraphiteExporterConfig {
                 let prefix = MetricName::parse_yaml(v)
                     .context(format!("invalid metric name value for key {k}"))?;
                 self.prefix = Some(prefix);
+                Ok(())
+            }
+            "global_tags" => {
+                self.global_tags = g3_yaml::value::as_static_metrics_tags(v)
+                    .context(format!("invalid static metrics tags value for key {k}"))?;
                 Ok(())
             }
             _ => self.stream_export.set_by_yaml_kv(k, v),

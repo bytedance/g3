@@ -23,13 +23,16 @@ use chrono::{DateTime, Utc};
 use itoa::Buffer;
 use tokio::sync::mpsc;
 
+use g3_types::metrics::MetricTagMap;
+
 use crate::config::exporter::graphite::GraphiteExporterConfig;
 use crate::runtime::export::{AggregateExport, CounterStoreValue, GaugeStoreValue, StreamExport};
-use crate::types::{MetricName, MetricTagMap, MetricValue};
+use crate::types::{MetricName, MetricValue};
 
 pub(super) struct GraphitePlaintextAggregateExport {
     emit_interval: Duration,
     prefix: Option<MetricName>,
+    global_tags: MetricTagMap,
     data_sender: mpsc::UnboundedSender<Vec<u8>>,
 
     buf: Vec<u8>,
@@ -43,6 +46,7 @@ impl GraphitePlaintextAggregateExport {
         GraphitePlaintextAggregateExport {
             emit_interval: config.emit_interval,
             prefix: config.prefix.clone(),
+            global_tags: config.global_tags.clone(),
             data_sender,
             buf: Vec::with_capacity(2048),
         }
@@ -59,6 +63,9 @@ impl GraphitePlaintextAggregateExport {
             let _ = write!(self.buf, "{}.{}", prefix.display('.'), name.display('.'));
         } else {
             let _ = write!(self.buf, "{}", name.display('.'));
+        }
+        if !self.global_tags.is_empty() {
+            let _ = write!(self.buf, ";{}", self.global_tags.display_graphite());
         }
         if !tags.is_empty() {
             let _ = write!(self.buf, ";{}", tags.display_graphite());

@@ -22,7 +22,7 @@ use ascii::AsciiString;
 use yaml_rust::{Yaml, yaml};
 
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_yaml::YamlDocPosition;
 
 use super::{
@@ -39,7 +39,7 @@ pub(crate) struct KeylessProxyServerConfig {
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
     pub(crate) task_idle_check_duration: Duration,
     pub(crate) task_idle_max_count: usize,
     pub(crate) spawn_task_unconstrained: bool,

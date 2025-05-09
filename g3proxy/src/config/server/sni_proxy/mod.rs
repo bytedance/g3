@@ -24,7 +24,7 @@ use yaml_rust::{Yaml, yaml};
 use g3_dpi::{ProtocolInspectionConfig, ProtocolPortMap};
 use g3_io_ext::LimitedCopyConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig};
 use g3_types::route::HostMatch;
 use g3_yaml::YamlDocPosition;
@@ -63,7 +63,7 @@ pub(crate) struct SniProxyServerConfig {
     pub(crate) protocol_inspection: ProtocolInspectionConfig,
     pub(crate) server_tcp_portmap: ProtocolPortMap,
     pub(crate) client_tcp_portmap: ProtocolPortMap,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
     pub(crate) allowed_sites: Option<HostMatch<Arc<SniHostConfig>>>,
 }
 

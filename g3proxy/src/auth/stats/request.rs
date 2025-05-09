@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::stats::StatId;
 
 use crate::auth::UserType;
@@ -33,7 +33,7 @@ pub(crate) struct UserRequestStats {
     user: Arc<str>,
     user_type: UserType,
     server: NodeName,
-    server_extra_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
+    server_extra_tags: Arc<ArcSwapOption<MetricTagMap>>,
     pub(crate) conn_total: ConnectionStats,
     pub(crate) req_total: RequestStats,
     pub(crate) req_alive: RequestAliveStats,
@@ -58,7 +58,7 @@ impl UserRequestStats {
         user: Arc<str>,
         user_type: UserType,
         server: &NodeName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Self {
         UserRequestStats {
             id: StatId::new_unique(),
@@ -102,7 +102,7 @@ impl UserRequestStats {
         &self.server
     }
 
-    pub(crate) fn server_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
+    pub(crate) fn server_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
         let guard = self.server_extra_tags.load();
         (*guard).as_ref().cloned()
     }

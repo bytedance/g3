@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicI32, AtomicIsize, AtomicU64, Ordering};
 use arc_swap::ArcSwapOption;
 
 use g3_histogram::{HistogramMetricsConfig, HistogramRecorder, HistogramStats, RotatingHistogram};
-use g3_types::metrics::{NodeName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::stats::StatId;
 
 use crate::protocol::KeylessResponseErrorCode;
@@ -117,7 +117,7 @@ pub(crate) struct KeyServerStats {
     name: NodeName,
     id: StatId,
 
-    extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
+    extra_metrics_tags: Arc<ArcSwapOption<MetricTagMap>>,
 
     online: AtomicIsize,
 
@@ -183,12 +183,12 @@ impl KeyServerStats {
         self.online.fetch_sub(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<StaticMetricsTags>>) {
+    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<MetricTagMap>>) {
         self.extra_metrics_tags.store(tags);
     }
 
     #[inline]
-    pub(crate) fn load_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
+    pub(crate) fn load_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
         self.extra_metrics_tags.load_full()
     }
 
@@ -224,7 +224,7 @@ pub(crate) struct KeyServerDurationStats {
     name: NodeName,
     id: StatId,
 
-    extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
+    extra_metrics_tags: Arc<ArcSwapOption<MetricTagMap>>,
 
     online: AtomicIsize,
 
@@ -247,12 +247,12 @@ impl KeyServerDurationStats {
         self.id
     }
 
-    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<StaticMetricsTags>>) {
+    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<MetricTagMap>>) {
         self.extra_metrics_tags.store(tags);
     }
 
     #[inline]
-    pub(crate) fn load_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
+    pub(crate) fn load_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
         self.extra_metrics_tags.load_full()
     }
 

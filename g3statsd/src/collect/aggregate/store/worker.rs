@@ -19,8 +19,10 @@ use std::sync::Arc;
 use ahash::AHashMap;
 use tokio::sync::mpsc;
 
+use g3_types::metrics::MetricTagMap;
+
 use super::Command;
-use crate::types::{MetricName, MetricRecord, MetricTagMap, MetricType, MetricValue};
+use crate::types::{MetricName, MetricRecord, MetricType, MetricValue};
 
 const BATCH_SIZE: usize = 128;
 
