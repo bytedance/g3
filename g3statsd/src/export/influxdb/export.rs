@@ -42,7 +42,7 @@ pub(super) struct InfluxdbAggregateExport {
     precision: TimestampPrecision,
     max_body_lines: usize,
     prefix: Option<MetricName>,
-    lines_sender: mpsc::Sender<InfluxdbEncodedLines>,
+    lines_sender: mpsc::UnboundedSender<InfluxdbEncodedLines>,
 
     buf: Vec<u8>,
 }
@@ -50,7 +50,7 @@ pub(super) struct InfluxdbAggregateExport {
 impl InfluxdbAggregateExport {
     pub(super) fn new<T: InfluxdbExporterConfig>(
         config: &T,
-        lines_sender: mpsc::Sender<InfluxdbEncodedLines>,
+        lines_sender: mpsc::UnboundedSender<InfluxdbEncodedLines>,
     ) -> Self {
         InfluxdbAggregateExport {
             emit_interval: config.emit_interval(),
@@ -106,17 +106,14 @@ impl InfluxdbAggregateExport {
         };
     }
 
-    async fn send_lines(&mut self, line_number: usize) {
+    fn send_lines(&mut self, line_number: usize) {
         if line_number == 0 || self.buf.is_empty() {
             return;
         }
-        let _ = self
-            .lines_sender
-            .send(InfluxdbEncodedLines {
-                len: line_number,
-                buf: self.buf.clone(),
-            })
-            .await;
+        let _ = self.lines_sender.send(InfluxdbEncodedLines {
+            len: line_number,
+            buf: self.buf.clone(),
+        });
         self.buf.clear();
     }
 }
@@ -126,7 +123,7 @@ impl AggregateExport for InfluxdbAggregateExport {
         self.emit_interval
     }
 
-    async fn emit_gauge(
+    fn emit_gauge(
         &mut self,
         name: &MetricName,
         values: &AHashMap<Arc<MetricTagMap>, GaugeStoreValue>,
@@ -144,15 +141,15 @@ impl AggregateExport for InfluxdbAggregateExport {
 
             line_number += 1;
             if line_number >= self.max_body_lines {
-                self.send_lines(line_number).await;
+                self.send_lines(line_number);
                 line_number = 0;
             }
         }
 
-        self.send_lines(line_number).await;
+        self.send_lines(line_number);
     }
 
-    async fn emit_counter(
+    fn emit_counter(
         &mut self,
         name: &MetricName,
         values: &AHashMap<Arc<MetricTagMap>, CounterStoreValue>,
@@ -177,12 +174,12 @@ impl AggregateExport for InfluxdbAggregateExport {
 
             line_number += 1;
             if line_number >= self.max_body_lines {
-                self.send_lines(line_number).await;
+                self.send_lines(line_number);
                 line_number = 0;
             }
         }
 
-        self.send_lines(line_number).await;
+        self.send_lines(line_number);
     }
 }
 

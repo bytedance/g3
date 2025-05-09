@@ -46,7 +46,7 @@ pub(crate) trait HttpExport {
 pub(crate) struct HttpExportRuntime<T: HttpExport> {
     config: HttpExportConfig,
     exporter: T,
-    receiver: mpsc::Receiver<T::BodyPiece>,
+    receiver: mpsc::UnboundedReceiver<T::BodyPiece>,
 
     recv_buf: Vec<T::BodyPiece>,
     recv_handled: usize,
@@ -62,7 +62,7 @@ impl<T: HttpExport> HttpExportRuntime<T> {
     pub(crate) fn new(
         config: HttpExportConfig,
         exporter: T,
-        receiver: mpsc::Receiver<T::BodyPiece>,
+        receiver: mpsc::UnboundedReceiver<T::BodyPiece>,
     ) -> Self {
         let mut header_buf = Vec::with_capacity(1024);
         config.write_fixed_header(

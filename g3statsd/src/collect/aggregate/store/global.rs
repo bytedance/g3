@@ -31,7 +31,7 @@ const BATCH_SIZE: usize = 128;
 pub(super) struct GlobalStore {
     config: Arc<AggregateCollectorConfig>,
     cfg_receiver: broadcast::Receiver<Arc<AggregateCollectorConfig>>,
-    cmd_receiver: mpsc::Receiver<Command>,
+    cmd_receiver: mpsc::UnboundedReceiver<Command>,
 
     next: Option<ArcCollector>,
     exporters: Vec<ArcExporter>,
@@ -44,7 +44,7 @@ impl GlobalStore {
     pub(super) fn new(
         config: Arc<AggregateCollectorConfig>,
         cfg_receiver: broadcast::Receiver<Arc<AggregateCollectorConfig>>,
-        cmd_receiver: mpsc::Receiver<Command>,
+        cmd_receiver: mpsc::UnboundedReceiver<Command>,
     ) -> Self {
         let next = config
             .next
@@ -84,10 +84,10 @@ impl GlobalStore {
                 }
                 nr = self.cmd_receiver.recv_many(&mut buffer, BATCH_SIZE) => {
                     if nr == 0 {
-                        let _ = self.emit().await;
+                        let _ = self.emit();
                         return;
                     }
-                    self.handle_cmd(&mut buffer).await;
+                    self.handle_cmd(&mut buffer);
                 }
             }
         }
@@ -95,10 +95,10 @@ impl GlobalStore {
         loop {
             let nr = self.cmd_receiver.recv_many(&mut buffer, BATCH_SIZE).await;
             if nr == 0 {
-                let _ = self.emit().await;
+                let _ = self.emit();
                 break;
             }
-            self.handle_cmd(&mut buffer).await;
+            self.handle_cmd(&mut buffer);
         }
     }
 
@@ -115,12 +115,12 @@ impl GlobalStore {
         self.config = config;
     }
 
-    async fn handle_cmd(&mut self, buffer: &mut Vec<Command>) {
+    fn handle_cmd(&mut self, buffer: &mut Vec<Command>) {
         while let Some(cmd) = buffer.pop() {
             match cmd {
                 Command::Add(record) => self.add_record(record),
                 Command::Emit(sender) => {
-                    let emit_total = self.emit().await;
+                    let emit_total = self.emit();
                     let _ = sender.send(emit_total);
                 }
             }
@@ -162,7 +162,7 @@ impl GlobalStore {
         }
     }
 
-    async fn emit(&mut self) -> usize {
+    fn emit(&mut self) -> usize {
         let mut emit_total = 0;
         let time = Utc::now();
 

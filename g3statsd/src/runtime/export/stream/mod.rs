@@ -37,7 +37,7 @@ pub(crate) trait StreamExport {
 pub(crate) struct StreamExportRuntime<T: StreamExport> {
     config: StreamExportConfig,
     formatter: T,
-    receiver: mpsc::Receiver<T::Piece>,
+    receiver: mpsc::UnboundedReceiver<T::Piece>,
 
     recv_buf: Vec<T::Piece>,
     recv_handled: usize,
@@ -52,7 +52,7 @@ where
     pub(crate) fn new(
         config: StreamExportConfig,
         formatter: T,
-        receiver: mpsc::Receiver<T::Piece>,
+        receiver: mpsc::UnboundedReceiver<T::Piece>,
     ) -> Self {
         StreamExportRuntime {
             config,

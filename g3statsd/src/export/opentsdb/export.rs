@@ -36,7 +36,7 @@ pub(super) struct OpentsdbAggregateExport {
     emit_interval: Duration,
     max_data_points: usize,
     prefix: Option<MetricName>,
-    lines_sender: mpsc::Sender<Vec<Value>>,
+    values_sender: mpsc::UnboundedSender<Vec<Value>>,
 
     value_buf: Vec<Value>,
 }
@@ -44,13 +44,13 @@ pub(super) struct OpentsdbAggregateExport {
 impl OpentsdbAggregateExport {
     pub(super) fn new(
         config: &OpentsdbExporterConfig,
-        lines_sender: mpsc::Sender<Vec<Value>>,
+        values_sender: mpsc::UnboundedSender<Vec<Value>>,
     ) -> Self {
         OpentsdbAggregateExport {
             emit_interval: config.emit_interval,
             max_data_points: config.max_data_points,
             prefix: config.prefix.clone(),
-            lines_sender,
+            values_sender,
             value_buf: Vec::with_capacity(32),
         }
     }
@@ -82,11 +82,11 @@ impl OpentsdbAggregateExport {
         Value::Object(map)
     }
 
-    async fn send_data_points(&mut self) {
+    fn send_data_points(&mut self) {
         let new_buf = Vec::with_capacity(self.value_buf.capacity());
         let data_points = std::mem::replace(&mut self.value_buf, new_buf);
         if !data_points.is_empty() {
-            let _ = self.lines_sender.send(data_points).await;
+            let _ = self.values_sender.send(data_points);
         }
     }
 }
@@ -96,7 +96,7 @@ impl AggregateExport for OpentsdbAggregateExport {
         self.emit_interval
     }
 
-    async fn emit_gauge(
+    fn emit_gauge(
         &mut self,
         name: &MetricName,
         values: &AHashMap<Arc<MetricTagMap>, GaugeStoreValue>,
@@ -104,15 +104,15 @@ impl AggregateExport for OpentsdbAggregateExport {
         self.value_buf.clear();
         for (tag_map, v) in values {
             if self.value_buf.len() >= self.max_data_points {
-                self.send_data_points().await;
+                self.send_data_points();
             }
             let data = self.build_data_point(name, &v.time, tag_map, &v.value);
             self.value_buf.push(data);
         }
-        self.send_data_points().await;
+        self.send_data_points();
     }
 
-    async fn emit_counter(
+    fn emit_counter(
         &mut self,
         name: &MetricName,
         values: &AHashMap<Arc<MetricTagMap>, CounterStoreValue>,
@@ -120,12 +120,12 @@ impl AggregateExport for OpentsdbAggregateExport {
         self.value_buf.clear();
         for (tag_map, v) in values {
             if self.value_buf.len() >= self.max_data_points {
-                self.send_data_points().await;
+                self.send_data_points();
             }
             let data = self.build_data_point(name, &v.time, tag_map, &v.sum);
             self.value_buf.push(data);
         }
-        self.send_data_points().await;
+        self.send_data_points();
     }
 }
 
