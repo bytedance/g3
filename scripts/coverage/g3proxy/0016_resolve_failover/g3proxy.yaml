@@ -1,0 +1,25 @@
+---
+
+log: stdout
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+resolver:
+  - name: google
+    type: c-ares
+    server:
+      - 8.8.8.8
+      - 8.8.4.4
+  - name: local
+    type: c-ares
+    server: 127.0.0.1
+  - name: local-first
+    type: fail_over
+    primary: local
+    standby: google
+  - name: google-first
+    type: fail_over
+    primary: google
+    standby: local

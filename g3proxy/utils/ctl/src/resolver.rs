@@ -87,7 +87,6 @@ async fn query_domain(client: &resolver_control::Client, args: &ArgMatches) -> C
     match result.which().unwrap() {
         query_result::Which::Ip(ips) => {
             let ips = ips?;
-            println!("query results:");
             g3_ctl::print_text_list("ip", ips)
         }
         query_result::Which::Err(reason) => g3_ctl::print_text("err", reason?),
