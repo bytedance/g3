@@ -31,6 +31,7 @@ const TAG_KEY_RR_TYPE: &str = "rr_type";
 
 const METRIC_NAME_QUERY_TOTAL: &str = "resolver.query.total";
 const METRIC_NAME_QUERY_CACHED: &str = "resolver.query.cached";
+const METRIC_NAME_QUERY_TRASHED: &str = "resolver.query.trashed";
 const METRIC_NAME_QUERY_DRIVER: &str = "resolver.query.driver.total";
 const METRIC_NAME_QUERY_DRIVER_TIMEOUT: &str = "resolver.query.driver.timeout";
 const METRIC_NAME_QUERY_DRIVER_REFUSED: &str = "resolver.query.driver.refused";
@@ -43,6 +44,8 @@ const METRIC_NAME_MEMORY_CACHE_CAPACITY: &str = "resolver.memory.cache.capacity"
 const METRIC_NAME_MEMORY_CACHE_LENGTH: &str = "resolver.memory.cache.length";
 const METRIC_NAME_MEMORY_DOING_CAPACITY: &str = "resolver.memory.doing.capacity";
 const METRIC_NAME_MEMORY_DOING_LENGTH: &str = "resolver.memory.doing.length";
+const METRIC_NAME_MEMORY_TRASH_CAPACITY: &str = "resolver.memory.trash.capacity";
+const METRIC_NAME_MEMORY_TRASH_LENGTH: &str = "resolver.memory.trash.length";
 
 type ResolverStatsValue = (Arc<ResolverStats>, ResolverSnapshot);
 
@@ -152,6 +155,7 @@ fn emit_query_stats_to_statsd(
     }
 
     emit_query_stats_u64!(cached, METRIC_NAME_QUERY_CACHED);
+    emit_query_stats_u64!(trashed, METRIC_NAME_QUERY_TRASHED);
     emit_query_stats_u64!(driver, METRIC_NAME_QUERY_DRIVER);
     emit_query_stats_u64!(driver_timeout, METRIC_NAME_QUERY_DRIVER_TIMEOUT);
     emit_query_stats_u64!(driver_refused, METRIC_NAME_QUERY_DRIVER_REFUSED);
@@ -181,4 +185,6 @@ fn emit_memory_stats_to_statsd(
     emit_field!(len_cache, METRIC_NAME_MEMORY_CACHE_LENGTH);
     emit_field!(cap_doing, METRIC_NAME_MEMORY_DOING_CAPACITY);
     emit_field!(len_doing, METRIC_NAME_MEMORY_DOING_LENGTH);
+    emit_field!(cap_trash, METRIC_NAME_MEMORY_TRASH_CAPACITY);
+    emit_field!(len_trash, METRIC_NAME_MEMORY_TRASH_LENGTH);
 }

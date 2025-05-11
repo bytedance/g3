@@ -36,6 +36,14 @@ The metrics names are:
 
   Show the total queries that has local cached result.
 
+* resolver.query.trashed
+
+  **type**: count
+
+  Show the total queries that has local trashed result.
+
+  .. versionadded:: 1.11.6
+
 * resolver.query.driver.total
 
   **type**: count
@@ -112,3 +120,19 @@ The metric names are:
   **type**: gauge
 
   Show how many records in the doing hash table (query has been sent without any results).
+
+* resolver.memory.trash.capacity
+
+  **type**: gauge
+
+  Show the capacity of the result trash hash table.
+
+  .. versionadded:: 1.11.6
+
+* resolver.memory.trash.length
+
+  **type**: gauge
+
+  Show how many records in the result trash hash table.
+
+  .. versionadded:: 1.11.6
