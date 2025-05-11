@@ -79,6 +79,10 @@ impl CAresDriverConfig {
                 self.positive_max_ttl = g3_yaml::value::as_u32(v)?;
                 Ok(())
             }
+            "positive_del_ttl" => {
+                self.positive_del_ttl = g3_yaml::value::as_u32(v)?;
+                Ok(())
+            }
             _ => Err(anyhow!("invalid key {k}")),
         }
     }

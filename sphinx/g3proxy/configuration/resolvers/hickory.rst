@@ -153,6 +153,26 @@ Maximum TTL for positive responses. It should be longer than *positive_min_ttl*.
 
 **default**: 3600
 
+positive_del_ttl
+----------------
+
+**optional**, **type**: u32
+
+The TTL to delete the positive record from trash.
+
+The records in the trash will be reused if the driver failed to fetch new records.
+
+The trashed records will be deleted if:
+
+- the del_tel timeout reached
+- new positive records fetched
+- empty records fetched from server
+- NotFound fetched from server
+
+**default**: 7200
+
+.. versionadded:: 1.11.6
+
 negative_min_ttl
 ----------------
 

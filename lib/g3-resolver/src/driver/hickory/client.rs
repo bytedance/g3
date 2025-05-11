@@ -205,11 +205,12 @@ impl HickoryClientJob {
                             self.try_truncated = true;
                             continue;
                         }
-                        ResolvedRecord::resolved(req.domain, self.config.negative_ttl, ips)
+                        ResolvedRecord::empty(req.domain, self.config.negative_ttl)
                     } else {
-                        let ttl =
+                        let expire_ttl =
                             ttl.clamp(self.config.positive_min_ttl, self.config.positive_max_ttl);
-                        ResolvedRecord::resolved(req.domain, ttl, ips)
+                        let vanish_ttl = ttl.max(self.config.positive_del_ttl);
+                        ResolvedRecord::resolved(req.domain, expire_ttl, vanish_ttl, ips)
                     };
                 }
                 Err(e) => {
@@ -237,6 +238,7 @@ pub(super) struct HickoryClientConfig {
     pub(super) each_tries: i32,
     pub(super) positive_min_ttl: u32,
     pub(super) positive_max_ttl: u32,
+    pub(super) positive_del_ttl: u32,
     pub(super) negative_ttl: u32,
     pub(super) tcp_misc_opts: TcpMiscSockOpts,
     pub(super) udp_misc_opts: UdpMiscSockOpts,

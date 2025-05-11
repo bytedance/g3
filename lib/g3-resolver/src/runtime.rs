@@ -35,6 +35,11 @@ struct CachedRecord {
     expire_key: Option<delay_queue::Key>,
 }
 
+struct TrashedRecord {
+    inner: ArcResolvedRecord,
+    vanish_at: Instant,
+}
+
 pub(crate) struct ResolverRuntime {
     config: ResolverConfig,
     stats: Arc<ResolverStats>,
@@ -48,6 +53,8 @@ pub(crate) struct ResolverRuntime {
     cache_v6: AHashMap<Arc<str>, CachedRecord>,
     doing_v4: AHashMap<Arc<str>, Vec<oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>>>,
     doing_v6: AHashMap<Arc<str>, Vec<oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>>>,
+    trash_v4: AHashMap<Arc<str>, TrashedRecord>,
+    trash_v6: AHashMap<Arc<str>, TrashedRecord>,
     driver: Option<BoxResolverDriver>,
 }
 
@@ -80,6 +87,8 @@ impl ResolverRuntime {
             cache_v6: AHashMap::with_capacity(initial_cache_capacity),
             doing_v4: AHashMap::with_capacity(initial_cache_capacity),
             doing_v6: AHashMap::with_capacity(initial_cache_capacity),
+            trash_v4: AHashMap::with_capacity(initial_cache_capacity),
+            trash_v6: AHashMap::with_capacity(initial_cache_capacity),
             driver: None,
         }
     }
@@ -134,6 +143,19 @@ impl ResolverRuntime {
         match rsp {
             ResolveDriverResponse::V4(record) => {
                 self.stats.query_a.add_record(&record);
+                if !record.is_acceptable() {
+                    if let Some(v) = self.trash_v4.get(&record.domain) {
+                        if let Some(vec) = self.doing_v4.remove(&record.domain) {
+                            self.stats.query_a.add_query_trashed_n(vec.len());
+                            for sender in vec.into_iter() {
+                                let _ = sender.send((v.inner.clone(), ResolvedRecordSource::Trash));
+                            }
+                        }
+                        return;
+                    }
+                } else {
+                    self.trash_v4.remove(&record.domain);
+                }
                 let record = Arc::new(record);
                 if let Some(mut vec) = self.doing_v4.remove(&record.domain) {
                     if let Some(sender) = vec.pop() {
@@ -150,6 +172,19 @@ impl ResolverRuntime {
             }
             ResolveDriverResponse::V6(record) => {
                 self.stats.query_aaaa.add_record(&record);
+                if !record.is_acceptable() {
+                    if let Some(v) = self.trash_v6.get(&record.domain) {
+                        if let Some(vec) = self.doing_v6.remove(&record.domain) {
+                            self.stats.query_aaaa.add_query_trashed_n(vec.len());
+                            for sender in vec.into_iter() {
+                                let _ = sender.send((v.inner.clone(), ResolvedRecordSource::Trash));
+                            }
+                        }
+                        return;
+                    }
+                } else {
+                    self.trash_v6.remove(&record.domain);
+                }
                 let record = Arc::new(record);
                 if let Some(mut vec) = self.doing_v6.remove(&record.domain) {
                     if let Some(sender) = vec.pop() {
@@ -169,94 +204,149 @@ impl ResolverRuntime {
 
     fn handle_expired_v4(&mut self, domain: &str) {
         trace!("clean expired v4 for domain {domain}");
-        self.cache_v4.remove(domain);
+        if let Some(r) = self.cache_v4.remove(domain) {
+            if let Some(vanish_at) = r.inner.vanish {
+                self.trash_v4.insert(
+                    r.inner.domain.clone(),
+                    TrashedRecord {
+                        inner: r.inner,
+                        vanish_at,
+                    },
+                );
+            }
+        }
     }
     fn handle_expired_v6(&mut self, domain: &str) {
         trace!("clean expired v6 for domain {domain}");
-        self.cache_v6.remove(domain);
+        if let Some(r) = self.cache_v6.remove(domain) {
+            if let Some(vanish_at) = r.inner.vanish {
+                self.trash_v6.insert(
+                    r.inner.domain.clone(),
+                    TrashedRecord {
+                        inner: r.inner,
+                        vanish_at,
+                    },
+                );
+            }
+        }
     }
 
     fn handle_req(&mut self, req: ResolveDriverRequest) {
         match req {
             ResolveDriverRequest::GetV4(domain, sender) => {
                 self.stats.query_a.add_query_total();
-                match self.cache_v4.get(&domain) {
-                    Some(r) => {
-                        self.stats.query_a.add_query_cached();
-                        let _ = sender.send((Arc::clone(&r.inner), ResolvedRecordSource::Cache));
+                if let Some(r) = self.cache_v4.get(&domain) {
+                    self.stats.query_a.add_query_cached();
+                    let _ = sender.send((Arc::clone(&r.inner), ResolvedRecordSource::Cache));
+                    return;
+                }
+                if let Some(r) = self.trash_v4.get(&domain) {
+                    self.stats.query_a.add_query_trashed();
+                    let _ = sender.send((Arc::clone(&r.inner), ResolvedRecordSource::Trash));
+                    self.doing_v4.entry(domain.clone()).or_insert_with(|| {
+                        if let Some(driver) = &self.driver {
+                            self.stats.query_a.add_query_driver();
+                            driver.query_v4(domain, &self.config.runtime, self.rsp_sender.clone());
+                        }
+                        vec![]
+                    });
+                    return;
+                }
+                match self.doing_v4.entry(domain.clone()) {
+                    hash_map::Entry::Occupied(mut o) => {
+                        // there is a query already
+                        o.get_mut().push(sender);
                     }
-                    None => match self.doing_v4.entry(domain.to_owned()) {
-                        hash_map::Entry::Occupied(mut o) => {
-                            // there is a query already
-                            o.get_mut().push(sender);
+                    hash_map::Entry::Vacant(v) => {
+                        v.insert(vec![sender]);
+                        if let Some(driver) = &self.driver {
+                            self.stats.query_a.add_query_driver();
+                            driver.query_v4(domain, &self.config.runtime, self.rsp_sender.clone());
+                        } else {
+                            unreachable!()
                         }
-                        hash_map::Entry::Vacant(v) => {
-                            v.insert(vec![sender]);
-                            if let Some(driver) = &self.driver {
-                                self.stats.query_a.add_query_driver();
-                                driver.query_v4(
-                                    domain,
-                                    &self.config.runtime,
-                                    self.rsp_sender.clone(),
-                                );
-                            } else {
-                                unreachable!()
-                            }
-                        }
-                    },
+                    }
                 }
             }
             ResolveDriverRequest::GetV6(domain, sender) => {
                 self.stats.query_aaaa.add_query_total();
-                match self.cache_v6.get(&domain) {
-                    Some(r) => {
-                        self.stats.query_aaaa.add_query_cached();
-                        let _ = sender.send((Arc::clone(&r.inner), ResolvedRecordSource::Cache));
+                if let Some(r) = self.cache_v6.get(&domain) {
+                    self.stats.query_aaaa.add_query_cached();
+                    let _ = sender.send((Arc::clone(&r.inner), ResolvedRecordSource::Cache));
+                    return;
+                }
+                if let Some(r) = self.trash_v6.get(&domain) {
+                    self.stats.query_aaaa.add_query_trashed();
+                    let _ = sender.send((Arc::clone(&r.inner), ResolvedRecordSource::Trash));
+                    self.doing_v6.entry(domain.clone()).or_insert_with(|| {
+                        if let Some(driver) = &self.driver {
+                            self.stats.query_aaaa.add_query_driver();
+                            driver.query_v6(domain, &self.config.runtime, self.rsp_sender.clone());
+                        }
+                        vec![]
+                    });
+                    return;
+                }
+                match self.doing_v6.entry(domain.clone()) {
+                    hash_map::Entry::Occupied(mut o) => {
+                        // there is a query already
+                        o.get_mut().push(sender);
                     }
-                    None => match self.doing_v6.entry(domain.to_owned()) {
-                        hash_map::Entry::Occupied(mut o) => {
-                            // there is a query already
-                            o.get_mut().push(sender);
+                    hash_map::Entry::Vacant(v) => {
+                        v.insert(vec![sender]);
+                        if let Some(driver) = &self.driver {
+                            self.stats.query_aaaa.add_query_driver();
+                            driver.query_v6(domain, &self.config.runtime, self.rsp_sender.clone());
+                        } else {
+                            unreachable!()
                         }
-                        hash_map::Entry::Vacant(v) => {
-                            v.insert(vec![sender]);
-                            if let Some(driver) = &self.driver {
-                                self.stats.query_aaaa.add_query_driver();
-                                driver.query_v6(
-                                    domain,
-                                    &self.config.runtime,
-                                    self.rsp_sender.clone(),
-                                );
-                            } else {
-                                unreachable!()
-                            }
-                        }
-                    },
+                    }
                 }
             }
         }
     }
 
     fn update_mem_stats(&self) {
-        fn update<K, VC, VD>(
+        fn update<K, VC, VD, VT>(
             stats: &ResolverMemoryStats,
             cache_ht: &AHashMap<K, VC>,
             doing_ht: &AHashMap<K, VD>,
+            trash_ht: &AHashMap<K, VT>,
         ) {
             stats.set_cache_capacity(cache_ht.capacity());
             stats.set_cache_length(cache_ht.len());
             stats.set_doing_capacity(doing_ht.capacity());
             stats.set_doing_length(doing_ht.len());
+            stats.set_trash_capacity(trash_ht.capacity());
+            stats.set_trash_length(trash_ht.len());
         }
 
-        update(&self.stats.memory_a, &self.cache_v4, &self.doing_v4);
-        update(&self.stats.memory_aaaa, &self.cache_v6, &self.doing_v6);
+        update(
+            &self.stats.memory_a,
+            &self.cache_v4,
+            &self.doing_v4,
+            &self.trash_v4,
+        );
+        update(
+            &self.stats.memory_aaaa,
+            &self.cache_v6,
+            &self.doing_v6,
+            &self.trash_v6,
+        );
+    }
+
+    fn clean_trash(&mut self) {
+        let now = Instant::now();
+        self.trash_v4.retain(|_, v| v.vanish_at > now);
+        self.trash_v6.retain(|_, v| v.vanish_at > now);
     }
 
     fn poll_loop(&mut self, cx: &mut Context<'_>) -> Poll<anyhow::Result<()>> {
         if self.driver.is_none() {
             self.driver = Some(self.config.driver.spawn_resolver_driver()?);
         }
+
+        self.clean_trash();
 
         'outer: loop {
             // handle command
