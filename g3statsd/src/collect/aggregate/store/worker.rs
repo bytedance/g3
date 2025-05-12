@@ -50,24 +50,22 @@ impl WorkerStore {
         loop {
             let nr = self.receiver.recv_many(&mut buffer, BATCH_SIZE).await;
             if nr == 0 {
-                let _ = self.emit();
                 break;
             }
 
             while let Some(cmd) = buffer.pop() {
                 match cmd {
                     Command::Add(record) => self.add_record(record),
-                    Command::Emit(sender) => match self.emit() {
-                        Ok(n) => {
-                            let _ = sender.send(n);
-                        }
-                        Err(n) => {
-                            let _ = sender.send(n);
-                        }
-                    },
+                    Command::Sync(semaphore) => {
+                        self.emit();
+                        semaphore.add_permits(1);
+                    }
+                    Command::Emit => unreachable!(),
                 }
             }
         }
+
+        self.emit();
     }
 
     fn add_record(&mut self, record: MetricRecord) {
@@ -93,9 +91,7 @@ impl WorkerStore {
         }
     }
 
-    fn emit(&mut self) -> Result<usize, usize> {
-        let mut emit_total = 0;
-
+    fn emit(&mut self) {
         for (name, mut inner_map) in self.counter.drain() {
             for (tag_map, value) in inner_map.drain() {
                 let record = MetricRecord {
@@ -104,17 +100,8 @@ impl WorkerStore {
                     tag_map,
                     value,
                 };
-                match self.global_sender.send(Command::Add(record)) {
-                    Ok(_) => {
-                        emit_total += 1;
-                    }
-                    Err(_) => {
-                        return Err(emit_total);
-                    }
-                }
+                let _ = self.global_sender.send(Command::Add(record));
             }
         }
-
-        Ok(emit_total)
     }
 }
