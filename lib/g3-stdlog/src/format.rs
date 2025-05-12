@@ -186,7 +186,7 @@ mod tests {
         let mut vars = Vec::new();
         let mut kv_formatter = FormatterKv(&mut vars);
 
-        kv_formatter.emit_u8("a-key", 8u8).unwrap();
+        kv_formatter.emit_u8("a-key".into(), 8u8).unwrap();
         assert_eq!(vars, [("a-key".to_string(), "8".to_string())]);
     }
 
@@ -195,7 +195,7 @@ mod tests {
         let mut vars = Vec::new();
         let mut kv_formatter = FormatterKv(&mut vars);
 
-        kv_formatter.emit_f32("a-key", 1.1f32).unwrap();
+        kv_formatter.emit_f32("a-key".into(), 1.1f32).unwrap();
         assert_eq!(vars, [("a-key".to_string(), "1.1".to_string())]);
     }
 
@@ -204,7 +204,7 @@ mod tests {
         let mut vars = Vec::new();
         let mut kv_formatter = FormatterKv(&mut vars);
 
-        kv_formatter.emit_bool("a-key", true).unwrap();
+        kv_formatter.emit_bool("a-key".into(), true).unwrap();
         assert_eq!(vars, [("a-key".to_string(), "true".to_string())]);
     }
 
@@ -215,7 +215,7 @@ mod tests {
 
         let v = "value";
         kv_formatter
-            .emit_arguments("a-key", &format_args!("a-{v}"))
+            .emit_arguments("a-key".into(), &format_args!("a-{v}"))
             .unwrap();
         assert_eq!(vars, [("a-key".to_string(), "a-value".to_string())]);
     }

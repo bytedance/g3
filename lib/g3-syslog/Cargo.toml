@@ -7,7 +7,7 @@ edition.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-slog = { workspace = true, features = ["nested-values"] }
+slog.workspace = true
 chrono = { workspace = true, features = ["clock"] }
 itoa.workspace = true
 ryu.workspace = true

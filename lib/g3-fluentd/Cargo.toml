@@ -8,7 +8,7 @@ edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-slog = { workspace = true, features = ["nested-values"] }
+slog.workspace = true
 chrono = { workspace = true, features = ["clock"] }
 flume = { workspace = true, features = ["async"] }
 rmp.workspace = true

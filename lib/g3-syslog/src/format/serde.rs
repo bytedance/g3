@@ -113,7 +113,7 @@ impl<S: serde::Serializer> Serializer for SerdeFormatterKV<S> {
 
     fn emit_serde(&mut self, key: slog::Key, value: &dyn slog::SerdeValue) -> slog::Result {
         self.ser_map
-            .serialize_entry(key, value.as_serde())
+            .serialize_entry(key.as_str(), value.as_serde())
             .map_err(|e| {
                 io::Error::other(format!("serde serialization error for key {key}: {e}"))
             })?;
