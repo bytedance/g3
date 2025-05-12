@@ -1,0 +1,20 @@
+[Unit]
+Description=G3 StatsD Server %i
+After=syslog.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment="RUNTIME_DIRECTORY=/run/g3statsd"
+EnvironmentFile=-/etc/g3statsd/%i/env
+ExecStartPre=/bin/sh -c "[ -d $RUNTIME_DIRECTORY ] || mkdir $RUNTIME_DIRECTORY"
+ExecStart=/usr/bin/g3statsd -c /etc/g3statsd/%i/ --control-dir $RUNTIME_DIRECTORY -s -G %i
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=-/usr/bin/g3statsd-ctl --control-dir $RUNTIME_DIRECTORY -G %i -p $MAINPID offline
+KillMode=none
+Restart=on-success
+SuccessExitStatus=SIGQUIT
+TimeoutStartSec=10
+
+[Install]
+WantedBy=multi-user.target
