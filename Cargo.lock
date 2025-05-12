@@ -1819,7 +1819,6 @@ dependencies = [
  "g3-tls-cert",
  "g3keymess-proto",
  "hex",
- "thiserror",
  "tokio",
  "variant-ssl",
 ]
@@ -2022,6 +2021,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "g3statsd-ctl"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "capnp",
+ "clap",
+ "futures-util",
+ "g3-ctl",
+ "g3statsd-proto",
+ "hex",
+ "tokio",
+ "variant-ssl",
+]
+
+[[package]]
 name = "g3statsd-proto"
 version = "0.1.0"
 dependencies = [
@@ -2090,7 +2104,6 @@ dependencies = [
  "futures-util",
  "g3-ctl",
  "g3tiles-proto",
- "thiserror",
  "tokio",
 ]
 
