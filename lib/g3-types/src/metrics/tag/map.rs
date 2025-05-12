@@ -46,6 +46,11 @@ impl MetricTagMap {
     }
 
     #[inline]
+    pub fn contains(&self, key: &MetricTagName) -> bool {
+        self.inner.contains_key(key)
+    }
+
+    #[inline]
     pub fn get(&self, key: &MetricTagName) -> Option<&MetricTagValue> {
         self.inner.get(key)
     }
