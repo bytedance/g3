@@ -1,10 +1,8 @@
 [package]
-name = "g3keymess-ctl"
+name = "g3statsd-ctl"
 version = "0.1.0"
 license.workspace = true
 edition.workspace = true
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow.workspace = true
@@ -15,5 +13,4 @@ capnp.workspace = true
 hex.workspace = true
 openssl.workspace = true
 g3-ctl.workspace = true
-g3-tls-cert.workspace = true
-g3keymess-proto = { path = "../../proto" }
+g3statsd-proto = { path = "../../proto" }
