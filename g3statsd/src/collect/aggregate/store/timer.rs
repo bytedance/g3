@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use log::{debug, warn};
+use log::{trace, warn};
 use tokio::sync::{broadcast, oneshot};
 use tokio::task::JoinSet;
 use tokio::time::Instant;
@@ -85,10 +85,10 @@ impl EmitTimer {
             match r {
                 Ok((i, r)) => match r {
                     Ok(n) => {
-                        debug!("worker {i} emit {n} metrics");
+                        trace!("worker {i} emit {n} metrics");
                     }
                     Err(_) => {
-                        debug!("worker {i} emit metrics failed with no response");
+                        warn!("worker {i} emit metrics failed with no response");
                     }
                 },
                 Err(e) => {
