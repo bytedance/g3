@@ -116,8 +116,11 @@ where
 
                 r = stream.read(&mut read_buf) => {
                     match r {
-                        Ok(_) => {
+                        Ok(0) => {
                             debug!("exporter {}: connection closed by peer", self.config.exporter);
+                        }
+                        Ok(_) => {
+                            debug!("exporter {}: close connection as unexpected data received", self.config.exporter);
                         }
                         Err(e) => {
                             debug!("exporter {}: connection closed by peer: {e}", self.config.exporter);
