@@ -1,3 +1,9 @@
+runtime:
+  thread_number: 2
+
+worker:
+  thread_number: 2
+
 importer:
   - name: statsd
     type: statsd
