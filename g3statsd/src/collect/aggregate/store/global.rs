@@ -86,7 +86,7 @@ impl GlobalStore {
                 }
                 nr = self.cmd_receiver.recv_many(&mut buffer, BATCH_SIZE) => {
                     if nr == 0 {
-                        let _ = self.emit();
+                        self.emit();
                         return;
                     }
                     self.handle_cmd(&mut buffer);
@@ -97,7 +97,7 @@ impl GlobalStore {
         loop {
             let nr = self.cmd_receiver.recv_many(&mut buffer, BATCH_SIZE).await;
             if nr == 0 {
-                let _ = self.emit();
+                self.emit();
                 break;
             }
             self.handle_cmd(&mut buffer);
@@ -121,10 +121,8 @@ impl GlobalStore {
         while let Some(cmd) = buffer.pop() {
             match cmd {
                 Command::Add(record) => self.add_record(record),
-                Command::Emit(sender) => {
-                    let emit_total = self.emit();
-                    let _ = sender.send(emit_total);
-                }
+                Command::Sync(_) => unreachable!(),
+                Command::Emit => self.emit(),
             }
         }
     }
@@ -164,8 +162,7 @@ impl GlobalStore {
         }
     }
 
-    fn emit(&mut self) -> usize {
-        let mut emit_total = 0;
+    fn emit(&mut self) {
         let time = Utc::now();
 
         macro_rules! emit_orig {
@@ -186,8 +183,6 @@ impl GlobalStore {
                         if let Some(next) = &self.next {
                             next.add_metric(time, record, None);
                         }
-
-                        emit_total += 1;
                     }
                 }
             };
@@ -231,8 +226,6 @@ impl GlobalStore {
                         if let Some(next) = &self.next {
                             next.add_metric(time, record, None);
                         }
-
-                        emit_total += 1;
                     }
                 }
             };
@@ -245,7 +238,5 @@ impl GlobalStore {
             emit_join!(counter, MetricType::Counter);
             emit_join!(gauge, MetricType::Gauge);
         }
-
-        emit_total
     }
 }

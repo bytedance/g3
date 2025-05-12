@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use tokio::sync::{broadcast, mpsc, oneshot};
+use tokio::sync::{Semaphore, broadcast, mpsc};
 
 use crate::config::collector::aggregate::AggregateCollectorConfig;
 use crate::types::{MetricRecord, MetricType};
@@ -32,7 +32,8 @@ use worker::WorkerStore;
 
 enum Command {
     Add(MetricRecord),
-    Emit(oneshot::Sender<usize>),
+    Sync(Arc<Semaphore>),
+    Emit,
 }
 
 pub(super) struct AggregateHandle {

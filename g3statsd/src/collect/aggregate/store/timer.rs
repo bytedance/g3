@@ -16,9 +16,7 @@
 
 use std::sync::Arc;
 
-use log::{trace, warn};
-use tokio::sync::{broadcast, oneshot};
-use tokio::task::JoinSet;
+use tokio::sync::{Semaphore, broadcast};
 use tokio::time::Instant;
 
 use super::{AggregateHandle, Command};
@@ -68,38 +66,13 @@ impl EmitTimer {
     }
 
     async fn notify_emit(&mut self) {
-        let mut join_set = JoinSet::new();
-        for (i, worker) in self.handle.worker.iter().enumerate() {
-            let worker = worker.clone();
-            join_set.spawn(async move {
-                let (sender, receiver) = oneshot::channel();
-                let r = if worker.send(Command::Emit(sender)).is_ok() {
-                    receiver.await
-                } else {
-                    Ok(0)
-                };
-                (i, r)
-            });
+        let semaphore = Arc::new(Semaphore::new(0));
+        for worker in &self.handle.worker {
+            let _ = worker.send(Command::Sync(semaphore.clone()));
         }
-        while let Some(r) = join_set.join_next().await {
-            match r {
-                Ok((i, r)) => match r {
-                    Ok(n) => {
-                        trace!("worker {i} emit {n} metrics");
-                    }
-                    Err(_) => {
-                        warn!("worker {i} emit metrics failed with no response");
-                    }
-                },
-                Err(e) => {
-                    warn!("join worker emit notify task error: {e}");
-                }
-            }
-        }
-
-        let (sender, receiver) = oneshot::channel();
-        if self.handle.global.send(Command::Emit(sender)).is_ok() {
-            let _ = receiver.await;
-        }
+        let _ = semaphore
+            .acquire_many(self.handle.worker.len() as u32)
+            .await;
+        let _ = self.handle.global.send(Command::Emit);
     }
 }
