@@ -123,10 +123,10 @@ fn format_content_as_json(
     record.kv().serialize(record, &mut kv_formatter)?;
 
     if let Some(ts) = report_ts {
-        kv_formatter.emit_i64("report_ts", ts)?;
+        kv_formatter.emit_i64("report_ts".into(), ts)?;
     }
 
-    kv_formatter.emit_arguments("msg", record.msg())?;
+    kv_formatter.emit_arguments("msg".into(), record.msg())?;
 
     kv_formatter.end().map_err(io::Error::other)?;
 

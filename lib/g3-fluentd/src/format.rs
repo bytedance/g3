@@ -85,7 +85,7 @@ impl FluentdFormatter {
                 let mut kv_formatter = FormatterKv(&mut buf);
                 logger_values.serialize(record, &mut kv_formatter)?;
                 record.kv().serialize(record, &mut kv_formatter)?;
-                kv_formatter.emit_arguments("msg", record.msg())?;
+                kv_formatter.emit_arguments("msg".into(), record.msg())?;
             }
         }
 
@@ -116,7 +116,7 @@ impl Serializer for CounterKV {
 struct FormatterKv<'a>(&'a mut Vec<u8>);
 
 impl FormatterKv<'_> {
-    fn write_key(&mut self, key: slog::Key) -> slog::Result {
+    fn write_key(&mut self, key: &str) -> slog::Result {
         rmp::encode::write_str(&mut self.0, key).map_err(|e| slog::Error::Io(e.into()))
     }
 }
@@ -170,12 +170,12 @@ impl Serializer for FormatterKv<'_> {
     }
 
     fn emit_none(&mut self, key: slog::Key) -> slog::Result {
-        self.write_key(key)?;
+        self.write_key(key.as_str())?;
         rmp::encode::write_nil(&mut self.0).map_err(slog::Error::Io)
     }
 
     fn emit_str(&mut self, key: slog::Key, value: &str) -> slog::Result {
-        self.write_key(key)?;
+        self.write_key(key.as_str())?;
         rmp::encode::write_str(&mut self.0, value).map_err(|e| slog::Error::Io(e.into()))
     }
 
@@ -194,7 +194,7 @@ impl Serializer for FormatterKv<'_> {
     }
 
     fn emit_serde(&mut self, key: slog::Key, value: &dyn slog::SerdeValue) -> slog::Result {
-        self.write_key(key)?;
+        self.write_key(key.as_str())?;
         let mut serializer = rmp_serde::Serializer::new(&mut self.0);
         value.as_serde().serialize(&mut serializer).map_err(|e| {
             io::Error::other(format!("serde serialization error for key {key}: {e}"))

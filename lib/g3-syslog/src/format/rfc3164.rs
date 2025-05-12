@@ -163,8 +163,8 @@ impl FormatterKv<'_> {
         self.0.extend_from_slice(timestamp_s.as_bytes());
     }
 
-    fn emit_integer<T: Integer>(&mut self, key: &str, value: T) -> slog::Result {
-        self.push_before_value(key);
+    fn emit_integer<T: Integer>(&mut self, key: slog::Key, value: T) -> slog::Result {
+        self.push_before_value(key.as_str());
         self.push_delimiter();
 
         let mut buffer = itoa::Buffer::new();
@@ -173,8 +173,8 @@ impl FormatterKv<'_> {
         Ok(())
     }
 
-    fn emit_float<T: Float>(&mut self, key: &str, value: T) -> slog::Result {
-        self.push_before_value(key);
+    fn emit_float<T: Float>(&mut self, key: slog::Key, value: T) -> slog::Result {
+        self.push_before_value(key.as_str());
         self.push_delimiter();
 
         let mut buffer = ryu::Buffer::new();
@@ -235,7 +235,7 @@ impl Serializer for FormatterKv<'_> {
     }
 
     fn emit_bool(&mut self, key: slog::Key, value: bool) -> slog::Result {
-        self.push_before_value(key);
+        self.push_before_value(key.as_str());
 
         if value {
             self.0.extend_from_slice(b"=true");
@@ -246,7 +246,7 @@ impl Serializer for FormatterKv<'_> {
     }
 
     fn emit_char(&mut self, key: slog::Key, value: char) -> slog::Result {
-        self.push_before_value(key);
+        self.push_before_value(key.as_str());
         self.push_delimiter();
 
         self.push_quote();
@@ -260,7 +260,7 @@ impl Serializer for FormatterKv<'_> {
     }
 
     fn emit_str(&mut self, key: slog::Key, value: &str) -> slog::Result {
-        self.push_before_value(key);
+        self.push_before_value(key.as_str());
         self.push_delimiter();
 
         self.push_quote();
@@ -326,7 +326,7 @@ mod tests {
     fn format_u8() {
         let mut vec = Vec::new();
         let mut kv_formatter = FormatterKv(&mut vec);
-        kv_formatter.emit_u8("a-key", 8u8).unwrap();
+        kv_formatter.emit_u8("a-key".into(), 8u8).unwrap();
         assert_eq!(std::str::from_utf8(&vec).unwrap(), ", a-key=8");
     }
 
@@ -334,7 +334,7 @@ mod tests {
     fn format_f32() {
         let mut vec = Vec::new();
         let mut kv_formatter = FormatterKv(&mut vec);
-        kv_formatter.emit_f32("a-key", 1.1f32).unwrap();
+        kv_formatter.emit_f32("a-key".into(), 1.1f32).unwrap();
         assert_eq!(std::str::from_utf8(&vec).unwrap(), ", a-key=1.1");
     }
 
@@ -342,7 +342,7 @@ mod tests {
     fn format_bool() {
         let mut vec = Vec::new();
         let mut kv_formatter = FormatterKv(&mut vec);
-        kv_formatter.emit_bool("a-key", true).unwrap();
+        kv_formatter.emit_bool("a-key".into(), true).unwrap();
         assert_eq!(std::str::from_utf8(&vec).unwrap(), ", a-key=true");
     }
 
@@ -352,7 +352,7 @@ mod tests {
         let mut kv_formatter = FormatterKv(&mut vec);
         let v = "value";
         kv_formatter
-            .emit_arguments("a-key", &format_args!("a-{v}"))
+            .emit_arguments("a-key".into(), &format_args!("a-{v}"))
             .unwrap();
         assert_eq!(std::str::from_utf8(&vec).unwrap(), ", a-key=\"a-value\"");
     }

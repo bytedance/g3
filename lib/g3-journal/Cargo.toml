@@ -8,7 +8,7 @@ edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-slog = { workspace = true, features = ["nested-values"] }
+slog.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 rustix = { workspace = true, features = ["std", "fs", "net"] }

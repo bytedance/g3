@@ -30,7 +30,7 @@ bytes.workspace = true
 chrono = { workspace = true, features = ["clock"] }
 uuid = { workspace = true, features = ["v4"] }
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
-slog = { workspace = true, features = ["nested-values", "max_level_trace", "release_max_level_debug"] }
+slog = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 percent-encoding.workspace = true
 url.workspace = true
 http.workspace = true
