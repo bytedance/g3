@@ -53,7 +53,7 @@ impl WorkerStore {
                 break;
             }
 
-            while let Some(cmd) = buffer.pop() {
+            for cmd in buffer.drain(..) {
                 match cmd {
                     Command::Add(record) => self.add_record(record),
                     Command::Sync(semaphore) => {
