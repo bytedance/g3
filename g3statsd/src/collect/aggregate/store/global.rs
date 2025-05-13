@@ -118,7 +118,7 @@ impl GlobalStore {
     }
 
     fn handle_cmd(&mut self, buffer: &mut Vec<Command>) {
-        while let Some(cmd) = buffer.pop() {
+        for cmd in buffer.drain(..) {
             match cmd {
                 Command::Add(record) => self.add_record(record),
                 Command::Sync(_) => unreachable!(),

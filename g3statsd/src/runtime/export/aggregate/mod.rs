@@ -110,7 +110,7 @@ impl<T: AggregateExport> AggregateExportRuntime<T> {
                         break;
                     }
 
-                    while let Some((_time, record)) = buf.pop() {
+                    for (_time, record) in buf.drain(..) {
                         self.add_record(record);
                     }
                 }

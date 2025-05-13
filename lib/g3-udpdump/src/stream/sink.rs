@@ -40,7 +40,7 @@ impl Sinker {
                 break;
             }
 
-            if let Err(e) = self.send_udp(&buf[0..nr]).await {
+            if let Err(e) = self.send_udp(&buf).await {
                 trace!("stream dump udp send error: {e}");
             }
             buf.clear();

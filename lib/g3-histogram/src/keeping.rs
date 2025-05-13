@@ -100,7 +100,7 @@ where
                 if count == 0 {
                     break;
                 }
-                for v in buf.iter().take(count) {
+                for v in &buf {
                     let _ = self.inner.record(v.as_u64());
                 }
                 buf.clear();
