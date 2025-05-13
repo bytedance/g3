@@ -718,7 +718,7 @@ mod tests {
 
         let c_sock = UdpSocket::bind("127.0.0.1:0").await.unwrap();
         let c_addr = c_sock.local_addr().unwrap();
-        c_sock.connect(&s_addr).await.unwrap();
+        c_sock.connect(&target_s_addr).await.unwrap();
 
         let msg_1 = b"abcd";
         let msg_2 = b"test";
@@ -788,7 +788,7 @@ mod tests {
 
         let c_sock = UdpSocket::bind("[::1]:0").await.unwrap();
         let c_addr = c_sock.local_addr().unwrap();
-        c_sock.connect(&s_addr).await.unwrap();
+        c_sock.connect(&target_s_addr).await.unwrap();
 
         let msg_1 = b"abcd";
         let msg_2 = b"test";
