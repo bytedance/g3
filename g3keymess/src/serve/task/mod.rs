@@ -15,6 +15,7 @@
  */
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use openssl::pkey::{PKey, Private};
@@ -27,6 +28,7 @@ use uuid::Uuid;
 use g3_daemon::server::ClientConnectionInfo;
 use g3_histogram::HistogramRecorder;
 use g3_slog_types::{LtDateTime, LtUuid};
+use g3_types::ext::DurationExt;
 
 use crate::config::server::KeyServerConfig;
 use crate::protocol::{KeylessAction, KeylessErrorResponse, KeylessRequest, KeylessResponse};
@@ -38,31 +40,50 @@ use crate::serve::{
 mod multiplex;
 mod simplex;
 
-pub(crate) struct WrappedKeylessResponse {
-    pub(crate) inner: KeylessResponse,
+#[derive(Clone)]
+pub(crate) struct RequestProcessContext {
+    pub(crate) msg_id: u32,
     create_time: Instant,
+    pub(crate) create_datetime: DateTime<Utc>,
     duration_recorder: Arc<HistogramRecorder<u64>>,
 }
 
-impl WrappedKeylessResponse {
-    pub(crate) fn new(
-        inner: KeylessResponse,
-        create_time: Instant,
-        duration_recorder: Arc<HistogramRecorder<u64>>,
-    ) -> Self {
-        WrappedKeylessResponse {
-            inner,
-            create_time,
+impl RequestProcessContext {
+    fn new(msg_id: u32, duration_recorder: Arc<HistogramRecorder<u64>>) -> Self {
+        RequestProcessContext {
+            msg_id,
+            create_time: Instant::now(),
+            create_datetime: Utc::now(),
             duration_recorder,
         }
+    }
+
+    fn record_duration_stats(&self) {
+        let _ = self
+            .duration_recorder
+            .record(self.duration().as_nanos_u64());
+    }
+
+    pub(crate) fn duration(&self) -> Duration {
+        self.create_time.elapsed()
+    }
+}
+
+pub(crate) struct WrappedKeylessResponse {
+    inner: KeylessResponse,
+    ctx: RequestProcessContext,
+}
+
+impl WrappedKeylessResponse {
+    pub(crate) fn new(inner: KeylessResponse, ctx: RequestProcessContext) -> Self {
+        WrappedKeylessResponse { inner, ctx }
     }
 }
 
 pub(crate) struct WrappedKeylessRequest {
     pub(crate) inner: KeylessRequest,
     pub(crate) stats: Arc<KeyServerRequestStats>,
-    duration_recorder: Arc<HistogramRecorder<u64>>,
-    create_time: Instant,
+    ctx: RequestProcessContext,
     err_rsp: Option<KeylessErrorResponse>,
     server_sem_permit: Option<OwnedSemaphorePermit>,
 }
@@ -103,11 +124,11 @@ impl WrappedKeylessRequest {
         };
         stats.add_total();
         stats.inc_alive();
+        let ctx = RequestProcessContext::new(req.id, duration_recorder);
         WrappedKeylessRequest {
             inner: req,
             stats,
-            duration_recorder,
-            create_time: Instant::now(),
+            ctx,
             err_rsp,
             server_sem_permit: None,
         }
@@ -131,7 +152,7 @@ impl WrappedKeylessRequest {
     }
 
     pub(crate) fn build_response(&self, rsp: KeylessResponse) -> WrappedKeylessResponse {
-        WrappedKeylessResponse::new(rsp, self.create_time, self.duration_recorder.clone())
+        WrappedKeylessResponse::new(rsp, self.ctx.clone())
     }
 }
 

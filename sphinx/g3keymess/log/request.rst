@@ -28,3 +28,19 @@ msg_id
 **required**, **type**: usize string
 
 The msg id field in the request.
+
+create_at
+---------
+
+**required**, **type**: rfc3339 timestamp string with microseconds
+
+The create datetime of this request.
+
+.. _log_request_process_time:
+
+process_time
+------------
+
+**required**, **type**: time duration string
+
+The time spend to process this request.
