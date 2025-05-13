@@ -36,6 +36,8 @@ create_at
 
 The create datetime of this request.
 
+.. versionadded:: 0.4.2
+
 .. _log_request_process_time:
 
 process_time
@@ -44,3 +46,5 @@ process_time
 **required**, **type**: time duration string
 
 The time spend to process this request.
+
+.. versionadded:: 0.4.2
