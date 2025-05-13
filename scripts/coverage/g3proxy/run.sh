@@ -35,6 +35,14 @@ g3proxy_ftp()
 
 set -x
 
+for dir in $(ls "${PROJECT_DIR}"/g3proxy/examples)
+do
+	example_dir="${PROJECT_DIR}/g3proxy/examples/${dir}"
+	[ -d "${example_dir}" ] || continue
+
+	"${PROJECT_DIR}"/target/debug/g3proxy -c "${example_dir}" -t
+done
+
 for dir in $(find "${RUN_DIR}/" -type d | sort)
 do
 	[ -f "${dir}/g3proxy.yaml" ] || continue

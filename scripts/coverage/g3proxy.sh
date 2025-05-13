@@ -13,10 +13,6 @@ TEST_NAME="g3proxy-ci"
 cargo build -p g3proxy -p g3proxy-ctl -p g3proxy-ftp -p g3mkcert -p g3fcgen -p g3iploc -p g3statsd
 
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
-
-# run the tests
-cargo test --all
-
 all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
 
 # run g3proxy tests
@@ -42,5 +38,4 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
 
 echo "==== Coverage for all ===="
 cargo cov -- report --use-color --instr-profile="${PROF_DATA_FILE}" ${IGNORE_FLAGS} ${all_binaries} ${all_objects}
-
 cargo cov -- export --format=lcov --instr-profile="${PROF_DATA_FILE}" ${IGNORE_FLAGS} ${all_binaries} ${all_objects} > output.lcov

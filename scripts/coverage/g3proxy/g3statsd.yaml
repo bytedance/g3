@@ -9,6 +9,7 @@ importer:
     type: statsd
     collector: aggregate_1s
     listen: 127.0.0.1:8125
+    listen_in_worker: true
 
 collector:
   - name: aggregate_1s

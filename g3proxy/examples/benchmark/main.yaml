@@ -16,7 +16,6 @@ escaper:
     resolver: default
     resolve_strategy:
       query: Ipv6Only
-    bind_ip: fdbd:dc09:0:611::91
     egress_network_filter:
       default: forbid
       allow:
