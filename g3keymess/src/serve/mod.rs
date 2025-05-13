@@ -28,7 +28,7 @@ pub(crate) use server::KeyServer;
 
 mod task;
 use task::{KeylessTask, KeylessTaskContext};
-pub(crate) use task::{WrappedKeylessRequest, WrappedKeylessResponse};
+pub(crate) use task::{RequestProcessContext, WrappedKeylessRequest, WrappedKeylessResponse};
 
 mod runtime;
 use runtime::KeyServerRuntime;

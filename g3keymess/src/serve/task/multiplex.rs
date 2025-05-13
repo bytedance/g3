@@ -19,7 +19,6 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::{broadcast, mpsc};
 
 use g3_io_ext::LimitedBufReadExt;
-use g3_types::ext::DurationExt;
 
 use super::{KeylessTask, WrappedKeylessRequest, WrappedKeylessResponse};
 use crate::backend::DispatchedKeylessRequest;
@@ -42,11 +41,9 @@ impl KeylessTask {
             let mut write_error: Result<(), ServerTaskError> = Ok(());
 
             'outer: while let Some(rsp) = msg_receiver.recv().await {
-                let _ = rsp
-                    .duration_recorder
-                    .record(rsp.create_time.elapsed().as_nanos_u64());
+                rsp.ctx.record_duration_stats();
                 if let Some(logger) = &request_logger {
-                    RequestErrorLogContext { task_id: &task_id }.log(logger, &rsp.inner);
+                    RequestErrorLogContext { task_id: &task_id }.log(logger, &rsp.ctx, &rsp.inner);
                 }
                 if let Err(e) = writer.write_all(rsp.inner.message()).await {
                     write_error = Err(ServerTaskError::WriteFailed(e));
@@ -54,11 +51,10 @@ impl KeylessTask {
                 }
 
                 while let Ok(rsp) = msg_receiver.try_recv() {
-                    let _ = rsp
-                        .duration_recorder
-                        .record(rsp.create_time.elapsed().as_nanos_u64());
+                    rsp.ctx.record_duration_stats();
                     if let Some(logger) = &request_logger {
-                        RequestErrorLogContext { task_id: &task_id }.log(logger, &rsp.inner);
+                        RequestErrorLogContext { task_id: &task_id }
+                            .log(logger, &rsp.ctx, &rsp.inner);
                     }
                     if let Err(e) = writer.write_all(rsp.inner.message()).await {
                         write_error = Err(ServerTaskError::WriteFailed(e));
