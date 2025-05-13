@@ -4,7 +4,7 @@ After=syslog.target network-online.target
 Wants=network-online.target
 
 [Service]
-Type=simple
+Type=exec
 RuntimeDirectory=g3tiles
 RuntimeDirectoryPreserve=yes
 EnvironmentFile=-/etc/g3tiles/%i/env
