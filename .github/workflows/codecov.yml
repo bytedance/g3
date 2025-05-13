@@ -234,3 +234,56 @@ jobs:
           name: g3bench-all-test
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: false
+  g3statsd-test:
+    name: g3statsd test
+    runs-on: ubuntu-latest
+    services:
+      influxdb:
+        image: influxdb:3-core
+        env:
+          INFLUXDB3_NODE_IDENTIFIER_PREFIX: local
+          INFLUXDB3_OBJECT_STORE: memory
+        ports:
+          - 8181:8181
+      graphite:
+        image: graphiteapp/graphite-statsd:latest
+        ports:
+          - 2003:2003
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0 # v1
+        with:
+          toolchain: stable
+          components: llvm-tools
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto
+      - name: Install binutils
+        run: |
+          cargo install cargo-binutils
+      - name: Install netcat-openbsd
+        run: |
+          sudo apt-get install netcat-openbsd
+      - name: Install and run fluent-bit
+        run: |
+          sudo curl https://raw.githubusercontent.com/fluent/fluent-bit/master/install.sh | sh
+          sudo cp ${{ github.workspace }}/scripts/coverage/g3proxy/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf
+          sudo systemctl start fluent-bit
+      - name: run unit test
+        run: |
+          ./scripts/coverage/g3statsd.sh
+      - name: Upload coverage data
+        uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: true
+          disable_search: true
+          files: output.lcov
+          flags: g3statsd
+          name: g3statsd-all-test
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: false
