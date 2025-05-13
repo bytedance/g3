@@ -42,6 +42,7 @@ pub struct TcpListenConfig {
         target_os = "solaris"
     ))]
     interface: Option<Interface>,
+    #[cfg(not(target_os = "openbsd"))]
     ipv6only: Option<bool>,
     #[cfg(target_os = "linux")]
     transparent: bool,
@@ -71,6 +72,7 @@ impl TcpListenConfig {
                 target_os = "solaris"
             ))]
             interface: None,
+            #[cfg(not(target_os = "openbsd"))]
             ipv6only: None,
             #[cfg(target_os = "linux")]
             transparent: false,
@@ -108,6 +110,7 @@ impl TcpListenConfig {
         self.interface.as_ref()
     }
 
+    #[cfg(not(target_os = "openbsd"))]
     #[inline]
     pub fn is_ipv6only(&self) -> Option<bool> {
         self.ipv6only
@@ -157,6 +160,7 @@ impl TcpListenConfig {
         self.address.set_port(port);
     }
 
+    #[cfg(not(target_os = "openbsd"))]
     #[inline]
     pub fn set_ipv6_only(&mut self, ipv6only: bool) {
         self.ipv6only = Some(ipv6only);

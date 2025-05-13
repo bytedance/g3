@@ -114,6 +114,8 @@ pub fn new_std_bind_listen(config: &UdpListenConfig) -> io::Result<UdpSocket> {
     let family = AddressFamily::from(&addr);
     let socket = new_udp_socket(family, config.socket_buffer())?;
     super::listen::set_addr_reuse(&socket, addr)?;
+    // OpenBSD is always ipv6-only
+    #[cfg(not(target_os = "openbsd"))]
     if let Some(enable) = config.is_ipv6only() {
         super::listen::set_only_v6(&socket, addr, enable)?;
     }
@@ -141,6 +143,8 @@ pub fn new_std_bind_listen(config: &UdpListenConfig) -> io::Result<UdpSocket> {
 pub fn new_std_rebind_listen(config: &UdpListenConfig, addr: SocketAddr) -> io::Result<UdpSocket> {
     let socket = new_udp_socket(AddressFamily::from(&addr), config.socket_buffer())?;
     super::listen::set_addr_reuse(&socket, addr)?;
+    // OpenBSD is always ipv6-only
+    #[cfg(not(target_os = "openbsd"))]
     if let Some(enable) = config.is_ipv6only() {
         super::listen::set_only_v6(&socket, addr, enable)?;
     }
@@ -243,6 +247,7 @@ mod tests {
         }
     }
 
+    #[cfg(not(target_os = "openbsd"))]
     #[test]
     fn listen() {
         let mut config = UdpListenConfig::default();
@@ -269,6 +274,25 @@ mod tests {
 
         config.set_socket_address(SocketAddr::from_str("0.0.0.0:0").unwrap());
         config.set_ipv6_only(false);
+        let socket = new_std_bind_listen(&config).unwrap();
+        let local_addr = socket.local_addr().unwrap();
+        assert_ne!(local_addr.port(), 0);
+        assert!(local_addr.ip().is_unspecified());
+        drop(socket);
+    }
+
+    #[cfg(target_os = "openbsd")]
+    #[test]
+    fn listen() {
+        let mut config = UdpListenConfig::default();
+
+        let socket = new_std_bind_listen(&config).unwrap();
+        let local_addr = socket.local_addr().unwrap();
+        assert_ne!(local_addr.port(), 0);
+        assert!(local_addr.ip().is_unspecified());
+        drop(socket);
+
+        config.set_socket_address(SocketAddr::from_str("0.0.0.0:0").unwrap());
         let socket = new_std_bind_listen(&config).unwrap();
         let local_addr = socket.local_addr().unwrap();
         assert_ne!(local_addr.port(), 0);

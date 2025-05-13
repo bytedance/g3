@@ -31,6 +31,8 @@ pub fn new_std_listener(config: &TcpListenConfig) -> io::Result<std::net::TcpLis
     let family = AddressFamily::from(&addr);
     let socket = new_tcp_socket(family)?;
     super::listen::set_addr_reuse(&socket, addr)?;
+    // OpenBSD is always ipv6-only
+    #[cfg(not(target_os = "openbsd"))]
     if let Some(enable) = config.is_ipv6only() {
         super::listen::set_only_v6(&socket, addr, enable)?;
     }

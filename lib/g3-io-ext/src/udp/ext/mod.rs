@@ -237,6 +237,7 @@ mod tests {
     #[tokio::test]
     async fn recv_ancillary_v6() {
         let mut listen_config = UdpListenConfig::new(SocketAddr::from_str("[::]:0").unwrap());
+        #[cfg(not(target_os = "openbsd"))]
         listen_config.set_ipv6_only(true);
         let s_sock = g3_socket::udp::new_std_bind_listen(&listen_config).unwrap();
         let s_sock = UdpSocket::from_std(s_sock).unwrap();
@@ -268,6 +269,7 @@ mod tests {
         assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
     }
 
+    #[cfg(not(target_os = "openbsd"))]
     #[tokio::test]
     async fn recv_ancillary_mapped_v4() {
         let mut listen_config = UdpListenConfig::new(SocketAddr::from_str("[::]:0").unwrap());

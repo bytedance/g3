@@ -40,6 +40,7 @@ pub struct UdpListenConfig {
         target_os = "solaris"
     ))]
     interface: Option<Interface>,
+    #[cfg(not(target_os = "openbsd"))]
     ipv6only: Option<bool>,
     buf_conf: SocketBufferConfig,
     misc_opts: UdpMiscSockOpts,
@@ -65,6 +66,7 @@ impl UdpListenConfig {
                 target_os = "solaris"
             ))]
             interface: None,
+            #[cfg(not(target_os = "openbsd"))]
             ipv6only: None,
             buf_conf: SocketBufferConfig::default(),
             misc_opts: UdpMiscSockOpts::default(),
@@ -116,6 +118,7 @@ impl UdpListenConfig {
         self.misc_opts
     }
 
+    #[cfg(not(target_os = "openbsd"))]
     #[inline]
     pub fn is_ipv6only(&self) -> Option<bool> {
         self.ipv6only
@@ -158,6 +161,7 @@ impl UdpListenConfig {
         self.address.set_port(port);
     }
 
+    #[cfg(not(target_os = "openbsd"))]
     #[inline]
     pub fn set_ipv6_only(&mut self, ipv6only: bool) {
         self.ipv6only = Some(ipv6only);
