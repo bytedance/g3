@@ -44,23 +44,20 @@ G3项目包含许多应用，每一个应用程序单独一个子目录，包含
 - 丰富的监控指标，包括入口/出口/用户/用户站点维度
 - 多种日志 & 监控解决方案集成能力
 
-详细功能介绍及用户指南请看 [g3proxy](g3proxy/README.md)。
-
-可在 [Read the Docs](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/) 线上查看使用sphinx生成的g3proxy参考文档，
-包括详细配置格式、日志格式、监控打点定义、协议定义等。
+[详细介绍](g3proxy/README.md) | [用户指南](g3proxy/UserGuide.zh_CN.md) |
+[参考文档](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/)
 
 ### g3tiles
 
 通用反向代理解决方案，开发中。
 
-可在 [Read the Docs](https://g3-project.readthedocs.io/projects/g3tiles/en/latest/) 线上查看使用sphinx生成的g3tiles参考文档，
-包括详细配置格式、日志格式、监控打点定义等。
+[参考文档](https://g3-project.readthedocs.io/projects/g3tiles/en/latest/)
 
 ### g3bench
 
 压测工具，支持 HTTP/1.x、HTTP/2、HTTP/3、TLS握手、DNS、Cloudflare Keyless 。
 
-更多详情参考 [g3bench](g3bench/README.md)。
+[详细介绍](g3bench/README.md)
 
 ### g3mkcert
 
@@ -77,6 +74,9 @@ G3项目包含许多应用，每一个应用程序单独一个子目录，包含
 ### g3keymess
 
 Cloudflare Keyless Server的简单实现。
+
+[详细介绍](g3keymess/README.md) |
+[参考文档](https://g3-project.readthedocs.io/projects/g3keymess/en/latest/)
 
 ## 支持平台
 
