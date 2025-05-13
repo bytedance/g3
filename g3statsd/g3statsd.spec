@@ -54,5 +54,5 @@ install -m 644 -D %{name}/service/g3statsd@.service %{buildroot}/lib/systemd/sys
 
 
 %changelog
-* Mon May 12 2025 G3statsd Maintainers <g3statsd-maintainers@devel.machine> - 0.1.0-1
+* Tue May 13 2025 G3statsd Maintainers <g3statsd-maintainers@devel.machine> - 0.1.0-1
 - New upstream release
