@@ -109,6 +109,7 @@ pub fn as_tcp_listen_config(value: &Yaml) -> anyhow::Result<TcpListenConfig> {
                     config.set_backlog(backlog);
                     Ok(())
                 }
+                #[cfg(not(target_os = "openbsd"))]
                 "ipv6only" | "ipv6_only" => {
                     let ipv6only = crate::value::as_bool(v)
                         .context(format!("invalid bool value for key {k}"))?;

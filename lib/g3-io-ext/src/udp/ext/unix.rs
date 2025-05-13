@@ -777,6 +777,7 @@ mod tests {
     #[tokio::test]
     async fn recv_ancillary_v6() {
         let mut listen_config = UdpListenConfig::new(SocketAddr::from_str("[::]:0").unwrap());
+        #[cfg(not(target_os = "openbsd"))]
         listen_config.set_ipv6_only(true);
         let s_sock = g3_socket::udp::new_std_bind_listen(&listen_config).unwrap();
         let s_sock = UdpSocket::from_std(s_sock).unwrap();
@@ -839,7 +840,6 @@ mod tests {
         target_os = "android",
         target_os = "freebsd",
         target_os = "netbsd",
-        target_os = "openbsd",
         target_os = "macos",
         target_os = "solaris",
     ))]

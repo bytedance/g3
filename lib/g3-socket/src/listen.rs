@@ -35,6 +35,7 @@ pub(super) fn set_addr_reuse(socket: &Socket, addr: SocketAddr) -> io::Result<()
     Ok(())
 }
 
+#[cfg(not(target_os = "openbsd"))]
 pub(super) fn set_only_v6(socket: &Socket, addr: SocketAddr, enable: bool) -> io::Result<()> {
     match addr.ip() {
         IpAddr::V4(_) => Ok(()),
