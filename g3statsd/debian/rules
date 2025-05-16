@@ -17,10 +17,8 @@ override_dh_auto_build:
 	    --package g3statsd --package g3statsd-ctl
 
 override_dh_auto_install:
-	dh_auto_install
 	install -m 755 -D target/$(BUILD_PROFILE)/g3statsd debian/tmp/usr/bin/g3statsd
 	install -m 755 -D target/$(BUILD_PROFILE)/g3statsd-ctl debian/tmp/usr/bin/g3statsd-ctl
 
 override_dh_installchangelogs:
 	dh_installchangelogs $(PACKAGE_NAME)/CHANGELOG
-

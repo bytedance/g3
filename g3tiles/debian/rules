@@ -19,10 +19,8 @@ override_dh_auto_build:
 	    --package g3tiles --package g3tiles-ctl
 
 override_dh_auto_install:
-	dh_auto_install
 	install -m 755 -D target/$(BUILD_PROFILE)/g3tiles debian/tmp/usr/bin/g3tiles
 	install -m 755 -D target/$(BUILD_PROFILE)/g3tiles-ctl debian/tmp/usr/bin/g3tiles-ctl
 
 override_dh_installchangelogs:
 	dh_installchangelogs $(PACKAGE_NAME)/CHANGELOG
-

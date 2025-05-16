@@ -19,10 +19,8 @@ override_dh_auto_build:
 	    --package g3fcgen
 
 override_dh_auto_install:
-	dh_auto_install
 	install -m 755 -D target/$(BUILD_PROFILE)/g3fcgen debian/tmp/usr/bin/g3fcgen
 	install -m 644 -D $(PACKAGE_NAME)/service/g3fcgen@.service debian/tmp/lib/systemd/system/g3fcgen@.service
 
 override_dh_installchangelogs:
 	dh_installchangelogs $(PACKAGE_NAME)/CHANGELOG
-
