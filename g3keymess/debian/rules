@@ -19,7 +19,6 @@ override_dh_auto_build:
 	    --package g3keymess --package g3keymess-ctl
 
 override_dh_auto_install:
-	dh_auto_install
 	install -m 755 -D target/$(BUILD_PROFILE)/g3keymess debian/tmp/usr/bin/g3keymess
 	install -m 755 -D target/$(BUILD_PROFILE)/g3keymess-ctl debian/tmp/usr/bin/g3keymess-ctl
 

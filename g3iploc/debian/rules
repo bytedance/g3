@@ -17,7 +17,6 @@ override_dh_auto_build:
 	    --package g3iploc --package g3iploc-db
 
 override_dh_auto_install:
-	dh_auto_install
 	install -m 755 -D target/$(BUILD_PROFILE)/g3iploc debian/tmp/usr/bin/g3iploc
 	install -m 755 -D target/$(BUILD_PROFILE)/g3iploc-db debian/tmp/usr/bin/g3iploc-db
 
