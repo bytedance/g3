@@ -15,6 +15,9 @@ multiproject_projects = {
     "g3tiles": {
         "path": "g3tiles",
     },
+    "g3statsd": {
+        "path": "g3statsd",
+    },
     "g3keymess": {
         "path": "g3keymess",
     },

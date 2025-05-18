@@ -41,3 +41,35 @@ A match object can contains one or more T(s), which means the yaml type for this
 or a sequence of T.
 
 Only a single T is allowed for each match rules, including the default one.
+
+.. _conf_value_alpn_matched_object:
+
+ALPN Matched Object
+===================
+
+**yaml value**: map | seq of map
+
+This set a ALPN based match object for generic type T, which will be specified in the real config options.
+
+The yaml value for T will be a map, but with the following keys as reserved as they are used by the match rules:
+
+* protocol
+
+  **optional**, **type**: ALPN protocol str
+
+  Match if this is the exact ALPN protocol.
+
+* set_default
+
+  **optional**, **type**: bool
+
+  If true, also set this T as default value
+
+  **default**: false
+
+If none of the above keys found, the parsed T value will also be used as the default value.
+
+A match object can contains one or more T(s), which means the yaml type for this object could be a single T,
+or a sequence of T.
+
+Only a single T is allowed for each match rules, including the default one.

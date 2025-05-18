@@ -37,7 +37,7 @@ Each rule is in *map* format, with the following keys:
 
 * next
 
-  **required**, **type**: str
+  **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
   Set the next escaper.
 

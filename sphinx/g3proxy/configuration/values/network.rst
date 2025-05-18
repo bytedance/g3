@@ -280,6 +280,16 @@ It consists of the following fields:
 
   **default**: [::]:0, which has empty port
 
+* interface
+
+  **optional**: **type**: :ref:`interface name <conf_value_interface_name>`
+
+  Bind the outgoing socket to a particular device like “eth0”.
+
+  **default**: not set
+
+  .. versionadded:: 1.11.6
+
 * backlog
 
   **optional**, **type**: unsigned int
@@ -421,6 +431,16 @@ It consists of the following fields:
   Set the listen socket address.
 
   **default**: [::]:0, which has empty port
+
+* interface
+
+  **optional**: **type**: :ref:`interface name <conf_value_interface_name>`
+
+  Bind the outgoing socket to a particular device like “eth0”.
+
+  **default**: not set
+
+  .. versionadded:: 1.11.6
 
 * ipv6_only
 

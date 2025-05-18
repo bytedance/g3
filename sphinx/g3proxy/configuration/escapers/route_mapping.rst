@@ -18,7 +18,7 @@ No common keys are supported.
 next
 ----
 
-**required**, **type**: seq
+**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
 This set all the next escapers. Each element should be the name of the target float escaper.
 

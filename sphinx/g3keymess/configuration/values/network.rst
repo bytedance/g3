@@ -45,6 +45,15 @@ ip addr str
 
 The string should be in *<ip>* format.
 
+.. _conf_value_interface_name:
+
+interface name
+==============
+
+**yaml value**: str | u32
+
+The string should be a network interface name or index.
+
 .. _conf_value_host:
 
 host
@@ -70,6 +79,16 @@ It consists of the following fields:
   Set the listen socket address.
 
   **default**: [::]:0, which has empty port
+
+* interface
+
+  **optional**: **type**: :ref:`interface name <conf_value_interface_name>`
+
+  Bind the outgoing socket to a particular device like “eth0”.
+
+  **default**: not set
+
+  .. versionadded:: 0.4.2
 
 * backlog
 

@@ -14,14 +14,14 @@ No common keys are supported.
 fallback_node
 -------------
 
-**required**, **type**: string
+**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
 Set the fallback escaper name.
 
 query_allowed_next
 ------------------
 
-**required**, **type**: seq
+**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
 Set all the next escapers those are allowed to use in the query result. Each element should be the next escaper name.
 If the selected escaper name is not found in this list, the fallback escaper will be used.

@@ -125,7 +125,7 @@ This set the config for a OpenSSl virtual host.
 name
 """"
 
-**required**, **type**: :ref:`metrics name <conf_value_metrics_name>`
+**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
 Set the name of this virtual host.
 
@@ -242,5 +242,58 @@ This will overwrite the server level :ref:`task_idle_max_count <conf_server_comm
 
 **default**: not set
 
+.. _conf_server_openssl_proxy_host_backend:
+
 backends
 """"""""
+
+**required**, **type**: :ref:`alpn matched object <conf_value_alpn_matched_object>` <:ref:`backend <configuration_server_openssl_proxy_backend>`>
+
+Set the list of backends we should handle based on ALPN match rules.
+
+Example:
+
+- A single ALPN value:
+
+  .. code-block:: yaml
+
+    backends:
+      protocol: HTTP/1.1
+      backend: foo
+
+- Two single ALPN values:
+
+  .. code-block:: yaml
+
+    backends:
+      - protocol: HTTP/1.1
+        backend: foo
+      - protocol: H2
+        backend: bar
+
+- No ALPN value:
+
+  .. code-block:: yaml
+
+    backends:
+      - foo
+
+**default**: not set
+
+.. _configuration_server_openssl_proxy_backend:
+
+Backend
+^^^^^^^
+
+This is the backend config to be used in :ref:`host backends <conf_server_openssl_proxy_host_backend>`.
+
+It can be a map value, the keys are:
+
+backend
+"""""""
+
+**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
+
+Set the name of the backend to use.
+
+It can also be written as a :ref:`metric node name <conf_value_metric_node_name>` value when needed.

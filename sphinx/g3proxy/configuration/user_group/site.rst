@@ -14,7 +14,7 @@ site level config.
 id
 --
 
-**required**, **type**: :ref:`metrics name <conf_value_metrics_name>`
+**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
 Each site should have an ID, and it will be used in metrics name if enabled.
 

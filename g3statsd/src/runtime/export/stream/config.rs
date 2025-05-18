@@ -54,7 +54,7 @@ impl StreamExportConfig {
 
     pub(crate) fn set_by_yaml_kv(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
-            "server" => {
+            "host" | "server" => {
                 self.server = g3_yaml::value::as_host(v)?;
                 Ok(())
             }

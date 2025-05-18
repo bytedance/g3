@@ -24,11 +24,9 @@ No common keys are supported.
 next_nodes
 ----------
 
-**required**, **type**: string | seq
+**required**, **type**: :ref:`weighted metric node name <conf_value_weighted_metric_node_name>` | seq
 
 Set the next escaper(s) those can be selected.
-
-For *seq* value, each of its element must be :ref:`weighted metrics name <conf_value_weighted_metrics_name>`.
 
 .. _conf_escaper_route_select_next_pick_policy:
 

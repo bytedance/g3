@@ -5,10 +5,10 @@
 Metrics
 *******
 
-.. _conf_value_metrics_value:
+.. _conf_value_metric_value:
 
-metrics value
-=============
+metric value
+============
 
 **yaml value**: limited str
 
@@ -20,6 +20,24 @@ The character range is the same as `OpenTSDB metrics-and-tags`_.
 
 .. _OpenTSDB metrics-and-tags: http://opentsdb.net/docs/build/html/user_guide/writing/index.html#metrics-and-tags
 
+.. _conf_value_metric_tag_name:
+
+metric tag name
+===============
+
+**yaml value**: :ref:`metric value <conf_value_metric_value>`
+
+Set a metric tag name, which should not be empty.
+
+.. _conf_value_metric_tag_value:
+
+metric tag value
+================
+
+**yaml value**: :ref:`metric value <conf_value_metric_value>`
+
+Set a metric tag value, which may be empty according to the context.
+
 .. _conf_value_static_metrics_tags:
 
 static metrics tags
@@ -27,25 +45,24 @@ static metrics tags
 
 **yaml value**: map
 
-This should be a map, each key will be the tag name, and it's value will be the tag value.
+The key should be :ref:`metric tag name <conf_value_metric_tag_name>`.
+The value should be :ref:`metric tag value <conf_value_metric_tag_value>`.
 
-The tag name and the tag value should be of type :ref:`metrics value <conf_value_metrics_value>`.
+.. _conf_value_metric_node_name:
 
-.. _conf_value_metrics_name:
+metric node name
+================
 
-metrics name
-============
-
-**yaml value**: :ref:`metrics value <conf_value_metrics_value>`
+**yaml value**: :ref:`metrics value <conf_value_metric_value>`
 
 The metrics name
 
-.. _conf_value_weighted_metrics_name:
+.. _conf_value_weighted_metric_node_name:
 
-weighted metrics name
-=====================
+weighted metric node name
+=========================
 
-**yaml value**: map | :ref:`metrics name <conf_value_metrics_name>`
+**yaml value**: map | :ref:`metric node name <conf_value_metric_node_name>`
 
 A metrics name with weight set, which make can be grouped into selective vector.
 
@@ -53,7 +70,7 @@ The map consists 2 fields:
 
 * name
 
-  **required**, **type**: :ref:`metrics name <conf_value_metrics_name>`
+  **required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
   The name. The meaning of the name is depending on the config context.
 
@@ -184,7 +201,7 @@ The key *unix* is just handled as *target_unix* as above.
 prefix
 ------
 
-**optional**, **type**: :ref:`metrics name <conf_value_metrics_name>`
+**optional**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
 Set the global prefix for all metrics.
 

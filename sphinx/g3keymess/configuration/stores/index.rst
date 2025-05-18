@@ -28,7 +28,7 @@ This section describes the common keys, they may be used by many stores.
 
 .. _conf_store_common_name:
 
-**required**, **type**: :ref:`metrics name <conf_value_metrics_name>`
+**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
 Set the name of the discover.
 
