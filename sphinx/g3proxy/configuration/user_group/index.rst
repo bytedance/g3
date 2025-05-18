@@ -6,8 +6,17 @@ User Group
 
 The type for each user group config is *map*, with two always required keys:
 
-* *name*, which specify the name of the user group.
-* *type*, which specify the real type of the user group, decides how to parse other keys.
+* name
+
+  **type**: :ref:`metric node name <conf_value_metric_node_name>`
+
+  The name of the user group.
+
+* type
+
+  **type**: str
+
+  The real type of the user group, decides how to parse other keys.
 
 For now, we only support *hashed_user* type of user group. We may add a *gss_api* type after sometime.
 

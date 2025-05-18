@@ -47,7 +47,7 @@ This section describes the common keys, they may be used by many escapers.
 name
 ----
 
-**required**, **type**: :ref:`metrics name <conf_value_metrics_name>`
+**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
 Set the name of the escaper.
 
@@ -76,7 +76,7 @@ Set the escaper to use a logger running on a shared thread.
 resolver
 --------
 
-**type**: str
+**type**: :ref:`metric node name <conf_value_metric_node_name>`
 
 Set the resolver to use for this escaper.
 
@@ -125,8 +125,6 @@ bind_interface
 **optional**: **type**: :ref:`interface name <conf_value_interface_name>`
 
 Bind the outgoing socket to a particular device like “eth0”.
-
-.. note:: This is only supported on Linux based OS.
 
 **default**: not set
 

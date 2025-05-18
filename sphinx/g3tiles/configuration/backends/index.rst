@@ -32,7 +32,7 @@ This section describes the common keys, they may be used by many backends.
 name
 ----
 
-**required**, **type**: :ref:`metrics name <conf_value_metrics_name>`
+**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
 Set the name of the backend.
 
@@ -50,7 +50,7 @@ Set the type of the backend.
 discover
 --------
 
-**required**, **type**: :ref:`metrics name <conf_value_metrics_name>`
+**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
 Set the discover that this backend should use.
 

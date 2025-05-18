@@ -68,6 +68,7 @@ fn load_doc(map: &yaml::Hash) -> anyhow::Result<()> {
     g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
         "runtime" => g3_daemon::runtime::config::load(v),
         "worker" => g3_daemon::runtime::config::load_worker(v),
+        "controller" => g3_daemon::control::config::load(v),
         "importer" => importer::load_all(v, conf_dir),
         "collector" => collector::load_all(v, conf_dir),
         "exporter" => exporter::load_all(v, conf_dir),

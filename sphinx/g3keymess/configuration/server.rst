@@ -9,7 +9,7 @@ The following keys are supported in a single keyless server:
 name
 ----
 
-**required**, **type**: :ref:`metrics name <conf_value_metrics_name>`
+**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
 Set the name of the server.
 

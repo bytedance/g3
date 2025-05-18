@@ -19,14 +19,14 @@ No common keys are supported.
 primary_next
 ------------
 
-**required**, **type**: str
+**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
 Set the primary next escaper to be used.
 
 standby_next
 ------------
 
-**required**, **type**: str
+**required**, **type**: :ref:`metric node name <conf_value_metric_node_name>`
 
 Set the standby next escaper to be used.
 

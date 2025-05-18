@@ -22,6 +22,7 @@ jobs:
           - g3proxy
           - g3tiles
           - g3keymess
+          - g3statsd
     steps:
       - uses: actions/checkout@v4
       - run: |
