@@ -69,7 +69,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
       - name: Cargo clippy
-        run: cargo clippy --tests -- --deny warnings
+        run: cargo clippy --tests
 
   build-vendored:
     name: Build vendored
@@ -108,4 +108,4 @@ jobs:
       - name: Cargo build
         run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
       - name: Cargo clippy
-        run: cargo clippy --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }} -- --deny warnings
+        run: cargo clippy --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}

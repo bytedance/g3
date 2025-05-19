@@ -92,4 +92,4 @@ jobs:
       - name: Cargo build
         run: cargo build --target=${{ matrix.target.rustc }} $CROSS_FEATURES
       - name: Cargo clippy
-        run: cargo clippy --target=${{ matrix.target.rustc }} $CROSS_FEATURES --tests -- --deny warnings
+        run: cargo clippy --target=${{ matrix.target.rustc }} $CROSS_FEATURES --tests

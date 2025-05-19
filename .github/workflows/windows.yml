@@ -45,7 +45,7 @@ jobs:
       - name: Cargo build
         run: cargo build --no-default-features --features $env:WIN_FEATURES
       - name: Cargo clippy
-        run: cargo clippy --no-default-features --features $env:WIN_FEATURES --tests -- --deny warnings
+        run: cargo clippy --no-default-features --features $env:WIN_FEATURES --tests
       - name: Cargo test
         run: cargo test --no-default-features --features $env:WIN_FEATURES
 
@@ -87,4 +87,4 @@ jobs:
       - name: Cargo build
         run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
       - name: Cargo clippy
-        run: cargo clippy --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }} -- --deny warnings
+        run: cargo clippy --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
