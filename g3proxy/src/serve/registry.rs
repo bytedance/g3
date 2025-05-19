@@ -166,18 +166,14 @@ pub(super) fn reload_and_respawn(
     name: &MetricsName,
     config: AnyServerConfig,
 ) -> anyhow::Result<()> {
-    let mut ht = RUNTIME_SERVER_REGISTRY.lock().unwrap();
-    let Some(old_server) = ht.get(name) else {
+    let Some(old_server) = get_server(name) else {
         return Err(anyhow!("no server with name {name} found"));
     };
 
     let server = old_server._reload_with_new_notifier(config)?;
     server._start_runtime(&server)?;
-    if let Some(old_server) = ht.insert(name.clone(), server) {
-        old_server._abort_runtime();
-        add_offline(old_server);
-    }
-    Ok(())
+
+    add(name.clone(), server)
 }
 
 pub(crate) fn foreach_online<F>(mut f: F)
