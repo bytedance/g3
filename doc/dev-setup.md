@@ -3,6 +3,10 @@ Dev-Setup
 
 # Toolchain
 
+The minimum required rust version now is 1.86.
+
+It is recommended to always using the lastest stable rust version.
+
 ## Install rustup
 
 See [rustup.rs](https://rustup.rs/) to install **rustup**.
