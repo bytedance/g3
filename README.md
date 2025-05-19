@@ -50,7 +50,7 @@ as we have basic support built in.
 [README](g3proxy/README.md) | [User Guide](g3proxy/UserGuide.en_US.md) |
 [Reference Doc](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/)
 
-#### g3statsd
+### g3statsd
 
 A StatsD compatible stats aggregator.
 

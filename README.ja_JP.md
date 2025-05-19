@@ -49,7 +49,7 @@ G3 プロジェクトは多数のアプリケーションで構成されてお�
 [詳細な紹介](g3proxy/README.md) | [ユーザーガイド](g3proxy/UserGuide.en_US.md) |
 [リファレンスドキュメント](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/)
 
-#### g3statsd
+### g3statsd
 
 StatsD互換の統計アグリゲータ。
 
