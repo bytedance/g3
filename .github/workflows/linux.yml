@@ -29,46 +29,46 @@ jobs:
     strategy:
       matrix:
         rust:
-        - 1.80.1
-        - stable
-        - beta
-        - nightly
+          - 1.80.1
+          - stable
+          - beta
+          - nightly
     steps:
-    - name: Checkout sources
-      uses: actions/checkout@v4
-      with:
-        submodules: true
-    - name: Install ${{ matrix.rust }} toolchain
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: ${{ matrix.rust }}
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
-    - name: Cargo build
-      run: cargo build
-    - name: Cargo test
-      run: cargo test --workspace --lib --examples
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install ${{ matrix.rust }} toolchain
+        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0 # v1
+        with:
+          toolchain: ${{ matrix.rust }}
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
+      - name: Cargo build
+        run: cargo build
+      - name: Cargo test
+        run: cargo test --workspace --lib --examples
 
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout sources
-      uses: actions/checkout@v4
-      with:
-        submodules: true
-    - name: Install stable toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        components: clippy
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
-    - name: Cargo clippy
-      run: cargo clippy --tests -- --deny warnings
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0 # v1
+        with:
+          components: clippy
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
+      - name: Cargo clippy
+        run: cargo clippy --tests -- --deny warnings
 
   build-vendored:
     name: Build vendored
@@ -96,7 +96,7 @@ jobs:
         with:
           submodules: true
       - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0 # v1
         with:
           components: clippy
       - name: Install dependencies

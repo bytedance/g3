@@ -32,7 +32,7 @@ jobs:
         with:
           submodules: true
       - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0 # v1
         with:
           components: clippy
       - name: Install dependencies
@@ -70,7 +70,7 @@ jobs:
         with:
           submodules: true
       - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0 # v1
         with:
           components: clippy
       - name: Install dependencies
