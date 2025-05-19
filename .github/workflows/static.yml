@@ -42,6 +42,7 @@ jobs:
       - name: Install stable toolchain
         uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0 # v1
         with:
+          toolchain: stable
           targets: x86_64-unknown-linux-musl
       - name: Install dependencies
         run: |
@@ -75,6 +76,7 @@ jobs:
       - name: Install rust toolchain
         uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0 # v1
         with:
+          toolchain: stable
           components: clippy
       - name: Cargo build
         run: cargo build --no-default-features --features ${{ matrix.feature }},quic,vendored-c-ares,hickory
