@@ -47,7 +47,7 @@ G3项目包含许多应用，每一个应用程序单独一个子目录，包含
 [详细介绍](g3proxy/README.md) | [用户指南](g3proxy/UserGuide.zh_CN.md) |
 [参考文档](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/)
 
-#### g3statsd
+### g3statsd
 
 StatsD兼容的监控打点指标聚合服务。
 
