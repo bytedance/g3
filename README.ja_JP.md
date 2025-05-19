@@ -46,26 +46,26 @@ G3 プロジェクトは多数のアプリケーションで構成されてお�
 - 豊富な監視メトリクス、入口/出口/ユーザー/ユーザーサイトレベルで
 - さまざまな観測ツールをサポート
 
-詳しい機能紹介とユーザーガイドは[g3proxy](g3proxy/README.md)をご覧ください。
+[詳細な紹介](g3proxy/README.md) | [ユーザーガイド](g3proxy/UserGuide.en_US.md) |
+[リファレンスドキュメント](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/)
 
-Sphinx を使用して生成された g3proxy リファレンス
-ドキュメントは、[Read the Docs](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/)
-でオンラインで参照できます。 詳細な設定形式、ログ形式、メトリクスの定義、メトリクスの定義などを含みます。
+#### g3statsd
+
+StatsD互換の統計アグリゲータ。
+
+[詳細な紹介](g3statsd/README.md) | [リファレンスドキュメント](https://g3-project.readthedocs.io/projects/g3statsd/en/latest/)
 
 ### g3tiles
 
 作業中のリバースプロキシソリューション。
 
-Sphinx を使用して生成された g3tiles リファレンス
-ドキュメントは、[Read the Docs](https://g3-project.readthedocs.io/projects/g3tiles/en/latest/)
-でオンラインで参照できます。
-詳細な設定形式、ログ形式、メトリクスの定義などを含みます。
+[リファレンスドキュメント](https://g3-project.readthedocs.io/projects/g3tiles/en/latest/)
 
 ### g3bench
 
 HTTP 1.x、HTTP 2、HTTP 3、TLSハンドシェイク、DNS、Cloudflare Keylessをサポートするベンチマークツール。
 
-詳細な紹介については、[g3bench](g3bench/README.md) を参照してください。
+[詳細な紹介](g3bench/README.md)
 
 ### g3mkcert
 
@@ -83,6 +83,9 @@ g3proxyのGeoIPサポートのためのIPロケーションルックアップサ
 
 Cloudflare keylessサーバーの簡単な実装。
 
+[詳細な紹介](g3keymess/README.md) |
+[リファレンスドキュメント](https://g3-project.readthedocs.io/projects/g3keymess/en/latest/)
+
 ## 対応プラットフォーム
 
 現在、完全にサポートされているのはLinuxのみです。コードはFreeBSD、NetBSD、macOS、Windowsでコンパイルされますが、そこでのテストは行っていません。
@@ -99,73 +102,7 @@ Cloudflare keylessサーバーの簡単な実装。
 
 ## リリースとパッケージング
 
-各アプリの各リリースには *\<name\>-v\<version\>* の形式でタグが設定されます。
-これらのタグを使用してソースtarballを生成できます。
-また、配布準備が整った各アプリにはdebおよびrpmパッケージファイルが追加されています。
-
-リリースビルドを行う場合:
-
-1. リリースtarballを生成する
-
-   ```shell
-   # <name>-v<version> のタグがある場合
-   ./scripts/release/build_tarball.sh <name>-v<version>
-   # 使用可能なタグがない場合、gitリビジョン（例: HEAD）を指定する必要があります
-   ./scripts/release/build_tarball.sh <name> <rev>
-   ```
-
-   すべてのベンダーソースはソースtarballに追加されるため、ソースtarballを保存し、コンパイラと依存関係がインストールされている任意の場所でオフラインでビルドできます。
-
-2. パッケージをビルドする
-
-   debパッケージの場合:
-   ```shell
-   tar xf <name>-<version>.tar.xz
-   cd <name>-<version>
-   ./build_deb_from_tar.sh
-   ```
-
-   rpmパッケージの場合:
-   ```shell
-   rpmbuild -ta ./<name>-<version>.tar.xz
-   # 失敗した場合、次のコマンドを手動で実行できます:
-   tar xvf <name>-<version>.tar.xz ./<name>-<version>/<name>.spec
-   cp <name>-<version>.tar.xz ~/rpmbuild/SOURCES/
-   rpmbuild -ba ./<name>-<version>/<name>.spec
-   ```
-
-gitリポジトリから直接パッケージをビルドする場合:
-
-- debパッケージの場合:
-
-  ```shell
-  ./build_deb_from_git.sh <name>
-  ```
-
-- rpmパッケージの場合:
-
-  ```shell
-  ./build_rpm_from_git.sh <name>
-  ```
-
-### 事前ビルドパッケージ
-
-本番環境にインストールする場合は、自分でパッケージをビルドすることをお勧めします。
-
-テスト目的の場合、いくつかのパッケージをビルドして
-[cloudsmith](https://cloudsmith.io/~g3-oqh/repos/) にアップロードしました。インストール手順はそこにあります。
-
-### Dockerイメージのビルド
-
-各アプリの *docker* フォルダーの下にDockerfile(s)があります。ビルドコマンドは次のようになります
-
-```shell
-# ソースルートディレクトリで実行します
-docker build -f <app>/docker/debian.Dockerfile . -t <app>:<tag>
-# ソースコードなしでビルドします
-docker build -f <app>/docker/debian.Dockerfile github.com/bytedance/g3 -t <app>:<tag>
-# ソースtarballがある場合、そのtarballのURLも使用できます
-```
+[Packaging](doc/packaging.md) を参照してください。
 
 ### 静的リンク
 

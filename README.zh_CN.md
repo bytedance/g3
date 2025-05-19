@@ -47,6 +47,12 @@ G3项目包含许多应用，每一个应用程序单独一个子目录，包含
 [详细介绍](g3proxy/README.md) | [用户指南](g3proxy/UserGuide.zh_CN.md) |
 [参考文档](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/)
 
+#### g3statsd
+
+StatsD兼容的监控打点指标聚合服务。
+
+[详细介绍](g3statsd/README.md) | [参考文档](https://g3-project.readthedocs.io/projects/g3statsd/en/latest/)
+
 ### g3tiles
 
 通用反向代理解决方案，开发中。
@@ -94,69 +100,7 @@ Cloudflare Keyless Server的简单实现。
 
 ## 发布及打包
 
-每个应用程序的每个发布版本都会有对应的tag，格式为 *\<name\>-v\<version\>* 。
-使用对应的tag生成源码tar包，该tar包可以用于生成deb、rpm等发行版原生包文件。
-
-如果需要对正式发布的版本打包:
-
-1. 生成版本发布包
-
-   ```shell
-   ./scripts/release/build_tarball.sh <name>-v<version>
-   ```
-
-   所有引用第三方源码都会放在tar包的vendor目录下，打包时只需要在目标机器上安装好编译器及系统依赖库即可，无需额外的网络连接。
-
-2. 打包指令
-
-   deb包:
-   ```shell
-   tar xf <name>-<version>.tar.xz
-   cd <name>-<version>
-   ./build_deb_from_tar.sh
-   ```
-
-   rpm包:
-   ```shell
-   rpmbuild -ta ./<name>-<version>.tar.xz
-   # 如果失败，可以手动执行以下指令：
-   tar xvf <name>-<version>.tar.xz ./<name>-<version>/<name>.spec
-   cp <name>-<version>.tar.xz ~/rpmbuild/SOURCES/
-   rpmbuild -ba ./<name>-<version>/<name>.spec
-   ```
-
-如果需要直接从git打包:
-
-- deb包:
-
-  ```shell
-  ./build_deb_from_git.sh <name>
-  ```
-
-- rpm包:
-
-  ```shell
-  ./build_rpm_from_git.sh <name>
-  ```
-
-### 预构建安装包
-
-如需在生产环境使用，建议自行打包。
-
-测试环境的话，部分包已经编译上传到
-[cloudsmith](https://cloudsmith.io/~g3-oqh/repos/), 可参考该链接页面的说明进行安装。
-
-### 制作Docker镜像
-
-每个应用的*docker*文件夹下有可参考的Dockerfile(s)，命令如下：
-
-```shell
-# 在源码根目录可执行
-docker build -f <app>/docker/debian.Dockerfile . -t <app>:<tag>
-# 本地没有源码时，可用远程URL执行
-docker build -f <app>/docker/debian.Dockerfile github.com/bytedance/g3 -t <app>:<tag>
-# 如果已经制作了源码tar包，也可以把URL路径换成源码tar包路径
-```
+参考 [Packaging](doc/packaging.md)。
 
 ### 静态链接
 

@@ -4,6 +4,24 @@
 
 g3keymess is a server implementation of Cloudflare Keyless protocol.
 
+## How to build
+
+You need to follow the [dev-setup](../doc/dev-setup.md) guide to set up your build environment first.
+
+To build debug binaries:
+
+```shell
+cargo build -p g3keymess -p g3keymess-ctl
+```
+
+To build release binaries:
+
+```shell
+cargo build --profile release-lto -p g3keymess -p g3keymess-ctl
+```
+
+See [Packaging](../doc/packaging.md) if you want to build binary packages or docker images.
+
 ## Features
 
 g3keymess dynamically links to libcrypto on the system as the crypto engine by default.

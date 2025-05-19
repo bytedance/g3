@@ -11,6 +11,8 @@ tcp streaming / tls streaming / transparent proxy / reverse proxy.
 
 ## How to build
 
+You need to follow the [dev-setup](../doc/dev-setup.md) guide to set up your build environment first.
+
 To build debug binaries:
 
 ```shell
@@ -22,6 +24,8 @@ To build release binaries:
 ```shell
 cargo build --profile release-lto -p g3proxy -p g3proxy-ctl
 ```
+
+See [Packaging](../doc/packaging.md) if you want to build binary packages or docker images.
 
 ## Documents
 
