@@ -97,7 +97,7 @@ jobs:
         with:
           submodules: true
       - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@56f84321dbccf38fb67ce29ab63e4754056677e0 # v1
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
         with:
           toolchain: stable
           targets: ${{ matrix.target.rustc }}
