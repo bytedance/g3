@@ -26,6 +26,9 @@ g3-compat = { workspace = true, optional = true }
 g3-dpi = { workspace = true, optional = true }
 g3-geoip-types = { workspace = true, optional = true }
 
+[dev-dependencies]
+chrono = { workspace = true, features = ["serde", "clock"] }
+
 [features]
 default = []
 histogram = ["dep:g3-histogram"]
