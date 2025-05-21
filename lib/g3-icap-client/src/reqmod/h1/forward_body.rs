@@ -16,6 +16,7 @@ use super::{
     HttpRequestAdapter, HttpRequestForAdaptation, HttpRequestUpstreamWriter,
     ReqmodAdaptationEndState, ReqmodAdaptationRunState,
 };
+use crate::reason::IcapErrorReason;
 use crate::reqmod::IcapReqmodResponsePayload;
 
 impl<I: IdleCheck> HttpRequestAdapter<I> {
@@ -76,6 +77,23 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             state.clt_read_finished = true;
         }
 
+        match rsp.code {
+            204 | 206 => {
+                return Err(H1ReqmodAdaptationError::IcapServerErrorResponse(
+                    IcapErrorReason::InvalidResponse,
+                    rsp.code,
+                    rsp.reason,
+                ));
+            }
+            n if (200..300).contains(&n) => {}
+            _ => {
+                return Err(H1ReqmodAdaptationError::IcapServerErrorResponse(
+                    IcapErrorReason::UnknownResponse,
+                    rsp.code,
+                    rsp.reason,
+                ));
+            }
+        }
         match rsp.payload {
             IcapReqmodResponsePayload::NoPayload => {
                 if body_transfer.finished() {

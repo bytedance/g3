@@ -7,6 +7,7 @@ use std::fmt;
 
 #[derive(Debug)]
 pub enum IcapErrorReason {
+    InvalidResponse,
     UnknownResponse,
     InvalidResponseAfterContinue,
     UnknownResponseAfterContinue,
@@ -18,6 +19,7 @@ pub enum IcapErrorReason {
 impl IcapErrorReason {
     pub(crate) fn as_str(&self) -> &'static str {
         match self {
+            IcapErrorReason::InvalidResponse => "invalid ICAP response code",
             IcapErrorReason::UnknownResponse => "unknown ICAP response code",
             IcapErrorReason::InvalidResponseAfterContinue => {
                 "invalid ICAP response code after 100-continue"

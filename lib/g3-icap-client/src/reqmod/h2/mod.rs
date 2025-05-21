@@ -33,9 +33,11 @@ mod recv_response;
 mod bidirectional;
 use bidirectional::{BidirectionalRecvHttpRequest, BidirectionalRecvIcapResponse};
 
+mod preview;
+use preview::PreviewData;
+
 mod forward_body;
 mod forward_header;
-mod preview;
 
 impl IcapReqmodClient {
     pub async fn h2_adapter<I: IdleCheck>(

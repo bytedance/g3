@@ -134,6 +134,23 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                     state.clt_read_finished = true;
                 }
 
+                match rsp.code {
+                    204 | 206 => {
+                        return Err(H1ReqmodAdaptationError::IcapServerErrorResponse(
+                            IcapErrorReason::InvalidResponseAfterContinue,
+                            rsp.code,
+                            rsp.reason,
+                        ));
+                    }
+                    n if (200..300).contains(&n) => {}
+                    _ => {
+                        return Err(H1ReqmodAdaptationError::IcapServerErrorResponse(
+                            IcapErrorReason::UnknownResponseAfterContinue,
+                            rsp.code,
+                            rsp.reason,
+                        ));
+                    }
+                }
                 match rsp.payload {
                     IcapReqmodResponsePayload::NoPayload => {
                         if body_transfer.finished() {

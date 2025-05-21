@@ -18,8 +18,8 @@ use g3_http::server::HttpAdaptedRequest;
 use g3_io_ext::IdleCheck;
 
 use super::{
-    H2ReqmodAdaptationError, H2RequestAdapter, ReqmodAdaptationEndState, ReqmodAdaptationMidState,
-    ReqmodAdaptationRunState,
+    H2ReqmodAdaptationError, H2RequestAdapter, PreviewData, ReqmodAdaptationEndState,
+    ReqmodAdaptationMidState, ReqmodAdaptationRunState,
 };
 use crate::reqmod::response::ReqmodResponse;
 
@@ -54,7 +54,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         state: &mut ReqmodAdaptationRunState,
         icap_rsp: ReqmodResponse,
         http_request: Request<()>,
-        initial_body_data: Bytes,
+        preview_data: PreviewData,
         clt_body: RecvStream,
         mut ups_send_request: SendRequest<Bytes>,
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
@@ -67,26 +67,9 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             .map_err(H2ReqmodAdaptationError::HttpUpstreamSendHeadFailed)?;
         state.mark_ups_send_header();
 
-        if clt_body.is_end_stream() {
-            // no reserve of capacity, let the driver buffer it
-            ups_send_stream
-                .send_data(initial_body_data, true)
-                .map_err(H2ReqmodAdaptationError::HttpUpstreamSendDataFailed)?;
-            state.mark_ups_send_all();
-
-            let ups_rsp = recv_ups_response_head_after_transfer(
-                ups_recv_rsp,
-                self.http_rsp_head_recv_timeout,
-            )
-            .await?;
-            state.mark_ups_recv_header();
-
-            return Ok(ReqmodAdaptationEndState::OriginalTransferred(ups_rsp));
-        }
-
         // no reserve of capacity, let the driver buffer it
-        ups_send_stream
-            .send_data(initial_body_data, false)
+        preview_data
+            .h2_unbounded_send(&mut ups_send_stream)
             .map_err(H2ReqmodAdaptationError::HttpUpstreamSendDataFailed)?;
 
         let mut body_transfer =
