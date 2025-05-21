@@ -24,9 +24,9 @@ See [Packaging](../doc/packaging.md) if you want to build binary packages or doc
 
 ## Features
 
-g3keymess dynamically links to libcrypto on the system as the crypto engine by default.
+g3keymess uses the system OpenSSL by default.
 
-You can specify the following feature flags to try other crypto engines:
+You can specify the following feature flags to try others:
 
 - vendored-openssl
 
@@ -40,21 +40,23 @@ You can specify the following feature flags to try other crypto engines:
 
   Use Tongsuo.
 
-### Hardware
+### Hardware Acceleration
 
 It's possible to use hardware crypto engines by using
-OpenSSL [PROVIDERS](https://github.com/openssl/openssl/blob/master/README-PROVIDERS.md).
+[OpenSSl ENGINES](https://github.com/openssl/openssl/blob/master/README-ENGINES.md) or
+[OpenSSL PROVIDERS](https://github.com/openssl/openssl/blob/master/README-PROVIDERS.md).
 
-Use the following compilation feature flags:
+Use the following compilation feature flags to enable OpenSSL Async Job support:
 
 ```text
 cargo build --features openssl-async-job
 ```
 
-The system default libcrypto should be used, and the hardware engine should be compiled against it also.
-
-The hardware engine should be enabled in [openssl.cnf](https://docs.openssl.org/master/man5/config/). If you don't want
+You can build a hardware engine against the system OpenSSL, and enable it
+in [openssl.cnf](https://docs.openssl.org/master/man5/config/). If you don't want
 to change the default openssl.cnf, you can create a new one and export it as environment variable `OPENSSL_CONF`.
+
+See [Intel QAT Engine](IntelQatEngine.md) for more detailed installation steps.
 
 ## Examples
 
