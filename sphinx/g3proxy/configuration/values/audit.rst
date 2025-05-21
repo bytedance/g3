@@ -1,4 +1,3 @@
-
 .. _configure_audit_value_types:
 
 *****
@@ -70,6 +69,16 @@ For *map* value, the keys are:
   Set the max header size when parsing response from the ICAP server.
 
   **default**: 8KiB
+
+* no_preview
+
+  **optional**, **type**: bool
+
+  Set to true to disable ICAP preview.
+
+  **default**: false
+
+  .. versionadded:: 1.11.6
 
 * preview_data_read_timeout
 

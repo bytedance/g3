@@ -57,6 +57,10 @@ impl IcapServiceConfig {
                 config.set_icap_max_header_size(size);
                 Ok(())
             }
+            "disable_preview" | "no_preview" => {
+                config.disable_preview = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
             "preview_data_read_timeout" => {
                 let time = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;

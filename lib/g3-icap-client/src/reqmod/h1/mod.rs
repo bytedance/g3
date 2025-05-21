@@ -146,6 +146,13 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         }
     }
 
+    fn preview_size(&self) -> Option<usize> {
+        if self.icap_client.config.disable_preview {
+            return None;
+        }
+        self.icap_options.preview_size
+    }
+
     pub async fn xfer<H, CR, UW>(
         self,
         state: &mut ReqmodAdaptationRunState,
@@ -164,7 +171,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                     "no client http body io supplied while body type is not none",
                 ));
             };
-            if let Some(preview_size) = self.icap_options.preview_size {
+            if let Some(preview_size) = self.preview_size() {
                 self.xfer_with_preview(
                     state,
                     http_request,

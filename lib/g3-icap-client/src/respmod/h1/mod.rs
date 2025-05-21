@@ -162,6 +162,13 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         }
     }
 
+    fn preview_size(&self) -> Option<usize> {
+        if self.icap_client.config.disable_preview {
+            return None;
+        }
+        self.icap_options.preview_size
+    }
+
     pub async fn xfer<R, H, UR, CW>(
         self,
         state: &mut RespmodAdaptationRunState,
@@ -177,7 +184,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         CW: HttpResponseClientWriter<H> + Unpin,
     {
         if let Some(body_type) = http_response.body_type(http_request.method()) {
-            if let Some(preview_size) = self.icap_options.preview_size {
+            if let Some(preview_size) = self.preview_size() {
                 self.xfer_with_preview(
                     state,
                     http_request,
