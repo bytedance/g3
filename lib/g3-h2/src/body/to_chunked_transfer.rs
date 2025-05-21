@@ -78,6 +78,22 @@ impl ChunkedEncodeTransferInternal {
         }
     }
 
+    fn without_data() -> Self {
+        ChunkedEncodeTransferInternal {
+            yield_size: 0,
+            this_chunk_size: 0,
+            chunk: None,
+            static_header: Vec::new(),
+            static_offset: 0,
+            total_write: 0,
+            read_data_finished: true,
+            active: false,
+            trailer_bytes: Vec::new(),
+            trailer_offset: 0,
+            transfer_stage: TransferStage::Trailer,
+        }
+    }
+
     #[inline]
     fn finished(&self) -> bool {
         self.transfer_stage == TransferStage::End
@@ -302,6 +318,14 @@ impl<'a, W> H2StreamToChunkedTransfer<'a, W> {
             recv_stream,
             writer,
             internal: ChunkedEncodeTransferInternal::with_chunk(yield_size, chunk),
+        }
+    }
+
+    pub fn without_data(recv_stream: &'a mut RecvStream, writer: &'a mut W) -> Self {
+        H2StreamToChunkedTransfer {
+            recv_stream,
+            writer,
+            internal: ChunkedEncodeTransferInternal::without_data(),
         }
     }
 
