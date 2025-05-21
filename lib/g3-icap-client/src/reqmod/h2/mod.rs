@@ -147,6 +147,13 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         }
     }
 
+    fn preview_size(&self) -> Option<usize> {
+        if self.icap_client.config.disable_preview {
+            return None;
+        }
+        self.icap_options.preview_size
+    }
+
     pub async fn xfer(
         self,
         state: &mut ReqmodAdaptationRunState,
@@ -157,7 +164,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         if clt_body.is_end_stream() {
             self.xfer_without_body(state, http_request, ups_send_request)
                 .await
-        } else if let Some(preview_size) = self.icap_options.preview_size {
+        } else if let Some(preview_size) = self.preview_size() {
             self.xfer_with_preview(
                 state,
                 http_request,
