@@ -4,9 +4,9 @@
  */
 
 use anyhow::anyhow;
-use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
-use g3_http::{HttpBodyDecodeReader, HttpBodyReader, HttpBodyType};
+use g3_http::{HttpBodyDecodeReader, HttpBodyReader};
 use g3_io_ext::{IdleCheck, LimitedCopy, LimitedCopyError};
 
 use super::{
@@ -42,78 +42,6 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             .map_err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed)?;
         state.mark_ups_send_header();
         state.mark_ups_send_no_body();
-        Ok(ReqmodAdaptationEndState::OriginalTransferred)
-    }
-
-    pub(super) async fn handle_original_http_request_with_body<H, CR, UW>(
-        self,
-        state: &mut ReqmodAdaptationRunState,
-        icap_rsp: ReqmodResponse,
-        http_request: &H,
-        clt_body_io: &mut CR,
-        clt_body_type: HttpBodyType,
-        ups_writer: &mut UW,
-    ) -> Result<ReqmodAdaptationEndState<H>, H1ReqmodAdaptationError>
-    where
-        H: HttpRequestForAdaptation,
-        CR: AsyncBufRead + Unpin,
-        UW: HttpRequestUpstreamWriter<H> + Unpin,
-    {
-        if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection);
-        }
-
-        ups_writer
-            .send_request_header(http_request)
-            .await
-            .map_err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed)?;
-        state.mark_ups_send_header();
-        let mut clt_body_reader =
-            HttpBodyReader::new(clt_body_io, clt_body_type, self.http_body_line_max_size);
-        let mut body_copy = LimitedCopy::new(&mut clt_body_reader, ups_writer, &self.copy_config);
-
-        let mut idle_interval = self.idle_checker.interval_timer();
-        let mut idle_count = 0;
-
-        loop {
-            tokio::select! {
-                biased;
-
-                r = &mut body_copy => {
-                    match r {
-                        Ok(_) => break,
-                        Err(LimitedCopyError::ReadFailed(e)) => return Err(H1ReqmodAdaptationError::HttpClientReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => return Err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed(e)),
-                    }
-                }
-                n = idle_interval.tick() => {
-                    if body_copy.is_idle() {
-                        idle_count += n;
-
-                        let quit = self.idle_checker.check_quit(idle_count);
-                        if quit {
-                            return if body_copy.no_cached_data() {
-                                Err(H1ReqmodAdaptationError::HttpClientReadIdle)
-                            } else {
-                                Err(H1ReqmodAdaptationError::HttpUpstreamWriteIdle)
-                            };
-                        }
-                    } else {
-                        idle_count = 0;
-
-                        body_copy.reset_active();
-                    }
-
-                    if let Some(reason) = self.idle_checker.check_force_quit() {
-                        return Err(H1ReqmodAdaptationError::IdleForceQuit(reason));
-                    }
-                }
-            }
-        }
-
-        state.mark_ups_send_all();
-        state.clt_read_finished = true;
-
         Ok(ReqmodAdaptationEndState::OriginalTransferred)
     }
 

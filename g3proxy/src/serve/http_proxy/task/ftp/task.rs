@@ -469,6 +469,12 @@ impl<'a> FtpOverHttpTask<'a> {
                             self.upload(&mut ftp_client, clt_w, &mut body_reader, Some(size))
                                 .await
                         }
+                        HttpBodyType::ReadUntilEnd => {
+                            let mut body_reader = HttpBodyReader::new_read_until_end(clt_r);
+                            self.should_close = true;
+                            self.upload(&mut ftp_client, clt_w, &mut body_reader, None)
+                                .await
+                        }
                         HttpBodyType::Chunked => {
                             let mut body_reader = HttpBodyDecodeReader::new_chunked(
                                 clt_r,
@@ -497,7 +503,6 @@ impl<'a> FtpOverHttpTask<'a> {
                             }
                             Ok(())
                         }
-                        HttpBodyType::ReadUntilEnd => unreachable!(),
                     }
                 } else {
                     self.reply_bad_request(clt_w, "no body found").await

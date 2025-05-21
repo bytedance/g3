@@ -39,6 +39,13 @@ impl ChunkedDataDecodeReaderInternal {
         self.poll_chunk_end && self.this_chunk_size == 0
     }
 
+    fn left_chunk_size(&self) -> Option<u64> {
+        if self.poll_chunk_end_r || self.poll_chunk_end_n {
+            return None;
+        }
+        Some(self.left_chunk_size)
+    }
+
     fn poll_decode<R>(
         &mut self,
         cx: &mut Context<'_>,
@@ -210,6 +217,10 @@ impl<'a, R> ChunkedDataDecodeReader<'a, R> {
 
     pub fn into_reader(self) -> &'a mut R {
         self.reader
+    }
+
+    pub fn left_chunk_size(&self) -> Option<u64> {
+        self.internal.left_chunk_size()
     }
 
     pub fn finished(&self) -> bool {

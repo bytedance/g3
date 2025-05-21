@@ -112,15 +112,31 @@ where
         r
     }
 
+    pub fn new_trailer(stream: &'a mut R, body_line_max_len: usize) -> Self {
+        HttpBodyReader {
+            stream,
+            body_type: HttpBodyType::Chunked,
+            next_read_type: NextReadType::Trailer,
+            body_line_max_len,
+            next_read_size: 0,
+            left_total_size: 0,
+            chunk_size_line_cache: Vec::<u8>::with_capacity(Self::DEFAULT_LINE_SIZE),
+            trailer_line_length: 0,
+            trailer_last_char: 0,
+            finished: false,
+            read_content_length: 0,
+            current_chunk_size: 0,
+        }
+    }
+
     pub fn new_chunked_after_preview(
         stream: &'a mut R,
-        body_type: HttpBodyType,
         body_line_max_len: usize,
         next_chunk_size: u64,
     ) -> Self {
         let mut r = HttpBodyReader {
             stream,
-            body_type,
+            body_type: HttpBodyType::Chunked,
             next_read_type: NextReadType::FixedLength,
             body_line_max_len,
             next_read_size: 0,
