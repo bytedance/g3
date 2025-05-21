@@ -47,11 +47,6 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         let mut preview_data = PreviewData::new(max_preview_size);
         preview_data.recv(&mut clt_body, &self.idle_checker).await?;
 
-        if preview_data.is_empty() {
-            return self
-                .xfer_without_preview(state, http_request, clt_body, ups_send_request)
-                .await;
-        }
         if preview_data.end_of_data {
             return self
                 .xfer_small_body(
@@ -310,10 +305,6 @@ impl PreviewData {
         }
     }
 
-    fn is_empty(&self) -> bool {
-        self.buffer.is_empty()
-    }
-
     fn preview_size(&self) -> usize {
         self.buffer.len()
     }
@@ -409,25 +400,29 @@ impl PreviewData {
     {
         const END_SLICE: &[u8] = b"\r\n0\r\n";
 
-        let header = format!("{:x}\r\n", self.received);
-
-        if let Some(left) = &self.left {
-            writer
-                .write_all_vectored([
-                    IoSlice::new(header.as_bytes()),
-                    IoSlice::new(&self.buffer),
-                    IoSlice::new(left),
-                    IoSlice::new(END_SLICE),
-                ])
-                .await?;
+        if self.received == 0 {
+            writer.write_all(b"0\r\n").await?;
         } else {
-            writer
-                .write_all_vectored([
-                    IoSlice::new(header.as_bytes()),
-                    IoSlice::new(&self.buffer),
-                    IoSlice::new(END_SLICE),
-                ])
-                .await?;
+            let header = format!("{:x}\r\n", self.received);
+
+            if let Some(left) = &self.left {
+                writer
+                    .write_all_vectored([
+                        IoSlice::new(header.as_bytes()),
+                        IoSlice::new(&self.buffer),
+                        IoSlice::new(left),
+                        IoSlice::new(END_SLICE),
+                    ])
+                    .await?;
+            } else {
+                writer
+                    .write_all_vectored([
+                        IoSlice::new(header.as_bytes()),
+                        IoSlice::new(&self.buffer),
+                        IoSlice::new(END_SLICE),
+                    ])
+                    .await?;
+            }
         }
 
         Ok(())

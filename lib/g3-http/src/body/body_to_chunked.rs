@@ -55,39 +55,73 @@ where
         body_line_max_len: usize,
         copy_config: LimitedCopyConfig,
     ) -> H1BodyToChunkedTransfer<'a, R, W> {
-        let state = match body_type {
-            HttpBodyType::ContentLength(0) => {
-                // just send 0 chunk size and empty trailer end
-                ChunkedTransferState::SendNoTrailerEnd(SendEnd { offset: 2, writer })
-            }
+        match body_type {
             HttpBodyType::ContentLength(len) => {
-                let head = format!("{len:x}\r\n");
-                let body_reader = HttpBodyReader::new_fixed_length(reader, len);
-                ChunkedTransferState::SendHead(SendHead {
-                    head,
-                    offset: 0,
-                    body_reader,
-                    writer,
-                })
+                Self::new_fixed_length(reader, writer, len, copy_config)
             }
-            HttpBodyType::ReadUntilEnd => {
-                let encoder = StreamToChunkedTransfer::new_with_no_trailer(
-                    reader,
-                    writer,
-                    copy_config.yield_size(),
-                );
-                ChunkedTransferState::Encode(encoder)
-            }
+            HttpBodyType::ReadUntilEnd => Self::new_read_until_end(reader, writer, copy_config),
             HttpBodyType::Chunked => {
-                let body_reader = HttpBodyReader::new_chunked(reader, body_line_max_len);
-                let copy = ROwnedLimitedCopy::new(body_reader, writer, copy_config);
-                ChunkedTransferState::Copy(copy)
+                Self::new_chunked(reader, writer, body_line_max_len, copy_config)
             }
+        }
+    }
+
+    pub fn new_read_until_end(
+        reader: &'a mut R,
+        writer: &'a mut W,
+        copy_config: LimitedCopyConfig,
+    ) -> Self {
+        let encoder =
+            StreamToChunkedTransfer::new_with_no_trailer(reader, writer, copy_config.yield_size());
+        H1BodyToChunkedTransfer {
+            body_type: HttpBodyType::ReadUntilEnd,
+            copy_config,
+            state: ChunkedTransferState::Encode(encoder),
+            total_write: 0,
+            active: false,
+        }
+    }
+
+    pub fn new_fixed_length(
+        reader: &'a mut R,
+        writer: &'a mut W,
+        len: u64,
+        copy_config: LimitedCopyConfig,
+    ) -> Self {
+        let state = if len == 0 {
+            // just send 0 chunk size and empty trailer end
+            ChunkedTransferState::SendNoTrailerEnd(SendEnd { offset: 2, writer })
+        } else {
+            let head = format!("{len:x}\r\n");
+            let body_reader = HttpBodyReader::new_fixed_length(reader, len);
+            ChunkedTransferState::SendHead(SendHead {
+                head,
+                offset: 0,
+                body_reader,
+                writer,
+            })
         };
         H1BodyToChunkedTransfer {
-            body_type,
+            body_type: HttpBodyType::ContentLength(len),
             copy_config,
             state,
+            total_write: 0,
+            active: false,
+        }
+    }
+
+    pub fn new_chunked(
+        reader: &'a mut R,
+        writer: &'a mut W,
+        body_line_max_len: usize,
+        copy_config: LimitedCopyConfig,
+    ) -> H1BodyToChunkedTransfer<'a, R, W> {
+        let body_reader = HttpBodyReader::new_chunked(reader, body_line_max_len);
+        let copy = ROwnedLimitedCopy::new(body_reader, writer, copy_config);
+        H1BodyToChunkedTransfer {
+            body_type: HttpBodyType::Chunked,
+            copy_config,
+            state: ChunkedTransferState::Copy(copy),
             total_write: 0,
             active: false,
         }
@@ -101,18 +135,25 @@ where
         copy_config: LimitedCopyConfig,
         preview_state: PreviewDataState,
     ) -> H1BodyToChunkedTransfer<'a, R, W> {
-        let state = match body_type {
+        match body_type {
             HttpBodyType::ContentLength(len) => {
                 let left_len = len - (preview_state.preview_size as u64);
                 let head = format!("{left_len:x}\r\n");
                 reader.consume(preview_state.consume_size);
                 let body_reader = HttpBodyReader::new_fixed_length(reader, left_len);
-                ChunkedTransferState::SendHead(SendHead {
+                let state = ChunkedTransferState::SendHead(SendHead {
                     head,
                     offset: 0,
                     body_reader,
                     writer,
-                })
+                });
+                H1BodyToChunkedTransfer {
+                    body_type,
+                    copy_config,
+                    state,
+                    total_write: 0,
+                    active: false,
+                }
             }
             HttpBodyType::ReadUntilEnd => {
                 reader.consume(preview_state.consume_size);
@@ -121,34 +162,51 @@ where
                     writer,
                     copy_config.yield_size(),
                 );
-                ChunkedTransferState::Encode(encoder)
+                H1BodyToChunkedTransfer {
+                    body_type,
+                    copy_config,
+                    state: ChunkedTransferState::Encode(encoder),
+                    total_write: 0,
+                    active: false,
+                }
             }
             HttpBodyType::Chunked => {
                 let next_chunk_size = preview_state.chunked_next_size;
                 reader.consume(preview_state.consume_size);
-                if next_chunk_size > 0 {
-                    let head = format!("{next_chunk_size:x}\r\n");
-                    let body_reader = HttpBodyReader::new_chunked_after_preview(
-                        reader,
-                        body_type,
-                        body_line_max_len,
-                        next_chunk_size,
-                    );
-                    ChunkedTransferState::SendHead(SendHead {
-                        head,
-                        offset: 0,
-                        body_reader,
-                        writer,
-                    })
-                } else {
-                    let body_reader = HttpBodyReader::new_chunked(reader, body_line_max_len);
-                    let copy = ROwnedLimitedCopy::new(body_reader, writer, copy_config);
-                    ChunkedTransferState::Copy(copy)
-                }
+                Self::new_chunked_after_preview(
+                    reader,
+                    writer,
+                    next_chunk_size,
+                    body_line_max_len,
+                    copy_config,
+                )
             }
-        };
+        }
+    }
+
+    pub fn new_chunked_after_preview(
+        reader: &'a mut R,
+        writer: &'a mut W,
+        left_chunk_size: u64,
+        body_line_max_len: usize,
+        copy_config: LimitedCopyConfig,
+    ) -> H1BodyToChunkedTransfer<'a, R, W> {
+        if left_chunk_size == 0 {
+            return Self::new_chunked(reader, writer, body_line_max_len, copy_config);
+        }
+
+        let head = format!("{left_chunk_size:x}\r\n");
+        let body_reader =
+            HttpBodyReader::new_chunked_after_preview(reader, body_line_max_len, left_chunk_size);
+        let state = ChunkedTransferState::SendHead(SendHead {
+            head,
+            offset: 0,
+            body_reader,
+            writer,
+        });
+
         H1BodyToChunkedTransfer {
-            body_type,
+            body_type: HttpBodyType::Chunked,
             copy_config,
             state,
             total_write: 0,
