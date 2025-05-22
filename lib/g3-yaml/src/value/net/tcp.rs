@@ -293,7 +293,9 @@ mod tests {
     use std::time::Duration;
     use yaml_rust::{Yaml, YamlLoader};
 
-    use g3_types::net::{HappyEyeballsConfig, TcpConnectConfig, TcpKeepAliveConfig, TcpListenConfig, TcpMiscSockOpts};
+    use g3_types::net::{
+        HappyEyeballsConfig, TcpConnectConfig, TcpKeepAliveConfig, TcpListenConfig, TcpMiscSockOpts,
+    };
 
     // Helper to create Yaml from a string literal, panics on error.
     fn yaml_from_str(s: &str) -> Yaml {
@@ -407,7 +409,7 @@ mod tests {
             let yaml = yaml_from_str("\"not_an_address\"");
             assert!(as_tcp_listen_config(&yaml).is_err());
         }
-        
+
         #[test]
         fn invalid_scale_type_bool() {
             let yaml_map = yaml_from_str("scale: true");
@@ -469,7 +471,7 @@ mod tests {
             "#;
             let yaml = yaml_from_str(yaml_str);
             let config = as_tcp_connect_config(&yaml).unwrap();
-            assert_eq!(config.max_tries(), 6); 
+            assert_eq!(config.max_tries(), 6);
             assert_eq!(config.each_timeout(), Duration::from_secs(10));
         }
 
