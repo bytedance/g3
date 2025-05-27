@@ -90,6 +90,11 @@ g3-udpdump.workspace = true
 g3-xcrypt.workspace = true
 g3-yaml = { workspace = true, features = ["resolve", "rustls", "openssl", "acl-rule", "http", "ftp-client", "route", "dpi", "audit", "histogram", "geoip"] }
 g3proxy-proto = { path = "proto" }
+# pin to MSRV 1.80
+idna_adapter = "=1.2.0"
+litemap = "=0.7.4"
+zerofrom = "=0.1.5"
+system-deps = "=7.0.3"
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "io-util"] }
