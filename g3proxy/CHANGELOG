@@ -1,4 +1,9 @@
 
+v1.10.5:
+ - BUG FIX: fix dead lock when reloading chained servers
+ - BUG FIX: fix alignment of RawSocketAddr used in sendmmsg/recvmmsg
+ - BUG FIX: fix body Chunked encoding after ICAP preview
+
 v1.10.4:
  - BUG FIX: correctly handle ICAP null-body response
  - BUG FIX: fix ICAP connection state when reading modified SMTP/IMAP message

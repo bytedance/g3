@@ -1,5 +1,5 @@
-g3proxy (1.10.4-1) UNRELEASED; urgency=medium
+g3proxy (1.10.5-1) UNRELEASED; urgency=medium
 
   * New upstream release.
 
- -- G3proxy Maintainers <g3proxy-maintainers@devel.machine>  Fri, 03 Jan 2025 10:59:28 +0800
+ -- G3proxy Maintainers <g3proxy-maintainers@devel.machine>  Tue, 27 May 2025 14:41:40 +0800
