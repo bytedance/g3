@@ -11,6 +11,11 @@ Rules for result selection:
 2. The first **success** result either from the primary or the standby resolver will be used after the timeout.
 3. If no success result, the last error one will be used.
 
+The following common keys are supported:
+
+* :ref:`graceful_stop_wait <conf_resolver_common_graceful_stop_wait>`
+* :ref:`protective_query_timeout <conf_resolver_common_protective_query_timeout>`
+
 primary
 -------
 
