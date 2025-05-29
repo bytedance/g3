@@ -534,18 +534,18 @@ dependencies = [
 
 [[package]]
 name = "clap"
-version = "4.5.38"
+version = "4.5.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed93b9805f8ba930df42c2590f05453d5ec36cbb85d018868a5b24d31f6ac000"
+checksum = "fd60e63e9be68e5fb56422e397cf9baddded06dae1d2e523401542383bc72a9f"
 dependencies = [
  "clap_builder",
 ]
 
 [[package]]
 name = "clap_builder"
-version = "4.5.38"
+version = "4.5.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "379026ff283facf611b0ea629334361c4211d1b12ee01024eec1591133b04120"
+checksum = "89cc6392a1f72bbeb820d71f32108f61fdaf18bc526e1d23954168a67759ef51"
 dependencies = [
  "anstream",
  "anstyle",
@@ -555,9 +555,9 @@ dependencies = [
 
 [[package]]
 name = "clap_complete"
-version = "4.5.50"
+version = "4.5.51"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c91d3baa3bcd889d60e6ef28874126a0b384fd225ab83aa6d8a801c519194ce1"
+checksum = "8d2267df7f3c8e74e38268887ea5235d4dfadd39bfff2d56ab82d61776be355e"
 dependencies = [
  "clap",
 ]
@@ -3784,9 +3784,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.16.4"
+version = "0.16.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e0f793ce6a5f714a8333e99af8e99dd3f508bd6e5007e5a98cd25290821f475"
+checksum = "51627e1bcbc0bcc70c43f63c52a50609552cf97873a2268bef6cb9b4b115c9ee"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -3799,9 +3799,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl-sys"
-version = "0.16.4"
+version = "0.16.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28b0d2d17a51dea2b2a0d415f55ac6e491aa4d77db9597d66fc13d8ea018ea07"
+checksum = "7d0b873e7902475995bb9af85ee3575699713b0e7ebb37818b4080217b4aefc6"
 dependencies = [
  "bssl-cmake-sys",
  "cc",
