@@ -35,7 +35,6 @@ pub struct CAresDriverConfig {
     negative_ttl: u32,
     positive_min_ttl: u32,
     positive_max_ttl: u32,
-    positive_del_ttl: u32,
 }
 
 impl Default for CAresDriverConfig {
@@ -57,7 +56,6 @@ impl Default for CAresDriverConfig {
             negative_ttl: crate::config::RESOLVER_MINIMUM_CACHE_TTL,
             positive_min_ttl: crate::config::RESOLVER_MINIMUM_CACHE_TTL,
             positive_max_ttl: crate::config::RESOLVER_MAXIMUM_CACHE_TTL,
-            positive_del_ttl: crate::config::RESOLVER_DELETE_CACHE_TTL,
         }
     }
 }
@@ -196,7 +194,6 @@ impl CAresDriverConfig {
             negative_ttl: self.negative_ttl,
             positive_min_ttl: self.positive_min_ttl,
             positive_max_ttl: self.positive_max_ttl,
-            positive_del_ttl: self.positive_del_ttl,
         }))
     }
 }

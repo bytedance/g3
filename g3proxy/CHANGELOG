@@ -1,4 +1,7 @@
 
+v1.11.6:
+ - Feature: update TTL calculation in resolver, cache longer and query earlier
+
 v1.11.5:
  - Feature: support easy-proxy Well-Known URI in http-proxy server
  - Feature: allow to match parent domain before do regex match in dst-host acl set rules

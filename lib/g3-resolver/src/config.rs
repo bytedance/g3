@@ -10,8 +10,6 @@ use super::AnyResolveDriverConfig;
 pub(crate) const RESOLVER_MINIMUM_CACHE_TTL: u32 = 30;
 #[cfg(any(feature = "c-ares", feature = "hickory"))]
 pub(crate) const RESOLVER_MAXIMUM_CACHE_TTL: u32 = 3600;
-#[cfg(any(feature = "c-ares", feature = "hickory"))]
-pub(crate) const RESOLVER_DELETE_CACHE_TTL: u32 = 7200;
 
 const RESOLVER_CACHE_INITIAL_CAPACITY: usize = 10;
 const RESOLVER_BATCH_REQUEST_COUNT: usize = 10;

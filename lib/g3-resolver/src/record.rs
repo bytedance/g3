@@ -80,8 +80,23 @@ impl ResolvedRecord {
         )
     }
 
-    pub fn resolved(domain: Arc<str>, expire_ttl: u32, vanish_ttl: u32, ips: Vec<IpAddr>) -> Self {
+    pub fn resolved(
+        domain: Arc<str>,
+        ttl: u32,
+        min_ttl: u32,
+        max_ttl: u32,
+        ips: Vec<IpAddr>,
+    ) -> Self {
         let created = Instant::now();
+        let (expire_ttl, vanish_ttl) = if ttl > max_ttl + min_ttl {
+            (max_ttl, ttl)
+        } else if ttl > min_ttl + min_ttl {
+            (ttl - min_ttl, ttl)
+        } else if ttl > min_ttl {
+            (min_ttl, ttl)
+        } else {
+            (min_ttl, min_ttl + 1)
+        };
         let expire = created.checked_add(Duration::from_secs(expire_ttl as u64));
         let vanish = created.checked_add(Duration::from_secs(vanish_ttl as u64));
         ResolvedRecord {

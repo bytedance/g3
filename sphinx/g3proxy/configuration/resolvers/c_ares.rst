@@ -5,6 +5,14 @@ c_ares
 
 This is the resolver based on c-ares dns library.
 
+The following common keys are supported:
+
+* :ref:`graceful_stop_wait <conf_resolver_common_graceful_stop_wait>`
+* :ref:`protective_query_timeout <conf_resolver_common_protective_query_timeout>`
+* :ref:`positive_min_ttl <conf_resolver_common_positive_min_ttl>`
+* :ref:`positive_max_ttl <conf_resolver_common_positive_max_ttl>`
+* :ref:`negative_min_ttl <conf_resolver_common_negative_min_ttl>`
+
 server
 ------
 
@@ -111,56 +119,3 @@ bind_ipv6
 **optional**, **type**: :ref:`ipv6 addr str <conf_value_ipv6_addr_str>`
 
 Set the IPv6 bind ip for the resolver while setting up sockets.
-
-negative_min_ttl
-----------------
-
-**optional**, **type**: u32
-
-Time-to-Live (TTL) for negative caching of failed DNS lookups.
-
-**default**: 30, **alias**: negative_ttl
-
-.. versionchanged:: 1.7.37 renamed from negative_ttl to negative_min_ttl
-
-positive_min_ttl
-----------------
-
-**optional**, **type**: u32
-
-Lower limit on how long we will cache positive DNS responses.
-
-**default**: 30
-
-.. versionadded:: 1.7.37
-
-positive_max_ttl
-----------------
-
-**optional**, **type**: u32
-
-Upper limit on how long we will cache positive DNS responses. It should be longer than *positive_min_ttl*.
-
-**default**: 3600, **alias**: positive_ttl
-
-.. versionchanged:: 1.7.37 renamed from positive_ttl to positive_max_ttl
-
-positive_del_ttl
-----------------
-
-**optional**, **type**: u32
-
-The TTL to delete the positive record from trash.
-
-The records in the trash will be reused if the driver failed to fetch new records.
-
-The trashed records will be deleted if:
-
-- the del_tel timeout reached
-- new positive records fetched
-- empty records fetched from server
-- NotFound fetched from server
-
-**default**: 7200
-
-.. versionadded:: 1.11.6
