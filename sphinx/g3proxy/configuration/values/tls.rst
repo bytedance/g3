@@ -203,8 +203,6 @@ Set the private key file, which should be in PKCS#8(`openssl-genpkey(1)`_) or tr
 If relative, it will be searched in the directory that contains current config file.
 The last one in the file will be used if many keys are found.
 
-.. versionchanged:: support traditional PEM format since version 1.3.2
-
 .. _openssl-genpkey(1): https://www.openssl.org/docs/manmaster/man1/openssl-genpkey.html
 
 .. _conf_value_tls_cert_pair:
@@ -235,8 +233,6 @@ The keys are:
   Client certificates are also needed if client auth is needed.
 
   **default**: not set
-
-.. versionadded:: 1.7.7
 
 .. _conf_value_tlcp_cert_pair:
 
@@ -304,8 +300,6 @@ Current supported values are:
 - tls1.3
 - tlcp (only if vendored-tongsuo feature is enabled)
 
-.. versionadded:: 1.7.7
-
 .. _conf_value_openssl_ciphers:
 
 openssl ciphers
@@ -320,8 +314,6 @@ Values can be obtained from `openssl ciphers -v` command.
 For string value, it can be ciphers joined by ':'.
 
 For seq value, each one should be a cipher string.
-
-.. versionadded:: 1.7.7
 
 .. _conf_value_openssl_tls_client_config:
 
@@ -341,8 +333,6 @@ The map is consists of the following fields:
   Set to use a specific protocol version.
 
   **default**: not set
-
-  .. versionadded:: 1.7.7
 
 * min_tls_version
 
@@ -373,8 +363,6 @@ The map is consists of the following fields:
 
   **default**: not set
 
-  .. versionadded:: 1.7.7
-
 * disable_sni
 
   **optional**, **type**: bool
@@ -391,8 +379,6 @@ The map is consists of the following fields:
   Set the client certificate and private key pair.
 
   **default**: not set
-
-  .. versionadded:: 1.7.7
 
 * tlcp_cert_pair
 
@@ -464,8 +450,6 @@ The map is consists of the following fields:
   Set if we should use OpenSSL builtin session cache.
 
   **default**: false
-
-  .. versionadded:: 1.7.7
 
 * session_cache_lru_max_sites
 
@@ -552,8 +536,6 @@ The map is consists of the following fields:
   **default**: false
 
   .. versionadded:: 1.11.0
-
-.. versionadded:: 1.1.4
 
 .. _conf_value_openssl_server_config:
 
@@ -661,8 +643,6 @@ The map is consists of the following fields:
 
   **default**: false
 
-  .. versionadded:: 1.1.4
-
 * disable_sni
 
   **optional**, **type**: bool
@@ -670,8 +650,6 @@ The map is consists of the following fields:
   Whether to send the Server Name Indication (SNI) extension during the client handshake.
 
   **default**: false
-
-  .. versionadded:: 1.1.4
 
 * max_fragment_size
 
@@ -689,8 +667,6 @@ The map is consists of the following fields:
   Set the client certificate and private key pair.
 
   **default**: not set
-
-  .. versionadded:: 1.7.8
 
 * certificate
 
@@ -726,8 +702,6 @@ The map is consists of the following fields:
 
   **default**: false
 
-  .. versionadded:: 1.1.4
-
 * use_builtin_ca_certificate
 
   **optional**, **type**: bool
@@ -762,8 +736,6 @@ The map is consists of the following fields:
   Set certificate and private key pairs for this TLS server.
 
   .. note:: At least set this or certificate & private_key.
-
-  .. versionadded:: 1.7.8
 
 * certificate
 

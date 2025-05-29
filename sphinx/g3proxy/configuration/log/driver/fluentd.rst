@@ -3,8 +3,6 @@
 fluentd
 =======
 
-.. versionadded:: 1.5.0
-
 The fluentd driver config is is map format.
 
 We can set it to send logs to fluentd / fluent-bit by using it's `Forward Protocol`_.

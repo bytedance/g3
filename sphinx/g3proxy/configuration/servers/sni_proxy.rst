@@ -75,8 +75,6 @@ Set basic config for protocol inspection.
 
 **default**: set with default value
 
-.. versionadded:: 1.7.0
-
 server_tcp_portmap
 ------------------
 
@@ -86,8 +84,6 @@ Set the portmap for protocol inspection based on server side tcp port.
 
 **default**: set with default value
 
-.. versionadded:: 1.7.0
-
 client_tcp_portmap
 ------------------
 
@@ -96,8 +92,6 @@ client_tcp_portmap
 Set the portmap for protocol inspection based on client side tcp port.
 
 **default**: set with default value
-
-.. versionadded:: 1.7.0
 
 allowed_hosts
 -------------
@@ -121,14 +115,10 @@ Example:
 
 **default**: not set
 
-.. versionadded:: 1.1.1
-
 .. _configuration_server_sni_proxy_host:
 
 Host
 ^^^^
-
-.. versionadded:: 1.1.1
 
 This set the config for a SNI host.
 

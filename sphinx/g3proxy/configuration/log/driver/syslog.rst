@@ -74,8 +74,6 @@ The key *udp* is just handled as *target_udp* as above.
 
 The key *unix* is just handled as *target_unix* as above.
 
-.. versionadded:: 1.3.5
-
 format_rfc5424
 --------------
 
@@ -146,8 +144,6 @@ emit_hostname
 Set if we should set hostname in the syslog message header.
 
 **default**: false
-
-.. versionadded:: 1.5.4
 
 append_report_ts
 ----------------

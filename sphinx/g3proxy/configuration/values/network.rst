@@ -346,8 +346,6 @@ It consists of the following fields:
 
   **default**: 0
 
-  .. versionadded:: 1.7.8
-
 * follow_cpu_affinity
 
   **optional**, **type**: bool
@@ -552,8 +550,6 @@ It consists of the following fields:
   The delay time before start a new connection after the previous one.
 
   **default**: 250ms, **min**: 100ms, **max**: 2s
-
-.. versionadded:: 1.5.3
 
 .. _conf_value_tcp_keepalive:
 
@@ -1027,8 +1023,6 @@ The following fields can be set:
   **default**: not set
 
 If in str format, the value will be treated as field *tls_name*.
-
-.. versionadded:: 1.1.4
 
 .. _conf_value_proxy_request_type:
 

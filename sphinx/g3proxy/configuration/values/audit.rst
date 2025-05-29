@@ -99,8 +99,6 @@ For *map* value, the keys are:
 
   **default**: not set
 
-  .. versionadded:: 1.7.4
-
 * bypass
 
   **optional**, **type**: bool
