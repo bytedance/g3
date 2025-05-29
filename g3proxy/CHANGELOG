@@ -1,6 +1,13 @@
 
 v1.11.6:
+ - BUG FIX: fix alignment of RawSocketAddr used in recvmmsg & sendmmsg
+ - BUG FIX: fix default positive min ttl in c-ares resolver
+ - Feature: allow to bind to interface in tcp & udp listen config on supported platforms
  - Feature: update TTL calculation in resolver, cache longer and query earlier
+ - Compatibility: drop hickory as a feature flag, it's always enabled now
+ - Compatibility: drop package support for Debian 10
+ - Optimization: create IDLE ICAP connections more timely
+ - Optimization: wait to receive as much as possible preview data for ICAP h1 & h2 reqmod service
 
 v1.11.5:
  - Feature: support easy-proxy Well-Known URI in http-proxy server
