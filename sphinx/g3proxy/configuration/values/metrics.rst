@@ -156,8 +156,6 @@ If the value type is str, the value should be the same as the value as *path* ab
 
 **default**: not set
 
-.. versionadded:: 1.3.5
-
 target_udp
 ----------
 
@@ -184,8 +182,6 @@ The value can be a map, with the following keys:
   **default**: not set
 
 If the value type is str, the value should be the same as the value as *address* above.
-
-.. versionadded:: 1.3.5
 
 target
 ------

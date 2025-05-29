@@ -48,5 +48,3 @@ The resolution delay time for the wait of the preferred address family after ano
 The meaning is the same as *resolution_delay* field in :ref:`happy eyeballs <conf_value_happy_eyeballs>`.
 
 **default**: 50ms
-
-.. versionadded:: 1.5.5

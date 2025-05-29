@@ -3,8 +3,6 @@
 route_client
 ============
 
-.. versionadded:: 1.1.3
-
 This escaper allows to select a next escaper based on rules on client address.
 
 There is no path selection support for this escaper.

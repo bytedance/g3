@@ -58,8 +58,6 @@ Configures the max number of events to be processed per tick.
 
 **default**: 1024, tokio default value
 
-.. versionadded: 1.7.6
-
 daemon quit control
 ===================
 

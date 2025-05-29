@@ -26,8 +26,6 @@ The following are the tags for all user metrics:
 
   Show the type of the user. See :ref:`user type <metrics_user_user_type>` for more details.
 
-  .. versionadded:: 1.7.0
-
 Request
 =======
 
@@ -94,8 +92,6 @@ The metric names are:
   **type**: gauge
 
   Show the alive layer 7 proxy connections.
-
-  .. versionadded:: 1.4.0
 
 Traffic
 =======

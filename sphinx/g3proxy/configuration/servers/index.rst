@@ -76,8 +76,6 @@ Set the auditor to use with this server.
 
 If the specified auditor doesn't exist in configure, a default auditor will be used.
 
-.. versionadded:: 1.7.0
-
 .. _conf_server_common_user_group:
 
 user_group
@@ -114,8 +112,6 @@ Set if we should listen in each worker runtime if you have worker enabled.
 The listen instance count will be the same with the worker number count.
 
 **default**: false
-
-.. versionadded:: 1.7.8
 
 .. _conf_server_common_tls_server:
 
