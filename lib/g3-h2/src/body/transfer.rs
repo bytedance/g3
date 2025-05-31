@@ -139,8 +139,8 @@ impl H2BodyTransfer {
                         if chunk.has_remaining() {
                             self.send_stream.reserve_capacity(chunk.len());
                             self.send_chunk = Some(chunk);
-                            continue;
                         }
+                        continue;
                     }
                     Some(Err(e)) => {
                         return Poll::Ready(Err(H2StreamBodyTransferError::RecvDataFailed(e)));

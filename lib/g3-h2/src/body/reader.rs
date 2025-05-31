@@ -70,7 +70,7 @@ impl AsyncRead for H2StreamReader {
                 match ready!(self.recv_stream.poll_data(cx)) {
                     Some(Ok(b)) => {
                         if b.is_empty() {
-                            return Poll::Ready(Ok(()));
+                            continue;
                         }
                         self.received_bytes = Some(b);
                     }

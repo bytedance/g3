@@ -183,8 +183,11 @@ impl ChunkedEncodeTransferInternal {
                 match ready!(recv_stream.poll_data(cx)) {
                     Some(Ok(chunk)) => {
                         self.active = true;
-                        self.static_header.clear();
                         let chunk_size = chunk.len();
+                        if chunk_size == 0 {
+                            continue;
+                        }
+                        self.static_header.clear();
                         if self.total_write == 0 {
                             let _ = write!(&mut self.static_header, "{chunk_size:x}\r\n");
                         } else {
