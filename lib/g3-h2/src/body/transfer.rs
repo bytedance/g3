@@ -8,6 +8,7 @@ use std::task::{Context, Poll, ready};
 
 use bytes::{Buf, Bytes};
 use h2::{FlowControl, RecvStream, SendStream};
+use http::HeaderMap;
 
 use super::H2StreamBodyTransferError;
 
@@ -65,8 +66,8 @@ impl H2BodyTransfer {
             }
             Ok(None) => {
                 self.send_stream
-                    .send_data(Bytes::new(), true)
-                    .map_err(H2StreamBodyTransferError::GracefulCloseError)?;
+                    .send_trailers(HeaderMap::new())
+                    .map_err(H2StreamBodyTransferError::SendTrailersFailed)?;
                 Poll::Ready(Ok(()))
             }
             Err(e) => Poll::Ready(Err(H2StreamBodyTransferError::RecvTrailersFailed(e))),
