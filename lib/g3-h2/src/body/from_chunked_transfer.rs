@@ -9,6 +9,7 @@ use std::task::{Context, Poll, ready};
 
 use bytes::Bytes;
 use h2::SendStream;
+use http::HeaderMap;
 use thiserror::Error;
 use tokio::io::AsyncBufRead;
 
@@ -83,7 +84,7 @@ where
         })?;
         if headers.is_empty() {
             self.send_stream
-                .send_data(Bytes::new(), true)
+                .send_trailers(HeaderMap::new())
                 .map_err(H2StreamFromChunkedTransferError::SendTrailerFailed)?;
         } else {
             self.send_stream
