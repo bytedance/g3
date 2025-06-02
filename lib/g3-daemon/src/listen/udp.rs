@@ -18,7 +18,7 @@ use g3_types::net::UdpListenConfig;
 use crate::server::{BaseServer, ReloadServer, ServerReloadCommand};
 
 pub trait ReceiveUdpServer: BaseServer {
-    fn receive_packet(
+    fn receive_udp_packet(
         &self,
         packet: &[u8],
         client_addr: SocketAddr,
@@ -128,7 +128,7 @@ where
                     match r {
                         Ok((len, peer_addr, local_addr)) => {
                             // TODO add stats
-                            self.server.receive_packet(&buf[..len], peer_addr, local_addr, self.worker_id);
+                            self.server.receive_udp_packet(&buf[..len], peer_addr, local_addr, self.worker_id);
                         }
                         Err(e) => {
                             warn!("SRT[{}_v{}#{}] error receiving data from socket, error: {e}",

@@ -4,7 +4,7 @@ log: stdout
 
 stat:
   target:
-    udp: 127.0.0.1:8125
+    unix: /tmp/g3statsd.sock
 
 resolver:
   - name: default

@@ -5,11 +5,15 @@ worker:
   thread_number: 2
 
 importer:
-  - name: statsd
-    type: statsd
+  - name: statsd_udp
+    type: statsd_udp
     collector: aggregate_1s
     listen: 127.0.0.1:8125
     listen_in_worker: true
+  - name: statsd_unix
+    type: statsd_unix
+    collector: aggregate_1s
+    listen: /tmp/g3statsd.sock
 
 collector:
   - name: aggregate_1s

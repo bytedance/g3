@@ -47,7 +47,9 @@ pub(crate) trait ImporterConfig {
 #[allow(clippy::large_enum_variant)]
 pub(crate) enum AnyImporterConfig {
     Dummy(dummy::DummyImporterConfig),
-    StatsD(statsd::StatsdImporterConfig),
+    StatsDUdp(statsd::StatsdUdpImporterConfig),
+    #[cfg(unix)]
+    StatsDUnix(statsd::StatsdUnixImporterConfig),
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
@@ -88,10 +90,16 @@ fn load_importer(
                 .context("failed to load this Dummy importer")?;
             Ok(AnyImporterConfig::Dummy(importer))
         }
-        "statsd" => {
-            let importer = statsd::StatsdImporterConfig::parse(map, position)
-                .context("failed to load this StatsD importer")?;
-            Ok(AnyImporterConfig::StatsD(importer))
+        "statsd" | "statsd_udp" => {
+            let importer = statsd::StatsdUdpImporterConfig::parse(map, position)
+                .context("failed to load this StatsD_UDP importer")?;
+            Ok(AnyImporterConfig::StatsDUdp(importer))
+        }
+        #[cfg(unix)]
+        "statsd_unix" => {
+            let importer = statsd::StatsdUnixImporterConfig::parse(map, position)
+                .context("failed to load this StatsD_UNIX importer")?;
+            Ok(AnyImporterConfig::StatsDUnix(importer))
         }
         _ => Err(anyhow!("unsupported importer type {}", importer_type)),
     }

@@ -157,8 +157,12 @@ fn delete_existed_unlocked(name: &NodeName) {
 fn spawn_new_unlocked(config: AnyImporterConfig) -> anyhow::Result<()> {
     let importer = match config {
         AnyImporterConfig::Dummy(config) => super::dummy::DummyImporter::prepare_initial(config)?,
-        AnyImporterConfig::StatsD(config) => {
-            super::statsd::StatsdImporter::prepare_initial(config)?
+        AnyImporterConfig::StatsDUdp(config) => {
+            super::statsd::StatsdUdpImporter::prepare_initial(config)?
+        }
+        #[cfg(unix)]
+        AnyImporterConfig::StatsDUnix(config) => {
+            super::statsd::StatsdUnixImporter::prepare_initial(config)?
         }
     };
     registry::add(importer)
