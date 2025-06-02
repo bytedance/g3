@@ -25,7 +25,11 @@ pub(super) enum SyslogBackend {
 
 impl SyslogBackend {
     pub(super) fn need_reconnect(&self) -> bool {
-        false
+        match self {
+            SyslogBackend::Udp(_) => false,
+            #[cfg(unix)]
+            SyslogBackend::Unix(_) => true,
+        }
     }
 }
 
