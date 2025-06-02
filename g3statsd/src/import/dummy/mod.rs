@@ -7,9 +7,13 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
+#[cfg(unix)]
+use tokio::net::unix::SocketAddr as UnixSocketAddr;
 use tokio::sync::broadcast;
 
 use g3_daemon::listen::ReceiveUdpServer;
+#[cfg(unix)]
+use g3_daemon::listen::ReceiveUnixDatagramServer;
 use g3_daemon::server::{BaseServer, ServerReloadCommand};
 use g3_types::metrics::NodeName;
 
@@ -113,7 +117,7 @@ impl BaseServer for DummyImporter {
 }
 
 impl ReceiveUdpServer for DummyImporter {
-    fn receive_packet(
+    fn receive_udp_packet(
         &self,
         _packet: &[u8],
         _client_addr: SocketAddr,
@@ -121,6 +125,11 @@ impl ReceiveUdpServer for DummyImporter {
         _worker_id: Option<usize>,
     ) {
     }
+}
+
+#[cfg(unix)]
+impl ReceiveUnixDatagramServer for DummyImporter {
+    fn receive_unix_packet(&self, _packet: &[u8], _peer_addr: UnixSocketAddr) {}
 }
 
 impl Importer for DummyImporter {

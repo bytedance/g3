@@ -6,9 +6,13 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+#[cfg(unix)]
+use tokio::net::unix::SocketAddr as UnixSocketAddr;
 use tokio::sync::broadcast;
 
 use g3_daemon::listen::ReceiveUdpServer;
+#[cfg(unix)]
+use g3_daemon::listen::ReceiveUnixDatagramServer;
 use g3_daemon::server::{BaseServer, ReloadServer, ServerReloadCommand};
 use g3_types::metrics::NodeName;
 
@@ -25,6 +29,13 @@ pub use ops::{spawn_all, stop_all};
 mod dummy;
 mod statsd;
 
+#[cfg(unix)]
+pub(crate) trait Importer:
+    ReceiveUdpServer + ReceiveUnixDatagramServer + BaseServer
+{
+    fn collector(&self) -> &NodeName;
+}
+#[cfg(not(unix))]
 pub(crate) trait Importer: ReceiveUdpServer + BaseServer {
     fn collector(&self) -> &NodeName;
 }
@@ -77,7 +88,7 @@ impl ReloadServer for WrapArcImporter {
 }
 
 impl ReceiveUdpServer for WrapArcImporter {
-    fn receive_packet(
+    fn receive_udp_packet(
         &self,
         packet: &[u8],
         client_addr: SocketAddr,
@@ -85,7 +96,14 @@ impl ReceiveUdpServer for WrapArcImporter {
         worker_id: Option<usize>,
     ) {
         self.0
-            .receive_packet(packet, client_addr, server_addr, worker_id)
+            .receive_udp_packet(packet, client_addr, server_addr, worker_id)
+    }
+}
+
+#[cfg(unix)]
+impl ReceiveUnixDatagramServer for WrapArcImporter {
+    fn receive_unix_packet(&self, packet: &[u8], peer_addr: UnixSocketAddr) {
+        self.0.receive_unix_packet(packet, peer_addr)
     }
 }
 

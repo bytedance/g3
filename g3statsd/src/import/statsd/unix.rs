@@ -3,51 +3,43 @@
  * Copyright 2025 ByteDance and/or its affiliates.
  */
 
-use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
 use chrono::Utc;
 use log::debug;
+use tokio::net::unix::SocketAddr;
 use tokio::sync::broadcast;
 
-use g3_daemon::listen::{ReceiveUdpRuntime, ReceiveUdpServer};
+use g3_daemon::listen::{ReceiveUdpServer, ReceiveUnixDatagramRuntime, ReceiveUnixDatagramServer};
 use g3_daemon::server::{BaseServer, ServerReloadCommand};
-use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::metrics::NodeName;
 
 use super::StatsdRecordVisitor;
 use crate::collect::ArcCollector;
-use crate::config::importer::statsd::StatsdImporterConfig;
+use crate::config::importer::statsd::StatsdUnixImporterConfig;
 use crate::config::importer::{AnyImporterConfig, ImporterConfig};
 use crate::import::{
     ArcImporter, ArcImporterInternal, Importer, ImporterInternal, ImporterRegistry, WrapArcImporter,
 };
 
-pub(crate) struct StatsdImporter {
-    config: StatsdImporterConfig,
-    ingress_net_filter: Option<AclNetworkRule>,
+pub(crate) struct StatsdUnixImporter {
+    config: StatsdUnixImporterConfig,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
 
     collector: ArcSwap<ArcCollector>,
     reload_version: usize,
 }
 
-impl StatsdImporter {
-    fn new(config: StatsdImporterConfig, reload_version: usize) -> Self {
+impl StatsdUnixImporter {
+    fn new(config: StatsdUnixImporterConfig, reload_version: usize) -> Self {
         let reload_sender = crate::import::new_reload_notify_channel();
-
-        let ingress_net_filter = config
-            .ingress_net_filter
-            .as_ref()
-            .map(|builder| builder.build());
 
         let collector = Arc::new(crate::collect::get_or_insert_default(config.collector()));
 
-        StatsdImporter {
+        StatsdUnixImporter {
             config,
-            ingress_net_filter,
             reload_sender,
             collector: ArcSwap::new(collector),
             reload_version,
@@ -55,15 +47,15 @@ impl StatsdImporter {
     }
 
     pub(crate) fn prepare_initial(
-        config: StatsdImporterConfig,
+        config: StatsdUnixImporterConfig,
     ) -> anyhow::Result<ArcImporterInternal> {
-        let server = StatsdImporter::new(config, 1);
+        let server = StatsdUnixImporter::new(config, 1);
         Ok(Arc::new(server))
     }
 
-    fn prepare_reload(&self, config: AnyImporterConfig) -> anyhow::Result<StatsdImporter> {
-        if let AnyImporterConfig::StatsD(config) = config {
-            Ok(StatsdImporter::new(config, self.reload_version + 1))
+    fn prepare_reload(&self, config: AnyImporterConfig) -> anyhow::Result<StatsdUnixImporter> {
+        if let AnyImporterConfig::StatsDUnix(config) = config {
+            Ok(StatsdUnixImporter::new(config, self.reload_version + 1))
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
@@ -72,27 +64,11 @@ impl StatsdImporter {
             ))
         }
     }
-
-    fn drop_early(&self, client_addr: SocketAddr) -> bool {
-        if let Some(ingress_net_filter) = &self.ingress_net_filter {
-            let (_, action) = ingress_net_filter.check(client_addr.ip());
-            match action {
-                AclAction::Permit | AclAction::PermitAndLog => {}
-                AclAction::Forbid | AclAction::ForbidAndLog => {
-                    return true;
-                }
-            }
-        }
-
-        // TODO add cps limit
-
-        false
-    }
 }
 
-impl ImporterInternal for StatsdImporter {
+impl ImporterInternal for StatsdUnixImporter {
     fn _clone_config(&self) -> AnyImporterConfig {
-        AnyImporterConfig::StatsD(self.config.clone())
+        AnyImporterConfig::StatsDUnix(self.config.clone())
     }
 
     fn _reload_config_notify_runtime(&self) {
@@ -125,11 +101,11 @@ impl ImporterInternal for StatsdImporter {
     }
 
     fn _start_runtime(&self, importer: ArcImporter) -> anyhow::Result<()> {
-        let runtime = ReceiveUdpRuntime::new(
+        let runtime = ReceiveUnixDatagramRuntime::new(
             WrapArcImporter(importer.clone()),
             self.config.listen.clone(),
         );
-        runtime.run_all_instances(self.config.listen_in_worker, &self.reload_sender)
+        runtime.spawn(&self.reload_sender)
     }
 
     fn _abort_runtime(&self) {
@@ -137,7 +113,7 @@ impl ImporterInternal for StatsdImporter {
     }
 }
 
-impl BaseServer for StatsdImporter {
+impl BaseServer for StatsdUnixImporter {
     #[inline]
     fn name(&self) -> &NodeName {
         self.config.name()
@@ -154,32 +130,33 @@ impl BaseServer for StatsdImporter {
     }
 }
 
-impl ReceiveUdpServer for StatsdImporter {
-    fn receive_packet(
+impl ReceiveUdpServer for StatsdUnixImporter {
+    fn receive_udp_packet(
         &self,
-        packet: &[u8],
-        client_addr: SocketAddr,
-        _server_addr: SocketAddr,
-        worker_id: Option<usize>,
+        _packet: &[u8],
+        _client_addr: std::net::SocketAddr,
+        _server_addr: std::net::SocketAddr,
+        _worker_id: Option<usize>,
     ) {
-        if self.drop_early(client_addr) {
-            return;
-        }
+    }
+}
 
+impl ReceiveUnixDatagramServer for StatsdUnixImporter {
+    fn receive_unix_packet(&self, packet: &[u8], client_addr: SocketAddr) {
         let time = Utc::now();
         let iter = StatsdRecordVisitor::new(packet);
         for r in iter {
             match r {
-                Ok(r) => self.collector.load().add_metric(time, r, worker_id),
+                Ok(r) => self.collector.load().add_metric(time, r, None),
                 Err(e) => {
-                    debug!("invalid StatsD record from {client_addr}: {e}");
+                    debug!("invalid StatsD record from {client_addr:?}: {e}");
                 }
             }
         }
     }
 }
 
-impl Importer for StatsdImporter {
+impl Importer for StatsdUnixImporter {
     fn collector(&self) -> &NodeName {
         self.config.collector()
     }

@@ -13,10 +13,10 @@ use g3_yaml::YamlDocPosition;
 
 use super::{AnyImporterConfig, ImporterConfig, ImporterConfigDiffAction};
 
-const IMPORTER_CONFIG_TYPE: &str = "StatsD";
+const IMPORTER_CONFIG_TYPE: &str = "StatsD_UDP";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct StatsdImporterConfig {
+pub(crate) struct StatsdUdpImporterConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) collector: NodeName,
@@ -25,9 +25,9 @@ pub(crate) struct StatsdImporterConfig {
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
 }
 
-impl StatsdImporterConfig {
+impl StatsdUdpImporterConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
-        StatsdImporterConfig {
+        StatsdUdpImporterConfig {
             name: NodeName::default(),
             position,
             collector: Default::default(),
@@ -41,7 +41,7 @@ impl StatsdImporterConfig {
         map: &yaml::Hash,
         position: Option<YamlDocPosition>,
     ) -> anyhow::Result<Self> {
-        let mut importer = StatsdImporterConfig::new(position);
+        let mut importer = StatsdUdpImporterConfig::new(position);
 
         g3_yaml::foreach_kv(map, |k, v| importer.set(k, v))?;
 
@@ -94,7 +94,7 @@ impl StatsdImporterConfig {
     }
 }
 
-impl ImporterConfig for StatsdImporterConfig {
+impl ImporterConfig for StatsdUdpImporterConfig {
     fn name(&self) -> &NodeName {
         &self.name
     }
@@ -108,7 +108,7 @@ impl ImporterConfig for StatsdImporterConfig {
     }
 
     fn diff_action(&self, new: &AnyImporterConfig) -> ImporterConfigDiffAction {
-        let AnyImporterConfig::StatsD(new) = new else {
+        let AnyImporterConfig::StatsDUdp(new) = new else {
             return ImporterConfigDiffAction::SpawnNew;
         };
 
