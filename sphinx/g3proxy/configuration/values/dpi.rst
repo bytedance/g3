@@ -745,14 +745,6 @@ The keys are:
 
   **default**: 16MiB
 
-* disable_upstream_push
-
-  **optional**, **type**: bool
-
-  Set if we should disable server push.
-
-  **default**: false
-
 * upstream_handshake_timeout
 
   **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`

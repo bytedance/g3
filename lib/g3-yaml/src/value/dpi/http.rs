@@ -87,10 +87,6 @@ pub fn as_h2_interception_config(value: &Yaml) -> anyhow::Result<H2InterceptionC
                     .context(format!("invalid humanize usize value for key {k}"))?;
                 Ok(())
             }
-            "disable_upstream_push" => {
-                config.disable_upstream_push = crate::value::as_bool(v)?;
-                Ok(())
-            }
             "upstream_handshake_timeout" => {
                 config.upstream_handshake_timeout = crate::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
