@@ -42,6 +42,7 @@ pub struct H2InterceptionConfig {
     pub upstream_handshake_timeout: Duration,
     pub upstream_stream_open_timeout: Duration,
     pub client_handshake_timeout: Duration,
+    pub ping_interval: Duration,
     pub rsp_head_recv_timeout: Duration,
     pub silent_drop_expect_header: bool,
 }
@@ -56,6 +57,7 @@ impl Default for H2InterceptionConfig {
             upstream_handshake_timeout: Duration::from_secs(10),
             upstream_stream_open_timeout: Duration::from_secs(10),
             client_handshake_timeout: Duration::from_secs(4),
+            ping_interval: Duration::from_secs(60),
             rsp_head_recv_timeout: Duration::from_secs(60),
             silent_drop_expect_header: false,
         }

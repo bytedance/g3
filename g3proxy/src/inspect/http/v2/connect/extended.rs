@@ -18,7 +18,7 @@ use g3_http::server::UriExt;
 use g3_slog_types::{LtDateTime, LtDuration, LtH2StreamId, LtUpstreamAddr, LtUuid};
 use g3_types::net::{HttpUpgradeToken, UpstreamAddr, WebSocketNotes};
 
-use super::{ExchangeHead, H2StreamTransferError, HttpForwardTaskNotes};
+use super::{ExchangeHead, H2StreamTransferError, HttpConnectTaskNotes};
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 use crate::log::inspect::{InspectSource, stream::StreamInspectLog};
@@ -51,7 +51,7 @@ pub(crate) struct H2ExtendedConnectTask<SC: ServerConfig> {
     ups_stream_id: Option<StreamId>,
     protocol: HttpUpgradeToken,
     upstream: Option<UpstreamAddr>,
-    http_notes: HttpForwardTaskNotes,
+    http_notes: HttpConnectTaskNotes,
 }
 
 fn get_host(clt_req: &Request<RecvStream>) -> Result<Option<UpstreamAddr>, H2StreamTransferError> {
@@ -83,7 +83,7 @@ where
             ups_stream_id: None,
             protocol,
             upstream: None,
-            http_notes: HttpForwardTaskNotes::default(),
+            http_notes: HttpConnectTaskNotes::default(),
         }
     }
 

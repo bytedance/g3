@@ -33,7 +33,7 @@ pub(super) use standard::H2ConnectTask;
 mod extended;
 pub(super) use extended::H2ExtendedConnectTask;
 
-struct HttpForwardTaskNotes {
+struct HttpConnectTaskNotes {
     ready_time: Duration,
     rsp_status: u16,
     origin_status: u16,
@@ -43,9 +43,9 @@ struct HttpForwardTaskNotes {
     dur_rsp_recv_hdr: Duration,
 }
 
-impl Default for HttpForwardTaskNotes {
+impl Default for HttpConnectTaskNotes {
     fn default() -> Self {
-        HttpForwardTaskNotes {
+        HttpConnectTaskNotes {
             ready_time: Duration::default(),
             rsp_status: 0,
             origin_status: 0,
@@ -57,7 +57,7 @@ impl Default for HttpForwardTaskNotes {
     }
 }
 
-impl HttpForwardTaskNotes {
+impl HttpConnectTaskNotes {
     pub(crate) fn mark_stream_ready(&mut self) {
         self.ready_time = self.started_ins.elapsed();
     }
@@ -75,12 +75,12 @@ struct ExchangeHead<'a, SC: ServerConfig> {
     ctx: &'a StreamInspectContext<SC>,
     ups_stream_id: Option<StreamId>,
     send_error_response: bool,
-    http_notes: &'a mut HttpForwardTaskNotes,
+    http_notes: &'a mut HttpConnectTaskNotes,
     ws_notes: Option<&'a mut WebSocketNotes>,
 }
 
 impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
-    fn new(ctx: &'a StreamInspectContext<SC>, http_notes: &'a mut HttpForwardTaskNotes) -> Self {
+    fn new(ctx: &'a StreamInspectContext<SC>, http_notes: &'a mut HttpConnectTaskNotes) -> Self {
         ExchangeHead {
             ctx,
             ups_stream_id: None,
@@ -92,7 +92,7 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
 
     fn new_websocket(
         ctx: &'a StreamInspectContext<SC>,
-        http_notes: &'a mut HttpForwardTaskNotes,
+        http_notes: &'a mut HttpConnectTaskNotes,
         ws_notes: &'a mut WebSocketNotes,
     ) -> Self {
         ExchangeHead {

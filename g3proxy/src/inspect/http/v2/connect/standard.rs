@@ -15,7 +15,7 @@ use g3_http::server::UriExt;
 use g3_slog_types::{LtDateTime, LtDuration, LtH2StreamId, LtUpstreamAddr, LtUuid};
 use g3_types::net::UpstreamAddr;
 
-use super::{ExchangeHead, HttpForwardTaskNotes};
+use super::{ExchangeHead, HttpConnectTaskNotes};
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 
@@ -45,7 +45,7 @@ pub(crate) struct H2ConnectTask<SC: ServerConfig> {
     clt_stream_id: StreamId,
     ups_stream_id: Option<StreamId>,
     upstream: Option<UpstreamAddr>,
-    http_notes: HttpForwardTaskNotes,
+    http_notes: HttpConnectTaskNotes,
 }
 
 impl<SC> H2ConnectTask<SC>
@@ -58,7 +58,7 @@ where
             clt_stream_id,
             ups_stream_id: None,
             upstream: None,
-            http_notes: HttpForwardTaskNotes::default(),
+            http_notes: HttpConnectTaskNotes::default(),
         }
     }
 

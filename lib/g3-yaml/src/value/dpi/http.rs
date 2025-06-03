@@ -102,6 +102,11 @@ pub fn as_h2_interception_config(value: &Yaml) -> anyhow::Result<H2InterceptionC
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
+            "ping_interval" => {
+                config.ping_interval = crate::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
             "rsp_header_recv_timeout" => {
                 config.rsp_head_recv_timeout = crate::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
