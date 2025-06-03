@@ -39,7 +39,6 @@ pub struct H2InterceptionConfig {
     pub max_concurrent_streams: u32,
     max_frame_size: u32,
     pub max_send_buffer_size: usize,
-    pub disable_upstream_push: bool,
     pub upstream_handshake_timeout: Duration,
     pub upstream_stream_open_timeout: Duration,
     pub client_handshake_timeout: Duration,
@@ -54,7 +53,6 @@ impl Default for H2InterceptionConfig {
             max_concurrent_streams: 16,
             max_frame_size: 1024 * 1024,            // 1MB
             max_send_buffer_size: 16 * 1024 * 1024, // 16MB
-            disable_upstream_push: false,
             upstream_handshake_timeout: Duration::from_secs(10),
             upstream_stream_open_timeout: Duration::from_secs(10),
             client_handshake_timeout: Duration::from_secs(4),
