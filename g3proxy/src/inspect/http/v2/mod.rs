@@ -39,6 +39,9 @@ use stats::H2ConcurrencyStats;
 
 mod stream;
 
+mod ping;
+use ping::H2PingTask;
+
 mod connect;
 use connect::{H2ConnectTask, H2ExtendedConnectTask};
 
@@ -343,7 +346,7 @@ where
             .max_frame_size(http_config.max_frame_size())
             .max_send_buffer_size(http_config.max_send_buffer_size);
 
-        let (h2s, h2s_connection) = match tokio::time::timeout(
+        let (h2s, mut h2s_connection) = match tokio::time::timeout(
             http_config.upstream_handshake_timeout,
             client_builder.handshake(tokio::io::join(ups_r, ups_w)),
         )
@@ -354,6 +357,12 @@ where
             Err(_) => return Err(H2InterceptionError::UpstreamHandshakeTimeout),
         };
 
+        let (ping_quit_sender, ping_quit_receiver) = oneshot::channel();
+        if let Some(ping) = h2s_connection.ping_pong() {
+            let ping_task =
+                H2PingTask::new(self.ctx.clone(), self.stats.clone(), self.upstream.clone());
+            tokio::spawn(ping_task.into_running(ping, ping_quit_receiver));
+        }
         let max_concurrent_send_streams =
             u32::try_from(h2s_connection.max_concurrent_send_streams()).unwrap_or(u32::MAX);
         let (ups_close_sender, mut ups_close_receiver) = oneshot::channel();
@@ -393,6 +402,7 @@ where
                 biased;
 
                 ups_r = &mut ups_close_receiver => {
+                    let _ = ping_quit_sender.send(());
                     return match ups_r {
                         Ok(e) => {
                             // upstream connection error
@@ -429,6 +439,7 @@ where
                         Some(Err(e)) => {
                             // close all stream and let the h2s connection to close
                             drop(h2s);
+                            let _ = ping_quit_sender.send(());
                             // h2c_connection.poll_closed() has already been called in accept()
 
                             if let Some(e) = e.get_io() {
@@ -441,6 +452,7 @@ where
                         None => {
                             // close all stream and let the h2s connection to close
                             drop(h2s);
+                            let _ = ping_quit_sender.send(());
                             self.log_client_shutdown();
                             let _ = poll_fn(|cx| h2c_connection.poll_closed(cx)).await;
                             return Ok(());
@@ -452,6 +464,7 @@ where
                         idle_count += n;
 
                         if idle_count > self.ctx.max_idle_count {
+                            let _ = ping_quit_sender.send(());
                             server_abrupt_shutdown(h2c_connection, Reason::ENHANCE_YOUR_CALM).await;
 
                             return Err(H2InterceptionError::Idle(idle_interval.period(), idle_count));
@@ -462,12 +475,14 @@ where
                     }
 
                     if self.ctx.belongs_to_blocked_user() {
+                        let _ = ping_quit_sender.send(());
                         server_abrupt_shutdown(h2c_connection, Reason::ENHANCE_YOUR_CALM).await;
 
                         return Err(H2InterceptionError::CanceledAsUserBlocked);
                     }
 
                     if self.ctx.server_force_quit() {
+                        let _ = ping_quit_sender.send(());
                         server_graceful_shutdown(h2c_connection).await;
 
                         return Err(H2InterceptionError::CanceledAsServerQuit)

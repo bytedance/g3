@@ -769,6 +769,16 @@ The keys are:
 
   **default**: 4s
 
+* ping_interval
+
+  **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+  Set the time interval to send HTTP2 PING frames.
+
+  **default**: 60s
+
+  .. versionadded:: 1.11.7
+
 * rsp_header_recv_timeout
 
   **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
