@@ -315,13 +315,13 @@ where
             Err(_) => return Err(H2InterceptionError::UpstreamHandshakeTimeout),
         };
 
-        let max_concurrent_recv_streams =
-            u32::try_from(h2s_connection.max_concurrent_recv_streams()).unwrap_or(u32::MAX);
+        let max_concurrent_send_streams =
+            u32::try_from(h2s_connection.max_concurrent_send_streams()).unwrap_or(u32::MAX);
 
         let mut server_builder = h2::server::Builder::new();
         server_builder
             .max_header_list_size(http_config.max_header_list_size)
-            .max_concurrent_streams(max_concurrent_recv_streams)
+            .max_concurrent_streams(max_concurrent_send_streams)
             .max_frame_size(http_config.max_frame_size)
             .max_send_buffer_size(http_config.max_send_buffer_size);
         if h2s.is_extended_connect_protocol_enabled() {
