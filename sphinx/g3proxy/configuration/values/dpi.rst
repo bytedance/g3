@@ -725,7 +725,7 @@ The keys are:
 
   Set the max concurrent stream for each http2 connection.
 
-  **default**: 16
+  **default**: 128
 
 * max_frame_size
 
