@@ -12,6 +12,7 @@ use bytes::Bytes;
 use h2::{Reason, server::Connection};
 use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use tokio::sync::oneshot;
 
 use g3_daemon::server::ServerQuitPolicy;
 use g3_dpi::{Protocol, ProtocolInspectAction};
@@ -342,7 +343,7 @@ where
             .max_frame_size(http_config.max_frame_size())
             .max_send_buffer_size(http_config.max_send_buffer_size);
 
-        let (h2s, mut h2s_connection) = match tokio::time::timeout(
+        let (h2s, h2s_connection) = match tokio::time::timeout(
             http_config.upstream_handshake_timeout,
             client_builder.handshake(tokio::io::join(ups_r, ups_w)),
         )
@@ -355,6 +356,12 @@ where
 
         let max_concurrent_send_streams =
             u32::try_from(h2s_connection.max_concurrent_send_streams()).unwrap_or(u32::MAX);
+        let (ups_close_sender, mut ups_close_receiver) = oneshot::channel();
+        tokio::spawn(async move {
+            if let Err(e) = h2s_connection.await {
+                let _ = ups_close_sender.send(e);
+            }
+        });
 
         let mut server_builder = h2::server::Builder::new();
         server_builder
@@ -385,22 +392,23 @@ where
             tokio::select! {
                 biased;
 
-                ups_r = &mut h2s_connection => {
+                ups_r = &mut ups_close_receiver => {
                     return match ups_r {
-                        Ok(_) => {
+                        Ok(e) => {
+                            // upstream connection error
                             server_graceful_shutdown(h2c_connection).await;
-
-                            Ok(())
-                        }
-                        Err(e) => {
-                            server_graceful_shutdown(h2c_connection).await;
-
                             if let Some(e) = e.get_io() {
                                 if e.kind() == std::io::ErrorKind::NotConnected {
                                     return Err(H2InterceptionError::UpstreamConnectionDisconnected);
                                 }
                             }
                             Err(H2InterceptionError::UpstreamConnectionClosed(e))
+                        }
+                        Err(_) => {
+                            // upstream connection closed
+                            self.log_upstream_shutdown();
+                            server_graceful_shutdown(h2c_connection).await;
+                            Ok(())
                         }
                     };
                 }
@@ -419,11 +427,9 @@ where
                             continue;
                         }
                         Some(Err(e)) => {
-                            // close all stream and wait the h2s connection to close
+                            // close all stream and let the h2s connection to close
                             drop(h2s);
-                            // TODO add timeout
                             // h2c_connection.poll_closed() has already been called in accept()
-                            let _ = h2s_connection.await;
 
                             if let Some(e) = e.get_io() {
                                 if e.kind() == std::io::ErrorKind::NotConnected {
@@ -433,14 +439,10 @@ where
                             return Err(H2InterceptionError::ClientConnectionClosed(e));
                         }
                         None => {
-                            // close all stream and wait the h2s connection to close
+                            // close all stream and let the h2s connection to close
                             drop(h2s);
-                            // TODO add timeout
-                            tokio::spawn(async move {
-                                let _ = poll_fn(|cx| h2c_connection.poll_closed(cx)).await;
-                            });
-                            let _ = h2s_connection.await;
-
+                            self.log_client_shutdown();
+                            let _ = poll_fn(|cx| h2c_connection.poll_closed(cx)).await;
                             return Ok(());
                         }
                     }
