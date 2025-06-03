@@ -51,7 +51,7 @@ impl Default for H2InterceptionConfig {
     fn default() -> Self {
         H2InterceptionConfig {
             max_header_list_size: 64 * 1024, // 64KB
-            max_concurrent_streams: 16,
+            max_concurrent_streams: 128,
             max_frame_size: 1024 * 1024,            // 1MB
             max_send_buffer_size: 16 * 1024 * 1024, // 16MB
             upstream_handshake_timeout: Duration::from_secs(10),
