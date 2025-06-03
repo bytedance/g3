@@ -303,9 +303,6 @@ where
             .max_concurrent_streams(http_config.max_concurrent_streams)
             .max_frame_size(http_config.max_frame_size)
             .max_send_buffer_size(http_config.max_send_buffer_size);
-        if http_config.disable_upstream_push {
-            client_builder.enable_push(false);
-        }
 
         let (h2s, mut h2s_connection) = match tokio::time::timeout(
             http_config.upstream_handshake_timeout,
