@@ -34,11 +34,7 @@ impl<T> RequestExt for Request<T> {
         let method = self.method();
         let uri = self.uri();
         if let Some(pa) = uri.path_and_query() {
-            if method.eq(&Method::OPTIONS) && pa.query().is_none() && pa.path().eq("/") {
-                let _ = write!(buf, "OPTIONS * HTTP/1.1\r\n");
-            } else {
-                let _ = write!(buf, "{method} {pa} HTTP/1.1\r\n");
-            }
+            let _ = write!(buf, "{method} {pa} HTTP/1.1\r\n");
         } else if method.eq(&Method::OPTIONS) {
             let _ = write!(buf, "OPTIONS * HTTP/1.1\r\n");
         } else {
