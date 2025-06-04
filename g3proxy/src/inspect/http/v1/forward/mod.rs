@@ -9,6 +9,7 @@ use anyhow::anyhow;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use futures_util::FutureExt;
+use http::header;
 use slog::slog_info;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
@@ -25,7 +26,7 @@ use g3_icap_client::respmod::h1::{
     HttpResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
 use g3_io_ext::{LimitedBufReadExt, LimitedCopy, LimitedCopyError, LimitedWriteExt};
-use g3_slog_types::{LtDateTime, LtDuration, LtHttpMethod, LtHttpUri, LtUuid};
+use g3_slog_types::{LtDateTime, LtDuration, LtHttpHeaderValue, LtHttpMethod, LtHttpUri, LtUuid};
 use g3_types::net::HttpHeaderMap;
 
 use super::{HttpRequest, HttpRequestIo, HttpResponseIo};
@@ -48,6 +49,7 @@ macro_rules! intercept_log {
                 "received_at" => LtDateTime(&$obj.http_notes.receive_datetime),
                 "method" => LtHttpMethod(&$obj.req.method),
                 "uri" => LtHttpUri::new(&$obj.req.uri, $obj.ctx.log_uri_max_chars()),
+                "host" => $obj.req.end_to_end_headers.get(header::HOST).map(|v| LtHttpHeaderValue(v.inner())),
                 "rsp_status" => $obj.http_notes.rsp_status,
                 "origin_status" => $obj.http_notes.origin_status,
                 "dur_req_send_hdr" => LtDuration($obj.http_notes.dur_req_send_hdr),
