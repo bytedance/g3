@@ -700,6 +700,36 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn read_long_chunked() {
+        let content1 = b"5\r\ntest\n\r\n";
+        let content2 = b"4\r\nbody\r\n";
+        let content3 = b"20\r\naabbbbbbbbbbccccccccccdddddddddd\r\n";
+        let content4 = b"0\r\n\r\nXXX";
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .read(content3)
+            .read(content4)
+            .build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut body_reader = HttpBodyReader::new(&mut buf_stream, HttpBodyType::Chunked, 1024);
+
+        let mut buf = [0u8; 32];
+        let len = body_reader.read(&mut buf).await.unwrap();
+        assert_eq!(len, buf.len());
+        assert_eq!(
+            buf.as_slice(),
+            b"5\r\ntest\n\r\n4\r\nbody\r\n20\r\naabbbbbbb"
+        );
+        assert!(!body_reader.finished());
+
+        let len = body_reader.read(&mut buf).await.unwrap();
+        assert_eq!(len, 30);
+        assert_eq!(&buf[..len], b"bbbccccccccccdddddddddd\r\n0\r\n\r\n");
+        assert!(body_reader.finished());
+    }
+
+    #[tokio::test]
     async fn read_single_trailer() {
         let body_len: usize = 30;
         let content = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\nA: B\r\n\r\nXX";

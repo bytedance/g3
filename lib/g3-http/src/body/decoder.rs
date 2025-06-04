@@ -11,18 +11,18 @@ use tokio::io::{AsyncBufRead, AsyncRead, ReadBuf};
 
 use g3_types::net::HttpHeaderMap;
 
-use crate::{
-    ChunkedDataDecodeReader, HttpBodyReader, HttpBodyType, TrailerReadError, TrailerReader,
-};
+use crate::{ChunkedDataDecodeReader, HttpBodyType, TrailerReadError, TrailerReader};
 
 enum HttpBodyDecodeState<'a, R> {
-    Plain(HttpBodyReader<'a, R>),
+    ReadUntilEnd(&'a mut R),
+    ReadFixedLength(&'a mut R, u64),
     Chunked(ChunkedDataDecodeReader<'a, R>),
 }
 
 pub struct HttpBodyDecodeReader<'a, R> {
     read_data_done: bool,
     finished: bool,
+    total_read: u64,
     decode_state: Option<HttpBodyDecodeState<'a, R>>,
 }
 
@@ -34,6 +34,7 @@ where
         HttpBodyDecodeReader {
             read_data_done: false,
             finished: false,
+            total_read: 0,
             decode_state: Some(state),
         }
     }
@@ -46,15 +47,14 @@ where
         }
     }
 
-    pub fn new_read_until_end(stream: &'a mut R) -> Self {
-        HttpBodyDecodeReader::with_state(HttpBodyDecodeState::Plain(
-            HttpBodyReader::new_read_until_end(stream),
-        ))
+    pub fn new_read_until_end(reader: &'a mut R) -> Self {
+        HttpBodyDecodeReader::with_state(HttpBodyDecodeState::ReadUntilEnd(reader))
     }
 
-    pub fn new_fixed_length(stream: &'a mut R, content_length: u64) -> Self {
-        HttpBodyDecodeReader::with_state(HttpBodyDecodeState::Plain(
-            HttpBodyReader::new_fixed_length(stream, content_length),
+    pub fn new_fixed_length(reader: &'a mut R, content_length: u64) -> Self {
+        HttpBodyDecodeReader::with_state(HttpBodyDecodeState::ReadFixedLength(
+            reader,
+            content_length,
         ))
     }
 
@@ -80,17 +80,16 @@ where
             return Ok(None);
         };
 
-        match state {
-            HttpBodyDecodeState::Plain(_) => Ok(None),
-            HttpBodyDecodeState::Chunked(decoder) => {
-                let headers = TrailerReader::new(decoder.into_reader(), max_size).await?;
-                self.finished = true;
-                if headers.is_empty() {
-                    Ok(None)
-                } else {
-                    Ok(Some(headers))
-                }
+        if let HttpBodyDecodeState::Chunked(decoder) = state {
+            let headers = TrailerReader::new(decoder.into_reader(), max_size).await?;
+            self.finished = true;
+            if headers.is_empty() {
+                Ok(None)
+            } else {
+                Ok(Some(headers))
             }
+        } else {
+            Ok(None)
         }
     }
 
@@ -111,25 +110,56 @@ where
         if self.read_data_done {
             return Poll::Ready(Ok(()));
         }
+        if buf.remaining() == 0 {
+            // invalid read action
+            return Poll::Ready(Ok(()));
+        }
 
+        let total_read = self.total_read;
         let Some(reader) = self.decode_state.as_mut() else {
             return Poll::Ready(Ok(()));
         };
 
-        let prev_len = buf.filled().len();
         match reader {
-            HttpBodyDecodeState::Plain(r) => {
+            HttpBodyDecodeState::ReadUntilEnd(r) => {
+                let prev_len = buf.filled().len();
                 ready!(Pin::new(r).poll_read(cx, buf))?;
+                let nr = buf.filled().len() - prev_len;
                 if buf.filled().len() == prev_len {
+                    self.read_data_done = true;
+                    self.finished = true;
+                }
+                self.total_read += nr as u64;
+            }
+            HttpBodyDecodeState::ReadFixedLength(r, max_len) => {
+                let max_read = *max_len;
+                let left = max_read - total_read;
+                let to_read = left.min(buf.remaining() as u64) as usize;
+                let mut new_buf = ReadBuf::new(buf.initialize_unfilled_to(to_read));
+                ready!(Pin::new(r).poll_read(cx, &mut new_buf))?;
+                let nr = new_buf.filled().len();
+                if nr == 0 {
+                    return Poll::Ready(Err(io::Error::new(
+                        io::ErrorKind::UnexpectedEof,
+                        format!("EOF after read {total_read} of {max_read} body"),
+                    )));
+                }
+                buf.advance(nr);
+                self.total_read += nr as u64;
+                if self.total_read == max_read {
                     self.read_data_done = true;
                     self.finished = true;
                 }
             }
             HttpBodyDecodeState::Chunked(c) => {
-                ready!(Pin::new(c).poll_read(cx, buf))?;
-                if buf.filled().len() == prev_len {
+                let prev_len = buf.filled().len();
+                let mut pin_c = Pin::new(c);
+                ready!(pin_c.as_mut().poll_read(cx, buf))?;
+                if pin_c.finished() {
                     self.read_data_done = true;
                 }
+                let nr = buf.filled().len() - prev_len;
+                self.total_read += nr as u64;
             }
         }
         Poll::Ready(Ok(()))
@@ -275,6 +305,38 @@ mod tests {
         assert_eq!(buf.len(), body_len);
         assert_eq!(&buf, b"test\nbody");
         assert!(!body_reader.finished());
+        let header = body_reader.trailer(1024).await.unwrap();
+        assert!(header.is_none());
+        assert!(body_reader.finished());
+    }
+
+    #[tokio::test]
+    async fn read_long_chunked() {
+        let content1 = b"5\r\ntest\n\r\n";
+        let content2 = b"4\r\nbody\r\n";
+        let content3 = b"20\r\naabbbbbbbbbbccccccccccdddddddddd\r\n";
+        let content4 = b"0\r\n\r\nXXX";
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .read(content3)
+            .read(content4)
+            .build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut body_reader =
+            HttpBodyDecodeReader::new(&mut buf_stream, HttpBodyType::Chunked, 1024);
+
+        let mut buf = [0u8; 32];
+        let len = body_reader.read(&mut buf).await.unwrap();
+        assert_eq!(len, buf.len());
+        assert_eq!(buf.as_slice(), b"test\nbodyaabbbbbbbbbbccccccccccd");
+        assert!(!body_reader.finished());
+
+        let len = body_reader.read(&mut buf).await.unwrap();
+        assert_eq!(len, 9);
+        assert_eq!(&buf[..len], b"ddddddddd");
+        assert!(!body_reader.finished());
+
         let header = body_reader.trailer(1024).await.unwrap();
         assert!(header.is_none());
         assert!(body_reader.finished());
