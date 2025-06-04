@@ -8,7 +8,7 @@ use http::{HeaderMap, HeaderName};
 
 use super::HttpHeaderValue;
 
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct HttpHeaderMap {
     inner: HeaderMap<HttpHeaderValue>,
 }
@@ -72,13 +72,13 @@ impl From<HttpHeaderMap> for HeaderMap {
             match name {
                 Some(name) => {
                     last_name = Some(name.clone());
-                    new_map.append(name, value.into());
+                    new_map.append(name, value.into_inner());
                 }
                 None => {
                     let Some(name) = &last_name else {
                         break;
                     };
-                    new_map.append(name, value.into());
+                    new_map.append(name, value.into_inner());
                 }
             }
         }
@@ -90,7 +90,7 @@ impl From<&HttpHeaderMap> for HeaderMap {
     fn from(value: &HttpHeaderMap) -> Self {
         let mut new_map = HeaderMap::with_capacity(value.inner.capacity());
         value.for_each(|name, value| {
-            new_map.append(name, value.into());
+            new_map.append(name, value.inner().clone());
         });
         new_map
     }

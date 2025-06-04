@@ -8,7 +8,7 @@ use std::ops::Deref;
 
 use smol_str::SmolStr;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct HttpOriginalHeaderName(SmolStr);
 
 impl HttpOriginalHeaderName {
