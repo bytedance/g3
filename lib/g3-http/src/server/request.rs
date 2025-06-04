@@ -468,11 +468,7 @@ impl HttpProxyClientRequest {
         let mut buf =
             Vec::<u8>::with_capacity(self.origin_header_size + RESERVED_LEN_FOR_EXTRA_HEADERS);
         if let Some(pa) = self.uri.path_and_query() {
-            if self.method.eq(&Method::OPTIONS) && pa.query().is_none() && pa.path().eq("/") {
-                let _ = write!(buf, "OPTIONS * {:?}\r\n", self.version);
-            } else {
-                let _ = write!(buf, "{} {} {:?}\r\n", self.method, pa, self.version);
-            }
+            let _ = write!(buf, "{} {} {:?}\r\n", self.method, pa, self.version);
         } else if self.method.eq(&Method::OPTIONS) {
             let _ = write!(buf, "OPTIONS * {:?}\r\n", self.version);
         } else {
@@ -522,11 +518,7 @@ impl HttpProxyClientRequest {
     pub fn serialize_for_adapter(&self) -> Vec<u8> {
         let mut buf = Vec::<u8>::with_capacity(self.origin_header_size);
         if let Some(pa) = self.uri.path_and_query() {
-            if self.method.eq(&Method::OPTIONS) && pa.query().is_none() && pa.path().eq("/") {
-                let _ = write!(buf, "OPTIONS * {:?}\r\n", self.version);
-            } else {
-                let _ = write!(buf, "{} {} {:?}\r\n", self.method, pa, self.version);
-            }
+            let _ = write!(buf, "{} {} {:?}\r\n", self.method, pa, self.version);
         } else if self.method.eq(&Method::OPTIONS) {
             let _ = write!(buf, "OPTIONS * {:?}\r\n", self.version);
         } else {
