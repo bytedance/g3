@@ -723,6 +723,26 @@ The keys are:
 
   **default**: 1MiB
 
+* stream_window_size
+
+  **optional**, **type**: :ref:`humanize u32 <conf_value_humanize_u32>`
+
+  Set the INITIAL_WINDOW_SIZE in http2 SETTINGS frame. This will set the window size for each stream.
+
+  **default**: 1MiB
+
+  .. versionadded:: 1.11.7
+
+* connection_window_size
+
+  **optional**, **type**: :ref:`humanize u32 <conf_value_humanize_u32>`
+
+  Set the window size for the h2 connection.
+
+  **default**: 2MiB
+
+  .. versionadded:: 1.11.7
+
 * max_send_buffer_size
 
   **optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
