@@ -78,7 +78,7 @@ pub fn as_h2_interception_config(value: &Yaml) -> anyhow::Result<H2InterceptionC
         let mut config = H2InterceptionConfig::default();
 
         crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
-            "max_header_list_size" => {
+            "max_header_list_size" | "max_header_size" => {
                 config.max_header_list_size = crate::humanize::as_u32(v)
                     .context(format!("invalid humanize u32 value for key {k}"))?;
                 Ok(())

@@ -300,7 +300,7 @@ where
         client_builder
             .enable_push(false) // server push is deprecated by chrome and nginx
             .max_header_list_size(http_config.max_header_list_size)
-            .max_concurrent_streams(http_config.max_concurrent_streams)
+            .max_concurrent_streams(0)
             .max_frame_size(http_config.max_frame_size())
             .max_send_buffer_size(http_config.max_send_buffer_size)
             .initial_window_size(http_config.stream_window_size())
@@ -318,7 +318,9 @@ where
         };
 
         let max_concurrent_send_streams =
-            u32::try_from(h2s_connection.max_concurrent_send_streams()).unwrap_or(u32::MAX);
+            u32::try_from(h2s_connection.max_concurrent_send_streams())
+                .unwrap_or(u32::MAX)
+                .min(http_config.max_concurrent_streams);
 
         let mut server_builder = h2::server::Builder::new();
         server_builder

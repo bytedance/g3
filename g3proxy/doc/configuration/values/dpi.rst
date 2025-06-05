@@ -705,15 +705,16 @@ The keys are:
 
   Set the max header size.
 
-  **default**: 64KiB
+  **default**: 64KiB, **alias**: max_header_size
 
 * max_concurrent_streams
 
   **optional**, **type**: u32
 
-  Set the max concurrent stream for each http2 connection.
+  Set the max concurrent stream that can be initiated by client.
+  The remote peer will also give a max concurrent stream limit, the minimum one of them will be sent to the client.
 
-  **default**: 16
+  **default**: 128
 
 * max_frame_size
 
@@ -721,7 +722,9 @@ The keys are:
 
   Set the max frame size.
 
-  **default**: 1MiB
+  **default**: 256KiB, **min**: 16K, **max**: 16M - 1
+
+  .. versionchanged:: 1.11.3 adjust the value to be in the range *min*-*max* automatically
 
 * stream_window_size
 
@@ -749,7 +752,7 @@ The keys are:
 
   Set the max send buffer size.
 
-  **default**: 16MiB
+  **default**: 8MiB
 
 * upstream_handshake_timeout
 
