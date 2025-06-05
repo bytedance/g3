@@ -35,7 +35,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             self.icap_client.save_connection(self.icap_connection);
         }
 
-        let (ups_recv_rsp, _) = ups_send_request
+        let (ups_recv_rsp, ups_send_stream) = ups_send_request
             .send_request(http_request, true)
             .map_err(H2ReqmodAdaptationError::HttpUpstreamSendHeadFailed)?;
         state.mark_ups_send_header();
@@ -46,7 +46,10 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                 .await?;
         state.mark_ups_recv_header();
 
-        Ok(ReqmodAdaptationEndState::OriginalTransferred(ups_rsp))
+        Ok(ReqmodAdaptationEndState::OriginalTransferred(
+            ups_rsp,
+            ups_send_stream,
+        ))
     }
 
     pub(super) async fn handle_original_http_request_with_body(
@@ -72,23 +75,26 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             .h2_unbounded_send(&mut ups_send_stream)
             .map_err(H2ReqmodAdaptationError::HttpUpstreamSendDataFailed)?;
 
-        let mut body_transfer =
-            H2BodyTransfer::new(clt_body, ups_send_stream, self.copy_config.yield_size());
+        let mut body_transfer = H2BodyTransfer::new(
+            clt_body,
+            &mut ups_send_stream,
+            self.copy_config.yield_size(),
+        );
 
         let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
 
         fn convert_transfer_error(e: H2StreamBodyTransferError) -> H2ReqmodAdaptationError {
             match e {
-                H2StreamBodyTransferError::RecvDataFailed(e)
-                | H2StreamBodyTransferError::RecvTrailersFailed(e)
-                | H2StreamBodyTransferError::ReleaseRecvCapacityFailed(e) => {
+                H2StreamBodyTransferError::RecvData(e)
+                | H2StreamBodyTransferError::RecvTrailers(e)
+                | H2StreamBodyTransferError::ReleaseRecvCapacity(e) => {
                     H2ReqmodAdaptationError::HttpClientRecvDataFailed(e)
                 }
-                H2StreamBodyTransferError::SendDataFailed(e)
-                | H2StreamBodyTransferError::SendTrailersFailed(e)
-                | H2StreamBodyTransferError::WaitSendCapacityFailed(e)
-                | H2StreamBodyTransferError::GracefulCloseError(e) => {
+                H2StreamBodyTransferError::SendData(e)
+                | H2StreamBodyTransferError::SendTrailers(e)
+                | H2StreamBodyTransferError::WaitSendCapacity(e)
+                | H2StreamBodyTransferError::SendEndOfStream(e) => {
                     H2ReqmodAdaptationError::HttpUpstreamSendDataFailed(e)
                 }
                 H2StreamBodyTransferError::SenderNotInSendState => {
@@ -105,7 +111,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     return match r {
                         Ok(ups_rsp) => {
                             state.mark_ups_recv_header();
-                            Ok(ReqmodAdaptationEndState::OriginalTransferred(ups_rsp))
+                            Ok(ReqmodAdaptationEndState::OriginalTransferred(ups_rsp, ups_send_stream))
                         }
                         Err(e) => Err(H2ReqmodAdaptationError::HttpUpstreamRecvResponseFailed(e)),
                     };
@@ -149,7 +155,10 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                 .await?;
         state.mark_ups_recv_header();
 
-        Ok(ReqmodAdaptationEndState::OriginalTransferred(ups_rsp))
+        Ok(ReqmodAdaptationEndState::OriginalTransferred(
+            ups_rsp,
+            ups_send_stream,
+        ))
     }
 
     pub(super) async fn recv_icap_http_request_without_body(
@@ -196,7 +205,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
 
         let final_req = orig_http_request.adapt_to(&http_req);
 
-        let (ups_recv_rsp, _) = ups_send_request
+        let (ups_recv_rsp, ups_send_stream) = ups_send_request
             .send_request(final_req, true)
             .map_err(H2ReqmodAdaptationError::HttpUpstreamSendHeadFailed)?;
         state.mark_ups_send_header();
@@ -208,7 +217,9 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         state.mark_ups_recv_header();
 
         Ok(ReqmodAdaptationEndState::AdaptedTransferred(
-            http_req, ups_rsp,
+            http_req,
+            ups_rsp,
+            ups_send_stream,
         ))
     }
 
@@ -258,7 +269,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                                     self.icap_client.save_connection(self.icap_connection);
                                 }
                             }
-                            Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp))
+                            Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp, ups_send_stream))
                         }
                         Err(e) => Err(H2ReqmodAdaptationError::HttpUpstreamRecvResponseFailed(e)),
                     };
@@ -310,7 +321,9 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         state.mark_ups_recv_header();
 
         Ok(ReqmodAdaptationEndState::AdaptedTransferred(
-            http_req, ups_rsp,
+            http_req,
+            ups_rsp,
+            ups_send_stream,
         ))
     }
 }

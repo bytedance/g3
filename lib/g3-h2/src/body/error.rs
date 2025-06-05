@@ -7,20 +7,31 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum H2StreamBodyTransferError {
-    #[error("recv data failed: {0}")]
-    RecvDataFailed(h2::Error),
-    #[error("error while wait send capacity: {0}")]
-    WaitSendCapacityFailed(h2::Error),
+    #[error("recv data: {0}")]
+    RecvData(h2::Error),
+    #[error("wait send capacity: {0}")]
+    WaitSendCapacity(h2::Error),
     #[error("sender not in send state")]
     SenderNotInSendState,
-    #[error("send data failed: {0}")]
-    SendDataFailed(h2::Error),
-    #[error("error while release recv capacity: {0}")]
-    ReleaseRecvCapacityFailed(h2::Error),
-    #[error("recv trailers failed: {0}")]
-    RecvTrailersFailed(h2::Error),
-    #[error("send trailers failed: {0}")]
-    SendTrailersFailed(h2::Error),
-    #[error("error while set graceful end of stream: {0}")]
-    GracefulCloseError(h2::Error),
+    #[error("send data: {0}")]
+    SendData(h2::Error),
+    #[error("release recv capacity: {0}")]
+    ReleaseRecvCapacity(h2::Error),
+    #[error("recv trailers: {0}")]
+    RecvTrailers(h2::Error),
+    #[error("send trailers: {0}")]
+    SendTrailers(h2::Error),
+    #[error("send end of stream: {0}")]
+    SendEndOfStream(h2::Error),
+}
+
+impl H2StreamBodyTransferError {
+    pub fn is_recv_error(&self) -> bool {
+        matches!(
+            self,
+            H2StreamBodyTransferError::RecvData(_)
+                | H2StreamBodyTransferError::ReleaseRecvCapacity(_)
+                | H2StreamBodyTransferError::RecvTrailers(_)
+        )
+    }
 }

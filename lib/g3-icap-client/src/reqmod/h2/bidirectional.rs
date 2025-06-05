@@ -145,7 +145,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                             if ups_body_transfer.finished() {
                                 self.icap_read_finished = true;
                             }
-                            Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp))
+                            Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp, ups_send_stream))
                         }
                         Err(e) => Err(H2ReqmodAdaptationError::HttpUpstreamRecvResponseFailed(e)),
                     };
@@ -158,7 +158,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                                     state.mark_ups_send_all();
                                     self.icap_read_finished = true;
                                     let ups_rsp = recv_ups_response_head_after_transfer(ups_recv_rsp, self.http_rsp_head_recv_timeout).await?;
-                                    Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp))
+                                    Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp, ups_send_stream))
                                 }
                                 Err(H2StreamFromChunkedTransferError::ReadError(e)) => Err(H2ReqmodAdaptationError::IcapServerReadFailed(e)),
                                 Err(H2StreamFromChunkedTransferError::SendDataFailed(e)) => Err(H2ReqmodAdaptationError::HttpUpstreamSendDataFailed(e)),
@@ -177,7 +177,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                             state.mark_ups_send_all();
                             self.icap_read_finished = true;
                             let ups_rsp = recv_ups_response_head_after_transfer(ups_recv_rsp, self.http_rsp_head_recv_timeout).await?;
-                            Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp))
+                            Ok(ReqmodAdaptationEndState::AdaptedTransferred(http_req, ups_rsp, ups_send_stream))
                         }
                         Err(H2StreamFromChunkedTransferError::ReadError(e)) => Err(H2ReqmodAdaptationError::IcapServerReadFailed(e)),
                         Err(H2StreamFromChunkedTransferError::SendDataFailed(e)) => Err(H2ReqmodAdaptationError::HttpUpstreamSendDataFailed(e)),

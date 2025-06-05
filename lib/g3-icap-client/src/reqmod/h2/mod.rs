@@ -181,8 +181,8 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
 }
 
 pub enum ReqmodAdaptationEndState {
-    OriginalTransferred(Response<RecvStream>),
-    AdaptedTransferred(HttpAdaptedRequest, Response<RecvStream>),
+    OriginalTransferred(Response<RecvStream>, SendStream<Bytes>),
+    AdaptedTransferred(HttpAdaptedRequest, Response<RecvStream>, SendStream<Bytes>),
     HttpErrResponse(HttpAdapterErrorResponse, Option<ReqmodRecvHttpResponseBody>),
 }
 

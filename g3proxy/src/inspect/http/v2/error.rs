@@ -134,12 +134,12 @@ impl From<H2ReqmodAdaptationError> for H2StreamTransferError {
             }
             H2ReqmodAdaptationError::HttpClientRecvDataFailed(e) => {
                 H2StreamTransferError::RequestBodyTransferFailed(
-                    H2StreamBodyTransferError::RecvDataFailed(e),
+                    H2StreamBodyTransferError::RecvData(e),
                 )
             }
             H2ReqmodAdaptationError::HttpClientRecvTrailerFailed(e) => {
                 H2StreamTransferError::RequestBodyTransferFailed(
-                    H2StreamBodyTransferError::RecvTrailersFailed(e),
+                    H2StreamBodyTransferError::RecvTrailers(e),
                 )
             }
             H2ReqmodAdaptationError::HttpUpstreamSendHeadFailed(e) => {
@@ -147,12 +147,12 @@ impl From<H2ReqmodAdaptationError> for H2StreamTransferError {
             }
             H2ReqmodAdaptationError::HttpUpstreamSendDataFailed(e) => {
                 H2StreamTransferError::RequestBodyTransferFailed(
-                    H2StreamBodyTransferError::SendDataFailed(e),
+                    H2StreamBodyTransferError::SendData(e),
                 )
             }
             H2ReqmodAdaptationError::HttpUpstreamSendTrailedFailed(e) => {
                 H2StreamTransferError::RequestBodyTransferFailed(
-                    H2StreamBodyTransferError::SendTrailersFailed(e),
+                    H2StreamBodyTransferError::SendTrailers(e),
                 )
             }
             H2ReqmodAdaptationError::HttpClientReadIdle => {
@@ -184,12 +184,12 @@ impl From<H2RespmodAdaptationError> for H2StreamTransferError {
             }
             H2RespmodAdaptationError::HttpUpstreamRecvDataFailed(e) => {
                 H2StreamTransferError::ResponseBodyTransferFailed(
-                    H2StreamBodyTransferError::RecvDataFailed(e),
+                    H2StreamBodyTransferError::RecvData(e),
                 )
             }
             H2RespmodAdaptationError::HttpUpstreamRecvTrailerFailed(e) => {
                 H2StreamTransferError::ResponseBodyTransferFailed(
-                    H2StreamBodyTransferError::RecvTrailersFailed(e),
+                    H2StreamBodyTransferError::RecvTrailers(e),
                 )
             }
             H2RespmodAdaptationError::HttpClientSendHeadFailed(e) => {
@@ -197,12 +197,12 @@ impl From<H2RespmodAdaptationError> for H2StreamTransferError {
             }
             H2RespmodAdaptationError::HttpClientSendDataFailed(e) => {
                 H2StreamTransferError::ResponseBodyTransferFailed(
-                    H2StreamBodyTransferError::SendDataFailed(e),
+                    H2StreamBodyTransferError::SendData(e),
                 )
             }
             H2RespmodAdaptationError::HttpClientSendTrailerFailed(e) => {
                 H2StreamTransferError::ResponseBodyTransferFailed(
-                    H2StreamBodyTransferError::SendTrailersFailed(e),
+                    H2StreamBodyTransferError::SendTrailers(e),
                 )
             }
             H2RespmodAdaptationError::HttpUpstreamReadIdle => {

@@ -10,7 +10,7 @@ use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use h2::client::SendRequest;
 use h2::server::SendResponse;
-use h2::{Reason, RecvStream, StreamId};
+use h2::{Reason, RecvStream, SendStream, StreamId};
 use http::{Method, Request, Response, StatusCode, Uri, Version};
 use slog::slog_info;
 use tokio::time::Instant;
@@ -293,19 +293,25 @@ where
             .xfer(adaptation_state, ups_req, clt_body, ups_send_req)
             .await
         {
-            Ok(ReqmodAdaptationEndState::OriginalTransferred(ups_rsp)) => {
+            Ok(ReqmodAdaptationEndState::OriginalTransferred(ups_rsp, ups_send_stream)) => {
                 self.send_response(
                     orig_req,
                     ups_rsp,
+                    ups_send_stream,
                     clt_send_rsp,
                     adaptation_state.take_respond_shared_headers(),
                 )
                 .await
             }
-            Ok(ReqmodAdaptationEndState::AdaptedTransferred(_http_req, ups_rsp)) => {
+            Ok(ReqmodAdaptationEndState::AdaptedTransferred(
+                _http_req,
+                ups_rsp,
+                ups_send_stream,
+            )) => {
                 self.send_response(
                     orig_req,
                     ups_rsp,
+                    ups_send_stream,
                     clt_send_rsp,
                     adaptation_state.take_respond_shared_headers(),
                 )
@@ -349,12 +355,12 @@ where
                 }
                 H2StreamFromChunkedTransferError::SendDataFailed(e) => {
                     H2StreamTransferError::ResponseBodyTransferFailed(
-                        H2StreamBodyTransferError::SendDataFailed(e),
+                        H2StreamBodyTransferError::SendData(e),
                     )
                 }
                 H2StreamFromChunkedTransferError::SendTrailerFailed(e) => {
                     H2StreamTransferError::ResponseBodyTransferFailed(
-                        H2StreamBodyTransferError::SendTrailersFailed(e),
+                        H2StreamBodyTransferError::SendTrailers(e),
                     )
                 }
                 H2StreamFromChunkedTransferError::SenderNotInSendState => {
@@ -399,7 +405,7 @@ where
     ) -> Result<(), H2StreamTransferError> {
         let orig_req = ups_req.clone_header();
 
-        let (ups_rsp_fut, _) = ups_send_req
+        let (ups_rsp_fut, mut ups_send_stream) = ups_send_req
             .send_request(ups_req, true)
             .map_err(H2StreamTransferError::RequestHeadSendFailed)?; // do not send REFUSED_STREAM, use the default rst in h2
         self.ups_stream_id = Some(ups_rsp_fut.stream_id());
@@ -414,10 +420,13 @@ where
                     d
                 }
                 Ok(Err(e)) => return Err(H2StreamTransferError::ResponseHeadRecvFailed(e)),
-                Err(_) => return Err(H2StreamTransferError::ResponseHeadRecvTimeout),
+                Err(_) => {
+                    ups_send_stream.send_reset(Reason::CANCEL);
+                    return Err(H2StreamTransferError::ResponseHeadRecvTimeout);
+                }
             };
 
-        self.send_response(orig_req, ups_rsp, clt_send_rsp, None)
+        self.send_response(orig_req, ups_rsp, ups_send_stream, clt_send_rsp, None)
             .await
     }
 
@@ -430,7 +439,7 @@ where
     ) -> Result<(), H2StreamTransferError> {
         let orig_req = ups_req.clone_header();
 
-        let (mut ups_rsp_fut, ups_send_stream) = ups_send_req
+        let (mut ups_rsp_fut, mut ups_send_stream) = ups_send_req
             .send_request(ups_req, false)
             .map_err(H2StreamTransferError::RequestHeadSendFailed)?; // do not send REFUSED_STREAM, use the default rst in h2
         self.ups_stream_id = Some(ups_rsp_fut.stream_id());
@@ -438,7 +447,7 @@ where
 
         let mut req_body_transfer = H2BodyTransfer::new(
             clt_body,
-            ups_send_stream,
+            &mut ups_send_stream,
             self.ctx.server_config.limited_copy_config().yield_size(),
         );
 
@@ -458,6 +467,9 @@ where
                             break;
                         }
                         Err(e) => {
+                            if !e.is_recv_error() {
+                                ups_send_stream.send_reset(Reason::CANCEL);
+                            }
                             return Err(H2StreamTransferError::RequestBodyTransferFailed(e));
                         }
                     }
@@ -479,6 +491,7 @@ where
                         idle_count += n;
 
                         if idle_count > self.ctx.max_idle_count {
+                            ups_send_stream.send_reset(Reason::CANCEL);
                             return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
@@ -488,10 +501,12 @@ where
                     }
 
                     if self.ctx.belongs_to_blocked_user() {
+                        ups_send_stream.send_reset(Reason::CANCEL);
                         return Err(H2StreamTransferError::CanceledAsUserBlocked);
                     }
 
                     if self.ctx.server_force_quit() {
+                        ups_send_stream.send_reset(Reason::CANCEL);
                         return Err(H2StreamTransferError::CanceledAsServerQuit)
                     }
                 }
@@ -499,7 +514,7 @@ where
         }
 
         if let Some(ups_rsp) = ups_rsp {
-            self.send_response(orig_req, ups_rsp, clt_send_rsp, None)
+            self.send_response(orig_req, ups_rsp, ups_send_stream, clt_send_rsp, None)
                 .await
         } else {
             let ups_rsp =
@@ -509,10 +524,13 @@ where
                         d
                     }
                     Ok(Err(e)) => return Err(H2StreamTransferError::ResponseHeadRecvFailed(e)),
-                    Err(_) => return Err(H2StreamTransferError::ResponseHeadRecvTimeout),
+                    Err(_) => {
+                        ups_send_stream.send_reset(Reason::CANCEL);
+                        return Err(H2StreamTransferError::ResponseHeadRecvTimeout);
+                    }
                 };
 
-            self.send_response(orig_req, ups_rsp, clt_send_rsp, None)
+            self.send_response(orig_req, ups_rsp, ups_send_stream, clt_send_rsp, None)
                 .await
         }
     }
@@ -521,6 +539,7 @@ where
         &mut self,
         ups_req: Request<()>,
         ups_rsp: Response<RecvStream>,
+        mut ups_send_stream: SendStream<Bytes>,
         clt_send_rsp: &mut SendResponse<Bytes>,
         adaptation_respond_shared_headers: Option<HttpHeaderMap>,
     ) -> Result<(), H2StreamTransferError> {
@@ -561,22 +580,42 @@ where
                         .await;
                     if let Some(dur) = adaptation_state.dur_ups_recv_all {
                         self.http_notes.dur_rsp_recv_all = dur;
+                    } else {
+                        ups_send_stream.send_reset(Reason::CANCEL);
                     }
                     if adaptation_state.clt_write_started {
+                        if adaptation_state.dur_clt_send_all.is_none() {
+                            clt_send_rsp.send_reset(Reason::CANCEL);
+                        }
                         self.send_error_response = false;
                     }
                     return r;
                 }
                 Err(e) => {
                     if !respmod.bypass() {
+                        ups_send_stream.send_reset(Reason::CANCEL);
                         return Err(H2StreamTransferError::InternalAdapterError(e));
                     }
                 }
             }
         }
 
-        self.send_response_without_adaptation(clt_rsp, ups_body, clt_send_rsp)
+        match self
+            .send_response_without_adaptation(clt_rsp, ups_body, clt_send_rsp)
             .await
+        {
+            Ok(_) => Ok(()),
+            Err(H2StreamTransferError::ResponseBodyTransferFailed(e)) => {
+                if !e.is_recv_error() {
+                    ups_send_stream.send_reset(Reason::CANCEL);
+                }
+                Err(H2StreamTransferError::ResponseBodyTransferFailed(e))
+            }
+            Err(e) => {
+                ups_send_stream.send_reset(Reason::CANCEL);
+                Err(e)
+            }
+        }
     }
 
     async fn send_response_with_adaptation(
@@ -620,14 +659,14 @@ where
                 .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
             self.http_notes.rsp_status = self.http_notes.origin_status;
         } else {
-            let clt_send_stream = clt_send_rsp
+            let mut clt_send_stream = clt_send_rsp
                 .send_response(clt_rsp, false)
-                .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
+                .map_err(H2StreamTransferError::ResponseHeadSendFailed)?; // TODO reset ups recv stream
             self.http_notes.rsp_status = self.http_notes.origin_status;
 
             let mut rsp_body_transfer = H2BodyTransfer::new(
                 ups_body,
-                clt_send_stream,
+                &mut clt_send_stream,
                 self.ctx.server_config.limited_copy_config().yield_size(),
             );
 
@@ -644,7 +683,12 @@ where
                                 self.http_notes.mark_rsp_recv_all();
                                 break;
                             },
-                            Err(e) => return Err(H2StreamTransferError::ResponseBodyTransferFailed(e)),
+                            Err(e) => {
+                                if e.is_recv_error() {
+                                    clt_send_rsp.send_reset(Reason::CANCEL);
+                                }
+                                return Err(H2StreamTransferError::ResponseBodyTransferFailed(e));
+                            }
                         }
                     }
                     n = idle_interval.tick() => {
@@ -652,6 +696,7 @@ where
                             idle_count += n;
 
                             if idle_count > self.ctx.max_idle_count {
+                                clt_send_rsp.send_reset(Reason::CANCEL);
                                 return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
                             }
                         } else {
@@ -661,10 +706,12 @@ where
                         }
 
                         if self.ctx.belongs_to_blocked_user() {
+                            clt_send_rsp.send_reset(Reason::CANCEL);
                             return Err(H2StreamTransferError::CanceledAsUserBlocked);
                         }
 
                         if self.ctx.server_force_quit() {
+                            clt_send_rsp.send_reset(Reason::CANCEL);
                             return Err(H2StreamTransferError::CanceledAsServerQuit)
                         }
                     }

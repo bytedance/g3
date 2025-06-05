@@ -98,23 +98,26 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             .send_data(initial_body_data, false)
             .map_err(H2RespmodAdaptationError::HttpClientSendDataFailed)?;
 
-        let mut body_transfer =
-            H2BodyTransfer::new(ups_body, clt_send_stream, self.copy_config.yield_size());
+        let mut body_transfer = H2BodyTransfer::new(
+            ups_body,
+            &mut clt_send_stream,
+            self.copy_config.yield_size(),
+        );
 
         let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
 
         fn convert_transfer_error(e: H2StreamBodyTransferError) -> H2RespmodAdaptationError {
             match e {
-                H2StreamBodyTransferError::RecvDataFailed(e)
-                | H2StreamBodyTransferError::RecvTrailersFailed(e)
-                | H2StreamBodyTransferError::ReleaseRecvCapacityFailed(e) => {
+                H2StreamBodyTransferError::RecvData(e)
+                | H2StreamBodyTransferError::RecvTrailers(e)
+                | H2StreamBodyTransferError::ReleaseRecvCapacity(e) => {
                     H2RespmodAdaptationError::HttpUpstreamRecvDataFailed(e)
                 }
-                H2StreamBodyTransferError::SendDataFailed(e)
-                | H2StreamBodyTransferError::SendTrailersFailed(e)
-                | H2StreamBodyTransferError::WaitSendCapacityFailed(e)
-                | H2StreamBodyTransferError::GracefulCloseError(e) => {
+                H2StreamBodyTransferError::SendData(e)
+                | H2StreamBodyTransferError::SendTrailers(e)
+                | H2StreamBodyTransferError::WaitSendCapacity(e)
+                | H2StreamBodyTransferError::SendEndOfStream(e) => {
                     H2RespmodAdaptationError::HttpClientSendDataFailed(e)
                 }
                 H2StreamBodyTransferError::SenderNotInSendState => {

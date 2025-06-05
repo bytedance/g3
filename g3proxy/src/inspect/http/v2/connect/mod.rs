@@ -265,12 +265,12 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
                 }
                 H2StreamFromChunkedTransferError::SendDataFailed(e) => {
                     H2StreamTransferError::ResponseBodyTransferFailed(
-                        H2StreamBodyTransferError::SendDataFailed(e),
+                        H2StreamBodyTransferError::SendData(e),
                     )
                 }
                 H2StreamFromChunkedTransferError::SendTrailerFailed(e) => {
                     H2StreamTransferError::ResponseBodyTransferFailed(
-                        H2StreamBodyTransferError::SendTrailersFailed(e),
+                        H2StreamBodyTransferError::SendTrailers(e),
                     )
                 }
                 H2StreamFromChunkedTransferError::SenderNotInSendState => {
@@ -389,14 +389,14 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
                 .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
             self.http_notes.rsp_status = self.http_notes.origin_status;
         } else {
-            let clt_send_stream = clt_send_rsp
+            let mut clt_send_stream = clt_send_rsp
                 .send_response(ups_rsp, false)
                 .map_err(H2StreamTransferError::ResponseHeadSendFailed)?;
             self.http_notes.rsp_status = self.http_notes.origin_status;
 
             let mut rsp_body_transfer = H2BodyTransfer::new(
                 ups_r,
-                clt_send_stream,
+                &mut clt_send_stream,
                 self.ctx.server_config.limited_copy_config().yield_size(),
             );
 

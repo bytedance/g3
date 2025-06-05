@@ -11,17 +11,21 @@ use h2::{RecvStream, SendStream};
 
 use super::H2StreamBodyTransferError;
 
-pub struct H2BodyTransfer {
+pub struct H2BodyTransfer<'a> {
     yield_size: usize,
     recv_stream: RecvStream,
-    send_stream: SendStream<Bytes>,
+    send_stream: &'a mut SendStream<Bytes>,
     send_chunk: Option<Bytes>,
     handle_trailers: bool,
     active: bool,
 }
 
-impl H2BodyTransfer {
-    pub fn new(recv_stream: RecvStream, send_stream: SendStream<Bytes>, yield_size: usize) -> Self {
+impl<'a> H2BodyTransfer<'a> {
+    pub fn new(
+        recv_stream: RecvStream,
+        send_stream: &'a mut SendStream<Bytes>,
+        yield_size: usize,
+    ) -> Self {
         H2BodyTransfer {
             yield_size,
             recv_stream,
@@ -53,16 +57,16 @@ impl H2BodyTransfer {
             Ok(Some(trailers)) => {
                 self.send_stream
                     .send_trailers(trailers)
-                    .map_err(H2StreamBodyTransferError::SendTrailersFailed)?;
+                    .map_err(H2StreamBodyTransferError::SendTrailers)?;
                 Poll::Ready(Ok(()))
             }
             Ok(None) => {
                 self.send_stream
                     .send_data(Bytes::new(), true)
-                    .map_err(H2StreamBodyTransferError::GracefulCloseError)?;
+                    .map_err(H2StreamBodyTransferError::SendEndOfStream)?;
                 Poll::Ready(Ok(()))
             }
-            Err(e) => Poll::Ready(Err(H2StreamBodyTransferError::RecvTrailersFailed(e))),
+            Err(e) => Poll::Ready(Err(H2StreamBodyTransferError::RecvTrailers(e))),
         }
     }
 
@@ -84,7 +88,7 @@ impl H2BodyTransfer {
                         let to_send = chunk.split_to(n);
                         self.send_stream
                             .send_data(to_send, false)
-                            .map_err(H2StreamBodyTransferError::SendDataFailed)?;
+                            .map_err(H2StreamBodyTransferError::SendData)?;
                         if !chunk.is_empty() {
                             self.send_chunk = Some(chunk);
                         }
@@ -97,9 +101,7 @@ impl H2BodyTransfer {
                     }
                     Poll::Ready(Some(Err(e))) => {
                         self.send_chunk = Some(chunk);
-                        return Poll::Ready(Err(
-                            H2StreamBodyTransferError::WaitSendCapacityFailed(e),
-                        ));
+                        return Poll::Ready(Err(H2StreamBodyTransferError::WaitSendCapacity(e)));
                     }
                     Poll::Ready(None) => {
                         self.send_chunk = Some(chunk);
@@ -121,18 +123,18 @@ impl H2BodyTransfer {
                         self.recv_stream
                             .flow_control()
                             .release_capacity(nr)
-                            .map_err(H2StreamBodyTransferError::ReleaseRecvCapacityFailed)?;
+                            .map_err(H2StreamBodyTransferError::ReleaseRecvCapacity)?;
                         self.send_stream.reserve_capacity(nr);
                         self.send_chunk = Some(chunk);
                     }
                     Some(Err(e)) => {
-                        return Poll::Ready(Err(H2StreamBodyTransferError::RecvDataFailed(e)));
+                        return Poll::Ready(Err(H2StreamBodyTransferError::RecvData(e)));
                     }
                     None => {
                         return if self.recv_stream.is_end_stream() {
                             self.send_stream
                                 .send_data(Bytes::new(), true)
-                                .map_err(H2StreamBodyTransferError::GracefulCloseError)?;
+                                .map_err(H2StreamBodyTransferError::SendEndOfStream)?;
                             Poll::Ready(Ok(()))
                         } else {
                             self.handle_trailers = true;
@@ -145,7 +147,7 @@ impl H2BodyTransfer {
     }
 }
 
-impl Future for H2BodyTransfer {
+impl Future for H2BodyTransfer<'_> {
     type Output = Result<(), H2StreamBodyTransferError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
