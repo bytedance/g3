@@ -54,10 +54,10 @@ impl Default for H2InterceptionConfig {
         H2InterceptionConfig {
             max_header_list_size: 64 * 1024, // 64KB
             max_concurrent_streams: 128,
-            stream_window_size: 1024 * 1024,         // 1M
-            connection_window_size: 2 * 1024 * 1024, // 2M
-            max_frame_size: 1024 * 1024,             // 1MB
-            max_send_buffer_size: 16 * 1024 * 1024,  // 16MB
+            stream_window_size: 1024 * 1024,         // 1MiB
+            connection_window_size: 2 * 1024 * 1024, // 2MiB
+            max_frame_size: 256 * 1024,              // 256KiB
+            max_send_buffer_size: 8 * 1024 * 1024,   // 8MiB
             upstream_handshake_timeout: Duration::from_secs(10),
             upstream_stream_open_timeout: Duration::from_secs(10),
             client_handshake_timeout: Duration::from_secs(4),
