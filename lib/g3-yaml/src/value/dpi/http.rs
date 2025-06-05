@@ -82,6 +82,18 @@ pub fn as_h2_interception_config(value: &Yaml) -> anyhow::Result<H2InterceptionC
                 config.set_max_frame_size(max_frame_size);
                 Ok(())
             }
+            "stream_window_size" => {
+                let window_size = crate::humanize::as_u32(v)
+                    .context(format!("invalid humanize u32 value for key {k}"))?;
+                config.set_stream_window_size(window_size);
+                Ok(())
+            }
+            "connection_window_size" => {
+                let window_size = crate::humanize::as_u32(v)
+                    .context(format!("invalid humanize u32 value for key {k}"))?;
+                config.set_connection_window_size(window_size);
+                Ok(())
+            }
             "max_send_buffer_size" => {
                 config.max_send_buffer_size = crate::humanize::as_usize(v)
                     .context(format!("invalid humanize usize value for key {k}"))?;

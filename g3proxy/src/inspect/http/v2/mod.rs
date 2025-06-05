@@ -344,7 +344,9 @@ where
             .max_header_list_size(http_config.max_header_list_size)
             .max_concurrent_streams(http_config.max_concurrent_streams)
             .max_frame_size(http_config.max_frame_size())
-            .max_send_buffer_size(http_config.max_send_buffer_size);
+            .max_send_buffer_size(http_config.max_send_buffer_size)
+            .initial_window_size(http_config.stream_window_size())
+            .initial_connection_window_size(http_config.connection_window_size());
 
         let (h2s, mut h2s_connection) = match tokio::time::timeout(
             http_config.upstream_handshake_timeout,
@@ -377,7 +379,9 @@ where
             .max_header_list_size(http_config.max_header_list_size)
             .max_concurrent_streams(max_concurrent_send_streams)
             .max_frame_size(http_config.max_frame_size())
-            .max_send_buffer_size(http_config.max_send_buffer_size);
+            .max_send_buffer_size(http_config.max_send_buffer_size)
+            .initial_window_size(http_config.stream_window_size())
+            .initial_connection_window_size(http_config.connection_window_size());
         if h2s.is_extended_connect_protocol_enabled() {
             server_builder.enable_connect_protocol();
         }
