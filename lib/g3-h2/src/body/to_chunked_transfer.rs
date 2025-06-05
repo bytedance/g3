@@ -189,23 +189,23 @@ impl ChunkedEncodeTransferInternal {
                 match ready!(recv_stream.poll_data(cx)) {
                     Some(Ok(chunk)) => {
                         self.active = true;
-                        let chunk_size = chunk.len();
-                        if chunk_size == 0 {
+                        if chunk.is_empty() {
                             continue;
                         }
+                        let nr = chunk.len();
+                        recv_stream
+                            .flow_control()
+                            .release_capacity(nr)
+                            .map_err(H2StreamToChunkedTransferError::RecvDataFailed)?;
                         self.static_header.clear();
                         if self.total_write == 0 {
-                            let _ = write!(&mut self.static_header, "{chunk_size:x}\r\n");
+                            let _ = write!(&mut self.static_header, "{nr:x}\r\n");
                         } else {
-                            let _ = write!(&mut self.static_header, "\r\n{chunk_size:x}\r\n");
+                            let _ = write!(&mut self.static_header, "\r\n{nr:x}\r\n");
                         }
                         self.static_offset = 0;
-                        self.this_chunk_size = chunk_size;
-                        if chunk_size == 0 {
-                            self.read_data_finished = true;
-                        } else {
-                            self.chunk = Some(chunk);
-                        }
+                        self.this_chunk_size = nr;
+                        self.chunk = Some(chunk);
                     }
                     Some(Err(e)) => {
                         return Poll::Ready(Err(H2StreamToChunkedTransferError::RecvDataFailed(e)));
@@ -245,10 +245,6 @@ impl ChunkedEncodeTransferInternal {
                 match writer.as_mut().poll_write(cx, &chunk) {
                     Poll::Ready(Ok(nw)) => {
                         let left_chunk = chunk.split_off(nw);
-                        recv_stream
-                            .flow_control()
-                            .release_capacity(nw)
-                            .map_err(H2StreamToChunkedTransferError::RecvDataFailed)?;
                         self.total_write += nw as u64;
                         copy_this_round += nw;
                         self.active = true;

@@ -7,22 +7,19 @@ use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll, ready};
 
-use bytes::{Buf, Bytes};
-use h2::{FlowControl, RecvStream};
+use bytes::Bytes;
+use h2::RecvStream;
 use tokio::io::{AsyncRead, ReadBuf};
 
 pub struct H2StreamReader {
     recv_stream: RecvStream,
-    recv_flow_control: FlowControl,
     received_bytes: Option<Bytes>,
 }
 
 impl H2StreamReader {
-    pub fn new(mut stream: RecvStream) -> Self {
-        let recv_flow_control = stream.flow_control().clone();
+    pub fn new(stream: RecvStream) -> Self {
         H2StreamReader {
             recv_stream: stream,
-            recv_flow_control,
             received_bytes: None,
         }
     }
@@ -37,42 +34,40 @@ impl AsyncRead for H2StreamReader {
         loop {
             if let Some(mut b) = self.received_bytes.take() {
                 let to_put = buf.remaining().min(b.len());
-                return match self.recv_flow_control.release_capacity(to_put) {
-                    Ok(_) => {
-                        let split = b.split_to(to_put);
-                        buf.put_slice(&split);
-                        if b.has_remaining() {
-                            self.received_bytes = Some(b);
-                        }
-                        Poll::Ready(Ok(()))
-                    }
-                    Err(e) => {
-                        self.received_bytes = Some(b);
-                        if e.is_io() {
-                            Poll::Ready(Err(e.into_io().unwrap()))
-                        } else {
-                            Poll::Ready(Err(io::Error::other(e)))
-                        }
-                    }
-                };
-            } else {
-                match ready!(self.recv_stream.poll_data(cx)) {
-                    Some(Ok(b)) => {
-                        if b.is_empty() {
-                            continue;
-                        }
-                        self.received_bytes = Some(b);
-                    }
-                    Some(Err(e)) => {
-                        return if e.is_io() {
-                            Poll::Ready(Err(e.into_io().unwrap()))
-                        } else {
-                            Poll::Ready(Err(io::Error::other(e)))
-                        };
-                    }
-                    None => return Poll::Ready(Ok(())),
-                };
+                let split = b.split_to(to_put);
+                buf.put_slice(&split);
+                if !b.is_empty() {
+                    self.received_bytes = Some(b);
+                }
+                return Poll::Ready(Ok(()));
             }
+
+            match ready!(self.recv_stream.poll_data(cx)) {
+                Some(Ok(b)) => {
+                    if b.is_empty() {
+                        continue;
+                    }
+                    self.recv_stream
+                        .flow_control()
+                        .release_capacity(b.len())
+                        .map_err(|e| {
+                            if e.is_io() {
+                                e.into_io().unwrap()
+                            } else {
+                                io::Error::other(e)
+                            }
+                        })?;
+                    self.received_bytes = Some(b);
+                }
+                Some(Err(e)) => {
+                    return if e.is_io() {
+                        Poll::Ready(Err(e.into_io().unwrap()))
+                    } else {
+                        Poll::Ready(Err(io::Error::other(e)))
+                    };
+                }
+                None => return Poll::Ready(Ok(())),
+            };
         }
     }
 }

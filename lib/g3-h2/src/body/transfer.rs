@@ -6,15 +6,14 @@
 use std::pin::Pin;
 use std::task::{Context, Poll, ready};
 
-use bytes::{Buf, Bytes};
-use h2::{FlowControl, RecvStream, SendStream};
+use bytes::Bytes;
+use h2::{RecvStream, SendStream};
 
 use super::H2StreamBodyTransferError;
 
 pub struct H2BodyTransfer {
     yield_size: usize,
     recv_stream: RecvStream,
-    recv_flow_control: FlowControl,
     send_stream: SendStream<Bytes>,
     send_chunk: Option<Bytes>,
     handle_trailers: bool,
@@ -22,16 +21,10 @@ pub struct H2BodyTransfer {
 }
 
 impl H2BodyTransfer {
-    pub fn new(
-        mut recv_stream: RecvStream,
-        send_stream: SendStream<Bytes>,
-        yield_size: usize,
-    ) -> Self {
-        let recv_flow_control = recv_stream.flow_control().clone();
+    pub fn new(recv_stream: RecvStream, send_stream: SendStream<Bytes>, yield_size: usize) -> Self {
         H2BodyTransfer {
             yield_size,
             recv_stream,
-            recv_flow_control,
             send_stream,
             send_chunk: None,
             handle_trailers: false,
@@ -92,10 +85,7 @@ impl H2BodyTransfer {
                         self.send_stream
                             .send_data(to_send, false)
                             .map_err(H2StreamBodyTransferError::SendDataFailed)?;
-                        self.recv_flow_control
-                            .release_capacity(n)
-                            .map_err(H2StreamBodyTransferError::ReleaseRecvCapacityFailed)?;
-                        if chunk.has_remaining() {
+                        if !chunk.is_empty() {
                             self.send_chunk = Some(chunk);
                         }
 
@@ -124,27 +114,32 @@ impl H2BodyTransfer {
                 match ready!(self.recv_stream.poll_data(cx)) {
                     Some(Ok(chunk)) => {
                         self.active = true;
-                        if chunk.has_remaining() {
-                            self.send_stream.reserve_capacity(chunk.len());
-                            self.send_chunk = Some(chunk);
+                        if chunk.is_empty() {
+                            continue;
                         }
-                        continue;
+                        let nr = chunk.len();
+                        self.recv_stream
+                            .flow_control()
+                            .release_capacity(nr)
+                            .map_err(H2StreamBodyTransferError::ReleaseRecvCapacityFailed)?;
+                        self.send_stream.reserve_capacity(nr);
+                        self.send_chunk = Some(chunk);
                     }
                     Some(Err(e)) => {
                         return Poll::Ready(Err(H2StreamBodyTransferError::RecvDataFailed(e)));
                     }
-                    None => {}
+                    None => {
+                        return if self.recv_stream.is_end_stream() {
+                            self.send_stream
+                                .send_data(Bytes::new(), true)
+                                .map_err(H2StreamBodyTransferError::GracefulCloseError)?;
+                            Poll::Ready(Ok(()))
+                        } else {
+                            self.handle_trailers = true;
+                            self.poll_transfer_trailers(cx)
+                        };
+                    }
                 }
-
-                return if self.recv_stream.is_end_stream() {
-                    self.send_stream
-                        .send_data(Bytes::new(), true)
-                        .map_err(H2StreamBodyTransferError::GracefulCloseError)?;
-                    Poll::Ready(Ok(()))
-                } else {
-                    self.handle_trailers = true;
-                    self.poll_transfer_trailers(cx)
-                };
             }
         }
     }
