@@ -6,6 +6,7 @@
 use thiserror::Error;
 
 use super::{HandshakeHeader, HandshakeType};
+use crate::parser::tls::extension::ExtensionIter;
 use crate::parser::tls::{ExtensionList, ExtensionParseError, ExtensionType, RawVersion};
 
 #[derive(Debug, Error)]
@@ -164,6 +165,13 @@ impl<'a> ClientHello<'a> {
         };
 
         ExtensionList::get_ext(data, ext_type)
+    }
+
+    pub fn ext_iter(&self) -> ExtensionIter<'_> {
+        match self.extensions {
+            Some(data) => ExtensionIter::new(data),
+            None => ExtensionIter::new(b""),
+        }
     }
 }
 

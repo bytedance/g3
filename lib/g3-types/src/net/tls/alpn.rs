@@ -78,7 +78,7 @@ impl AlpnProtocol {
         self.identification_sequence().to_vec()
     }
 
-    pub fn from_buf(buf: &[u8]) -> Option<Self> {
+    pub fn from_selected(buf: &[u8]) -> Option<Self> {
         match buf {
             b"http/1.0" => Some(AlpnProtocol::Http10),
             b"http/1.1" => Some(AlpnProtocol::Http11),

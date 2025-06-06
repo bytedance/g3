@@ -3,21 +3,19 @@
  * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::Arc;
-
-use anyhow::anyhow;
-use openssl::ssl::Ssl;
+use bytes::BytesMut;
 use openssl::x509::X509VerifyResult;
 use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_dpi::Protocol;
 use g3_io_ext::{AsyncStream, OnceBufReader};
-use g3_openssl::{SslConnector, SslLazyAcceptor};
 use g3_slog_types::{LtUpstreamAddr, LtUuid, LtX509VerifyResult};
-use g3_types::net::{Host, TlsCertUsage, TlsServiceType, UpstreamAddr};
+use g3_types::net::{TlsServiceType, UpstreamAddr};
 use g3_udpdump::{ExportedPduDissectorHint, StreamDumpProxyAddresses};
 
+#[cfg(not(feature = "vendored-tongsuo"))]
+use super::tls::ParsedClientHello;
 use super::{
     BoxAsyncRead, BoxAsyncWrite, InterceptionError, StreamInspectContext, StreamInspection,
     TlsInterceptionContext,
@@ -28,10 +26,9 @@ use crate::log::inspect::InspectSource;
 use crate::log::inspect::stream::StreamInspectLog;
 use crate::serve::ServerTaskResult;
 
-#[cfg(not(feature = "vendored-tongsuo"))]
-const CERT_USAGE: TlsCertUsage = TlsCertUsage::TlsServer;
 #[cfg(feature = "vendored-tongsuo")]
-const CERT_USAGE: TlsCertUsage = TlsCertUsage::TLsServerTongsuo;
+mod tlcp;
+mod tls;
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
@@ -109,7 +106,7 @@ where
         }
     }
 
-    pub(crate) fn set_io(
+    pub(super) fn set_io(
         &mut self,
         clt_r: BoxAsyncRead,
         clt_w: BoxAsyncWrite,
@@ -125,7 +122,7 @@ where
         self.io = Some(io);
     }
 
-    pub(crate) async fn intercept(mut self) -> ServerTaskResult<StreamInspection<SC>> {
+    pub(super) async fn intercept(mut self) -> ServerTaskResult<StreamInspection<SC>> {
         match self.do_intercept().await {
             Ok(obj) => {
                 intercept_log!(self, "ok");
@@ -140,130 +137,65 @@ where
 
     async fn do_intercept(&mut self) -> Result<StreamInspection<SC>, TlsInterceptionError> {
         let StartTlsInterceptIo {
+            mut clt_r,
+            clt_w,
+            ups_r,
+            ups_w,
+        } = self.io.take().unwrap();
+
+        let mut clt_r_buf = BytesMut::with_capacity(2048);
+        let client_hello = self
+            .tls_interception
+            .read_client_hello(&mut clt_r, &mut clt_r_buf)
+            .await?;
+
+        self.set_io(clt_r, clt_w, ups_r, ups_w);
+        if client_hello.version.is_tlcp() {
+            self.do_intercept_tlcp(client_hello, clt_r_buf).await
+        } else {
+            self.do_intercept_tls(client_hello, clt_r_buf).await
+        }
+    }
+
+    #[cfg(not(feature = "vendored-tongsuo"))]
+    pub(super) async fn do_intercept_tlcp(
+        &mut self,
+        _client_hello: ParsedClientHello,
+        clt_r_buf: BytesMut,
+    ) -> Result<StreamInspection<SC>, TlsInterceptionError> {
+        let StartTlsInterceptIo {
             clt_r,
             clt_w,
             ups_r,
             ups_w,
         } = self.io.take().unwrap();
 
-        let ssl = Ssl::new(&self.tls_interception.server_config.ssl_context).map_err(|e| {
-            TlsInterceptionError::InternalOpensslServerError(anyhow!(
-                "failed to get new SSL state: {e}"
-            ))
-        })?;
-        let mut lazy_acceptor =
-            SslLazyAcceptor::new(ssl, tokio::io::join(clt_r, clt_w)).map_err(|e| {
-                TlsInterceptionError::InternalOpensslServerError(anyhow!(
-                    "failed to create lazy acceptor: {e}"
-                ))
-            })?;
+        let mut stream_obj = crate::inspect::stream::StreamInspectObject::new(
+            self.ctx.clone(),
+            self.upstream.clone(),
+        );
+        stream_obj.set_io(
+            Box::new(OnceBufReader::new(clt_r, clt_r_buf)),
+            Box::new(clt_w),
+            Box::new(ups_r),
+            Box::new(ups_w),
+        );
+        // TLCP is not supported in this build mode, treat it as unknown protocol.
+        // Unknown protocol should be forbidden if needed.
+        Ok(StreamInspection::StreamUnknown(stream_obj))
+    }
 
-        // also use upstream timeout config for client handshake
-        let accept_timeout = self.tls_interception.server_config.accept_timeout;
-
-        tokio::time::timeout(accept_timeout, lazy_acceptor.accept())
-            .await
-            .map_err(|_| TlsInterceptionError::ClientHandshakeTimeout)?
-            .map_err(|e| {
-                TlsInterceptionError::ClientHandshakeFailed(anyhow!(
-                    "read client hello msg failed: {e:?}"
-                ))
-            })?;
-
-        // build to server ssl context based on client hello
-        let sni_hostname = self
-            .tls_interception
-            .server_config
-            .fetch_server_name(lazy_acceptor.ssl());
-        if let Some(domain) = sni_hostname {
-            // TODO also fetch user-site config here?
-            self.upstream.set_host(Host::from(domain));
-        }
-        let alpn_ext = self
-            .tls_interception
-            .server_config
-            .fetch_alpn_extension(lazy_acceptor.ssl());
-        let ups_ssl = match self.ctx.user_site_tls_client() {
-            Some(c) => c
-                .build_mimic_ssl(sni_hostname, &self.upstream, alpn_ext)
-                .map_err(|e| {
-                    TlsInterceptionError::UpstreamPrepareFailed(anyhow!(
-                        "failed to build user-site ssl context: {e}"
-                    ))
-                })?,
-            None => self
-                .tls_interception
-                .client_config
-                .build_ssl(sni_hostname, &self.upstream, alpn_ext)
-                .map_err(|e| {
-                    TlsInterceptionError::UpstreamPrepareFailed(anyhow!(
-                        "failed to build general ssl context: {e}"
-                    ))
-                })?,
-        };
-
-        // handshake with upstream server
-        let ups_tls_connector =
-            SslConnector::new(ups_ssl, tokio::io::join(ups_r, ups_w)).map_err(|e| {
-                TlsInterceptionError::UpstreamPrepareFailed(anyhow!(
-                    "failed to get ssl stream: {e}"
-                ))
-            })?;
-        let ups_tls_stream = tokio::time::timeout(accept_timeout, ups_tls_connector.connect())
-            .await
-            .map_err(|_| TlsInterceptionError::UpstreamHandshakeTimeout)?
-            .map_err(|e| {
-                TlsInterceptionError::UpstreamHandshakeFailed(anyhow!(
-                    "upstream handshake error: {e}"
-                ))
-            })?;
-
-        let upstream_cert = ups_tls_stream.ssl().peer_certificate().ok_or_else(|| {
-            TlsInterceptionError::NoFakeCertGenerated(anyhow!("failed to get upstream certificate"))
-        })?;
-        self.server_verify_result = Some(ups_tls_stream.ssl().verify_result());
-        let cert_domain = sni_hostname
-            .map(|v| v.to_string())
-            .unwrap_or_else(|| self.upstream.host().to_string());
-        let cert_pair = self
-            .tls_interception
-            .cert_agent
-            .fetch(
-                TlsServiceType::from(self.protocol),
-                CERT_USAGE,
-                Arc::from(cert_domain),
-                upstream_cert,
-            )
-            .await
-            .ok_or_else(|| {
-                TlsInterceptionError::NoFakeCertGenerated(anyhow!(
-                    "failed to get fake upstream certificate"
-                ))
-            })?;
-
-        // set certificate and private key
-        let clt_ssl = lazy_acceptor.ssl_mut();
-        cert_pair
-            .add_to_ssl(clt_ssl)
-            .map_err(TlsInterceptionError::InternalOpensslServerError)?;
-        // set alpn
-        if let Some(alpn_protocol) = ups_tls_stream.ssl().selected_alpn_protocol() {
-            self.tls_interception
-                .server_config
-                .set_selected_alpn(clt_ssl, alpn_protocol.to_vec());
-        }
-
-        let clt_acceptor = lazy_acceptor.into_acceptor(accept_timeout).map_err(|e| {
-            TlsInterceptionError::InternalOpensslServerError(anyhow!(
-                "failed to convert acceptor: {e}"
-            ))
-        })?;
-        let clt_tls_stream = clt_acceptor.accept().await.map_err(|e| {
-            TlsInterceptionError::ClientHandshakeFailed(anyhow!("client handshake error: {e:?}"))
-        })?;
-
-        let (clt_r, clt_w) = clt_tls_stream.into_split();
-        let (ups_r, ups_w) = ups_tls_stream.into_split();
+    fn transfer_connected<CS, US>(&self, clt_s: CS, ups_s: US) -> StreamInspection<SC>
+    where
+        CS: AsyncStream,
+        CS::R: AsyncRead + Send + Sync + Unpin + 'static,
+        CS::W: AsyncWrite + Send + Sync + Unpin + 'static,
+        US: AsyncStream,
+        US::R: AsyncRead + Send + Sync + Unpin + 'static,
+        US::W: AsyncWrite + Send + Sync + Unpin + 'static,
+    {
+        let (clt_r, clt_w) = clt_s.into_split();
+        let (ups_r, ups_w) = ups_s.into_split();
 
         let protocol = Protocol::from(self.protocol);
         if let Some(stream_dumper) = self
@@ -284,14 +216,14 @@ where
             if stream_dumper.client_side() {
                 let (clt_r, clt_w) =
                     stream_dumper.wrap_proxy_client_io(addresses, dissector_hint, clt_r, clt_w);
-                Ok(self.inspect_inner(protocol, clt_r, clt_w, ups_r, ups_w))
+                self.inspect_inner(protocol, clt_r, clt_w, ups_r, ups_w)
             } else {
                 let (ups_r, ups_w) =
                     stream_dumper.wrap_proxy_remote_io(addresses, dissector_hint, ups_r, ups_w);
-                Ok(self.inspect_inner(protocol, clt_r, clt_w, ups_r, ups_w))
+                self.inspect_inner(protocol, clt_r, clt_w, ups_r, ups_w)
             }
         } else {
-            Ok(self.inspect_inner(protocol, clt_r, clt_w, ups_r, ups_w))
+            self.inspect_inner(protocol, clt_r, clt_w, ups_r, ups_w)
         }
     }
 
