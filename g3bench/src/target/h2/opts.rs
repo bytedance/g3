@@ -287,7 +287,7 @@ impl BenchH2Args {
         }
 
         if let Some(alpn) = tls_stream.ssl().selected_alpn_protocol() {
-            if AlpnProtocol::from_buf(alpn) != Some(AlpnProtocol::Http2) {
+            if AlpnProtocol::from_selected(alpn) != Some(AlpnProtocol::Http2) {
                 return Err(anyhow!("invalid returned alpn protocol: {:?}", alpn));
             }
         }

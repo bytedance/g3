@@ -488,13 +488,13 @@ where
                     inspector.unset_no_explicit_ssl();
                 }
                 StreamInspection::TlsModern(tls) => {
-                    obj = tls.intercept_modern(&mut inspector).await?;
+                    obj = tls.intercept(&mut inspector).await?;
                     inspector.reset_state();
                     inspector.set_no_explicit_ssl();
                 }
                 #[cfg(feature = "vendored-tongsuo")]
                 StreamInspection::TlsTlcp(tlcp) => {
-                    obj = tlcp.intercept_tlcp(&mut inspector).await?;
+                    obj = tlcp.intercept(&mut inspector).await?;
                     inspector.reset_state();
                     inspector.set_no_explicit_ssl();
                 }

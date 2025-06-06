@@ -5,31 +5,61 @@
 
 use thiserror::Error;
 
-#[derive(Clone, Copy)]
-#[repr(u16)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ExtensionType {
-    ServerName = 0,                           // rfc6066
-    MaxFragmentLength = 1,                    // rfc6066
-    StatusRequest = 5,                        // rfc6066
-    SupportedGroups = 10,                     // rfc8422, rfc7919
-    SignatureAlgorithms = 13,                 // rfc8446
-    UseSrtp = 14,                             // rfc5764
-    Heartbeat = 15,                           // rfc6520
-    ApplicationLayerProtocolNegotiation = 16, // rfc7301
-    SignedCertificateTimestamp = 18,          // rfc6962
-    ClientCertificateType = 19,               // rfc7250
-    ServerCertificateType = 20,               // rfc7250
-    Padding = 21,                             // rfc7685
-    PreSharedKey = 41,                        // rfc8446(TLS1.3)
-    EarlyData = 42,                           // rfc8446(TLS1.3)
-    SupportedVersions = 43,                   // rfc8446(TLS1.3)
-    Cookie = 44,                              // rfc8446(TLS1.3)
-    PskKeyExchangeModes = 45,                 // rfc8446(TLS1.3)
-    CertificateAuthorities = 47,              // rfc8446(TLS1.3)
-    OidFilters = 48,                          // rfc8446(TLS1.3)
-    PostHandshakeAuth = 49,                   // rfc8446(TLS1.3)
-    SignatureAlgorithmsCert = 50,             // rfc8446(TLS1.3)
-    KeyShare = 51,                            // rfc8446(TLS1.3)
+    ServerName,                          // rfc6066
+    MaxFragmentLength,                   // rfc6066
+    StatusRequest,                       // rfc6066
+    SupportedGroups,                     // rfc8422, rfc7919
+    SignatureAlgorithms,                 // rfc8446
+    UseSrtp,                             // rfc5764
+    Heartbeat,                           // rfc6520
+    ApplicationLayerProtocolNegotiation, // rfc7301
+    SignedCertificateTimestamp,          // rfc6962
+    ClientCertificateType,               // rfc7250
+    ServerCertificateType,               // rfc7250
+    Padding,                             // rfc7685
+    PreSharedKey,                        // rfc8446(TLS1.3)
+    EarlyData,                           // rfc8446(TLS1.3)
+    SupportedVersions,                   // rfc8446(TLS1.3)
+    Cookie,                              // rfc8446(TLS1.3)
+    PskKeyExchangeModes,                 // rfc8446(TLS1.3)
+    CertificateAuthorities,              // rfc8446(TLS1.3)
+    OidFilters,                          // rfc8446(TLS1.3)
+    PostHandshakeAuth,                   // rfc8446(TLS1.3)
+    SignatureAlgorithmsCert,             // rfc8446(TLS1.3)
+    KeyShare,                            // rfc8446(TLS1.3)
+    Unknown(u16),
+}
+
+impl From<u16> for ExtensionType {
+    fn from(value: u16) -> Self {
+        match value {
+            0 => ExtensionType::ServerName,
+            1 => ExtensionType::MaxFragmentLength,
+            5 => ExtensionType::StatusRequest,
+            10 => ExtensionType::SupportedGroups,
+            13 => ExtensionType::SignatureAlgorithms,
+            14 => ExtensionType::UseSrtp,
+            15 => ExtensionType::Heartbeat,
+            16 => ExtensionType::ApplicationLayerProtocolNegotiation,
+            18 => ExtensionType::SignedCertificateTimestamp,
+            19 => ExtensionType::ClientCertificateType,
+            20 => ExtensionType::ServerCertificateType,
+            21 => ExtensionType::Padding,
+            41 => ExtensionType::PreSharedKey,
+            42 => ExtensionType::EarlyData,
+            43 => ExtensionType::SupportedVersions,
+            44 => ExtensionType::Cookie,
+            45 => ExtensionType::PskKeyExchangeModes,
+            47 => ExtensionType::CertificateAuthorities,
+            48 => ExtensionType::OidFilters,
+            49 => ExtensionType::PostHandshakeAuth,
+            50 => ExtensionType::SignatureAlgorithmsCert,
+            51 => ExtensionType::KeyShare,
+            n => ExtensionType::Unknown(n),
+        }
+    }
 }
 
 #[derive(Debug, Error)]
@@ -40,14 +70,22 @@ pub enum ExtensionParseError {
     InvalidLength,
 }
 
-struct Extension<'a> {
-    ext_type: u16,
+pub struct Extension<'a> {
+    ext_type: ExtensionType,
     ext_len: u16,
     ext_data: Option<&'a [u8]>,
 }
 
 impl<'a> Extension<'a> {
     const HEADER_LEN: usize = 4;
+
+    pub fn r#type(&self) -> ExtensionType {
+        self.ext_type
+    }
+
+    pub fn data(&self) -> Option<&[u8]> {
+        self.ext_data
+    }
 
     fn parse(data: &'a [u8]) -> Result<Self, ExtensionParseError> {
         if data.len() < Self::HEADER_LEN {
@@ -59,7 +97,7 @@ impl<'a> Extension<'a> {
 
         if ext_len == 0 {
             Ok(Extension {
-                ext_type,
+                ext_type: ext_type.into(),
                 ext_len,
                 ext_data: None,
             })
@@ -70,7 +108,7 @@ impl<'a> Extension<'a> {
                 Err(ExtensionParseError::InvalidLength)
             } else {
                 Ok(Extension {
-                    ext_type,
+                    ext_type: ext_type.into(),
                     ext_len,
                     ext_data: Some(&data[start..end]),
                 })
@@ -92,12 +130,41 @@ impl ExtensionList {
         while offset < full_data.len() {
             let left = &full_data[offset..];
             let ext = Extension::parse(left)?;
-            if ext.ext_type == ext_type as u16 {
+            if ext.ext_type == ext_type {
                 return Ok(ext.ext_data);
             }
             offset += Extension::HEADER_LEN + ext.ext_len as usize;
         }
 
         Ok(None)
+    }
+}
+
+pub struct ExtensionIter<'a> {
+    data: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> ExtensionIter<'a> {
+    pub(super) fn new(data: &'a [u8]) -> Self {
+        ExtensionIter { data, offset: 0 }
+    }
+}
+
+impl<'a> Iterator for ExtensionIter<'a> {
+    type Item = Result<Extension<'a>, ExtensionParseError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.offset < self.data.len() {
+            match Extension::parse(&self.data[self.offset..]) {
+                Ok(ext) => {
+                    self.offset += Extension::HEADER_LEN + ext.ext_len as usize;
+                    Some(Ok(ext))
+                }
+                Err(e) => Some(Err(e)),
+            }
+        } else {
+            None
+        }
     }
 }
