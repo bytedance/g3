@@ -6,6 +6,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use bytes::BytesMut;
 use openssl::x509::X509VerifyResult;
 use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -95,7 +96,8 @@ impl TlsInterceptionContext {
 }
 
 struct TlsInterceptIo {
-    pub(super) clt_r: OnceBufReader<BoxAsyncRead>,
+    pub(super) clt_r_buf: BytesMut,
+    pub(super) clt_r: BoxAsyncRead,
     pub(super) clt_w: BoxAsyncWrite,
     pub(super) ups_r: BoxAsyncRead,
     pub(super) ups_w: BoxAsyncWrite,
@@ -140,12 +142,14 @@ impl<SC: ServerConfig> TlsInterceptObject<SC> {
 
     pub(crate) fn set_io(
         &mut self,
-        clt_r: OnceBufReader<BoxAsyncRead>,
+        clt_r_buf: BytesMut,
+        clt_r: BoxAsyncRead,
         clt_w: BoxAsyncWrite,
         ups_r: BoxAsyncRead,
         ups_w: BoxAsyncWrite,
     ) {
         let io = TlsInterceptIo {
+            clt_r_buf,
             clt_r,
             clt_w,
             ups_r,

@@ -155,7 +155,7 @@ where
                         self.upstream,
                         tls_interception,
                     );
-                    tls_obj.set_io(OnceBufReader::new(clt_r, clt_r_buf), clt_w, ups_r, ups_w);
+                    tls_obj.set_io(clt_r_buf, clt_r, clt_w, ups_r, ups_w);
                     return Ok(StreamInspection::TlsModern(tls_obj));
                 }
             }
@@ -167,7 +167,7 @@ where
                         self.upstream,
                         tls_interception,
                     );
-                    tls_obj.set_io(OnceBufReader::new(clt_r, clt_r_buf), clt_w, ups_r, ups_w);
+                    tls_obj.set_io(clt_r_buf, clt_r, clt_w, ups_r, ups_w);
                     return Ok(StreamInspection::TlsTlcp(tls_obj));
                 }
             }
