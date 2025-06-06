@@ -9,6 +9,7 @@ use anyhow::anyhow;
 use openssl::ssl::Ssl;
 
 use g3_dpi::{Protocol, ProtocolInspector};
+use g3_io_ext::OnceBufReader;
 use g3_openssl::{SslConnector, SslLazyAcceptor};
 use g3_types::net::{AlpnProtocol, Host, TlsCertUsage, TlsServiceType};
 
@@ -47,6 +48,7 @@ where
         inspector: &mut ProtocolInspector,
     ) -> Result<StreamInspection<SC>, TlsInterceptionError> {
         let TlsInterceptIo {
+            clt_r_buf,
             clt_r,
             clt_w,
             ups_r,
@@ -58,12 +60,15 @@ where
                 "failed to get new SSL state: {e}"
             ))
         })?;
-        let mut lazy_acceptor =
-            SslLazyAcceptor::new(ssl, tokio::io::join(clt_r, clt_w)).map_err(|e| {
-                TlsInterceptionError::InternalOpensslServerError(anyhow!(
-                    "failed to create lazy acceptor: {e}"
-                ))
-            })?;
+        let mut lazy_acceptor = SslLazyAcceptor::new(
+            ssl,
+            tokio::io::join(OnceBufReader::new(clt_r, clt_r_buf), clt_w),
+        )
+        .map_err(|e| {
+            TlsInterceptionError::InternalOpensslServerError(anyhow!(
+                "failed to create lazy acceptor: {e}"
+            ))
+        })?;
 
         // also use upstream timeout config for client handshake
         let accept_timeout = self.tls_interception.server_config.accept_timeout;

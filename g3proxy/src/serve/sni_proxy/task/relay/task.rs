@@ -14,7 +14,6 @@ use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
 use g3_dpi::Protocol;
 use g3_io_ext::{
     FlexBufReader, IdleInterval, LimitedCopy, LimitedCopyConfig, LimitedReader, LimitedWriter,
-    OnceBufReader,
 };
 use g3_types::net::UpstreamAddr;
 
@@ -209,7 +208,8 @@ impl TcpStreamTask {
                             tls_interception,
                         );
                         tls_obj.set_io(
-                            OnceBufReader::new(Box::new(clt_r), clt_r_buf),
+                            clt_r_buf,
+                            Box::new(clt_r),
                             Box::new(clt_w),
                             Box::new(ups_r),
                             Box::new(ups_w),
@@ -228,7 +228,8 @@ impl TcpStreamTask {
                             tls_interception,
                         );
                         tls_obj.set_io(
-                            OnceBufReader::new(Box::new(clt_r), clt_r_buf),
+                            clt_r_buf,
+                            Box::new(clt_r),
                             Box::new(clt_w),
                             Box::new(ups_r),
                             Box::new(ups_w),
