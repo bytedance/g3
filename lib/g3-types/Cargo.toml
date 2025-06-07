@@ -40,6 +40,7 @@ quinn = { workspace = true, optional = true }
 webpki-roots = { version = "1.0", optional = true }
 rustls-native-certs = { version = "0.8", optional = true }
 openssl = { workspace = true, optional = true }
+openssl-sys = { workspace = true, optional = true }
 lru = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
@@ -57,9 +58,7 @@ resolve = ["dep:ahash", "dep:radix_trie", "dep:fastrand"]
 quinn = ["dep:quinn", "quic"]
 rustls = ["dep:rustls", "dep:rustls-pki-types", "dep:webpki-roots", "dep:rustls-native-certs", "dep:lru", "dep:ahash"]
 rustls-ring = ["rustls", "rustls/ring", "quinn?/rustls-ring"]
-openssl = ["dep:openssl", "dep:lru", "dep:bytes", "dep:ahash"]
-tongsuo = ["openssl", "openssl/tongsuo", "dep:brotli"]
-boringssl = ["openssl", "openssl/boringssl", "dep:brotli"]
+openssl = ["dep:openssl", "dep:openssl-sys", "dep:lru", "dep:bytes", "dep:ahash", "dep:brotli"]
 acl-rule = ["resolve", "dep:ahash", "dep:ip_network", "dep:ip_network_table", "dep:regex", "dep:radix_trie"]
 http = ["dep:http", "dep:bytes", "dep:base64"]
 route = ["resolve", "dep:ahash", "dep:radix_trie", "dep:indexmap"]

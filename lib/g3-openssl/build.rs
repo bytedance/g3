@@ -7,7 +7,18 @@ use std::env;
 
 #[allow(clippy::unusual_byte_groupings)]
 fn main() {
+    println!("cargo:rustc-check-cfg=cfg(libressl)");
+    println!("cargo:rustc-check-cfg=cfg(boringssl)");
+
     println!("cargo:rustc-check-cfg=cfg(ossl300)");
+
+    if env::var("DEP_OPENSSL_LIBRESSL").is_ok() {
+        println!("cargo:rustc-cfg=libressl");
+    }
+
+    if env::var("DEP_OPENSSL_BORINGSSL").is_ok() {
+        println!("cargo:rustc-cfg=boringssl");
+    }
 
     if let Ok(version) = env::var("DEP_OPENSSL_VERSION_NUMBER") {
         // this will require a dependency on openssl-sys crate

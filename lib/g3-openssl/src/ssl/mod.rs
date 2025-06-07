@@ -25,7 +25,9 @@ pub use stream::SslStream;
 mod accept;
 pub use accept::SslAcceptor;
 
+#[cfg(not(libressl))]
 mod lazy_accept;
+#[cfg(not(libressl))]
 pub use lazy_accept::SslLazyAcceptor;
 
 #[cfg_attr(not(feature = "async-job"), path = "connect.rs")]

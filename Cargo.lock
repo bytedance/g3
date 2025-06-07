@@ -1617,6 +1617,7 @@ dependencies = [
  "thiserror",
  "url",
  "variant-ssl",
+ "variant-ssl-sys",
  "webpki-roots",
 ]
 

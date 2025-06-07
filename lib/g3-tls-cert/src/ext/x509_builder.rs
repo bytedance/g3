@@ -17,7 +17,6 @@ pub trait X509BuilderExt {
 }
 
 impl X509BuilderExt for X509Builder {
-    #[cfg(not(feature = "boringssl"))]
     fn sign_with_optional_digest<T: HasPrivate>(
         &mut self,
         key: &PKeyRef<T>,
@@ -29,19 +28,12 @@ impl X509BuilderExt for X509Builder {
             // see https://www.openssl.org/docs/manmaster/man3/EVP_DigestSign.html
             #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
             Id::SM2 => MessageDigest::sm3(),
+            #[cfg(not(boringssl))]
             Id::ED25519 | Id::ED448 => MessageDigest::null(),
+            #[cfg(boringssl)]
+            Id::ED25519 | Id::ED448 => unsafe { MessageDigest::from_ptr(std::ptr::null()) },
             _ => MessageDigest::sha256(),
         });
-        self.sign(key, digest)
-    }
-
-    #[cfg(feature = "boringssl")]
-    fn sign_with_optional_digest<T: HasPrivate>(
-        &mut self,
-        key: &PKeyRef<T>,
-        digest: Option<MessageDigest>,
-    ) -> Result<(), ErrorStack> {
-        let digest = digest.unwrap_or_else(MessageDigest::sha256);
         self.sign(key, digest)
     }
 }

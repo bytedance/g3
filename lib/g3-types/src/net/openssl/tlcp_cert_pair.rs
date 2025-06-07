@@ -5,9 +5,11 @@
 
 use anyhow::anyhow;
 use openssl::pkey::{PKey, Private};
+#[cfg(tongsuo)]
 use openssl::ssl::SslContextBuilder;
 use openssl::x509::X509;
 
+#[cfg(tongsuo)]
 use super::OpensslSessionIdContext;
 
 #[derive(Default, Clone, Debug, Eq, PartialEq)]
@@ -92,6 +94,7 @@ impl OpensslTlcpCertificatePair {
         Ok(())
     }
 
+    #[cfg(tongsuo)]
     pub fn add_to_client_ssl_context(
         &self,
         ssl_builder: &mut SslContextBuilder,
@@ -109,6 +112,7 @@ impl OpensslTlcpCertificatePair {
         self.add_to_ssl_context(ssl_builder)
     }
 
+    #[cfg(tongsuo)]
     pub fn add_to_server_ssl_context(
         &self,
         ssl_builder: &mut SslContextBuilder,
@@ -133,6 +137,7 @@ impl OpensslTlcpCertificatePair {
         self.add_to_ssl_context(ssl_builder)
     }
 
+    #[cfg(tongsuo)]
     fn add_to_ssl_context(&self, ssl_builder: &mut SslContextBuilder) -> anyhow::Result<()> {
         for (i, cert) in self.chain_certs.iter().enumerate() {
             let chain_cert = X509::from_der(cert.as_slice()).unwrap();
