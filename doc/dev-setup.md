@@ -250,15 +250,15 @@ ln -s /usr/pkg/bin/python3.11 /usr/pkg/bin/python3
 ```shell
 # install rust toolchain
 pkg_add rust
-# install capnproto from source
+# install capnproto from source, or export G3_CAPNP_USE_PRECOMPILED=yes when build a tarball
 # install libs
 pkg_add libcares
 # install lua5.4 or any other versions available on your system, and create a pkgconfig link
 pkg_add lua
 ln -s /usr/local/lib/pkgconfig/lua54.pc /usr/local/lib/pkgconfig/lua5.4.pc
 pkg_add python
-# build, with vendored openssl
-cargo build --vendored-openssl
+# build, with system LibreSSL
+cargo build
 ```
 
 **Tips**
