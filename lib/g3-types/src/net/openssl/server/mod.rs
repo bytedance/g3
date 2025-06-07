@@ -279,9 +279,7 @@ impl OpensslServerConfigBuilder {
                 .set_verify_cert_store(store_builder.build())
                 .map_err(|e| anyhow!("failed to set verify ca certs: {e}"))?;
             #[cfg(libressl)]
-            ssl_builder
-                .set_cert_store(store_builder.build())
-                .map_err(|e| anyhow!("failed to set ca certs: {e}"))?;
+            ssl_builder.set_cert_store(store_builder.build());
             if !subject_stack.is_empty() {
                 ssl_builder.set_client_ca_list(subject_stack);
             }

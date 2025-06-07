@@ -93,6 +93,7 @@ pub struct OpensslInterceptionClientConfigBuilder {
     session_cache: OpensslSessionCacheConfig,
     supported_groups: String,
     use_ocsp_stapling: bool,
+    #[cfg(not(libressl))]
     enable_sct: bool,
     #[cfg(boringssl)]
     enable_grease: bool,
@@ -112,6 +113,7 @@ impl Default for OpensslInterceptionClientConfigBuilder {
             session_cache: OpensslSessionCacheConfig::new_for_many(),
             supported_groups: String::default(),
             use_ocsp_stapling: false,
+            #[cfg(not(libressl))]
             enable_sct: false,
             #[cfg(boringssl)]
             enable_grease: false,
@@ -185,8 +187,15 @@ impl OpensslInterceptionClientConfigBuilder {
     }
 
     #[inline]
+    #[cfg(not(libressl))]
     pub fn set_enable_sct(&mut self, enable: bool) {
         self.enable_sct = enable;
+    }
+
+    #[inline]
+    #[cfg(libressl)]
+    pub fn set_enable_sct(&mut self, _enable: bool) {
+        warn!("SCT can not be enabled for LibreSSL");
     }
 
     #[inline]
@@ -261,9 +270,7 @@ impl OpensslInterceptionClientConfigBuilder {
             .set_verify_cert_store(store_builder.build())
             .map_err(|e| anyhow!("failed to set verify ca certs: {e}"))?;
         #[cfg(libressl)]
-        ctx_builder
-            .set_cert_store(store_builder.build())
-            .map_err(|e| anyhow!("failed to set ca certs: {e}"))?;
+        ctx_builder.set_cert_store(store_builder.build());
         Ok(())
     }
 
@@ -331,7 +338,41 @@ impl OpensslInterceptionClientConfigBuilder {
         })
     }
 
-    #[cfg(not(boringssl))]
+    #[cfg(libressl)]
+    fn build_ssl_context(&self) -> anyhow::Result<ContextPair> {
+        use openssl::ssl::StatusType;
+
+        let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
+            .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
+
+        self.set_verify(&mut ctx_builder);
+
+        self.build_set_tls_version(&mut ctx_builder)?;
+
+        if !self.supported_groups.is_empty() {
+            ctx_builder
+                .set_groups_list(&self.supported_groups)
+                .map_err(|e| anyhow!("failed to set supported elliptic curve groups: {e}"))?;
+        }
+
+        if self.use_ocsp_stapling {
+            ctx_builder
+                .set_status_type(StatusType::OCSP)
+                .map_err(|e| anyhow!("failed to enable OCSP status request: {e}"))?;
+            // TODO check OCSP response
+        }
+
+        self.build_set_verify_cert_store(&mut ctx_builder)?;
+
+        let session_cache = self.session_cache.set_for_client(&mut ctx_builder)?;
+
+        Ok(ContextPair {
+            ssl_context: ctx_builder.build().into_context(),
+            session_cache,
+        })
+    }
+
+    #[cfg(not(any(boringssl, libressl)))]
     fn build_ssl_context(&self) -> anyhow::Result<ContextPair> {
         use openssl::ssl::{SslCtValidationMode, StatusType};
 

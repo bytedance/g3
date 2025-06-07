@@ -9,11 +9,13 @@ use anyhow::anyhow;
 use log::warn;
 #[cfg(any(boringssl, tongsuo))]
 use openssl::ssl::CertCompressionAlgorithm;
+#[cfg(not(any(boringssl, libressl)))]
+use openssl::ssl::SslCtValidationMode;
+#[cfg(not(boringssl))]
+use openssl::ssl::StatusType;
 use openssl::ssl::{
     Ssl, SslConnector, SslConnectorBuilder, SslContext, SslMethod, SslVerifyMode, SslVersion,
 };
-#[cfg(not(boringssl))]
-use openssl::ssl::{SslCtValidationMode, StatusType};
 use openssl::x509::X509;
 use openssl::x509::store::X509StoreBuilder;
 
@@ -107,6 +109,7 @@ pub struct OpensslClientConfigBuilder {
     session_cache: OpensslSessionCacheConfig,
     supported_groups: String,
     use_ocsp_stapling: bool,
+    #[cfg(not(libressl))]
     enable_sct: bool,
     #[cfg(boringssl)]
     enable_grease: bool,
@@ -131,6 +134,7 @@ impl Default for OpensslClientConfigBuilder {
             session_cache: OpensslSessionCacheConfig::default(),
             supported_groups: String::default(),
             use_ocsp_stapling: false,
+            #[cfg(not(libressl))]
             enable_sct: false,
             #[cfg(boringssl)]
             enable_grease: false,
@@ -263,8 +267,15 @@ impl OpensslClientConfigBuilder {
     }
 
     #[inline]
+    #[cfg(not(libressl))]
     pub fn set_enable_sct(&mut self, enable: bool) {
         self.enable_sct = enable;
+    }
+
+    #[inline]
+    #[cfg(libressl)]
+    pub fn set_enable_sct(&mut self, _enable: bool) {
+        warn!("SCT can not be enabled for LibreSSL");
     }
 
     #[inline]
@@ -479,6 +490,7 @@ impl OpensslClientConfigBuilder {
             // TODO check OCSP response
         }
 
+        #[cfg(not(libressl))]
         if self.enable_sct {
             #[cfg(not(boringssl))]
             ctx_builder
@@ -527,9 +539,7 @@ impl OpensslClientConfigBuilder {
             .set_verify_cert_store(store_builder.build())
             .map_err(|e| anyhow!("failed to set verify ca certs: {e}"))?;
         #[cfg(libressl)]
-        ctx_builder
-            .set_cert_store(store_builder.build())
-            .map_err(|e| anyhow!("failed to set ca certs: {e}"))?;
+        ctx_builder.set_cert_store(store_builder.build());
 
         let session_cache = self.session_cache.set_for_client(&mut ctx_builder)?;
 

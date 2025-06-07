@@ -30,6 +30,7 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {
         })
     }
 
+    #[cfg(not(libressl))]
     pub(crate) fn with_inner(
         inner: ssl::SslStream<SslIoWrapper<S>>,
         timeout: Duration,
