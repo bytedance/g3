@@ -54,7 +54,7 @@ impl ContextPair {
 #[derive(Clone)]
 pub struct OpensslInterceptionClientConfig {
     ssl_context_pair: ContextPair,
-    #[cfg(feature = "tongsuo")]
+    #[cfg(tongsuo)]
     tlcp_context_pair: ContextPair,
     pub insecure: bool,
     pub handshake_timeout: Duration,
@@ -71,7 +71,7 @@ impl OpensslInterceptionClientConfig {
             .build_ssl(server_name, upstream, alpn_ext)
     }
 
-    #[cfg(feature = "tongsuo")]
+    #[cfg(tongsuo)]
     pub fn build_tlcp(
         &self,
         server_name: Option<&TlsServerName>,
@@ -94,9 +94,9 @@ pub struct OpensslInterceptionClientConfigBuilder {
     supported_groups: String,
     use_ocsp_stapling: bool,
     enable_sct: bool,
-    #[cfg(feature = "boringssl")]
+    #[cfg(boringssl)]
     enable_grease: bool,
-    #[cfg(feature = "boringssl")]
+    #[cfg(boringssl)]
     permute_extensions: bool,
     insecure: bool,
 }
@@ -113,9 +113,9 @@ impl Default for OpensslInterceptionClientConfigBuilder {
             supported_groups: String::default(),
             use_ocsp_stapling: false,
             enable_sct: false,
-            #[cfg(feature = "boringssl")]
+            #[cfg(boringssl)]
             enable_grease: false,
-            #[cfg(feature = "boringssl")]
+            #[cfg(boringssl)]
             permute_extensions: false,
             insecure: false,
         }
@@ -190,24 +190,24 @@ impl OpensslInterceptionClientConfigBuilder {
     }
 
     #[inline]
-    #[cfg(feature = "boringssl")]
+    #[cfg(boringssl)]
     pub fn set_enable_grease(&mut self, enable: bool) {
         self.enable_grease = enable;
     }
 
-    #[cfg(not(feature = "boringssl"))]
+    #[cfg(not(boringssl))]
     pub fn set_enable_grease(&mut self, _enable: bool) {
-        log::warn!("grease can only be set for BoringSSL variants");
+        warn!("grease can only be set for BoringSSL variants");
     }
 
-    #[cfg(feature = "boringssl")]
+    #[cfg(boringssl)]
     pub fn set_permute_extensions(&mut self, enable: bool) {
         self.permute_extensions = enable;
     }
 
-    #[cfg(not(feature = "boringssl"))]
+    #[cfg(not(boringssl))]
     pub fn set_permute_extensions(&mut self, _enable: bool) {
-        log::warn!("permute extensions can only be set for BoringSSL variants");
+        warn!("permute extensions can only be set for BoringSSL variants");
     }
 
     pub fn set_insecure(&mut self, enable: bool) {
@@ -256,13 +256,18 @@ impl OpensslInterceptionClientConfigBuilder {
                 .add_cert(ca_cert)
                 .map_err(|e| anyhow!("failed to add ca certificate #{i}: {e}"))?;
         }
+        #[cfg(not(libressl))]
         ctx_builder
             .set_verify_cert_store(store_builder.build())
             .map_err(|e| anyhow!("failed to set verify ca certs: {e}"))?;
+        #[cfg(libressl)]
+        ctx_builder
+            .set_cert_store(store_builder.build())
+            .map_err(|e| anyhow!("failed to set ca certs: {e}"))?;
         Ok(())
     }
 
-    #[cfg(any(feature = "boringssl", feature = "tongsuo"))]
+    #[cfg(any(boringssl, tongsuo))]
     fn build_set_cert_compression(
         &self,
         ctx_builder: &mut SslContextBuilder,
@@ -282,7 +287,7 @@ impl OpensslInterceptionClientConfigBuilder {
         Ok(())
     }
 
-    #[cfg(feature = "boringssl")]
+    #[cfg(boringssl)]
     fn build_ssl_context(&self) -> anyhow::Result<ContextPair> {
         let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
@@ -326,7 +331,7 @@ impl OpensslInterceptionClientConfigBuilder {
         })
     }
 
-    #[cfg(not(feature = "boringssl"))]
+    #[cfg(not(boringssl))]
     fn build_ssl_context(&self) -> anyhow::Result<ContextPair> {
         use openssl::ssl::{SslCtValidationMode, StatusType};
 
@@ -356,7 +361,7 @@ impl OpensslInterceptionClientConfigBuilder {
                 .map_err(|e| anyhow!("failed to enable SCT: {e}"))?;
         }
 
-        #[cfg(feature = "tongsuo")]
+        #[cfg(tongsuo)]
         self.build_set_cert_compression(&mut ctx_builder)?;
 
         self.build_set_verify_cert_store(&mut ctx_builder)?;
@@ -369,7 +374,7 @@ impl OpensslInterceptionClientConfigBuilder {
         })
     }
 
-    #[cfg(feature = "tongsuo")]
+    #[cfg(tongsuo)]
     fn build_tlcp_context(&self) -> anyhow::Result<ContextPair> {
         use openssl::ssl::{SslCtValidationMode, StatusType};
 
@@ -412,7 +417,7 @@ impl OpensslInterceptionClientConfigBuilder {
     pub fn build(&self) -> anyhow::Result<OpensslInterceptionClientConfig> {
         Ok(OpensslInterceptionClientConfig {
             ssl_context_pair: self.build_ssl_context()?,
-            #[cfg(feature = "tongsuo")]
+            #[cfg(tongsuo)]
             tlcp_context_pair: self.build_tlcp_context()?,
             insecure: self.insecure,
             handshake_timeout: self.handshake_timeout,

@@ -16,7 +16,7 @@ use crate::net::RollingTicketer;
 pub struct OpensslInterceptionServerConfig {
     alpn_name_index: Index<Ssl, Vec<u8>>,
     pub ssl_context: SslContext,
-    #[cfg(feature = "tongsuo")]
+    #[cfg(tongsuo)]
     pub tlcp_context: SslContext,
     pub client_hello_recv_timeout: Duration,
     pub client_hello_max_size: u32,
@@ -85,13 +85,13 @@ impl OpensslInterceptionServerConfigBuilder {
         }
 
         let ssl_context = build_ssl_context!(build_tls_context);
-        #[cfg(feature = "tongsuo")]
+        #[cfg(tongsuo)]
         let tlcp_context = build_ssl_context!(build_tlcp_context);
 
         Ok(OpensslInterceptionServerConfig {
             alpn_name_index,
             ssl_context,
-            #[cfg(feature = "tongsuo")]
+            #[cfg(tongsuo)]
             tlcp_context,
             client_hello_recv_timeout: self.client_hello_recv_timeout,
             client_hello_max_size: self.client_hello_max_size,
@@ -100,7 +100,7 @@ impl OpensslInterceptionServerConfigBuilder {
     }
 }
 
-#[cfg(not(feature = "tongsuo"))]
+#[cfg(not(tongsuo))]
 fn build_tls_context() -> anyhow::Result<SslAcceptorBuilder> {
     use openssl::ssl::SslMethod;
 
@@ -108,12 +108,12 @@ fn build_tls_context() -> anyhow::Result<SslAcceptorBuilder> {
         .map_err(|e| anyhow!("failed to get ssl acceptor builder: {e}"))
 }
 
-#[cfg(feature = "tongsuo")]
+#[cfg(tongsuo)]
 fn build_tls_context() -> anyhow::Result<SslAcceptorBuilder> {
     SslAcceptor::tongsuo_tls().map_err(|e| anyhow!("failed to get tls acceptor builder: {e}"))
 }
 
-#[cfg(feature = "tongsuo")]
+#[cfg(tongsuo)]
 fn build_tlcp_context() -> anyhow::Result<SslAcceptorBuilder> {
     SslAcceptor::tongsuo_tlcp().map_err(|e| anyhow!("failed to get tlcp acceptor builder: {e}"))
 }

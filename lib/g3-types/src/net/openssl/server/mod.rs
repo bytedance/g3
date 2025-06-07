@@ -17,9 +17,7 @@ use openssl::stack::Stack;
 use openssl::x509::X509;
 use openssl::x509::store::X509StoreBuilder;
 
-use super::OpensslCertificatePair;
-#[cfg(feature = "tongsuo")]
-use super::OpensslTlcpCertificatePair;
+use super::{OpensslCertificatePair, OpensslTlcpCertificatePair};
 use crate::net::{AlpnProtocol, RollingTicketer};
 
 mod intercept;
@@ -45,7 +43,6 @@ pub struct OpensslServerConfig {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OpensslServerConfigBuilder {
     cert_pairs: Vec<OpensslCertificatePair>,
-    #[cfg(feature = "tongsuo")]
     tlcp_cert_pairs: Vec<OpensslTlcpCertificatePair>,
     client_auth: bool,
     client_auth_certs: Vec<Vec<u8>>,
@@ -59,7 +56,6 @@ impl OpensslServerConfigBuilder {
     pub fn empty() -> Self {
         OpensslServerConfigBuilder {
             cert_pairs: Vec::with_capacity(1),
-            #[cfg(feature = "tongsuo")]
             tlcp_cert_pairs: Vec::with_capacity(1),
             client_auth: false,
             client_auth_certs: Vec::new(),
@@ -70,7 +66,7 @@ impl OpensslServerConfigBuilder {
         }
     }
 
-    #[cfg(not(feature = "tongsuo"))]
+    #[cfg(not(tongsuo))]
     pub fn check(&self) -> anyhow::Result<()> {
         if self.cert_pairs.is_empty() {
             return Err(anyhow!("no cert pair is set"));
@@ -79,7 +75,7 @@ impl OpensslServerConfigBuilder {
         Ok(())
     }
 
-    #[cfg(feature = "tongsuo")]
+    #[cfg(tongsuo)]
     pub fn check(&self) -> anyhow::Result<()> {
         if self.cert_pairs.is_empty() && self.tlcp_cert_pairs.is_empty() {
             return Err(anyhow!("no cert pair is set"));
@@ -120,7 +116,6 @@ impl OpensslServerConfigBuilder {
         Ok(())
     }
 
-    #[cfg(feature = "tongsuo")]
     pub fn push_tlcp_cert_pair(
         &mut self,
         cert_pair: OpensslTlcpCertificatePair,
@@ -134,7 +129,7 @@ impl OpensslServerConfigBuilder {
         self.accept_timeout = timeout;
     }
 
-    #[cfg(not(feature = "tongsuo"))]
+    #[cfg(not(tongsuo))]
     fn build_tls_acceptor(
         &self,
         id_ctx: &mut OpensslSessionIdContext,
@@ -152,7 +147,7 @@ impl OpensslServerConfigBuilder {
         Ok(ssl_builder)
     }
 
-    #[cfg(feature = "tongsuo")]
+    #[cfg(tongsuo)]
     fn build_tls_acceptor(
         &self,
         id_ctx: &mut OpensslSessionIdContext,
@@ -168,7 +163,7 @@ impl OpensslServerConfigBuilder {
         Ok(ssl_builder)
     }
 
-    #[cfg(feature = "tongsuo")]
+    #[cfg(tongsuo)]
     fn build_tlcp_acceptor(
         &self,
         id_ctx: &mut OpensslSessionIdContext,
@@ -184,7 +179,7 @@ impl OpensslServerConfigBuilder {
         Ok(ssl_builder)
     }
 
-    #[cfg(feature = "tongsuo")]
+    #[cfg(tongsuo)]
     fn build_acceptor(
         &self,
         id_ctx: &mut OpensslSessionIdContext,
@@ -212,7 +207,7 @@ impl OpensslServerConfigBuilder {
         Ok(ssl_builder)
     }
 
-    #[cfg(not(feature = "tongsuo"))]
+    #[cfg(not(tongsuo))]
     fn build_acceptor(
         &self,
         id_ctx: &mut OpensslSessionIdContext,
@@ -279,9 +274,14 @@ impl OpensslServerConfigBuilder {
                         .map_err(|e| anyhow!("[#{i}] failed to push to ca name stack: {e}"))?;
                 }
             }
+            #[cfg(not(libressl))]
             ssl_builder
                 .set_verify_cert_store(store_builder.build())
                 .map_err(|e| anyhow!("failed to set verify ca certs: {e}"))?;
+            #[cfg(libressl)]
+            ssl_builder
+                .set_cert_store(store_builder.build())
+                .map_err(|e| anyhow!("failed to set ca certs: {e}"))?;
             if !subject_stack.is_empty() {
                 ssl_builder.set_client_ca_list(subject_stack);
             }

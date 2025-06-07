@@ -32,9 +32,9 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslLazyAcceptor<S> {
             Ok(_) => Poll::Ready(Ok(())),
             Err(e) => match e.code() {
                 ErrorCode::WANT_READ | ErrorCode::WANT_WRITE => Poll::Pending,
-                #[cfg(not(feature = "boringssl"))]
+                #[cfg(not(boringssl))]
                 ErrorCode::WANT_CLIENT_HELLO_CB => Poll::Ready(Ok(())),
-                #[cfg(feature = "boringssl")]
+                #[cfg(boringssl)]
                 ErrorCode::PENDING_CERTIFICATE => Poll::Ready(Ok(())),
                 _ => Poll::Ready(Err(e
                     .into_io_error()

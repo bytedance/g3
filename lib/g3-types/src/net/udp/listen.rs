@@ -68,6 +68,7 @@ impl UdpListenConfig {
         if self.address.port() == 0 {
             return Err(anyhow!("no listen port is set"));
         }
+        #[cfg(not(target_os = "openbsd"))]
         match self.address.ip() {
             IpAddr::V4(_) => self.ipv6only = None,
             IpAddr::V6(v6) => {

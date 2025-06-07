@@ -17,4 +17,3 @@ g3-datetime.workspace = true
 
 [features]
 default = []
-boringssl = ["openssl/boringssl", "g3-types/boringssl"]
