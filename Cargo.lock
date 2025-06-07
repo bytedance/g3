@@ -810,9 +810,9 @@ checksum = "1d674e81391d1e1ab681a28d99df07927c6d4aa5b027d7da16ba32d1d21ecd99"
 
 [[package]]
 name = "flate2"
-version = "1.1.1"
+version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ced92e76e966ca2fd84c8f7aa01a4aea65b0eb6648d72f7c8f3e2764a67fece"
+checksum = "4a3d7db9596fecd151c5f638c0ee5d5bd487b6e0ea232e5dc96d5250f6f94b1d"
 dependencies = [
  "crc32fast",
  "libz-rs-sys",
@@ -2227,9 +2227,9 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.15.3"
+version = "0.15.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "84b26c544d002229e640969970a2e74021aadf6e2f96372b9c58eff97de08eb3"
+checksum = "5971ac85611da7067dbfcabef3c70ebb5606018acd9e2a3903a0da507521e0d5"
 dependencies = [
  "allocator-api2",
  "equivalent",
@@ -3785,9 +3785,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.16.5"
+version = "0.16.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51627e1bcbc0bcc70c43f63c52a50609552cf97873a2268bef6cb9b4b115c9ee"
+checksum = "aed6c9b719940276d519875690becfecb6ecd4b9397b5b5360b010e50effae32"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -3800,9 +3800,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl-sys"
-version = "0.16.5"
+version = "0.16.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d0b873e7902475995bb9af85ee3575699713b0e7ebb37818b4080217b4aefc6"
+checksum = "02c50278f19a87f4366c4cf744ba1a067338bf2da967e4037a6967192371eb15"
 dependencies = [
  "bssl-cmake-sys",
  "cc",
