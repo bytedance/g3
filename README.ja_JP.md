@@ -88,7 +88,7 @@ Cloudflare keylessサーバーの簡単な実装。
 
 ## 対応プラットフォーム
 
-現在、完全にサポートされているのはLinuxのみです。コードはFreeBSD、NetBSD、macOS、Windowsでコンパイルされますが、そこでのテストは行っていません。
+現在、完全にサポートされているのはLinuxのみです。コードはFreeBSD、NetBSD、OpenBSD、macOS、Windowsでコンパイルされますが、そこでのテストは行っていません。
 
 他のプラットフォームのサポートを追加するためのPRを歓迎します。
 
