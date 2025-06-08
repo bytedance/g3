@@ -1,4 +1,11 @@
 
+v1.10.6:
+ - BUG FIX: fix read of H2 zero size body frame
+ - BUG FIX: fix format of HTTP 1 OPTIONS header line
+ - BUG FIX: fix h2 max concurrent streams settings sent to client
+ - BUG FIX: fix h2 connection level IDLE check
+ - Optimization: use more reasonable h2 default settings value
+
 v1.10.5:
  - BUG FIX: fix dead lock when reloading chained servers
  - BUG FIX: fix alignment of RawSocketAddr used in sendmmsg/recvmmsg
