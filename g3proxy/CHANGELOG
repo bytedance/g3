@@ -1,4 +1,13 @@
 
+v1.11.7:
+ - BUG FIX: fix read of H2 zero size body frame
+ - BUG FIX: fix format of HTTP 1 OPTIONS header line
+ - BUG FIX: fix h2 max concurrent streams settings sent to client
+ - BUG FIX: fix h2 connection level IDLE check
+ - BUG FIX: fix reconnect of syslog unix socket after syslogd restarted
+ - Optimization: use more reasonable h2 default settings value
+ - Compatibility: support to build on OpenBSD with LibreSSL
+
 v1.11.6:
  - BUG FIX: fix alignment of RawSocketAddr used in recvmmsg & sendmmsg
  - BUG FIX: fix default positive min ttl in c-ares resolver
