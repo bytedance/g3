@@ -86,7 +86,7 @@ Cloudflare Keyless Server的简单实现。
 
 ## 支持平台
 
-目前仅提供对Linux系统的完整支持，其他系统如FreeBSD、NetBSD、macOS、Windows可以编译，但是未测试过功能。
+目前仅提供对Linux系统的完整支持，其他系统如FreeBSD、NetBSD、OpenBSD、macOS、Windows可以编译，但是未测试过功能。
 
 如果需要支持其他系统，欢迎提交PR。
 
