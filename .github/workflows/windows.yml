@@ -29,6 +29,7 @@ env:
   CARGO_TERM_COLOR: always
   VCPKG_ROOT: C:\vcpkg
   WIN_FEATURES: rustls-ring,quic,vendored-c-ares
+  AWS_LC_SYS_PREBUILT_NASM: 1
 
 jobs:
   build:
@@ -75,11 +76,6 @@ jobs:
       - name: Install nasm and ninja for BoringSSL
         if: contains(matrix.feature, 'vendored-boringssl')
         run: choco install nasm ninja
-      - name: Install nasm for AWS-LC
-        if: contains(matrix.feature, 'vendored-aws-lc')
-        run: |
-          choco install nasm
-          "$env:CSIDL_PROGRAM_FILES\NASM" | Out-File -FilePath "$env:GITHUB_PATH" -Append
       - name: Checkout sources
         uses: actions/checkout@v4
         with:
@@ -114,11 +110,6 @@ jobs:
       - name: Install nasm and ninja for BoringSSL
         if: contains(matrix.feature, 'vendored-boringssl')
         run: choco install nasm ninja
-      - name: Install nasm for AWS-LC
-        if: contains(matrix.feature, 'vendored-aws-lc')
-        run: |
-          choco install nasm
-          "$env:CSIDL_PROGRAM_FILES\NASM" | Out-File -FilePath "$env:GITHUB_PATH" -Append
       - name: Checkout sources
         uses: actions/checkout@v4
         with:
