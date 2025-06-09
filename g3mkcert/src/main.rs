@@ -43,9 +43,7 @@ const ARG_EC384: &str = "ec384";
 const ARG_EC521: &str = "ec521";
 const ARG_SM2: &str = "sm2";
 const ARG_ED25519: &str = "ed25519";
-const ARG_ED448: &str = "ed448";
 const ARG_X25519: &str = "x25519";
-const ARG_X448: &str = "x448";
 
 const ARG_CA_CERT: &str = "ca-cert";
 const ARG_CA_KEY: &str = "ca-key";
@@ -268,24 +266,10 @@ fn build_cli_args() -> Command {
                 .action(ArgAction::SetTrue),
         )
         .arg(
-            Arg::new(ARG_ED448)
-                .help("Use Curve448")
-                .num_args(0)
-                .long(ARG_ED448)
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
             Arg::new(ARG_X25519)
                 .help("Use X25519")
                 .num_args(0)
                 .long(ARG_X25519)
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
-            Arg::new(ARG_X448)
-                .help("Use X448")
-                .num_args(0)
-                .long(ARG_X448)
                 .action(ArgAction::SetTrue),
         )
         .group(ArgGroup::new(ARG_GROUP_ALGORITHM).args([
@@ -296,9 +280,7 @@ fn build_cli_args() -> Command {
             ARG_EC521,
             ARG_SM2,
             ARG_ED25519,
-            ARG_ED448,
             ARG_X25519,
-            ARG_X448,
         ]))
         .arg(
             Arg::new(ARG_CA_CERT)
@@ -493,16 +475,10 @@ fn get_subject_with_host(
 fn generate_root(args: ArgMatches) -> anyhow::Result<()> {
     let mut builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
         RootCertBuilder::new_rsa(*bits)?
-    } else if args.get_flag(ARG_X448) {
-        return Err(anyhow!(
-            "x448 can not be used in certification authority certificate"
-        ));
     } else if args.get_flag(ARG_X25519) {
         return Err(anyhow!(
             "x25519 can not be used in certification authority certificate"
         ));
-    } else if args.get_flag(ARG_ED448) {
-        RootCertBuilder::new_ed448()?
     } else if args.get_flag(ARG_ED25519) {
         RootCertBuilder::new_ed25519()?
     } else if args.get_flag(ARG_SM2) {
@@ -537,16 +513,10 @@ fn generate_root(args: ArgMatches) -> anyhow::Result<()> {
 fn generate_intermediate(args: ArgMatches) -> anyhow::Result<()> {
     let mut builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
         IntermediateCertBuilder::new_rsa(*bits)?
-    } else if args.get_flag(ARG_X448) {
-        return Err(anyhow!(
-            "x448 can not be used in certification authority certificate"
-        ));
     } else if args.get_flag(ARG_X25519) {
         return Err(anyhow!(
             "x25519 can not be used in certification authority certificate"
         ));
-    } else if args.get_flag(ARG_ED448) {
-        IntermediateCertBuilder::new_ed448()?
     } else if args.get_flag(ARG_ED25519) {
         IntermediateCertBuilder::new_ed25519()?
     } else if args.get_flag(ARG_SM2) {
@@ -587,12 +557,8 @@ fn generate_tls_server(args: ArgMatches) -> anyhow::Result<()> {
 
     let builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
         TlsServerCertBuilder::new_rsa(*bits)?
-    } else if args.get_flag(ARG_X448) {
-        TlsServerCertBuilder::new_x448()?
     } else if args.get_flag(ARG_X25519) {
         TlsServerCertBuilder::new_x25519()?
-    } else if args.get_flag(ARG_ED448) {
-        TlsServerCertBuilder::new_ed448()?
     } else if args.get_flag(ARG_ED25519) {
         TlsServerCertBuilder::new_ed25519()?
     } else if args.get_flag(ARG_SM2) {
@@ -675,12 +641,8 @@ fn generate_tls_client(args: ArgMatches) -> anyhow::Result<()> {
 
     let builder = if let Some(bits) = args.get_one::<u32>(ARG_RSA) {
         TlsClientCertBuilder::new_rsa(*bits)?
-    } else if args.get_flag(ARG_X448) {
-        TlsClientCertBuilder::new_x448()?
     } else if args.get_flag(ARG_X25519) {
         TlsClientCertBuilder::new_x25519()?
-    } else if args.get_flag(ARG_ED448) {
-        TlsClientCertBuilder::new_ed448()?
     } else if args.get_flag(ARG_ED25519) {
         TlsClientCertBuilder::new_ed25519()?
     } else if args.get_flag(ARG_SM2) {

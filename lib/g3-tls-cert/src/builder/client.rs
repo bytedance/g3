@@ -67,24 +67,8 @@ impl TlsClientCertBuilder {
         ClientCertBuilder::new(pkey, key_usage)
     }
 
-    pub fn new_ed448() -> anyhow::Result<ClientCertBuilder> {
-        let pkey = super::pkey::new_ed448()?;
-        let key_usage = KeyUsageBuilder::ed_dsa()
-            .build()
-            .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
-        ClientCertBuilder::new(pkey, key_usage)
-    }
-
     pub fn new_x25519() -> anyhow::Result<ClientCertBuilder> {
         let pkey = super::pkey::new_x25519()?;
-        let key_usage = KeyUsageBuilder::x_dh()
-            .build()
-            .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
-        ClientCertBuilder::new(pkey, key_usage)
-    }
-
-    pub fn new_x448() -> anyhow::Result<ClientCertBuilder> {
-        let pkey = super::pkey::new_x448()?;
         let key_usage = KeyUsageBuilder::x_dh()
             .build()
             .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;

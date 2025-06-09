@@ -49,16 +49,8 @@ pub fn new_ed25519() -> anyhow::Result<PKey<Private>> {
     PKey::generate_ed25519().map_err(|e| anyhow!("failed to generate ed25519 pkey: {e}"))
 }
 
-pub fn new_ed448() -> anyhow::Result<PKey<Private>> {
-    PKey::generate_ed448().map_err(|e| anyhow!("failed to generate ed448 pkey: {e}"))
-}
-
 pub fn new_x25519() -> anyhow::Result<PKey<Private>> {
     PKey::generate_x25519().map_err(|e| anyhow!("failed to generate x25519 pkey: {e}"))
-}
-
-pub fn new_x448() -> anyhow::Result<PKey<Private>> {
-    PKey::generate_x448().map_err(|e| anyhow!("failed to generate x448 pkey: {e}"))
 }
 
 pub fn new_rsa(bits: u32) -> anyhow::Result<PKey<Private>> {

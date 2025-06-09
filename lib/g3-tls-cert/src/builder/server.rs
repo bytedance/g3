@@ -67,24 +67,8 @@ impl TlsServerCertBuilder {
         ServerCertBuilder::new(pkey, key_usage)
     }
 
-    pub fn new_ed448() -> anyhow::Result<ServerCertBuilder> {
-        let pkey = super::pkey::new_ed448()?;
-        let key_usage = KeyUsageBuilder::ed_dsa()
-            .build()
-            .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
-        ServerCertBuilder::new(pkey, key_usage)
-    }
-
     pub fn new_x25519() -> anyhow::Result<ServerCertBuilder> {
         let pkey = super::pkey::new_x25519()?;
-        let key_usage = KeyUsageBuilder::x_dh()
-            .build()
-            .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
-        ServerCertBuilder::new(pkey, key_usage)
-    }
-
-    pub fn new_x448() -> anyhow::Result<ServerCertBuilder> {
-        let pkey = super::pkey::new_x448()?;
         let key_usage = KeyUsageBuilder::x_dh()
             .build()
             .map_err(|e| anyhow!("failed to build KeyUsage extension: {e}"))?;
@@ -221,9 +205,7 @@ impl ServerCertBuilder {
     impl_refresh_pkey!(refresh_sm2, new_sm2);
 
     impl_refresh_pkey!(refresh_ed25519, new_ed25519);
-    impl_refresh_pkey!(refresh_ed448, new_ed448);
     impl_refresh_pkey!(refresh_x25519, new_x25519);
-    impl_refresh_pkey!(refresh_x448, new_x448);
 
     pub fn refresh_rsa(&mut self, bits: u32) -> anyhow::Result<()> {
         self.pkey = super::pkey::new_rsa(bits)?;

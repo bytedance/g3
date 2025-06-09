@@ -29,9 +29,9 @@ impl X509BuilderExt for X509Builder {
             #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
             Id::SM2 => MessageDigest::sm3(),
             #[cfg(not(boringssl))]
-            Id::ED25519 | Id::ED448 => MessageDigest::null(),
+            Id::ED25519 => MessageDigest::null(),
             #[cfg(boringssl)]
-            Id::ED25519 | Id::ED448 => unsafe { MessageDigest::from_ptr(std::ptr::null()) },
+            Id::ED25519 => unsafe { MessageDigest::from_ptr(std::ptr::null()) },
             _ => MessageDigest::sha256(),
         });
         self.sign(key, digest)
