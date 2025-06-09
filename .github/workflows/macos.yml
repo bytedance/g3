@@ -60,6 +60,7 @@ jobs:
           - vendored-openssl,rustls-ring
           - vendored-tongsuo,rustls-ring
           - vendored-boringssl,rustls-ring
+          - vendored-aws-lc,rustls-aws-lc
         component:
           - g3proxy
           - g3bench
@@ -93,6 +94,7 @@ jobs:
           - vendored-openssl
           - vendored-tongsuo
           - vendored-boringssl
+          - vendored-aws-lc
         component:
           - g3fcgen
           - g3mkcert
