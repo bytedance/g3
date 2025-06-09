@@ -74,7 +74,9 @@ jobs:
         run: choco install nasm ninja
       - name: Install nasm for AWS-LC
         if: contains(matrix.feature, 'vendored-aws-lc')
-        run: choco install nasm
+        run: |
+          choco install nasm
+          "$env:CSIDL_PROGRAM_FILES\NASM" | Out-File -FilePath "$env:GITHUB_PATH" -Append
       - name: Checkout sources
         uses: actions/checkout@v4
         with:
