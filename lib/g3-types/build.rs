@@ -9,6 +9,7 @@ fn gen_openssl_flags() {
     println!("cargo:rustc-check-cfg=cfg(libressl)");
     println!("cargo:rustc-check-cfg=cfg(tongsuo)");
     println!("cargo:rustc-check-cfg=cfg(boringssl)");
+    println!("cargo:rustc-check-cfg=cfg(awslc)");
 
     if env::var("DEP_OPENSSL_LIBRESSL").is_ok() {
         println!("cargo:rustc-cfg=libressl");
@@ -20,6 +21,10 @@ fn gen_openssl_flags() {
 
     if env::var("DEP_OPENSSL_BORINGSSL").is_ok() {
         println!("cargo:rustc-cfg=boringssl");
+    }
+
+    if env::var("DEP_OPENSSL_AWSLC").is_ok() {
+        println!("cargo:rustc-cfg=awslc");
     }
 }
 
