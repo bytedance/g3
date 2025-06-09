@@ -7,11 +7,11 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use log::warn;
-#[cfg(any(boringssl, tongsuo))]
+#[cfg(any(awslc, boringssl, tongsuo))]
 use openssl::ssl::CertCompressionAlgorithm;
-#[cfg(not(any(boringssl, libressl)))]
+#[cfg(not(any(awslc, boringssl, libressl)))]
 use openssl::ssl::SslCtValidationMode;
-#[cfg(not(boringssl))]
+#[cfg(not(any(awslc, boringssl)))]
 use openssl::ssl::StatusType;
 use openssl::ssl::{
     Ssl, SslConnector, SslConnectorBuilder, SslContext, SslMethod, SslVerifyMode, SslVersion,
@@ -111,9 +111,9 @@ pub struct OpensslClientConfigBuilder {
     use_ocsp_stapling: bool,
     #[cfg(not(libressl))]
     enable_sct: bool,
-    #[cfg(boringssl)]
+    #[cfg(any(awslc, boringssl))]
     enable_grease: bool,
-    #[cfg(boringssl)]
+    #[cfg(any(awslc, boringssl))]
     permute_extensions: bool,
     insecure: bool,
 }
@@ -136,9 +136,9 @@ impl Default for OpensslClientConfigBuilder {
             use_ocsp_stapling: false,
             #[cfg(not(libressl))]
             enable_sct: false,
-            #[cfg(boringssl)]
+            #[cfg(any(awslc, boringssl))]
             enable_grease: false,
-            #[cfg(boringssl)]
+            #[cfg(any(awslc, boringssl))]
             permute_extensions: false,
             insecure: false,
         }
@@ -279,22 +279,22 @@ impl OpensslClientConfigBuilder {
     }
 
     #[inline]
-    #[cfg(boringssl)]
+    #[cfg(any(awslc, boringssl))]
     pub fn set_enable_grease(&mut self, enable: bool) {
         self.enable_grease = enable;
     }
 
-    #[cfg(not(boringssl))]
+    #[cfg(not(any(awslc, boringssl)))]
     pub fn set_enable_grease(&mut self, _enable: bool) {
         warn!("grease can only be set for BoringSSL variants");
     }
 
-    #[cfg(boringssl)]
+    #[cfg(any(awslc, boringssl))]
     pub fn set_permute_extensions(&mut self, enable: bool) {
         self.permute_extensions = enable;
     }
 
-    #[cfg(not(boringssl))]
+    #[cfg(not(any(awslc, boringssl)))]
     pub fn set_permute_extensions(&mut self, _enable: bool) {
         warn!("permute extensions can only be set for BoringSSL variants");
     }
@@ -481,36 +481,36 @@ impl OpensslClientConfigBuilder {
         }
 
         if self.use_ocsp_stapling {
-            #[cfg(not(boringssl))]
+            #[cfg(not(any(awslc, boringssl)))]
             ctx_builder
                 .set_status_type(StatusType::OCSP)
                 .map_err(|e| anyhow!("failed to enable OCSP status request: {e}"))?;
-            #[cfg(boringssl)]
+            #[cfg(any(awslc, boringssl))]
             ctx_builder.enable_ocsp_stapling();
             // TODO check OCSP response
         }
 
         #[cfg(not(libressl))]
         if self.enable_sct {
-            #[cfg(not(boringssl))]
+            #[cfg(not(any(awslc, boringssl)))]
             ctx_builder
                 .enable_ct(SslCtValidationMode::PERMISSIVE)
                 .map_err(|e| anyhow!("failed to enable SCT: {e}"))?;
-            #[cfg(boringssl)]
+            #[cfg(any(awslc, boringssl))]
             ctx_builder.enable_signed_cert_timestamps();
             // TODO check SCT list for AWS-LC or BoringSSL
         }
 
-        #[cfg(boringssl)]
+        #[cfg(any(awslc, boringssl))]
         if self.enable_grease {
             ctx_builder.set_grease_enabled(true);
         }
-        #[cfg(boringssl)]
+        #[cfg(any(awslc, boringssl))]
         if self.permute_extensions {
             ctx_builder.set_permute_extensions(true);
         }
 
-        #[cfg(any(boringssl, tongsuo))]
+        #[cfg(any(awslc, boringssl, tongsuo))]
         ctx_builder
             .add_cert_decompression_alg(CertCompressionAlgorithm::BROTLI, |in_buf, out_buf| {
                 use std::io::Read;

@@ -95,9 +95,9 @@ pub struct OpensslInterceptionClientConfigBuilder {
     use_ocsp_stapling: bool,
     #[cfg(not(libressl))]
     enable_sct: bool,
-    #[cfg(boringssl)]
+    #[cfg(any(awslc, boringssl))]
     enable_grease: bool,
-    #[cfg(boringssl)]
+    #[cfg(any(awslc, boringssl))]
     permute_extensions: bool,
     insecure: bool,
 }
@@ -115,9 +115,9 @@ impl Default for OpensslInterceptionClientConfigBuilder {
             use_ocsp_stapling: false,
             #[cfg(not(libressl))]
             enable_sct: false,
-            #[cfg(boringssl)]
+            #[cfg(any(awslc, boringssl))]
             enable_grease: false,
-            #[cfg(boringssl)]
+            #[cfg(any(awslc, boringssl))]
             permute_extensions: false,
             insecure: false,
         }
@@ -199,22 +199,22 @@ impl OpensslInterceptionClientConfigBuilder {
     }
 
     #[inline]
-    #[cfg(boringssl)]
+    #[cfg(any(awslc, boringssl))]
     pub fn set_enable_grease(&mut self, enable: bool) {
         self.enable_grease = enable;
     }
 
-    #[cfg(not(boringssl))]
+    #[cfg(not(any(awslc, boringssl)))]
     pub fn set_enable_grease(&mut self, _enable: bool) {
         warn!("grease can only be set for BoringSSL variants");
     }
 
-    #[cfg(boringssl)]
+    #[cfg(any(awslc, boringssl))]
     pub fn set_permute_extensions(&mut self, enable: bool) {
         self.permute_extensions = enable;
     }
 
-    #[cfg(not(boringssl))]
+    #[cfg(not(any(awslc, boringssl)))]
     pub fn set_permute_extensions(&mut self, _enable: bool) {
         warn!("permute extensions can only be set for BoringSSL variants");
     }
@@ -274,7 +274,7 @@ impl OpensslInterceptionClientConfigBuilder {
         Ok(())
     }
 
-    #[cfg(any(boringssl, tongsuo))]
+    #[cfg(any(awslc, boringssl, tongsuo))]
     fn build_set_cert_compression(
         &self,
         ctx_builder: &mut SslContextBuilder,
@@ -294,7 +294,7 @@ impl OpensslInterceptionClientConfigBuilder {
         Ok(())
     }
 
-    #[cfg(boringssl)]
+    #[cfg(any(awslc, boringssl))]
     fn build_ssl_context(&self) -> anyhow::Result<ContextPair> {
         let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
@@ -372,7 +372,7 @@ impl OpensslInterceptionClientConfigBuilder {
         })
     }
 
-    #[cfg(not(any(boringssl, libressl)))]
+    #[cfg(not(any(awslc, boringssl, libressl)))]
     fn build_ssl_context(&self) -> anyhow::Result<ContextPair> {
         use openssl::ssl::{SslCtValidationMode, StatusType};
 

@@ -10,7 +10,7 @@ use error::{ConvertSslError, SslErrorAction};
 mod wrapper;
 use wrapper::SslIoWrapper;
 
-#[cfg(all(feature = "async-job", any(boringssl, libressl)))]
+#[cfg(all(feature = "async-job", any(awslc, boringssl, libressl)))]
 compile_error!("async-job feature is only supported with OpenSSL or Tongsuo");
 
 #[cfg(feature = "async-job")]
