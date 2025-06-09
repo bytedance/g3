@@ -64,6 +64,7 @@ jobs:
           - vendored-openssl,rustls-ring
           - vendored-tongsuo,rustls-ring
           - vendored-boringssl,rustls-ring
+          - vendored-aws-lc,rustls-aws-lc
         component:
           - g3proxy
           - g3bench
@@ -74,6 +75,9 @@ jobs:
       - name: Install nasm and ninja for BoringSSL
         if: contains(matrix.feature, 'vendored-boringssl')
         run: choco install nasm ninja
+      - name: Install nasm for AWS-LC
+        if: contains(matrix.feature, 'vendored-aws-lc')
+        run: choco install nasm
       - name: Checkout sources
         uses: actions/checkout@v4
         with:
@@ -97,6 +101,7 @@ jobs:
           - vendored-openssl
           - vendored-tongsuo
           - vendored-boringssl
+          - vendored-aws-lc
         component:
           - g3fcgen
           - g3mkcert
@@ -107,6 +112,9 @@ jobs:
       - name: Install nasm and ninja for BoringSSL
         if: contains(matrix.feature, 'vendored-boringssl')
         run: choco install nasm ninja
+      - name: Install nasm for AWS-LC
+        if: contains(matrix.feature, 'vendored-aws-lc')
+        run: choco install nasm
       - name: Checkout sources
         uses: actions/checkout@v4
         with:

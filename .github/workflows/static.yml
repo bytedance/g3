@@ -39,6 +39,7 @@ jobs:
           - vendored-openssl,rustls-ring
           - vendored-tongsuo,rustls-ring
           # - vendored-boringssl
+          # - vendored-aws-lc
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4
@@ -64,12 +65,16 @@ jobs:
           - vendored-openssl,rustls-ring
           - vendored-tongsuo,rustls-ring
           - vendored-boringssl,rustls-ring
+          - vendored-aws-lc,rustls-aws-lc
     steps:
       - name: Install common tools
         run: choco install capnproto
       - name: Install nasm and ninja for BoringSSL
         if: contains(matrix.feature, 'vendored-boringssl')
         run: choco install nasm ninja
+      - name: Install nasm for AWS-LC
+        if: contains(matrix.feature, 'vendored-aws-lc')
+        run: choco install nasm
       - name: Checkout sources
         uses: actions/checkout@v4
         with:
