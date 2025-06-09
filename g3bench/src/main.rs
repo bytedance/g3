@@ -44,10 +44,16 @@ fn main() -> anyhow::Result<ExitCode> {
     }
     openssl::init();
 
+    #[cfg(feature = "rustls-aws-lc")]
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .unwrap();
     #[cfg(feature = "rustls-ring")]
     rustls::crypto::ring::default_provider()
         .install_default()
         .unwrap();
+    #[cfg(not(any(feature = "rustls-aws-lc", feature = "rustls-ring")))]
+    compile_error!("either rustls-aws-lc or rustls-ring should be enabled");
 
     let args = build_cli_args().get_matches();
     let proc_args = g3bench::parse_global_args(&args)?;

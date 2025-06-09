@@ -17,10 +17,16 @@ fn main() -> anyhow::Result<()> {
     }
     openssl::init();
 
+    #[cfg(feature = "rustls-aws-lc")]
+    rustls::crypto::aws_lc_rs::default_provider()
+        .install_default()
+        .unwrap();
     #[cfg(feature = "rustls-ring")]
     rustls::crypto::ring::default_provider()
         .install_default()
         .unwrap();
+    #[cfg(not(any(feature = "rustls-aws-lc", feature = "rustls-ring")))]
+    compile_error!("either rustls-aws-lc or rustls-ring should be enabled");
 
     let Some(proc_args) =
         g3tiles::opts::parse_clap().context("failed to parse command line options")?
