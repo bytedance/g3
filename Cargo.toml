@@ -179,7 +179,7 @@ capnpc = "0.21"
 #
 libc = "0.2.169"
 rustix = { version = "1.0", default-features = false }
-windows-sys = "0.59"
+windows-sys = "0.60"
 #
 serde = "1.0"
 yaml-rust = { package = "yaml-rust2", version = "0.10" }
