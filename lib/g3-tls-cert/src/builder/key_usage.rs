@@ -33,7 +33,7 @@ impl KeyUsageBuilder {
         KeyUsageBuilder(usage)
     }
 
-    /// for CurveXXX for Diffie-Hellman
+    /// for CurveXXX for Diffie-Hellman Key Exchange
     pub fn x_dh() -> Self {
         let mut usage = KeyUsage::new();
         usage.critical().key_agreement();

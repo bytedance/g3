@@ -32,6 +32,8 @@ impl X509BuilderExt for X509Builder {
             Id::ED25519 => MessageDigest::null(),
             #[cfg(boringssl)]
             Id::ED25519 => unsafe { MessageDigest::from_ptr(std::ptr::null()) },
+            #[cfg(not(any(libressl, boringssl, awslc)))]
+            Id::ED448 => MessageDigest::null(),
             _ => MessageDigest::sha256(),
         });
         self.sign(key, digest)
