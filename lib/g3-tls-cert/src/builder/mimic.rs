@@ -30,7 +30,11 @@ impl<'a> MimicCertBuilder<'a> {
             Id::EC => super::pkey::new_ec256()?,
             #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
             Id::SM2 => super::pkey::new_sm2()?,
+            #[cfg(not(any(libressl, boringssl, awslc)))]
+            Id::ED448 => super::pkey::new_ed448()?,
             Id::ED25519 => super::pkey::new_ed25519()?,
+            #[cfg(not(any(libressl, boringssl, awslc)))]
+            Id::X448 => super::pkey::new_x448()?,
             Id::X25519 => super::pkey::new_x25519()?,
             id => return Err(anyhow!("unsupported pkey ID: {id:?}")),
         };
@@ -216,7 +220,11 @@ impl<'a> MimicCertBuilder<'a> {
             #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
             Id::SM2 => KeyUsageBuilder::tls_general(),
             Id::ED25519 => KeyUsageBuilder::ed_dsa(),
+            #[cfg(not(any(libressl, boringssl, awslc)))]
+            Id::ED448 => KeyUsageBuilder::ed_dsa(),
             Id::X25519 => KeyUsageBuilder::x_dh(),
+            #[cfg(not(any(libressl, boringssl, awslc)))]
+            Id::X448 => KeyUsageBuilder::x_dh(),
             _ => return self.build_tls_cert(ca_cert, ca_key, sign_digest),
         };
         let key_usage = key_usage_builder
