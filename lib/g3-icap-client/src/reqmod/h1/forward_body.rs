@@ -9,7 +9,7 @@ use bytes::BufMut;
 use tokio::io::{AsyncBufRead, AsyncWriteExt};
 
 use g3_http::{H1BodyToChunkedTransfer, HttpBodyReader, HttpBodyType};
-use g3_io_ext::{IdleCheck, LimitedCopy, LimitedCopyError, LimitedWriteExt};
+use g3_io_ext::{IdleCheck, LimitedWriteExt, StreamCopy, StreamCopyError};
 
 use super::{
     BidirectionalRecvHttpRequest, BidirectionalRecvIcapResponse, H1ReqmodAdaptationError,
@@ -124,7 +124,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
 
-        let mut trailer_transfer = LimitedCopy::new(trailer_reader, ups_writer, &self.copy_config);
+        let mut trailer_transfer = StreamCopy::new(trailer_reader, ups_writer, &self.copy_config);
         loop {
             tokio::select! {
                 biased;
@@ -132,8 +132,8 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                 r = &mut trailer_transfer => {
                     return match r {
                         Ok(_) => Ok(()),
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(H1ReqmodAdaptationError::HttpClientReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(H1ReqmodAdaptationError::IcapServerWriteFailed(e)),
+                        Err(StreamCopyError::ReadFailed(e)) => Err(H1ReqmodAdaptationError::HttpClientReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(H1ReqmodAdaptationError::IcapServerWriteFailed(e)),
                     };
                 }
                 n = idle_interval.tick() => {

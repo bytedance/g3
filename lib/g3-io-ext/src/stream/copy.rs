@@ -17,21 +17,21 @@ const DEFAULT_COPY_YIELD_SIZE: usize = 1024 * 1024; // 1MB
 const MINIMAL_COPY_YIELD_SIZE: usize = 256 * 1024; // 256KB
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct LimitedCopyConfig {
+pub struct StreamCopyConfig {
     buffer_size: usize,
     yield_size: usize,
 }
 
-impl Default for LimitedCopyConfig {
+impl Default for StreamCopyConfig {
     fn default() -> Self {
-        LimitedCopyConfig {
+        StreamCopyConfig {
             buffer_size: DEFAULT_COPY_BUFFER_SIZE,
             yield_size: DEFAULT_COPY_YIELD_SIZE,
         }
     }
 }
 
-impl LimitedCopyConfig {
+impl StreamCopyConfig {
     pub fn set_buffer_size(&mut self, buffer_size: usize) {
         self.buffer_size = buffer_size.max(MINIMAL_COPY_BUFFER_SIZE);
     }
@@ -52,7 +52,7 @@ impl LimitedCopyConfig {
 }
 
 #[derive(Error, Debug)]
-pub enum LimitedCopyError {
+pub enum StreamCopyError {
     #[error("read failed: {0:?}")]
     ReadFailed(io::Error),
     #[error("write failed: {0:?}")]
@@ -60,7 +60,7 @@ pub enum LimitedCopyError {
 }
 
 #[derive(Debug)]
-struct LimitedCopyBuffer {
+struct StreamCopyBuffer {
     read_done: bool,
     buf: Box<[u8]>,
     yield_size: usize,
@@ -72,9 +72,9 @@ struct LimitedCopyBuffer {
     active: bool,
 }
 
-impl LimitedCopyBuffer {
-    fn new(config: &LimitedCopyConfig) -> Self {
-        LimitedCopyBuffer {
+impl StreamCopyBuffer {
+    fn new(config: &StreamCopyConfig) -> Self {
+        StreamCopyBuffer {
             read_done: false,
             buf: vec![0; config.buffer_size].into_boxed_slice(),
             yield_size: config.yield_size,
@@ -87,14 +87,14 @@ impl LimitedCopyBuffer {
         }
     }
 
-    fn with_data(config: &LimitedCopyConfig, mut buf: Vec<u8>) -> Self {
+    fn with_data(config: &StreamCopyConfig, mut buf: Vec<u8>) -> Self {
         let r_off = buf.len();
         if buf.capacity() < config.buffer_size {
             buf.resize(config.buffer_size, 0);
         } else {
             buf.resize(buf.capacity(), 0);
         }
-        LimitedCopyBuffer {
+        StreamCopyBuffer {
             read_done: false,
             buf: buf.into_boxed_slice(),
             yield_size: config.yield_size,
@@ -149,7 +149,7 @@ impl LimitedCopyBuffer {
         cx: &mut Context<'_>,
         reader: Pin<&mut R>,
         writer: Pin<&mut W>,
-    ) -> Poll<Result<usize, LimitedCopyError>>
+    ) -> Poll<Result<usize, StreamCopyError>>
     where
         R: AsyncRead + ?Sized,
         W: AsyncWrite + ?Sized,
@@ -163,13 +163,13 @@ impl LimitedCopyBuffer {
                     if self.r_off + MINIMAL_READ_BUFFER_SIZE <= self.buf.len() {
                         // avoid too small read
                         ready!(self.poll_fill_buf(cx, reader))
-                            .map_err(LimitedCopyError::ReadFailed)?;
+                            .map_err(StreamCopyError::ReadFailed)?;
                     }
                 }
                 Poll::Pending
             }
-            Poll::Ready(Err(e)) => Poll::Ready(Err(LimitedCopyError::WriteFailed(e))),
-            Poll::Ready(Ok(0)) => Poll::Ready(Err(LimitedCopyError::WriteFailed(io::Error::new(
+            Poll::Ready(Err(e)) => Poll::Ready(Err(StreamCopyError::WriteFailed(e))),
+            Poll::Ready(Ok(0)) => Poll::Ready(Err(StreamCopyError::WriteFailed(io::Error::new(
                 io::ErrorKind::WriteZero,
                 "write zero byte into writer",
             )))),
@@ -188,7 +188,7 @@ impl LimitedCopyBuffer {
         cx: &mut Context<'_>,
         mut reader: Pin<&mut R>,
         mut writer: Pin<&mut W>,
-    ) -> Poll<Result<u64, LimitedCopyError>>
+    ) -> Poll<Result<u64, StreamCopyError>>
     where
         R: AsyncRead + ?Sized,
         W: AsyncWrite + ?Sized,
@@ -210,7 +210,7 @@ impl LimitedCopyBuffer {
                     match self.poll_fill_buf(cx, reader.as_mut()) {
                         Poll::Ready(Ok(_)) => {}
                         Poll::Ready(Err(e)) => {
-                            return Poll::Ready(Err(LimitedCopyError::ReadFailed(e)));
+                            return Poll::Ready(Err(StreamCopyError::ReadFailed(e)));
                         }
                         Poll::Pending => {
                             if self.w_off >= self.r_off {
@@ -219,7 +219,7 @@ impl LimitedCopyBuffer {
                                     // trigger flush, no need to flush again on pending
                                     self.need_flush = false;
                                     ready!(writer.as_mut().poll_flush(cx))
-                                        .map_err(LimitedCopyError::WriteFailed)?;
+                                        .map_err(StreamCopyError::WriteFailed)?;
                                 }
 
                                 return Poll::Pending;
@@ -240,8 +240,7 @@ impl LimitedCopyBuffer {
             // data and finish the transfer.
             if self.read_done {
                 if self.need_flush {
-                    ready!(writer.as_mut().poll_flush(cx))
-                        .map_err(LimitedCopyError::WriteFailed)?;
+                    ready!(writer.as_mut().poll_flush(cx)).map_err(StreamCopyError::WriteFailed)?;
                 }
                 return Poll::Ready(Ok(self.total_write));
             }
@@ -254,7 +253,7 @@ impl LimitedCopyBuffer {
         }
     }
 
-    pub async fn write_flush<W>(&mut self, writer: &mut W) -> Result<(), LimitedCopyError>
+    pub async fn write_flush<W>(&mut self, writer: &mut W) -> Result<(), StreamCopyError>
     where
         W: AsyncWrite + Unpin + ?Sized,
     {
@@ -262,48 +261,45 @@ impl LimitedCopyBuffer {
             writer
                 .write_all(&self.buf[self.w_off..self.r_off])
                 .await
-                .map_err(LimitedCopyError::WriteFailed)?;
+                .map_err(StreamCopyError::WriteFailed)?;
             self.total_write += (self.r_off - self.w_off) as u64;
             self.w_off = self.r_off;
-            writer
-                .flush()
-                .await
-                .map_err(LimitedCopyError::WriteFailed)?;
+            writer.flush().await.map_err(StreamCopyError::WriteFailed)?;
         }
         Ok(())
     }
 }
 
 #[derive(Debug)]
-pub struct LimitedCopy<'a, R: ?Sized, W: ?Sized> {
+pub struct StreamCopy<'a, R: ?Sized, W: ?Sized> {
     reader: &'a mut R,
     writer: &'a mut W,
-    buf: LimitedCopyBuffer,
+    buf: StreamCopyBuffer,
 }
 
-impl<'a, R, W> LimitedCopy<'a, R, W>
+impl<'a, R, W> StreamCopy<'a, R, W>
 where
     R: AsyncRead + Unpin + ?Sized,
     W: AsyncWrite + Unpin + ?Sized,
 {
-    pub fn new(reader: &'a mut R, writer: &'a mut W, config: &LimitedCopyConfig) -> Self {
-        LimitedCopy {
+    pub fn new(reader: &'a mut R, writer: &'a mut W, config: &StreamCopyConfig) -> Self {
+        StreamCopy {
             reader,
             writer,
-            buf: LimitedCopyBuffer::new(config),
+            buf: StreamCopyBuffer::new(config),
         }
     }
 
     pub fn with_data(
         reader: &'a mut R,
         writer: &'a mut W,
-        config: &LimitedCopyConfig,
+        config: &StreamCopyConfig,
         data: Vec<u8>,
     ) -> Self {
-        LimitedCopy {
+        StreamCopy {
             reader,
             writer,
-            buf: LimitedCopyBuffer::with_data(config, data),
+            buf: StreamCopyBuffer::with_data(config, data),
         }
     }
 
@@ -346,19 +342,19 @@ where
         self.buf.active = false;
     }
 
-    pub async fn write_flush(&mut self) -> Result<(), LimitedCopyError> {
+    pub async fn write_flush(&mut self) -> Result<(), StreamCopyError> {
         self.buf.write_flush(&mut self.writer).await
     }
 }
 
-impl<R, W> Future for LimitedCopy<'_, R, W>
+impl<R, W> Future for StreamCopy<'_, R, W>
 where
     R: AsyncRead + Unpin + ?Sized,
     W: AsyncWrite + Unpin + ?Sized,
 {
-    type Output = Result<u64, LimitedCopyError>;
+    type Output = Result<u64, StreamCopyError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<u64, LimitedCopyError>> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<u64, StreamCopyError>> {
         let me = &mut *self;
 
         me.buf
@@ -367,22 +363,22 @@ where
 }
 
 #[derive(Debug)]
-pub struct ROwnedLimitedCopy<'a, R, W: ?Sized> {
+pub struct ROwnedStreamCopy<'a, R, W: ?Sized> {
     reader: R,
     writer: &'a mut W,
-    buf: LimitedCopyBuffer,
+    buf: StreamCopyBuffer,
 }
 
-impl<'a, R, W> ROwnedLimitedCopy<'a, R, W>
+impl<'a, R, W> ROwnedStreamCopy<'a, R, W>
 where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin + ?Sized,
 {
-    pub fn new(reader: R, writer: &'a mut W, config: LimitedCopyConfig) -> Self {
-        ROwnedLimitedCopy {
+    pub fn new(reader: R, writer: &'a mut W, config: StreamCopyConfig) -> Self {
+        ROwnedStreamCopy {
             reader,
             writer,
-            buf: LimitedCopyBuffer::new(&config),
+            buf: StreamCopyBuffer::new(&config),
         }
     }
 
@@ -416,7 +412,7 @@ where
         self.buf.active = false;
     }
 
-    pub async fn write_flush(&mut self) -> Result<(), LimitedCopyError> {
+    pub async fn write_flush(&mut self) -> Result<(), StreamCopyError> {
         self.buf.write_flush(&mut self.writer).await
     }
 
@@ -425,14 +421,14 @@ where
     }
 }
 
-impl<R, W> Future for ROwnedLimitedCopy<'_, R, W>
+impl<R, W> Future for ROwnedStreamCopy<'_, R, W>
 where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin + ?Sized,
 {
-    type Output = Result<u64, LimitedCopyError>;
+    type Output = Result<u64, StreamCopyError>;
 
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<u64, LimitedCopyError>> {
+    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Result<u64, StreamCopyError>> {
         let me = &mut *self;
 
         me.buf

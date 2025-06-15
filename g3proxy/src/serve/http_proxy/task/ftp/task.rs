@@ -16,7 +16,7 @@ use g3_ftp_client::{
 };
 use g3_http::server::HttpProxyClientRequest;
 use g3_http::{HttpBodyDecodeReader, HttpBodyReader, HttpBodyType};
-use g3_io_ext::{GlobalLimitGroup, LimitedCopy, LimitedCopyError, SizedReader};
+use g3_io_ext::{GlobalLimitGroup, SizedReader, StreamCopy, StreamCopyError};
 use g3_types::acl::AclAction;
 use g3_types::net::ProxyRequestType;
 
@@ -1212,7 +1212,7 @@ impl<'a> FtpOverHttpTask<'a> {
         W: AsyncWrite + Unpin,
     {
         let mut data_copy =
-            LimitedCopy::new(&mut data_stream, clt_w, &self.ctx.server_config.tcp_copy);
+            StreamCopy::new(&mut data_stream, clt_w, &self.ctx.server_config.tcp_copy);
 
         let mut idle_interval = self.ctx.idle_wheel.register();
         let mut log_interval = self.ctx.get_log_interval();
@@ -1232,8 +1232,8 @@ impl<'a> FtpOverHttpTask<'a> {
                             .map_err(|e| ServerTaskError::UpstreamAppError(anyhow::Error::new(e)))?;
                     }
                     r.map_err(|e| match e {
-                        LimitedCopyError::ReadFailed(e) => ServerTaskError::UpstreamReadFailed(e),
-                        LimitedCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
+                        StreamCopyError::ReadFailed(e) => ServerTaskError::UpstreamReadFailed(e),
+                        StreamCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
                     })?;
 
                     self.task_notes.stage = ServerTaskStage::Finished;
@@ -1253,8 +1253,8 @@ impl<'a> FtpOverHttpTask<'a> {
                             self.task_notes.stage = ServerTaskStage::Finished;
                             Ok(data_copy.copied_size())
                         }
-                        Ok(Err(LimitedCopyError::ReadFailed(e))) => Err(ServerTaskError::UpstreamReadFailed(e)),
-                        Ok(Err(LimitedCopyError::WriteFailed(e))) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
+                        Ok(Err(StreamCopyError::ReadFailed(e))) => Err(ServerTaskError::UpstreamReadFailed(e)),
+                        Ok(Err(StreamCopyError::WriteFailed(e))) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                         Err(_) => Err(ServerTaskError::UpstreamAppTimeout("timeout to wait transfer end")),
                     };
                 }
@@ -1422,7 +1422,7 @@ impl<'a> FtpOverHttpTask<'a> {
         S: AsyncWrite + Unpin,
         R: AsyncRead + Unpin,
     {
-        let mut data_copy = LimitedCopy::new(
+        let mut data_copy = StreamCopy::new(
             body_reader,
             &mut data_stream,
             &self.ctx.server_config.tcp_copy,
@@ -1444,8 +1444,8 @@ impl<'a> FtpOverHttpTask<'a> {
                         .await
                         .map_err(|e| ServerTaskError::UpstreamAppError(anyhow::Error::new(e)))?;
                     r.map_err(|e| match e {
-                        LimitedCopyError::ReadFailed(e) => ServerTaskError::ClientTcpReadFailed(e),
-                        LimitedCopyError::WriteFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
+                        StreamCopyError::ReadFailed(e) => ServerTaskError::ClientTcpReadFailed(e),
+                        StreamCopyError::WriteFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
                     })?;
                     return Ok(copied_size);
                 }

@@ -20,7 +20,7 @@ use g3_icap_client::reqmod::h1::{
     H1ReqmodAdaptationError, HttpAdapterErrorResponse, HttpRequestAdapter,
     ReqmodAdaptationMidState, ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
 };
-use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt};
+use g3_io_ext::{LimitedWriteExt, StreamCopy, StreamCopyError};
 use g3_slog_types::{LtDateTime, LtDuration, LtUpstreamAddr, LtUuid};
 use g3_types::net::UpstreamAddr;
 
@@ -266,16 +266,16 @@ where
 
         if let Some(mut recv_body) = rsp_recv_body {
             let mut body_reader = recv_body.body_reader();
-            let copy_to_clt = LimitedCopy::new(
+            let copy_to_clt = StreamCopy::new(
                 &mut body_reader,
                 clt_w,
                 &self.ctx.server_config.limited_copy_config(),
             );
             copy_to_clt.await.map_err(|e| match e {
-                LimitedCopyError::ReadFailed(e) => ServerTaskError::InternalAdapterError(anyhow!(
+                StreamCopyError::ReadFailed(e) => ServerTaskError::InternalAdapterError(anyhow!(
                     "read http error response from adapter failed: {e:?}"
                 )),
-                LimitedCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
+                StreamCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
             })?;
             recv_body.save_connection().await;
         } else {
@@ -394,7 +394,7 @@ where
             self.ctx.h1_interception().body_line_max_len,
         );
 
-        let mut ups_to_clt = LimitedCopy::new(
+        let mut ups_to_clt = StreamCopy::new(
             &mut body_reader,
             &mut rsp_io.clt_w,
             &self.ctx.server_config.limited_copy_config(),
@@ -413,11 +413,11 @@ where
                             // clt_w is already flushed
                             Ok(())
                         }
-                        Err(LimitedCopyError::ReadFailed(e)) => {
+                        Err(StreamCopyError::ReadFailed(e)) => {
                             let _ = ups_to_clt.write_flush().await;
                             Err(ServerTaskError::UpstreamReadFailed(e))
                         }
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                     };
                 }
                 n = idle_interval.tick() => {

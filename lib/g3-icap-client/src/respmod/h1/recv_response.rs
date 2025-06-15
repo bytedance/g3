@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 
 use g3_http::{HttpBodyDecodeReader, HttpBodyReader, HttpBodyType};
-use g3_io_ext::{IdleCheck, LimitedCopy, LimitedCopyError};
+use g3_io_ext::{IdleCheck, StreamCopy, StreamCopyError};
 
 use super::{
     H1RespmodAdaptationError, HttpAdaptedResponse, HttpResponseAdapter, HttpResponseClientWriter,
@@ -92,7 +92,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
 
         let mut ups_body_reader =
             HttpBodyReader::new(ups_body_io, ups_body_type, self.http_body_line_max_size);
-        let mut body_copy = LimitedCopy::new(&mut ups_body_reader, clt_writer, &self.copy_config);
+        let mut body_copy = StreamCopy::new(&mut ups_body_reader, clt_writer, &self.copy_config);
 
         let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
@@ -108,8 +108,8 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                             state.mark_clt_send_all();
                             Ok(RespmodAdaptationEndState::OriginalTransferred)
                         }
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(H1RespmodAdaptationError::HttpUpstreamReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(H1RespmodAdaptationError::HttpClientWriteFailed(e)),
+                        Err(StreamCopyError::ReadFailed(e)) => Err(H1RespmodAdaptationError::HttpUpstreamReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(H1RespmodAdaptationError::HttpClientWriteFailed(e)),
                     };
                 }
                 n = idle_interval.tick() => {
@@ -207,7 +207,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                     self.http_body_line_max_size,
                 );
                 let mut body_copy =
-                    LimitedCopy::new(&mut body_reader, clt_writer, &self.copy_config);
+                    StreamCopy::new(&mut body_reader, clt_writer, &self.copy_config);
                 Self::send_response_body(&self.idle_checker, &mut body_copy).await?;
 
                 state.mark_clt_send_all();
@@ -233,7 +233,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                     self.http_body_line_max_size,
                 );
                 let mut body_copy =
-                    LimitedCopy::new(&mut body_reader, clt_writer, &self.copy_config);
+                    StreamCopy::new(&mut body_reader, clt_writer, &self.copy_config);
                 Self::send_response_body(&self.idle_checker, &mut body_copy).await?;
 
                 state.mark_clt_send_all();
@@ -248,7 +248,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
 
     async fn send_response_body<R, W>(
         idle_checker: &I,
-        mut body_copy: &mut LimitedCopy<'_, R, W>,
+        mut body_copy: &mut StreamCopy<'_, R, W>,
     ) -> Result<(), H1RespmodAdaptationError>
     where
         R: AsyncRead + Unpin,
@@ -264,8 +264,8 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
                 r = &mut body_copy => {
                     return match r {
                         Ok(_) => Ok(()),
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(H1RespmodAdaptationError::IcapServerReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(H1RespmodAdaptationError::HttpClientWriteFailed(e)),
+                        Err(StreamCopyError::ReadFailed(e)) => Err(H1RespmodAdaptationError::IcapServerReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(H1RespmodAdaptationError::HttpClientWriteFailed(e)),
                     };
                 }
                 n = idle_interval.tick() => {

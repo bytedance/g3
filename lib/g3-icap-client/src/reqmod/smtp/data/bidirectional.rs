@@ -9,7 +9,7 @@ use tokio::io::{AsyncBufRead, AsyncWrite, BufWriter};
 
 use g3_http::server::HttpAdaptedRequest;
 use g3_http::{HttpBodyDecodeReader, StreamToChunkedTransfer};
-use g3_io_ext::{IdleCheck, LimitedBufReadExt, LimitedCopyConfig, LimitedCopyError};
+use g3_io_ext::{IdleCheck, LimitedBufReadExt, StreamCopyConfig, StreamCopyError};
 use g3_smtp_proto::io::TextDataEncodeTransfer;
 
 use super::SmtpAdaptationError;
@@ -41,8 +41,8 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
                 r = &mut msg_transfer => {
                     return match r {
                         Ok(_) => self.recv_icap_response().await,
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(SmtpAdaptationError::SmtpClientReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(SmtpAdaptationError::IcapServerWriteFailed(e)),
+                        Err(StreamCopyError::ReadFailed(e)) => Err(SmtpAdaptationError::SmtpClientReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(SmtpAdaptationError::IcapServerWriteFailed(e)),
                     };
                 }
                 r = self.icap_reader.fill_wait_data() => {
@@ -100,7 +100,7 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
 
 pub(super) struct BidirectionalRecvHttpRequest<'a, I: IdleCheck> {
     pub(super) icap_reader: &'a mut IcapClientReader,
-    pub(super) copy_config: LimitedCopyConfig,
+    pub(super) copy_config: StreamCopyConfig,
     pub(super) idle_checker: &'a I,
     pub(super) http_header_size: usize,
     pub(super) icap_read_finished: bool,
@@ -149,12 +149,12 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                                     }
                                     Ok(ReqmodAdaptationEndState::AdaptedTransferred)
                                 }
-                                Err(LimitedCopyError::ReadFailed(e)) => Err(SmtpAdaptationError::IcapServerReadFailed(e)),
-                                Err(LimitedCopyError::WriteFailed(e)) => Err(SmtpAdaptationError::SmtpUpstreamWriteFailed(e)),
+                                Err(StreamCopyError::ReadFailed(e)) => Err(SmtpAdaptationError::IcapServerReadFailed(e)),
+                                Err(StreamCopyError::WriteFailed(e)) => Err(SmtpAdaptationError::SmtpUpstreamWriteFailed(e)),
                             }
                         }
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(SmtpAdaptationError::SmtpClientReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(SmtpAdaptationError::IcapServerWriteFailed(e)),
+                        Err(StreamCopyError::ReadFailed(e)) => Err(SmtpAdaptationError::SmtpClientReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(SmtpAdaptationError::IcapServerWriteFailed(e)),
                     };
                 }
                 r = &mut ups_msg_transfer => {
@@ -166,8 +166,8 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                             }
                             Ok(ReqmodAdaptationEndState::AdaptedTransferred)
                         }
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(SmtpAdaptationError::IcapServerReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(SmtpAdaptationError::SmtpUpstreamWriteFailed(e)),
+                        Err(StreamCopyError::ReadFailed(e)) => Err(SmtpAdaptationError::IcapServerReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(SmtpAdaptationError::SmtpUpstreamWriteFailed(e)),
                     };
                 }
                 n = idle_interval.tick() => {

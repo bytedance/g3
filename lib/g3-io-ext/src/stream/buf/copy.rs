@@ -10,9 +10,9 @@ use std::task::{Context, Poll, ready};
 
 use tokio::io::{AsyncBufRead, AsyncWrite, AsyncWriteExt};
 
-use crate::{LimitedCopyConfig, LimitedCopyError};
+use crate::{StreamCopyConfig, StreamCopyError};
 
-pub struct LimitedBufCopy<'a, R: ?Sized, W: ?Sized> {
+pub struct BufReadCopy<'a, R: ?Sized, W: ?Sized> {
     reader: &'a mut R,
     writer: &'a mut W,
     yield_size: usize,
@@ -23,13 +23,13 @@ pub struct LimitedBufCopy<'a, R: ?Sized, W: ?Sized> {
     active: bool,
 }
 
-impl<'a, R, W> LimitedBufCopy<'a, R, W>
+impl<'a, R, W> BufReadCopy<'a, R, W>
 where
     R: AsyncBufRead + Unpin + ?Sized,
     W: AsyncWrite + Unpin + ?Sized,
 {
-    pub fn new(reader: &'a mut R, writer: &'a mut W, config: &LimitedCopyConfig) -> Self {
-        LimitedBufCopy {
+    pub fn new(reader: &'a mut R, writer: &'a mut W, config: &StreamCopyConfig) -> Self {
+        BufReadCopy {
             reader,
             writer,
             yield_size: config.yield_size(),
@@ -71,7 +71,7 @@ where
         self.active = false;
     }
 
-    fn poll_write_cache(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), LimitedCopyError>> {
+    fn poll_write_cache(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), StreamCopyError>> {
         loop {
             match Pin::new(&mut self.reader).poll_fill_buf(cx) {
                 Poll::Ready(Ok(buf)) => {
@@ -81,20 +81,20 @@ where
                         return Poll::Ready(Ok(()));
                     }
                     let i = ready!(Pin::new(&mut self.writer).poll_write(cx, buf))
-                        .map_err(LimitedCopyError::WriteFailed)?;
+                        .map_err(StreamCopyError::WriteFailed)?;
                     self.need_flush = true;
                     self.active = true;
                     self.buf_size -= i;
                     self.total_write += i as u64;
                     Pin::new(&mut *self.reader).consume(i);
                 }
-                Poll::Ready(Err(e)) => return Poll::Ready(Err(LimitedCopyError::ReadFailed(e))),
+                Poll::Ready(Err(e)) => return Poll::Ready(Err(StreamCopyError::ReadFailed(e))),
                 Poll::Pending => return Poll::Ready(Ok(())),
             }
         }
     }
 
-    pub async fn write_flush(&mut self) -> Result<(), LimitedCopyError> {
+    pub async fn write_flush(&mut self) -> Result<(), StreamCopyError> {
         if self.read_done {
             return Ok(());
         }
@@ -107,19 +107,19 @@ where
             self.writer
                 .flush()
                 .await
-                .map_err(LimitedCopyError::WriteFailed)?;
+                .map_err(StreamCopyError::WriteFailed)?;
         }
 
         Ok(())
     }
 }
 
-impl<R, W> Future for LimitedBufCopy<'_, R, W>
+impl<R, W> Future for BufReadCopy<'_, R, W>
 where
     R: AsyncBufRead + Unpin + ?Sized,
     W: AsyncWrite + Unpin + ?Sized,
 {
-    type Output = Result<u64, LimitedCopyError>;
+    type Output = Result<u64, StreamCopyError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut copy_this_round = 0;
@@ -131,27 +131,27 @@ where
                     if buffer.is_empty() {
                         if self.need_flush {
                             ready!(Pin::new(&mut self.writer).poll_flush(cx))
-                                .map_err(LimitedCopyError::WriteFailed)?;
+                                .map_err(StreamCopyError::WriteFailed)?;
                         }
                         self.read_done = true;
                         return Poll::Ready(Ok(self.total_write));
                     }
                     buffer
                 }
-                Poll::Ready(Err(e)) => return Poll::Ready(Err(LimitedCopyError::ReadFailed(e))),
+                Poll::Ready(Err(e)) => return Poll::Ready(Err(StreamCopyError::ReadFailed(e))),
                 Poll::Pending => {
                     if self.need_flush {
                         ready!(Pin::new(&mut self.writer).poll_flush(cx))
-                            .map_err(LimitedCopyError::WriteFailed)?;
+                            .map_err(StreamCopyError::WriteFailed)?;
                     }
                     return Poll::Pending;
                 }
             };
 
             let i = ready!(Pin::new(&mut *me.writer).poll_write(cx, buffer))
-                .map_err(LimitedCopyError::WriteFailed)?;
+                .map_err(StreamCopyError::WriteFailed)?;
             if i == 0 {
-                return Poll::Ready(Err(LimitedCopyError::WriteFailed(
+                return Poll::Ready(Err(StreamCopyError::WriteFailed(
                     io::ErrorKind::WriteZero.into(),
                 )));
             }

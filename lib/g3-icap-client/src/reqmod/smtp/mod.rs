@@ -10,7 +10,7 @@ use std::sync::Arc;
 use bytes::BufMut;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_io_ext::{IdleCheck, LimitedCopyConfig};
+use g3_io_ext::{IdleCheck, StreamCopyConfig};
 use g3_smtp_proto::command::{MailParam, RecipientParam};
 
 use super::IcapReqmodClient;
@@ -27,7 +27,7 @@ mod data;
 impl IcapReqmodClient {
     pub async fn smtp_message_adaptor<I: IdleCheck>(
         &self,
-        copy_config: LimitedCopyConfig,
+        copy_config: StreamCopyConfig,
         idle_checker: I,
     ) -> anyhow::Result<SmtpMessageAdapter<I>> {
         let icap_client = self.inner.clone();
@@ -46,7 +46,7 @@ impl IcapReqmodClient {
 pub struct SmtpMessageAdapter<I: IdleCheck> {
     icap_client: Arc<IcapServiceClient>,
     icap_connection: IcapClientConnection,
-    copy_config: LimitedCopyConfig,
+    copy_config: StreamCopyConfig,
     // TODO add SMTP config
     idle_checker: I,
     client_addr: Option<SocketAddr>,

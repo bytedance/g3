@@ -12,7 +12,7 @@ use ascii::AsciiString;
 use rustc_hash::FxHashMap;
 use yaml_rust::{Yaml, yaml};
 
-use g3_io_ext::{LimitedCopyConfig, LimitedUdpRelayConfig};
+use g3_io_ext::{LimitedUdpRelayConfig, StreamCopyConfig};
 use g3_types::acl::{AclExactPortRule, AclNetworkRuleBuilder};
 use g3_types::acl_set::AclDstHostRuleSetBuilder;
 use g3_types::metrics::{MetricTagMap, NodeName};
@@ -74,7 +74,7 @@ pub(crate) struct SocksProxyServerConfig {
     pub(crate) flush_task_log_on_created: bool,
     pub(crate) flush_task_log_on_connected: bool,
     pub(crate) task_log_flush_interval: Option<Duration>,
-    pub(crate) tcp_copy: LimitedCopyConfig,
+    pub(crate) tcp_copy: StreamCopyConfig,
     pub(crate) udp_relay: LimitedUdpRelayConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
@@ -404,7 +404,7 @@ impl ServerConfig for SocksProxyServerConfig {
     }
 
     #[inline]
-    fn limited_copy_config(&self) -> LimitedCopyConfig {
+    fn limited_copy_config(&self) -> StreamCopyConfig {
         self.tcp_copy
     }
 

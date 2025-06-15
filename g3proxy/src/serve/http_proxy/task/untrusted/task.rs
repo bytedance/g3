@@ -9,7 +9,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_http::HttpBodyReader;
 use g3_http::server::HttpProxyClientRequest;
-use g3_io_ext::{LimitedCopy, LimitedCopyError};
+use g3_io_ext::{StreamCopy, StreamCopyError};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest};
 use super::{CommonTaskContext, UntrustedCltReadWrapperStats};
@@ -124,7 +124,7 @@ impl<'a> HttpProxyUntrustedTask<'a> {
             self.ctx.server_config.body_line_max_len,
         );
         let mut sink_w = tokio::io::sink();
-        let mut clt_to_sink = LimitedCopy::new(
+        let mut clt_to_sink = StreamCopy::new(
             &mut body_reader,
             &mut sink_w,
             &self.ctx.server_config.tcp_copy,
@@ -139,8 +139,8 @@ impl<'a> HttpProxyUntrustedTask<'a> {
                 r = &mut clt_to_sink => {
                     return match r {
                         Ok(_) => Ok(()),
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::ClientTcpReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(_)) => Err(ServerTaskError::InternalServerError("write to sinking failed")),
+                        Err(StreamCopyError::ReadFailed(e)) => Err(ServerTaskError::ClientTcpReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(_)) => Err(ServerTaskError::InternalServerError("write to sinking failed")),
                     };
                 }
                 n = idle_interval.tick() => {

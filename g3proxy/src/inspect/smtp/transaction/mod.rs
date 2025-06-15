@@ -14,7 +14,7 @@ use tokio::time::Instant;
 use g3_dpi::SmtpInterceptionConfig;
 use g3_icap_client::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
 use g3_icap_client::reqmod::smtp::SmtpMessageAdapter;
-use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt};
+use g3_io_ext::{LimitedWriteExt, StreamCopy, StreamCopyError};
 use g3_slog_types::LtUuid;
 use g3_smtp_proto::command::{Command, MailParam, RecipientParam};
 use g3_smtp_proto::io::TextDataReader;
@@ -415,7 +415,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
         UW: AsyncWrite + Unpin,
     {
         let mut clt_to_ups =
-            LimitedCopy::new(clt_r, ups_w, &self.ctx.server_config.limited_copy_config());
+            StreamCopy::new(clt_r, ups_w, &self.ctx.server_config.limited_copy_config());
 
         let mut idle_interval = self.ctx.idle_wheel.register();
         let mut idle_count = 0;
@@ -430,11 +430,11 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
                             // ups_w is already flushed
                             Ok(())
                         }
-                        Err(LimitedCopyError::ReadFailed(e)) => {
+                        Err(StreamCopyError::ReadFailed(e)) => {
                             let _ = clt_to_ups.write_flush().await;
                             Err(ServerTaskError::ClientTcpReadFailed(e))
                         }
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
                     };
                 }
                 n = idle_interval.tick() => {

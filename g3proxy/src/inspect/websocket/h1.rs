@@ -11,7 +11,7 @@ use tokio::io::AsyncWriteExt;
 
 use g3_daemon::server::ServerQuitPolicy;
 use g3_dpi::ProtocolInspectAction;
-use g3_io_ext::{IdleInterval, LimitedCopyConfig, LimitedWriteExt};
+use g3_io_ext::{IdleInterval, LimitedWriteExt, StreamCopyConfig};
 use g3_slog_types::{LtHttpHeaderValue, LtUpstreamAddr, LtUuid};
 use g3_types::net::{UpstreamAddr, WebSocketNotes};
 
@@ -103,7 +103,7 @@ impl<SC: ServerConfig> H1WebsocketInterceptObject<SC> {
 }
 
 impl<SC: ServerConfig> StreamTransitTask for H1WebsocketInterceptObject<SC> {
-    fn copy_config(&self) -> LimitedCopyConfig {
+    fn copy_config(&self) -> StreamCopyConfig {
         self.ctx.server_config.limited_copy_config()
     }
 

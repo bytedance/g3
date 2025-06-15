@@ -13,7 +13,7 @@ use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
 use g3_dpi::Protocol;
 use g3_io_ext::{
-    FlexBufReader, IdleInterval, LimitedCopy, LimitedCopyConfig, LimitedReader, LimitedWriter,
+    FlexBufReader, IdleInterval, LimitedReader, LimitedWriter, StreamCopy, StreamCopyConfig,
 };
 use g3_types::net::UpstreamAddr;
 
@@ -261,14 +261,14 @@ impl TcpStreamTask {
 
         let copy_config = self.ctx.server_config.tcp_copy;
         let clt_to_ups =
-            LimitedCopy::with_data(&mut clt_r, &mut ups_w, &copy_config, clt_r_buf.into());
-        let ups_to_clt = LimitedCopy::new(&mut ups_r, &mut clt_w, &copy_config);
+            StreamCopy::with_data(&mut clt_r, &mut ups_w, &copy_config, clt_r_buf.into());
+        let ups_to_clt = StreamCopy::new(&mut ups_r, &mut clt_w, &copy_config);
         self.transit_transparent2(clt_to_ups, ups_to_clt).await
     }
 }
 
 impl StreamTransitTask for TcpStreamTask {
-    fn copy_config(&self) -> LimitedCopyConfig {
+    fn copy_config(&self) -> StreamCopyConfig {
         self.ctx.server_config.tcp_copy
     }
 

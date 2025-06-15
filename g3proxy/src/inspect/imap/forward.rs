@@ -13,7 +13,7 @@ use g3_imap_proto::command::{Command, ParsedCommand};
 use g3_imap_proto::response::{
     BadResponse, ByeResponse, CommandData, CommandResult, Response, ServerStatus, UntaggedResponse,
 };
-use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt};
+use g3_io_ext::{LimitedWriteExt, StreamCopy, StreamCopyError};
 
 use super::{ImapInterceptObject, ImapRelayBuf};
 use crate::config::server::ServerConfig;
@@ -123,7 +123,7 @@ where
             let mut idle_count = 0;
             let max_idle_count = self.ctx.imap_interception().transfer_max_idle_count;
 
-            let mut clt_to_ups = LimitedCopy::new(&mut clt_r, ups_w, &Default::default());
+            let mut clt_to_ups = StreamCopy::new(&mut clt_r, ups_w, &Default::default());
 
             loop {
                 tokio::select! {
@@ -135,11 +135,11 @@ where
                                 // ups_w is already flushed
                                 Ok(())
                             }
-                            Err(LimitedCopyError::ReadFailed(e)) => {
+                            Err(StreamCopyError::ReadFailed(e)) => {
                                 let _ = clt_to_ups.write_flush().await;
                                 Err(ServerTaskError::ClientTcpReadFailed(e))
                             }
-                            Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
+                            Err(StreamCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
                         };
                     }
                     n = idle_interval.tick() => {
@@ -279,7 +279,7 @@ where
             let mut idle_count = 0;
             let max_idle_count = self.ctx.imap_interception().transfer_max_idle_count;
 
-            let mut ups_to_clt = LimitedCopy::new(&mut ups_r, clt_w, &Default::default());
+            let mut ups_to_clt = StreamCopy::new(&mut ups_r, clt_w, &Default::default());
 
             loop {
                 tokio::select! {
@@ -291,11 +291,11 @@ where
                                 // clt_w is already flushed
                                 Ok(())
                             }
-                            Err(LimitedCopyError::ReadFailed(e)) => {
+                            Err(StreamCopyError::ReadFailed(e)) => {
                                 let _ = ups_to_clt.write_flush().await;
                                 Err(ServerTaskError::UpstreamReadFailed(e))
                             }
-                            Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
+                            Err(StreamCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                         };
                     }
                     n = idle_interval.tick() => {

@@ -13,7 +13,7 @@ use pin_project_lite::pin_project;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, ReadBuf};
 
 use super::{DEFAULT_BUF_SIZE, OnceBufReader};
-use crate::io::AsyncStream;
+use crate::stream::AsyncStream;
 
 pin_project! {
     pub struct FlexBufReader<R> {

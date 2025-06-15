@@ -12,7 +12,7 @@ use bytes::{Buf, Bytes, BytesMut};
 use pin_project_lite::pin_project;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-use crate::io::AsyncStream;
+use crate::stream::AsyncStream;
 
 pin_project! {
     pub struct OnceBufReader<R> {

@@ -10,7 +10,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
-use g3_io_ext::{AsyncStream, IdleInterval, LimitedCopyConfig, LimitedStream, OnceBufReader};
+use g3_io_ext::{AsyncStream, IdleInterval, LimitedStream, OnceBufReader, StreamCopyConfig};
 use g3_openssl::SslStream;
 use g3_types::limit::GaugeSemaphorePermit;
 
@@ -190,7 +190,7 @@ impl OpensslRelayTask {
 }
 
 impl StreamTransitTask for OpensslRelayTask {
-    fn copy_config(&self) -> LimitedCopyConfig {
+    fn copy_config(&self) -> StreamCopyConfig {
         self.ctx.server_config.tcp_copy
     }
 

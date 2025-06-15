@@ -12,7 +12,7 @@ use h2::SendStream;
 use thiserror::Error;
 use tokio::io::{AsyncRead, ReadBuf};
 
-use g3_io_ext::LimitedCopyConfig;
+use g3_io_ext::StreamCopyConfig;
 
 #[derive(Debug, Error)]
 pub enum H2StreamBodyEncodeTransferError {
@@ -32,7 +32,7 @@ struct H2BodyEncodeTransferInternal {
 }
 
 impl H2BodyEncodeTransferInternal {
-    fn new(copy_config: &LimitedCopyConfig) -> Self {
+    fn new(copy_config: &StreamCopyConfig) -> Self {
         H2BodyEncodeTransferInternal {
             buffer_size: copy_config.buffer_size(),
             yield_size: copy_config.yield_size(),
@@ -134,7 +134,7 @@ impl<'a, R> H2BodyEncodeTransfer<'a, R> {
     pub fn new(
         reader: &'a mut R,
         send_stream: &'a mut SendStream<Bytes>,
-        copy_config: &LimitedCopyConfig,
+        copy_config: &StreamCopyConfig,
     ) -> Self {
         H2BodyEncodeTransfer {
             reader,
@@ -190,7 +190,7 @@ impl<'a, R> ROwnedH2BodyEncodeTransfer<'a, R> {
     pub fn new(
         reader: R,
         send_stream: &'a mut SendStream<Bytes>,
-        copy_config: &LimitedCopyConfig,
+        copy_config: &StreamCopyConfig,
     ) -> Self {
         ROwnedH2BodyEncodeTransfer {
             reader,

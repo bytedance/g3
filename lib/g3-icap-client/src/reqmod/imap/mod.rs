@@ -9,7 +9,7 @@ use std::sync::Arc;
 use bytes::BufMut;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_io_ext::{IdleCheck, LimitedCopyConfig};
+use g3_io_ext::{IdleCheck, StreamCopyConfig};
 
 use super::IcapReqmodClient;
 use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
@@ -25,7 +25,7 @@ mod append;
 impl IcapReqmodClient {
     pub async fn imap_message_adaptor<I: IdleCheck>(
         &self,
-        copy_config: LimitedCopyConfig,
+        copy_config: StreamCopyConfig,
         idle_checker: I,
         literal_size: u64,
     ) -> anyhow::Result<ImapMessageAdapter<I>> {
@@ -48,7 +48,7 @@ pub struct ImapMessageAdapter<I: IdleCheck> {
     icap_client: Arc<IcapServiceClient>,
     icap_connection: IcapClientConnection,
     icap_options: Arc<IcapServiceOptions>,
-    copy_config: LimitedCopyConfig,
+    copy_config: StreamCopyConfig,
     idle_checker: I,
     client_addr: Option<SocketAddr>,
     client_username: Option<Arc<str>>,
