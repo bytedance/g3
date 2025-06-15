@@ -7,7 +7,7 @@ use tokio::io::{AsyncWrite, BufWriter};
 
 use g3_http::HttpBodyDecodeReader;
 use g3_http::server::HttpAdaptedRequest;
-use g3_io_ext::{IdleCheck, LimitedCopyError};
+use g3_io_ext::{IdleCheck, StreamCopyError};
 use g3_smtp_proto::io::TextDataEncodeTransfer;
 
 use super::{SmtpAdaptationError, SmtpMessageAdapter};
@@ -75,8 +75,8 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
                             }
                             Ok(ReqmodAdaptationEndState::AdaptedTransferred)
                         },
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(SmtpAdaptationError::IcapServerReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(SmtpAdaptationError::SmtpUpstreamWriteFailed(e)),
+                        Err(StreamCopyError::ReadFailed(e)) => Err(SmtpAdaptationError::IcapServerReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(SmtpAdaptationError::SmtpUpstreamWriteFailed(e)),
                     };
                 }
                 n = idle_interval.tick() => {

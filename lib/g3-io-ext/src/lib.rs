@@ -4,9 +4,9 @@
  */
 
 mod cache;
-mod io;
 mod limit;
 mod listen;
+mod stream;
 mod time;
 mod udp;
 
@@ -14,9 +14,9 @@ pub use cache::{
     EffectiveCacheData, EffectiveCacheHandle, EffectiveCacheRuntime, EffectiveQueryHandle,
     create_effective_cache,
 };
-pub use io::*;
 pub use limit::*;
 pub use listen::*;
+pub use stream::*;
 pub use time::*;
 pub use udp::*;
 
@@ -28,7 +28,7 @@ mod quic;
 pub use quic::*;
 
 #[cfg(feature = "openssl")]
-pub use io::stream::openssl;
+pub use stream::openssl;
 
 #[cfg(feature = "rustls")]
-pub use io::stream::rustls;
+pub use stream::rustls;

@@ -7,7 +7,7 @@ use tokio::io::{AsyncWrite, BufWriter};
 
 use g3_http::HttpBodyDecodeReader;
 use g3_http::server::HttpAdaptedRequest;
-use g3_io_ext::{IdleCheck, LimitedCopy, LimitedCopyError};
+use g3_io_ext::{IdleCheck, StreamCopy, StreamCopyError};
 
 use super::{ImapAdaptationError, ImapMessageAdapter};
 use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
@@ -58,7 +58,7 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
             HttpBodyDecodeReader::new_chunked(&mut self.icap_connection.reader, 256);
         let mut ups_buf_writer = BufWriter::new(ups_writer);
         let mut msg_transfer =
-            LimitedCopy::new(&mut body_reader, &mut ups_buf_writer, &self.copy_config);
+            StreamCopy::new(&mut body_reader, &mut ups_buf_writer, &self.copy_config);
 
         let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
@@ -82,8 +82,8 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
                             }
                             Ok(ReqmodAdaptationEndState::AdaptedTransferred)
                         },
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(ImapAdaptationError::IcapServerReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(ImapAdaptationError::ImapUpstreamWriteFailed(e)),
+                        Err(StreamCopyError::ReadFailed(e)) => Err(ImapAdaptationError::IcapServerReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(ImapAdaptationError::ImapUpstreamWriteFailed(e)),
                     };
                 }
                 n = idle_interval.tick() => {

@@ -15,7 +15,7 @@ use g3_h2::{
     H2StreamToChunkedTransferError, RequestExt,
 };
 use g3_http::server::HttpAdaptedRequest;
-use g3_io_ext::{IdleCheck, LimitedBufReadExt, LimitedCopyConfig};
+use g3_io_ext::{IdleCheck, LimitedBufReadExt, StreamCopyConfig};
 
 use super::recv_request::recv_ups_response_head_after_transfer;
 use super::{H2ReqmodAdaptationError, ReqmodAdaptationEndState, ReqmodAdaptationRunState};
@@ -94,7 +94,7 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
 
 pub(super) struct BidirectionalRecvHttpRequest<'a, I: IdleCheck> {
     pub(super) icap_reader: &'a mut IcapClientReader,
-    pub(super) copy_config: LimitedCopyConfig,
+    pub(super) copy_config: StreamCopyConfig,
     pub(super) http_body_line_max_size: usize,
     pub(super) http_trailer_max_size: usize,
     pub(super) http_rsp_head_recv_timeout: Duration,

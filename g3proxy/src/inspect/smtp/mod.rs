@@ -11,7 +11,7 @@ use tokio::io::AsyncWriteExt;
 
 use g3_daemon::server::ServerQuitPolicy;
 use g3_dpi::ProtocolInspectAction;
-use g3_io_ext::{IdleInterval, LimitedCopyConfig, LineRecvBuf, OnceBufReader};
+use g3_io_ext::{IdleInterval, LineRecvBuf, OnceBufReader, StreamCopyConfig};
 use g3_slog_types::{LtHost, LtUpstreamAddr, LtUuid};
 use g3_smtp_proto::command::Command;
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
@@ -128,7 +128,7 @@ impl<SC: ServerConfig> SmtpInterceptObject<SC> {
 }
 
 impl<SC: ServerConfig> StreamTransitTask for SmtpInterceptObject<SC> {
-    fn copy_config(&self) -> LimitedCopyConfig {
+    fn copy_config(&self) -> StreamCopyConfig {
         self.ctx.server_config.limited_copy_config()
     }
 

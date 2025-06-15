@@ -14,7 +14,7 @@ use tokio::time::Instant;
 
 use g3_http::HttpBodyType;
 use g3_http::client::HttpAdaptedResponse;
-use g3_io_ext::{IdleCheck, LimitedCopyConfig};
+use g3_io_ext::{IdleCheck, StreamCopyConfig};
 use g3_types::net::HttpHeaderMap;
 
 use super::IcapRespmodClient;
@@ -51,7 +51,7 @@ pub trait HttpResponseClientWriter<H: HttpResponseForAdaptation>: AsyncWrite {
 impl IcapRespmodClient {
     pub async fn h1_adapter<I: IdleCheck>(
         &self,
-        copy_config: LimitedCopyConfig,
+        copy_config: StreamCopyConfig,
         http_body_line_max_size: usize,
         idle_checker: I,
     ) -> anyhow::Result<HttpResponseAdapter<I>> {
@@ -75,7 +75,7 @@ pub struct HttpResponseAdapter<I: IdleCheck> {
     icap_client: Arc<IcapServiceClient>,
     icap_connection: IcapClientConnection,
     icap_options: Arc<IcapServiceOptions>,
-    copy_config: LimitedCopyConfig,
+    copy_config: StreamCopyConfig,
     http_body_line_max_size: usize,
     idle_checker: I,
     client_addr: Option<SocketAddr>,

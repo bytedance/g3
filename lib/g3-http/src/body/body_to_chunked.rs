@@ -8,7 +8,7 @@ use std::task::{Context, Poll, ready};
 
 use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWrite};
 
-use g3_io_ext::{LimitedCopyConfig, LimitedCopyError, ROwnedLimitedCopy};
+use g3_io_ext::{ROwnedStreamCopy, StreamCopyConfig, StreamCopyError};
 
 use super::{HttpBodyReader, HttpBodyType, PreviewDataState, StreamToChunkedTransfer};
 
@@ -16,7 +16,7 @@ const NO_TRAILER_END_BUFFER: &[u8] = b"\r\n0\r\n\r\n";
 
 pub struct H1BodyToChunkedTransfer<'a, R, W> {
     body_type: HttpBodyType,
-    copy_config: LimitedCopyConfig,
+    copy_config: StreamCopyConfig,
     state: ChunkedTransferState<'a, R, W>,
     total_write: u64,
     active: bool,
@@ -36,7 +36,7 @@ struct SendEnd<'a, W> {
 
 enum ChunkedTransferState<'a, R, W> {
     SendHead(SendHead<'a, R, W>),
-    Copy(ROwnedLimitedCopy<'a, HttpBodyReader<'a, R>, W>),
+    Copy(ROwnedStreamCopy<'a, HttpBodyReader<'a, R>, W>),
     SendNoTrailerEnd(SendEnd<'a, W>),
     Encode(StreamToChunkedTransfer<'a, R, W>),
     FlushEnd(&'a mut W),
@@ -53,7 +53,7 @@ where
         writer: &'a mut W,
         body_type: HttpBodyType,
         body_line_max_len: usize,
-        copy_config: LimitedCopyConfig,
+        copy_config: StreamCopyConfig,
     ) -> H1BodyToChunkedTransfer<'a, R, W> {
         match body_type {
             HttpBodyType::ContentLength(len) => {
@@ -69,7 +69,7 @@ where
     pub fn new_read_until_end(
         reader: &'a mut R,
         writer: &'a mut W,
-        copy_config: LimitedCopyConfig,
+        copy_config: StreamCopyConfig,
     ) -> Self {
         let encoder =
             StreamToChunkedTransfer::new_with_no_trailer(reader, writer, copy_config.yield_size());
@@ -86,7 +86,7 @@ where
         reader: &'a mut R,
         writer: &'a mut W,
         len: u64,
-        copy_config: LimitedCopyConfig,
+        copy_config: StreamCopyConfig,
     ) -> Self {
         let state = if len == 0 {
             // just send 0 chunk size and empty trailer end
@@ -114,10 +114,10 @@ where
         reader: &'a mut R,
         writer: &'a mut W,
         body_line_max_len: usize,
-        copy_config: LimitedCopyConfig,
+        copy_config: StreamCopyConfig,
     ) -> H1BodyToChunkedTransfer<'a, R, W> {
         let body_reader = HttpBodyReader::new_chunked(reader, body_line_max_len);
-        let copy = ROwnedLimitedCopy::new(body_reader, writer, copy_config);
+        let copy = ROwnedStreamCopy::new(body_reader, writer, copy_config);
         H1BodyToChunkedTransfer {
             body_type: HttpBodyType::Chunked,
             copy_config,
@@ -132,7 +132,7 @@ where
         writer: &'a mut W,
         body_type: HttpBodyType,
         body_line_max_len: usize,
-        copy_config: LimitedCopyConfig,
+        copy_config: StreamCopyConfig,
         preview_state: PreviewDataState,
     ) -> H1BodyToChunkedTransfer<'a, R, W> {
         match body_type {
@@ -189,7 +189,7 @@ where
         writer: &'a mut W,
         left_chunk_size: u64,
         body_line_max_len: usize,
-        copy_config: LimitedCopyConfig,
+        copy_config: StreamCopyConfig,
     ) -> H1BodyToChunkedTransfer<'a, R, W> {
         if left_chunk_size == 0 {
             return Self::new_chunked(reader, writer, body_line_max_len, copy_config);
@@ -249,7 +249,7 @@ where
     R: AsyncBufRead + Unpin,
     W: AsyncWrite + Unpin,
 {
-    type Output = Result<(), LimitedCopyError>;
+    type Output = Result<(), StreamCopyError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match &mut self.state {
@@ -257,7 +257,7 @@ where
                 while send_head.offset < send_head.head.len() {
                     let buf = &send_head.head.as_bytes()[send_head.offset..];
                     let nw = ready!(Pin::new(&mut send_head.writer).poll_write(cx, buf))
-                        .map_err(LimitedCopyError::WriteFailed)?;
+                        .map_err(StreamCopyError::WriteFailed)?;
                     send_head.offset += nw;
                 }
                 self.total_write += send_head.offset as u64;
@@ -267,7 +267,7 @@ where
                 let ChunkedTransferState::SendHead(send_head) = old_state else {
                     unreachable!()
                 };
-                let copy = ROwnedLimitedCopy::new(
+                let copy = ROwnedStreamCopy::new(
                     send_head.body_reader,
                     send_head.writer,
                     self.copy_config,
@@ -307,7 +307,7 @@ where
                 while send_end.offset < NO_TRAILER_END_BUFFER.len() {
                     let buf = &NO_TRAILER_END_BUFFER[send_end.offset..];
                     let nw = ready!(Pin::new(&mut send_end.writer).poll_write(cx, buf))
-                        .map_err(LimitedCopyError::WriteFailed)?;
+                        .map_err(StreamCopyError::WriteFailed)?;
                     send_end.offset += nw;
                 }
                 let old_state = std::mem::replace(&mut self.state, ChunkedTransferState::End);
@@ -335,7 +335,7 @@ where
                 }
             }
             ChunkedTransferState::FlushEnd(writer) => {
-                ready!(Pin::new(writer).poll_flush(cx)).map_err(LimitedCopyError::WriteFailed)?;
+                ready!(Pin::new(writer).poll_flush(cx)).map_err(StreamCopyError::WriteFailed)?;
                 Poll::Ready(Ok(()))
             }
             ChunkedTransferState::End => Poll::Ready(Ok(())),

@@ -9,12 +9,12 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
 use g3_daemon::server::ServerQuitPolicy;
-use g3_io_ext::{IdleInterval, LimitedCopy, LimitedCopyConfig, LimitedCopyError, OptionalInterval};
+use g3_io_ext::{IdleInterval, OptionalInterval, StreamCopy, StreamCopyConfig, StreamCopyError};
 
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
 pub(crate) trait StreamTransitTask {
-    fn copy_config(&self) -> LimitedCopyConfig;
+    fn copy_config(&self) -> StreamCopyConfig;
     fn idle_check_interval(&self) -> IdleInterval;
     fn max_idle_count(&self) -> usize;
     fn log_client_shutdown(&self);
@@ -37,16 +37,16 @@ pub(crate) trait StreamTransitTask {
         UW: AsyncWrite + Unpin,
     {
         let copy_config = self.copy_config();
-        let clt_to_ups = LimitedCopy::new(&mut clt_r, &mut ups_w, &copy_config);
-        let ups_to_clt = LimitedCopy::new(&mut ups_r, &mut clt_w, &copy_config);
+        let clt_to_ups = StreamCopy::new(&mut clt_r, &mut ups_w, &copy_config);
+        let ups_to_clt = StreamCopy::new(&mut ups_r, &mut clt_w, &copy_config);
 
         self.transit_transparent2(clt_to_ups, ups_to_clt).await
     }
 
     async fn transit_transparent2<CR, CW, UR, UW>(
         &self,
-        mut clt_to_ups: LimitedCopy<'_, CR, UW>,
-        mut ups_to_clt: LimitedCopy<'_, UR, CW>,
+        mut clt_to_ups: StreamCopy<'_, CR, UW>,
+        mut ups_to_clt: StreamCopy<'_, UR, CW>,
     ) -> ServerTaskResult<()>
     where
         CR: AsyncRead + Unpin,
@@ -74,8 +74,8 @@ pub(crate) trait StreamTransitTask {
                             self.log_client_shutdown();
                             self.transit_south(ups_to_clt, log_interval, idle_interval, idle_count, max_idle_count).await
                         }
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::ClientTcpReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => {
+                        Err(StreamCopyError::ReadFailed(e)) => Err(ServerTaskError::ClientTcpReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => {
                             let _ = ups_to_clt.write_flush().await;
                             Err(ServerTaskError::UpstreamWriteFailed(e))
                         }
@@ -88,8 +88,8 @@ pub(crate) trait StreamTransitTask {
                             self.log_upstream_shutdown();
                             self.transit_north(clt_to_ups, log_interval, idle_interval, idle_count, max_idle_count).await
                         }
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::UpstreamReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => {
+                        Err(StreamCopyError::ReadFailed(e)) => Err(ServerTaskError::UpstreamReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => {
                             let _ = clt_to_ups.write_flush().await;
                             Err(ServerTaskError::ClientTcpWriteFailed(e))
                         }
@@ -122,7 +122,7 @@ pub(crate) trait StreamTransitTask {
 
     async fn transit_north<CR, UW>(
         &self,
-        mut clt_to_ups: LimitedCopy<'_, CR, UW>,
+        mut clt_to_ups: StreamCopy<'_, CR, UW>,
         mut log_interval: OptionalInterval,
         mut idle_interval: IdleInterval,
         mut idle_count: usize,
@@ -140,8 +140,8 @@ pub(crate) trait StreamTransitTask {
                             let _ = clt_to_ups.writer().shutdown().await;
                             Ok(())
                         }
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::ClientTcpReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
+                        Err(StreamCopyError::ReadFailed(e)) => Err(ServerTaskError::ClientTcpReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
                     };
                 }
                 _ = log_interval.tick() => {
@@ -170,7 +170,7 @@ pub(crate) trait StreamTransitTask {
 
     async fn transit_south<CW, UR>(
         &self,
-        mut ups_to_clt: LimitedCopy<'_, UR, CW>,
+        mut ups_to_clt: StreamCopy<'_, UR, CW>,
         mut log_interval: OptionalInterval,
         mut idle_interval: IdleInterval,
         mut idle_count: usize,
@@ -188,8 +188,8 @@ pub(crate) trait StreamTransitTask {
                             let _ = ups_to_clt.writer().shutdown().await;
                             Ok(())
                         }
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::UpstreamReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
+                        Err(StreamCopyError::ReadFailed(e)) => Err(ServerTaskError::UpstreamReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                     };
                 }
                 _ = log_interval.tick() => {

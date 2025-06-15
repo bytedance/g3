@@ -13,6 +13,6 @@ mod once;
 pub use once::OnceBufReader;
 
 mod copy;
-pub use copy::LimitedBufCopy;
+pub use copy::BufReadCopy;
 
 const DEFAULT_BUF_SIZE: usize = 8 * 1024;

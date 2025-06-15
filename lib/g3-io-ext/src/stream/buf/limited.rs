@@ -13,7 +13,7 @@ use pin_project_lite::pin_project;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, ReadBuf};
 
 use super::DEFAULT_BUF_SIZE;
-use crate::io::{ArcLimitedReaderStats, AsyncStream, LimitedReader};
+use crate::stream::{ArcLimitedReaderStats, AsyncStream, LimitedReader};
 use crate::{GlobalLimitGroup, GlobalStreamLimit};
 
 pin_project! {

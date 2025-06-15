@@ -10,7 +10,7 @@ use std::task::{Context, Poll, ready};
 
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, ReadBuf};
 
-use g3_io_ext::{LimitedCopyConfig, LimitedCopyError};
+use g3_io_ext::{StreamCopyConfig, StreamCopyError};
 
 #[derive(Debug)]
 struct EncodeCopyBuffer {
@@ -31,7 +31,7 @@ struct EncodeCopyBuffer {
 }
 
 impl EncodeCopyBuffer {
-    fn new(config: LimitedCopyConfig) -> Self {
+    fn new(config: StreamCopyConfig) -> Self {
         EncodeCopyBuffer {
             read_done: false,
             buf: vec![0; config.buffer_size()].into_boxed_slice(),
@@ -85,14 +85,14 @@ impl EncodeCopyBuffer {
         &mut self,
         cx: &mut Context<'_>,
         writer: Pin<&mut W>,
-    ) -> Poll<Result<usize, LimitedCopyError>>
+    ) -> Poll<Result<usize, StreamCopyError>>
     where
         W: AsyncWrite + ?Sized,
     {
         match writer.poll_write(cx, b".") {
             Poll::Pending => Poll::Pending,
-            Poll::Ready(Err(e)) => Poll::Ready(Err(LimitedCopyError::WriteFailed(e))),
-            Poll::Ready(Ok(0)) => Poll::Ready(Err(LimitedCopyError::WriteFailed(io::Error::new(
+            Poll::Ready(Err(e)) => Poll::Ready(Err(StreamCopyError::WriteFailed(e))),
+            Poll::Ready(Ok(0)) => Poll::Ready(Err(StreamCopyError::WriteFailed(io::Error::new(
                 io::ErrorKind::WriteZero,
                 "write zero byte into writer",
             )))),
@@ -109,14 +109,14 @@ impl EncodeCopyBuffer {
         &mut self,
         cx: &mut Context<'_>,
         writer: Pin<&mut W>,
-    ) -> Poll<Result<usize, LimitedCopyError>>
+    ) -> Poll<Result<usize, StreamCopyError>>
     where
         W: AsyncWrite + ?Sized,
     {
         match writer.poll_write(cx, &self.buf[self.w_off..self.line_end]) {
             Poll::Pending => Poll::Pending,
-            Poll::Ready(Err(e)) => Poll::Ready(Err(LimitedCopyError::WriteFailed(e))),
-            Poll::Ready(Ok(0)) => Poll::Ready(Err(LimitedCopyError::WriteFailed(io::Error::new(
+            Poll::Ready(Err(e)) => Poll::Ready(Err(StreamCopyError::WriteFailed(e))),
+            Poll::Ready(Ok(0)) => Poll::Ready(Err(StreamCopyError::WriteFailed(io::Error::new(
                 io::ErrorKind::WriteZero,
                 "write zero byte into writer",
             )))),
@@ -134,7 +134,7 @@ impl EncodeCopyBuffer {
         &mut self,
         cx: &mut Context<'_>,
         mut writer: Pin<&mut W>,
-    ) -> Poll<Result<usize, LimitedCopyError>>
+    ) -> Poll<Result<usize, StreamCopyError>>
     where
         W: AsyncWrite + ?Sized,
     {
@@ -182,7 +182,7 @@ impl EncodeCopyBuffer {
         cx: &mut Context<'_>,
         mut reader: Pin<&mut R>,
         mut writer: Pin<&mut W>,
-    ) -> Poll<Result<u64, LimitedCopyError>>
+    ) -> Poll<Result<u64, StreamCopyError>>
     where
         R: AsyncRead + ?Sized,
         W: AsyncWrite + ?Sized,
@@ -196,7 +196,7 @@ impl EncodeCopyBuffer {
                 if self.w_off >= self.r_off {
                     if self.need_flush {
                         ready!(writer.as_mut().poll_flush(cx))
-                            .map_err(LimitedCopyError::WriteFailed)?;
+                            .map_err(StreamCopyError::WriteFailed)?;
                     }
                     return Poll::Ready(Ok(self.total));
                 }
@@ -214,14 +214,14 @@ impl EncodeCopyBuffer {
                 match self.poll_fill_buf(cx, reader.as_mut()) {
                     Poll::Ready(Ok(_)) => {}
                     Poll::Ready(Err(e)) => {
-                        return Poll::Ready(Err(LimitedCopyError::ReadFailed(e)));
+                        return Poll::Ready(Err(StreamCopyError::ReadFailed(e)));
                     }
                     Poll::Pending => {
                         if self.w_off >= self.r_off {
                             // no data to write
                             if self.need_flush {
                                 ready!(writer.as_mut().poll_flush(cx))
-                                    .map_err(LimitedCopyError::WriteFailed)?;
+                                    .map_err(StreamCopyError::WriteFailed)?;
                                 self.need_flush = false;
                             }
 
@@ -259,7 +259,7 @@ impl EncodeCopyBuffer {
         }
     }
 
-    pub async fn write_flush<W>(&mut self, writer: &mut W) -> Result<(), LimitedCopyError>
+    pub async fn write_flush<W>(&mut self, writer: &mut W) -> Result<(), StreamCopyError>
     where
         W: AsyncWrite + Unpin + ?Sized,
     {
@@ -272,10 +272,7 @@ impl EncodeCopyBuffer {
             // only write and flush the cached data
         }
         if self.need_flush {
-            writer
-                .flush()
-                .await
-                .map_err(LimitedCopyError::WriteFailed)?;
+            writer.flush().await.map_err(StreamCopyError::WriteFailed)?;
         }
         Ok(())
     }
@@ -292,7 +289,7 @@ where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
 {
-    pub fn new(reader: &'a mut R, writer: &'a mut W, config: LimitedCopyConfig) -> Self {
+    pub fn new(reader: &'a mut R, writer: &'a mut W, config: StreamCopyConfig) -> Self {
         TextDataEncodeTransfer {
             reader,
             writer,
@@ -330,7 +327,7 @@ where
         self.buf.active = false;
     }
 
-    pub async fn write_flush(&mut self) -> Result<(), LimitedCopyError> {
+    pub async fn write_flush(&mut self) -> Result<(), StreamCopyError> {
         self.buf.write_flush(&mut self.writer).await
     }
 
@@ -344,7 +341,7 @@ where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
 {
-    type Output = Result<u64, LimitedCopyError>;
+    type Output = Result<u64, StreamCopyError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let me = &mut *self;

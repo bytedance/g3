@@ -16,7 +16,7 @@ use tokio::time::Instant;
 
 use g3_h2::H2StreamFromChunkedTransfer;
 use g3_http::server::HttpAdaptedRequest;
-use g3_io_ext::{IdleCheck, LimitedCopyConfig};
+use g3_io_ext::{IdleCheck, StreamCopyConfig};
 use g3_types::net::HttpHeaderMap;
 
 use super::IcapReqmodClient;
@@ -42,7 +42,7 @@ mod forward_header;
 impl IcapReqmodClient {
     pub async fn h2_adapter<I: IdleCheck>(
         &self,
-        copy_config: LimitedCopyConfig,
+        copy_config: StreamCopyConfig,
         http_body_line_max_size: usize,
         http_trailer_max_size: usize,
         http_rsp_head_recv_timeout: Duration,
@@ -71,7 +71,7 @@ pub struct H2RequestAdapter<I: IdleCheck> {
     icap_client: Arc<IcapServiceClient>,
     icap_connection: IcapClientConnection,
     icap_options: Arc<IcapServiceOptions>,
-    copy_config: LimitedCopyConfig,
+    copy_config: StreamCopyConfig,
     http_body_line_max_size: usize,
     http_trailer_max_size: usize,
     http_rsp_head_recv_timeout: Duration,
@@ -196,7 +196,7 @@ pub struct ReqmodRecvHttpResponseBody {
     icap_client: Arc<IcapServiceClient>,
     icap_keepalive: bool,
     icap_connection: IcapClientConnection,
-    copy_config: LimitedCopyConfig,
+    copy_config: StreamCopyConfig,
     http_body_line_max_size: usize,
     http_trailer_max_size: usize,
 }

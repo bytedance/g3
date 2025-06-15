@@ -25,7 +25,7 @@ use g3_icap_client::reqmod::h1::{
 use g3_icap_client::respmod::h1::{
     HttpResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
-use g3_io_ext::{LimitedBufReadExt, LimitedCopy, LimitedCopyError, LimitedWriteExt};
+use g3_io_ext::{LimitedBufReadExt, LimitedWriteExt, StreamCopy, StreamCopyError};
 use g3_slog_types::{LtDateTime, LtDuration, LtHttpHeaderValue, LtHttpMethod, LtHttpUri, LtUuid};
 use g3_types::net::HttpHeaderMap;
 
@@ -409,16 +409,16 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
 
         if let Some(mut recv_body) = rsp_recv_body {
             let mut body_reader = recv_body.body_reader();
-            let copy_to_clt = LimitedCopy::new(
+            let copy_to_clt = StreamCopy::new(
                 &mut body_reader,
                 clt_w,
                 &self.ctx.server_config.limited_copy_config(),
             );
             copy_to_clt.await.map_err(|e| match e {
-                LimitedCopyError::ReadFailed(e) => ServerTaskError::InternalAdapterError(anyhow!(
+                StreamCopyError::ReadFailed(e) => ServerTaskError::InternalAdapterError(anyhow!(
                     "read http error response from adapter failed: {e:?}"
                 )),
-                LimitedCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
+                StreamCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
             })?;
             recv_body.save_connection().await;
         } else {
@@ -497,7 +497,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
         );
         let mut rsp_head: Option<(HttpTransparentResponse, Bytes)> = None;
 
-        let mut clt_to_ups = LimitedCopy::new(
+        let mut clt_to_ups = StreamCopy::new(
             &mut clt_body_reader,
             &mut rsp_io.ups_w,
             &self.ctx.server_config.limited_copy_config(),
@@ -532,8 +532,8 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                 }
                 r = &mut clt_to_ups => {
                     r.map_err(|e| match e {
-                        LimitedCopyError::ReadFailed(e) => ServerTaskError::ClientTcpReadFailed(e),
-                        LimitedCopyError::WriteFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
+                        StreamCopyError::ReadFailed(e) => ServerTaskError::ClientTcpReadFailed(e),
+                        StreamCopyError::WriteFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
                     })?;
                     self.http_notes.mark_req_send_all();
                     break;
@@ -808,7 +808,7 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
             self.ctx.h1_interception().body_line_max_len,
         );
 
-        let mut ups_to_clt = LimitedCopy::with_data(
+        let mut ups_to_clt = StreamCopy::with_data(
             &mut body_reader,
             clt_w,
             &self.ctx.server_config.limited_copy_config(),
@@ -829,11 +829,11 @@ impl<'a, SC: ServerConfig> H1ForwardTask<'a, SC> {
                             // clt_w is already flushed
                             Ok(())
                         }
-                        Err(LimitedCopyError::ReadFailed(e)) => {
+                        Err(StreamCopyError::ReadFailed(e)) => {
                             let _ = ups_to_clt.write_flush().await;
                             Err(ServerTaskError::UpstreamReadFailed(e))
                         }
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                     };
                 }
                 n = idle_interval.tick() => {

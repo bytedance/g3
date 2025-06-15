@@ -12,7 +12,7 @@ use tokio_rustls::server::TlsStream;
 
 use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::TcpStreamTaskStats;
-use g3_io_ext::{AsyncStream, IdleInterval, LimitedCopyConfig, LimitedReader, LimitedWriter};
+use g3_io_ext::{AsyncStream, IdleInterval, LimitedReader, LimitedWriter, StreamCopyConfig};
 use g3_types::net::UpstreamAddr;
 
 use super::common::CommonTaskContext;
@@ -230,7 +230,7 @@ impl TlsStreamTask {
 }
 
 impl StreamTransitTask for TlsStreamTask {
-    fn copy_config(&self) -> LimitedCopyConfig {
+    fn copy_config(&self) -> StreamCopyConfig {
         self.ctx.server_config.tcp_copy
     }
 

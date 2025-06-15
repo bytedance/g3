@@ -10,7 +10,7 @@ use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use yaml_rust::{Yaml, yaml};
 
-use g3_io_ext::LimitedCopyConfig;
+use g3_io_ext::StreamCopyConfig;
 use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
 use g3_types::collection::SelectivePickPolicy;
@@ -50,7 +50,7 @@ pub(crate) struct TlsStreamServerConfig {
     pub(crate) flush_task_log_on_created: bool,
     pub(crate) flush_task_log_on_connected: bool,
     pub(crate) task_log_flush_interval: Option<Duration>,
-    pub(crate) tcp_copy: LimitedCopyConfig,
+    pub(crate) tcp_copy: StreamCopyConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
@@ -318,7 +318,7 @@ impl ServerConfig for TlsStreamServerConfig {
     }
 
     #[inline]
-    fn limited_copy_config(&self) -> LimitedCopyConfig {
+    fn limited_copy_config(&self) -> StreamCopyConfig {
         self.tcp_copy
     }
 

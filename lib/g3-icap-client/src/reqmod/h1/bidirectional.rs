@@ -9,7 +9,7 @@ use anyhow::anyhow;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite};
 
 use g3_http::{H1BodyToChunkedTransfer, HttpBodyDecodeReader, HttpBodyReader};
-use g3_io_ext::{IdleCheck, LimitedBufReadExt, LimitedCopy, LimitedCopyConfig, LimitedCopyError};
+use g3_io_ext::{IdleCheck, LimitedBufReadExt, StreamCopy, StreamCopyConfig, StreamCopyError};
 
 use super::{
     H1ReqmodAdaptationError, HttpAdaptedRequest, HttpRequestForAdaptation,
@@ -42,8 +42,8 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
                 r = &mut body_transfer => {
                     return match r {
                         Ok(_) => self.recv_icap_response().await,
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(H1ReqmodAdaptationError::HttpClientReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(H1ReqmodAdaptationError::IcapServerWriteFailed(e)),
+                        Err(StreamCopyError::ReadFailed(e)) => Err(H1ReqmodAdaptationError::HttpClientReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(H1ReqmodAdaptationError::IcapServerWriteFailed(e)),
                     };
                 }
                 r = self.icap_reader.fill_wait_data() => {
@@ -93,7 +93,7 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
 pub(super) struct BidirectionalRecvHttpRequest<'a, I: IdleCheck> {
     pub(super) http_body_line_max_size: usize,
     pub(super) http_req_add_no_via_header: bool,
-    pub(super) copy_config: LimitedCopyConfig,
+    pub(super) copy_config: StreamCopyConfig,
     pub(super) idle_checker: &'a I,
     pub(crate) http_header_size: usize,
     pub(crate) icap_read_finished: bool,
@@ -136,7 +136,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                 let mut ups_body_reader =
                     HttpBodyDecodeReader::new_chunked(icap_reader, self.http_body_line_max_size);
                 let mut ups_body_transfer =
-                    LimitedCopy::new(&mut ups_body_reader, ups_writer, &self.copy_config);
+                    StreamCopy::new(&mut ups_body_reader, ups_writer, &self.copy_config);
                 self.do_transfer(clt_body_transfer, &mut ups_body_transfer)
                     .await?;
 
@@ -157,7 +157,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                 let mut ups_body_reader =
                     HttpBodyReader::new_chunked(icap_reader, self.http_body_line_max_size);
                 let mut ups_body_transfer =
-                    LimitedCopy::new(&mut ups_body_reader, ups_writer, &self.copy_config);
+                    StreamCopy::new(&mut ups_body_reader, ups_writer, &self.copy_config);
                 self.do_transfer(clt_body_transfer, &mut ups_body_transfer)
                     .await?;
 
@@ -172,7 +172,7 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
     async fn do_transfer<CR, IR, UW>(
         &self,
         mut clt_body_transfer: &mut H1BodyToChunkedTransfer<'_, CR, IcapClientWriter>,
-        mut ups_body_transfer: &mut LimitedCopy<'_, IR, UW>,
+        mut ups_body_transfer: &mut StreamCopy<'_, IR, UW>,
     ) -> Result<(), H1ReqmodAdaptationError>
     where
         CR: AsyncBufRead + Unpin,
@@ -189,19 +189,19 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
                         Ok(_) => {
                             match ups_body_transfer.await {
                                 Ok(_) => Ok(()),
-                                Err(LimitedCopyError::ReadFailed(e)) => Err(H1ReqmodAdaptationError::IcapServerReadFailed(e)),
-                                Err(LimitedCopyError::WriteFailed(e)) => Err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed(e)),
+                                Err(StreamCopyError::ReadFailed(e)) => Err(H1ReqmodAdaptationError::IcapServerReadFailed(e)),
+                                Err(StreamCopyError::WriteFailed(e)) => Err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed(e)),
                             }
                         }
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(H1ReqmodAdaptationError::HttpClientReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(H1ReqmodAdaptationError::IcapServerWriteFailed(e)),
+                        Err(StreamCopyError::ReadFailed(e)) => Err(H1ReqmodAdaptationError::HttpClientReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(H1ReqmodAdaptationError::IcapServerWriteFailed(e)),
                     };
                 }
                 r = &mut ups_body_transfer => {
                     return match r {
                         Ok(_) => Ok(()),
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(H1ReqmodAdaptationError::IcapServerReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed(e)),
+                        Err(StreamCopyError::ReadFailed(e)) => Err(H1ReqmodAdaptationError::IcapServerReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed(e)),
                     };
                 }
                 n = idle_interval.tick() => {

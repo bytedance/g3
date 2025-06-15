@@ -11,7 +11,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::TcpStreamTaskStats;
-use g3_io_ext::{IdleInterval, LimitedCopyConfig, LimitedReader, LimitedWriter};
+use g3_io_ext::{IdleInterval, LimitedReader, LimitedWriter, StreamCopyConfig};
 use g3_types::acl::AclAction;
 use g3_types::net::{ProxyRequestType, UpstreamAddr};
 
@@ -545,7 +545,7 @@ impl HttpProxyConnectTask {
 }
 
 impl StreamTransitTask for HttpProxyConnectTask {
-    fn copy_config(&self) -> LimitedCopyConfig {
+    fn copy_config(&self) -> StreamCopyConfig {
         self.ctx.server_config.tcp_copy
     }
 

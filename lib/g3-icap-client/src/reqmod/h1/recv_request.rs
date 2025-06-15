@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
 use g3_http::{HttpBodyDecodeReader, HttpBodyReader};
-use g3_io_ext::{IdleCheck, LimitedCopy, LimitedCopyError};
+use g3_io_ext::{IdleCheck, StreamCopy, StreamCopyError};
 
 use super::{
     H1ReqmodAdaptationError, HttpAdaptedRequest, HttpRequestAdapter, HttpRequestForAdaptation,
@@ -145,7 +145,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                     self.http_body_line_max_size,
                 );
                 let mut body_copy =
-                    LimitedCopy::new(&mut body_reader, ups_writer, &self.copy_config);
+                    StreamCopy::new(&mut body_reader, ups_writer, &self.copy_config);
                 Self::send_request_body(&self.idle_checker, &mut body_copy).await?;
 
                 state.mark_ups_send_all();
@@ -171,7 +171,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                     self.http_body_line_max_size,
                 );
                 let mut body_copy =
-                    LimitedCopy::new(&mut body_reader, ups_writer, &self.copy_config);
+                    StreamCopy::new(&mut body_reader, ups_writer, &self.copy_config);
                 Self::send_request_body(&self.idle_checker, &mut body_copy).await?;
 
                 state.mark_ups_send_all();
@@ -188,7 +188,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
 
     async fn send_request_body<R, W>(
         idle_checker: &I,
-        mut body_copy: &mut LimitedCopy<'_, R, W>,
+        mut body_copy: &mut StreamCopy<'_, R, W>,
     ) -> Result<(), H1ReqmodAdaptationError>
     where
         R: AsyncRead + Unpin,
@@ -204,8 +204,8 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                 r = &mut body_copy => {
                     return match r {
                         Ok(_) => Ok(()),
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(H1ReqmodAdaptationError::IcapServerReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed(e)),
+                        Err(StreamCopyError::ReadFailed(e)) => Err(H1ReqmodAdaptationError::IcapServerReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(H1ReqmodAdaptationError::HttpUpstreamWriteFailed(e)),
                     };
                 }
                 n = idle_interval.tick() => {

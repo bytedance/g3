@@ -14,8 +14,8 @@ use g3_http::client::HttpForwardRemoteResponse;
 use g3_http::server::HttpProxyClientRequest;
 use g3_http::{HttpBodyReader, HttpBodyType};
 use g3_io_ext::{
-    GlobalLimitGroup, LimitedBufReadExt, LimitedCopy, LimitedCopyError, LimitedReadExt,
-    LimitedWriteExt,
+    GlobalLimitGroup, LimitedBufReadExt, LimitedReadExt, LimitedWriteExt, StreamCopy,
+    StreamCopyError,
 };
 use g3_types::acl::AclAction;
 
@@ -929,13 +929,13 @@ impl<'a> HttpRProxyForwardTask<'a> {
         self.http_notes.retry_new_connection = false;
 
         let mut clt_to_ups = match fast_read_buf {
-            Some(buf) => LimitedCopy::with_data(
+            Some(buf) => StreamCopy::with_data(
                 clt_body_reader,
                 ups_w,
                 &self.ctx.server_config.tcp_copy,
                 buf,
             ),
-            None => LimitedCopy::new(clt_body_reader, ups_w, &self.ctx.server_config.tcp_copy),
+            None => StreamCopy::new(clt_body_reader, ups_w, &self.ctx.server_config.tcp_copy),
         };
 
         let mut rsp_header: Option<HttpForwardRemoteResponse> = None;
@@ -979,8 +979,8 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 }
                 r = &mut clt_to_ups => {
                     r.map_err(|e| match e {
-                        LimitedCopyError::ReadFailed(e) => ServerTaskError::ClientTcpReadFailed(e),
-                        LimitedCopyError::WriteFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
+                        StreamCopyError::ReadFailed(e) => ServerTaskError::ClientTcpReadFailed(e),
+                        StreamCopyError::WriteFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
                     })?;
                     self.http_notes.mark_req_send_all();
                     break;
@@ -1162,7 +1162,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
         let mut body_reader =
             HttpBodyReader::new(ups_r, body_type, self.ctx.server_config.body_line_max_len);
 
-        let mut ups_to_clt = LimitedCopy::with_data(
+        let mut ups_to_clt = StreamCopy::with_data(
             &mut body_reader,
             clt_w,
             &self.ctx.server_config.tcp_copy,
@@ -1183,13 +1183,13 @@ impl<'a> HttpRProxyForwardTask<'a> {
                             // clt_w is already flushed
                             Ok(())
                         }
-                        Err(LimitedCopyError::ReadFailed(e)) => {
+                        Err(StreamCopyError::ReadFailed(e)) => {
                             if ups_to_clt.copied_size() < header_len {
                                 let _ = ups_to_clt.write_flush().await; // flush rsp header to client
                             }
                             Err(ServerTaskError::UpstreamReadFailed(e))
                         }
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                     };
                 }
                 _ = log_interval.tick() => {

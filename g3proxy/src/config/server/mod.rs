@@ -13,7 +13,7 @@ use slog::Logger;
 use yaml_rust::{Yaml, yaml};
 
 use g3_daemon::config::TopoMap;
-use g3_io_ext::LimitedCopyConfig;
+use g3_io_ext::StreamCopyConfig;
 use g3_macros::AnyConfig;
 use g3_types::metrics::NodeName;
 use g3_yaml::{HybridParser, YamlDocPosition};
@@ -91,8 +91,8 @@ pub(crate) trait ServerConfig {
         None
     }
 
-    fn limited_copy_config(&self) -> LimitedCopyConfig {
-        LimitedCopyConfig::default()
+    fn limited_copy_config(&self) -> StreamCopyConfig {
+        StreamCopyConfig::default()
     }
     fn task_max_idle_count(&self) -> usize {
         1

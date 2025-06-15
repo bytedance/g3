@@ -9,7 +9,7 @@ use std::task::{Context, Poll, ready};
 
 use tokio::io::{AsyncBufRead, AsyncWrite};
 
-use g3_io_ext::LimitedCopyError;
+use g3_io_ext::StreamCopyError;
 
 struct ChunkedEncodeTransferInternal {
     yield_size: usize,
@@ -43,7 +43,7 @@ impl ChunkedEncodeTransferInternal {
         cx: &mut Context<'_>,
         mut reader: Pin<&mut R>,
         mut writer: Pin<&mut W>,
-    ) -> Poll<Result<u64, LimitedCopyError>>
+    ) -> Poll<Result<u64, StreamCopyError>>
     where
         R: AsyncBufRead,
         W: AsyncWrite,
@@ -52,7 +52,7 @@ impl ChunkedEncodeTransferInternal {
         loop {
             if self.this_chunk_size == 0 && !self.read_finished {
                 let data = ready!(reader.as_mut().poll_fill_buf(cx))
-                    .map_err(LimitedCopyError::ReadFailed)?;
+                    .map_err(StreamCopyError::ReadFailed)?;
                 self.active = true;
                 self.static_header.clear();
                 let chunk_size = data.len();
@@ -85,13 +85,13 @@ impl ChunkedEncodeTransferInternal {
                         .as_mut()
                         .poll_write(cx, &self.static_header[self.static_offset..])
                 )
-                .map_err(LimitedCopyError::WriteFailed)?;
+                .map_err(StreamCopyError::WriteFailed)?;
                 self.active = true;
                 self.static_offset += nw;
                 self.total_write += nw as u64;
             }
             if self.read_finished {
-                ready!(writer.poll_flush(cx)).map_err(LimitedCopyError::WriteFailed)?;
+                ready!(writer.poll_flush(cx)).map_err(StreamCopyError::WriteFailed)?;
                 return Poll::Ready(Ok(self.total_write));
             }
 
@@ -100,7 +100,7 @@ impl ChunkedEncodeTransferInternal {
                     reader
                         .as_mut()
                         .poll_fill_buf(cx)
-                        .map_err(LimitedCopyError::ReadFailed)
+                        .map_err(StreamCopyError::ReadFailed)
                 )?;
                 debug_assert!(self.left_chunk_size <= data.len());
                 let nw = ready!(
@@ -108,7 +108,7 @@ impl ChunkedEncodeTransferInternal {
                         .as_mut()
                         .poll_write(cx, &data[..self.left_chunk_size])
                 )
-                .map_err(LimitedCopyError::WriteFailed)?;
+                .map_err(StreamCopyError::WriteFailed)?;
                 reader.as_mut().consume(nw);
                 copy_this_round += nw;
                 self.active = true;
@@ -201,7 +201,7 @@ where
     R: AsyncBufRead + Unpin,
     W: AsyncWrite + Unpin,
 {
-    type Output = Result<u64, LimitedCopyError>;
+    type Output = Result<u64, StreamCopyError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let me = &mut *self;

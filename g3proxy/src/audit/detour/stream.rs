@@ -8,7 +8,7 @@ use quinn::{RecvStream, SendStream};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::sync::mpsc;
 
-use g3_io_ext::{LimitedCopy, LimitedCopyError};
+use g3_io_ext::{StreamCopy, StreamCopyError};
 use g3_types::net::{ProxyProtocolEncodeError, ProxyProtocolV2Encoder};
 
 use super::{DetourAction, StreamDetourContext};
@@ -60,10 +60,10 @@ where
 
         let copy_config = self.server_config.limited_copy_config();
 
-        let mut clt_to_d = LimitedCopy::new(&mut clt_r, &mut north_send, &copy_config);
-        let mut d_to_ups = LimitedCopy::new(&mut north_recv, &mut ups_w, &copy_config);
-        let mut ups_to_d = LimitedCopy::new(&mut ups_r, &mut south_send, &copy_config);
-        let mut d_to_clt = LimitedCopy::new(&mut south_recv, &mut clt_w, &copy_config);
+        let mut clt_to_d = StreamCopy::new(&mut clt_r, &mut north_send, &copy_config);
+        let mut d_to_ups = StreamCopy::new(&mut north_recv, &mut ups_w, &copy_config);
+        let mut ups_to_d = StreamCopy::new(&mut ups_r, &mut south_send, &copy_config);
+        let mut d_to_clt = StreamCopy::new(&mut south_recv, &mut clt_w, &copy_config);
 
         let mut idle_interval = self.idle_wheel.register();
         let mut idle_count = 0;
@@ -78,11 +78,11 @@ where
                             self.relay_after_client_closed(north_send, south_send, d_to_ups).await;
                             Err(ServerTaskError::ClosedByClient)
                         },
-                        Err(LimitedCopyError::ReadFailed(e)) => {
+                        Err(StreamCopyError::ReadFailed(e)) => {
                             self.relay_after_client_closed(north_send, south_send, d_to_ups).await;
                             Err(ServerTaskError::ClientTcpReadFailed(e))
                         },
-                        Err(LimitedCopyError::WriteFailed(e)) => {
+                        Err(StreamCopyError::WriteFailed(e)) => {
                             self.relay_after_detour_failed(south_send, d_to_ups, d_to_clt).await;
                             Err(
                                 ServerTaskError::InternalAdapterError(
@@ -102,7 +102,7 @@ where
                                 )
                             )
                         },
-                        Err(LimitedCopyError::ReadFailed(e)) => {
+                        Err(StreamCopyError::ReadFailed(e)) => {
                             self.relay_after_detour_failed(south_send, d_to_ups, d_to_clt).await;
                             Err(
                                 ServerTaskError::InternalAdapterError(
@@ -110,7 +110,7 @@ where
                                 )
                             )
                         },
-                        Err(LimitedCopyError::WriteFailed(e)) => {
+                        Err(StreamCopyError::WriteFailed(e)) => {
                             self.relay_after_remote_closed(north_send, south_send, d_to_clt).await;
                             Err(ServerTaskError::UpstreamWriteFailed(e))
                         },
@@ -122,11 +122,11 @@ where
                             self.relay_after_remote_closed(north_send, south_send, d_to_clt).await;
                             Err(ServerTaskError::ClosedByUpstream)
                         },
-                        Err(LimitedCopyError::ReadFailed(e)) => {
+                        Err(StreamCopyError::ReadFailed(e)) => {
                             self.relay_after_remote_closed(north_send, south_send, d_to_clt).await;
                             Err(ServerTaskError::UpstreamReadFailed(e))
                         },
-                        Err(LimitedCopyError::WriteFailed(e)) => {
+                        Err(StreamCopyError::WriteFailed(e)) => {
                             self.relay_after_detour_failed(north_send, d_to_ups, d_to_clt).await;
                             Err(
                                 ServerTaskError::InternalAdapterError(
@@ -146,7 +146,7 @@ where
                                 )
                             )
                         },
-                        Err(LimitedCopyError::ReadFailed(e)) => {
+                        Err(StreamCopyError::ReadFailed(e)) => {
                             self.relay_after_detour_failed(north_send, d_to_ups, d_to_clt).await;
                             Err(
                                 ServerTaskError::InternalAdapterError(
@@ -154,7 +154,7 @@ where
                                 )
                             )
                         },
-                        Err(LimitedCopyError::WriteFailed(e)) => {
+                        Err(StreamCopyError::WriteFailed(e)) => {
                             self.relay_after_client_closed(north_send, south_send, d_to_ups).await;
                             Err(ServerTaskError::ClientTcpWriteFailed(e))
                         },
@@ -292,7 +292,7 @@ where
         self,
         mut north_send: SendStream,
         mut south_send: SendStream,
-        mut d_to_ups: LimitedCopy<'_, RecvStream, UW>,
+        mut d_to_ups: StreamCopy<'_, RecvStream, UW>,
     ) where
         UW: AsyncWrite + Unpin,
     {
@@ -310,7 +310,7 @@ where
         self,
         mut north_send: SendStream,
         mut south_send: SendStream,
-        mut d_to_clt: LimitedCopy<'_, RecvStream, CW>,
+        mut d_to_clt: StreamCopy<'_, RecvStream, CW>,
     ) where
         CW: AsyncWrite + Unpin,
     {
@@ -327,8 +327,8 @@ where
     async fn relay_after_detour_failed<CW, UW>(
         self,
         mut left_sender: SendStream,
-        mut d_to_ups: LimitedCopy<'_, RecvStream, UW>,
-        mut d_to_clt: LimitedCopy<'_, RecvStream, CW>,
+        mut d_to_ups: StreamCopy<'_, RecvStream, UW>,
+        mut d_to_clt: StreamCopy<'_, RecvStream, CW>,
     ) where
         CW: AsyncWrite + Unpin,
         UW: AsyncWrite + Unpin,

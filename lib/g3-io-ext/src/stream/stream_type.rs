@@ -1,6 +1,6 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
- * Copyright 2024-2025 ByteDance and/or its affiliates.
+ * Copyright 2025 ByteDance and/or its affiliates.
  */
 
 use tokio::io::{AsyncRead, AsyncWrite, Join};
@@ -34,9 +34,3 @@ where
         self.into_inner()
     }
 }
-
-#[cfg(feature = "openssl")]
-pub mod openssl;
-
-#[cfg(feature = "rustls")]
-pub mod rustls;

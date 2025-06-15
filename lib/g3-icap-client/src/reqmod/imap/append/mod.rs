@@ -8,7 +8,7 @@ use std::io::{IoSlice, Write};
 use bytes::BufMut;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-use g3_io_ext::{IdleCheck, LimitedCopy, LimitedWriteExt};
+use g3_io_ext::{IdleCheck, LimitedWriteExt, StreamCopy};
 
 use super::{HttpAdapterErrorResponse, ImapAdaptationError, ImapMessageAdapter};
 use crate::reqmod::IcapReqmodResponsePayload;
@@ -164,7 +164,7 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
             .map_err(ImapAdaptationError::IcapServerWriteFailed)?;
 
         let mut message_reader = clt_r.take(read_size);
-        let mut body_transfer = LimitedCopy::new(
+        let mut body_transfer = StreamCopy::new(
             &mut message_reader,
             &mut self.icap_connection.writer,
             &self.copy_config,

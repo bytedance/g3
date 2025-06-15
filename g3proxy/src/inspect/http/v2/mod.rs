@@ -17,7 +17,7 @@ use tokio::sync::oneshot;
 use g3_daemon::server::ServerQuitPolicy;
 use g3_dpi::{Protocol, ProtocolInspectAction};
 use g3_h2::H2BodyTransfer;
-use g3_io_ext::{IdleInterval, LimitedCopyConfig, OnceBufReader};
+use g3_io_ext::{IdleInterval, OnceBufReader, StreamCopyConfig};
 use g3_slog_types::{LtUpstreamAddr, LtUuid};
 use g3_types::net::UpstreamAddr;
 
@@ -118,7 +118,7 @@ impl<SC: ServerConfig> H2InterceptObject<SC> {
 }
 
 impl<SC: ServerConfig> StreamTransitTask for H2InterceptObject<SC> {
-    fn copy_config(&self) -> LimitedCopyConfig {
+    fn copy_config(&self) -> StreamCopyConfig {
         self.ctx.server_config.limited_copy_config()
     }
 

@@ -12,8 +12,8 @@ use std::task::{Context, Poll};
 use pin_project_lite::pin_project;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 
-use super::limited_read::{LimitedReaderState, LimitedReaderStats};
-use super::limited_write::{LimitedWriterState, LimitedWriterStats};
+use super::read::{LimitedReaderState, LimitedReaderStats};
+use super::write::{LimitedWriterState, LimitedWriterStats};
 use crate::limit::GlobalStreamLimit;
 use crate::{AsyncStream, LimitedReader, LimitedWriter};
 

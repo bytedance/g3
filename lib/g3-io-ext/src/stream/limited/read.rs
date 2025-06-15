@@ -15,8 +15,8 @@ use pin_project_lite::pin_project;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::time::{Instant, Sleep};
 
-use super::AsyncStream;
 use crate::limit::{GlobalLimitGroup, GlobalStreamLimit, StreamLimitAction, StreamLimiter};
+use crate::stream::AsyncStream;
 
 pub trait LimitedReaderStats {
     fn add_read_bytes(&self, size: usize);

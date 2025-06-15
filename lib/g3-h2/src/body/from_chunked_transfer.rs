@@ -13,7 +13,7 @@ use thiserror::Error;
 use tokio::io::AsyncBufRead;
 
 use g3_http::{ChunkedDataDecodeReader, TrailerReadError, TrailerReader};
-use g3_io_ext::LimitedCopyConfig;
+use g3_io_ext::StreamCopyConfig;
 
 use super::{H2StreamBodyEncodeTransferError, ROwnedH2BodyEncodeTransfer};
 
@@ -110,7 +110,7 @@ impl<'a, R> H2StreamFromChunkedTransfer<'a, R> {
     pub fn new(
         reader: &'a mut R,
         send_stream: &'a mut SendStream<Bytes>,
-        copy_config: &LimitedCopyConfig,
+        copy_config: &StreamCopyConfig,
         body_line_max_size: usize,
         trailer_max_size: usize,
     ) -> Self {

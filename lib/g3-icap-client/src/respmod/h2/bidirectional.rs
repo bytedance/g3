@@ -11,7 +11,7 @@ use g3_h2::{
     H2StreamFromChunkedTransfer, H2StreamFromChunkedTransferError, H2StreamToChunkedTransfer,
     H2StreamToChunkedTransferError, ResponseExt,
 };
-use g3_io_ext::{IdleCheck, LimitedBufReadExt, LimitedCopyConfig};
+use g3_io_ext::{IdleCheck, LimitedBufReadExt, StreamCopyConfig};
 
 use super::{
     H2RespmodAdaptationError, H2SendResponseToClient, HttpAdaptedResponse,
@@ -107,7 +107,7 @@ impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
 
 pub(super) struct BidirectionalRecvHttpResponse<'a, I: IdleCheck> {
     pub(super) icap_reader: &'a mut IcapClientReader,
-    pub(super) copy_config: LimitedCopyConfig,
+    pub(super) copy_config: StreamCopyConfig,
     pub(super) http_body_line_max_size: usize,
     pub(super) http_trailer_max_size: usize,
     pub(super) idle_checker: &'a I,
