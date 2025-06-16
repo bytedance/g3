@@ -49,6 +49,7 @@ flume = { workspace = true, features = ["eventual-fairness"], optional = true }
 slog = { workspace = true, optional = true }
 indexmap = { workspace = true, optional = true }
 brotli = { version = "8.0", optional = true, default-features = false, features = ["std"] }
+g3-std-ext.workspace = true
 
 [features]
 default = []

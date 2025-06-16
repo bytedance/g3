@@ -570,7 +570,7 @@ impl UdpSocketExt for UdpSocket {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use g3_types::ext::SocketAddrExt;
+    use g3_std_ext::net::SocketAddrExt;
     use g3_types::net::UdpListenConfig;
     use std::future::poll_fn;
     use std::io::IoSliceMut;

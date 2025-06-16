@@ -15,6 +15,7 @@ openssl.workspace = true
 tokio = { workspace = true, features = ["macros", "net", "io-util", "time", "signal"] }
 flume = { workspace = true, features = ["async"] }
 yaml-rust.workspace = true
+g3-std-ext.workspace = true
 g3-types.workspace = true
 g3-yaml = { workspace = true, features = ["histogram", "openssl"] }
 g3-daemon.workspace = true

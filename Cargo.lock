@@ -1101,6 +1101,7 @@ dependencies = [
  "g3-runtime",
  "g3-socket",
  "g3-statsd-client",
+ "g3-std-ext",
  "g3-stdlog",
  "g3-syslog",
  "g3-types",
@@ -1324,6 +1325,7 @@ dependencies = [
  "g3-openssl",
  "g3-resolver",
  "g3-socket",
+ "g3-std-ext",
  "g3-types",
  "governor",
  "libc",
@@ -1562,6 +1564,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "g3-std-ext"
+version = "0.1.0"
+
+[[package]]
 name = "g3-stdlog"
 version = "0.2.0"
 dependencies = [
@@ -1644,6 +1650,7 @@ dependencies = [
  "flume",
  "fnv",
  "foldhash",
+ "g3-std-ext",
  "governor",
  "hex",
  "http",
@@ -1747,6 +1754,7 @@ dependencies = [
  "g3-socket",
  "g3-socks",
  "g3-statsd-client",
+ "g3-std-ext",
  "g3-tls-cert",
  "g3-types",
  "governor",
@@ -1785,6 +1793,7 @@ dependencies = [
  "g3-histogram",
  "g3-socket",
  "g3-statsd-client",
+ "g3-std-ext",
  "g3-tls-cert",
  "g3-types",
  "g3-yaml",
@@ -1847,6 +1856,7 @@ dependencies = [
  "g3-slog-types",
  "g3-socket",
  "g3-statsd-client",
+ "g3-std-ext",
  "g3-tls-cert",
  "g3-types",
  "g3-yaml",
@@ -1951,6 +1961,7 @@ dependencies = [
  "g3-socket",
  "g3-socks",
  "g3-statsd-client",
+ "g3-std-ext",
  "g3-tls-ticket",
  "g3-types",
  "g3-udpdump",
@@ -2129,6 +2140,7 @@ dependencies = [
  "g3-slog-types",
  "g3-socket",
  "g3-statsd-client",
+ "g3-std-ext",
  "g3-tls-ticket",
  "g3-types",
  "g3-yaml",

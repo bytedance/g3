@@ -6,7 +6,6 @@
 pub mod auth;
 pub mod collection;
 pub mod error;
-pub mod ext;
 pub mod fs;
 pub mod limit;
 pub mod log;
