@@ -1,4 +1,7 @@
 
+v1.11.8:
+ - Optimization: rename stat config option emit_duration to emit_interval
+
 v1.11.7:
  - BUG FIX: fix read of H2 zero size body frame
  - BUG FIX: fix format of HTTP 1 OPTIONS header line

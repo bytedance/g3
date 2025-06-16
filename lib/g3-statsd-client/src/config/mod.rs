@@ -38,7 +38,7 @@ impl Default for StatsdBackend {
 pub struct StatsdClientConfig {
     backend: StatsdBackend,
     prefix: NodeName,
-    pub emit_duration: Duration,
+    pub emit_interval: Duration,
 }
 
 impl Default for StatsdClientConfig {
@@ -52,7 +52,7 @@ impl StatsdClientConfig {
         StatsdClientConfig {
             backend: StatsdBackend::default(),
             prefix,
-            emit_duration: Duration::from_millis(200),
+            emit_interval: Duration::from_millis(200),
         }
     }
 

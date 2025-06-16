@@ -247,7 +247,7 @@ where
             if !has_pending {
                 if let Some(stat_config) = g3_daemon::stat::config::get_global_stat_config() {
                     // sleep more time for flushing metrics
-                    tokio::time::sleep(stat_config.emit_duration * 2).await;
+                    tokio::time::sleep(stat_config.emit_interval * 2).await;
                 }
                 break;
             }
