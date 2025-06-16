@@ -133,8 +133,8 @@ impl StatsdClientConfig {
                     config.set_prefix(prefix);
                     Ok(())
                 }
-                "emit_duration" => {
-                    config.emit_duration = g3_yaml::humanize::as_duration(v)
+                "emit_interval" | "emit_duration" => {
+                    config.emit_interval = g3_yaml::humanize::as_duration(v)
                         .context(format!("invalid humanize duration value for key {k}"))?;
                     Ok(())
                 }

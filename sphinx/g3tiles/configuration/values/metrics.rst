@@ -1,4 +1,3 @@
-
 .. _configure_metrics_value_types:
 
 *******
@@ -203,11 +202,13 @@ Set the global prefix for all metrics.
 
 **default**: "g3tiles"
 
-emit_duration
+emit_interval
 -------------
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
 
-Set the emit duration for local stats. All stats will be send out in sequence.
+Set the emit interval for local stats. All stats will be send out in sequence.
 
-**default**: 200ms
+**default**: 200ms, **alias**: emit_duration
+
+.. versionchanged:: 0.3.9 name changed to emit_interval

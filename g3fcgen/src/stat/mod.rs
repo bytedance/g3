@@ -39,7 +39,7 @@ pub(crate) fn spawn_working_thread(
 
                 client.flush_sink();
 
-                g3_daemon::stat::emit::wait_duration(config.emit_duration, instant_start);
+                g3_daemon::stat::emit::wait_duration(config.emit_interval, instant_start);
             }
         })
         .map_err(|e| anyhow!("failed to spawn thread: {e:?}"))?;

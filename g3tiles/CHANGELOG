@@ -1,4 +1,7 @@
 
+v0.3.9:
+ - Optimization: rename stat config option emit_duration to emit_interval
+
 v0.3.8:
  - BUG FIX: fix deadlock when reload port servers
  - Feature: allow to quit process on panic

@@ -127,7 +127,7 @@ impl ProcArgs {
                     let pid = std::process::id();
                     let mut buffer = itoa::Buffer::new();
                     let client = client.with_tag("pid", buffer.format(pid));
-                    Some((client, config.emit_duration))
+                    Some((client, config.emit_interval))
                 }
                 Err(e) => {
                     eprintln!("unable to build statsd client: {e}");

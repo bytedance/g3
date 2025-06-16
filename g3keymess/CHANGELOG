@@ -1,4 +1,7 @@
 
+v0.4.3:
+ - Optimization: rename stat config option emit_duration to emit_interval
+
 v0.4.2:
  - Feature: allow to read symlink files on local store dir
  - Feature: allow to retry register on startup
