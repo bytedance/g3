@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use g3_histogram::{HistogramRecorder, KeepingHistogram};
 use g3_statsd_client::StatsdClient;
-use g3_types::ext::DurationExt;
+use g3_std_ext::time::DurationExt;
 
 use crate::target::BenchHistogram;
 

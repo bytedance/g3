@@ -19,8 +19,8 @@ use tokio_rustls::TlsConnector;
 use tokio_rustls::client::TlsStream;
 
 use g3_io_ext::AsyncStream;
+use g3_std_ext::time::DurationExt;
 use g3_types::collection::{SelectiveVec, WeightedValue};
-use g3_types::ext::DurationExt;
 use g3_types::net::RustlsClientConfig;
 
 use crate::config::backend::keyless_tcp::KeylessTcpBackendConfig;

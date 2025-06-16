@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use crate::ext::OptionExt;
+use g3_std_ext::core::OptionExt;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct UdpMiscSockOpts {

@@ -11,7 +11,7 @@ use tokio::runtime::Handle;
 use tokio::time::Instant;
 
 use g3_cert_agent::Request;
-use g3_types::ext::DurationExt;
+use g3_std_ext::time::DurationExt;
 
 pub mod config;
 

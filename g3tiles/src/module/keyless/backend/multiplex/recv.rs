@@ -11,7 +11,7 @@ use tokio::sync::{broadcast, oneshot};
 use tokio::time::Interval;
 
 use g3_io_ext::LimitedBufReadExt;
-use g3_types::ext::DurationExt;
+use g3_std_ext::time::DurationExt;
 
 use super::StreamSharedState;
 use crate::module::keyless::{

@@ -86,6 +86,7 @@ g3-smtp-proto.workspace = true
 g3-socket.workspace = true
 g3-socks.workspace = true
 g3-statsd-client.workspace = true
+g3-std-ext.workspace = true
 g3-types = { workspace = true, features = ["auth-crypt", "openssl", "rustls", "acl-rule", "http", "route", "async-log"] }
 g3-tls-ticket = { workspace = true, features = ["yaml"] }
 g3-udpdump = { workspace = true, features = ["yaml"] }

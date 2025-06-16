@@ -17,7 +17,7 @@ use uuid::Uuid;
 use g3_daemon::server::ClientConnectionInfo;
 use g3_histogram::HistogramRecorder;
 use g3_slog_types::{LtDateTime, LtUuid};
-use g3_types::ext::DurationExt;
+use g3_std_ext::time::DurationExt;
 
 use crate::config::server::KeyServerConfig;
 use crate::protocol::{KeylessAction, KeylessErrorResponse, KeylessRequest, KeylessResponse};
