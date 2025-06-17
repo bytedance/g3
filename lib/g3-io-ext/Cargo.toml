@@ -28,7 +28,6 @@ g3-resolver = { workspace = true, optional = true }
 g3-openssl = { workspace = true, optional = true }
 
 [target.'cfg(unix)'.dependencies]
-rustix = { workspace = true, features = ["std", "net"] }
 libc.workspace = true
 
 [target.'cfg(windows)'.dependencies]

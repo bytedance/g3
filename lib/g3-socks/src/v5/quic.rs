@@ -18,7 +18,7 @@ use tokio::sync::{broadcast, oneshot};
 use tokio::time::sleep_until;
 
 use g3_io_ext::{QuinnUdpPollHelper, UdpSocketExt};
-use g3_io_sys::udp::RecvMsgHdr;
+use g3_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
 use g3_types::net::Host;
 
 use super::udp_io::{UDP_HEADER_LEN_IPV4, UDP_HEADER_LEN_IPV6};
@@ -212,15 +212,14 @@ impl AsyncUdpSocket for Socks5UdpSocket {
     fn try_send(&self, transmit: &Transmit) -> io::Result<()> {
         assert_eq!(self.quic_peer_addr, transmit.destination);
 
-        self.io
-            .try_sendmsg(
-                &[
-                    IoSlice::new(self.send_socks_header.as_ref()),
-                    IoSlice::new(transmit.contents),
-                ],
-                None,
-            )
-            .map(|_| ())
+        let hdr = SendMsgHdr::new(
+            [
+                IoSlice::new(self.send_socks_header.as_ref()),
+                IoSlice::new(transmit.contents),
+            ],
+            None,
+        );
+        self.io.try_sendmsg(&hdr).map(|_| ())
     }
 
     #[cfg(any(

@@ -16,6 +16,7 @@ use std::task::{Context, Poll, ready};
 ))]
 use g3_io_ext::UdpCopyPacket;
 use g3_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
+use g3_io_sys::udp::SendMsgHdr;
 use g3_socks::v5::UdpOutput;
 use g3_types::net::UpstreamAddr;
 
@@ -48,12 +49,9 @@ where
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        let nw = ready!(self.inner.poll_sendmsg(
-            cx,
-            &[IoSlice::new(&self.socks5_header), IoSlice::new(buf)],
-            None
-        ))
-        .map_err(UdpCopyRemoteError::SendFailed)?;
+        let hdr = SendMsgHdr::new([IoSlice::new(&self.socks5_header), IoSlice::new(buf)], None);
+        let nw =
+            ready!(self.inner.poll_sendmsg(cx, &hdr)).map_err(UdpCopyRemoteError::SendFailed)?;
         if nw == 0 {
             Poll::Ready(Err(UdpCopyRemoteError::SendFailed(io::Error::new(
                 io::ErrorKind::WriteZero,
@@ -76,8 +74,6 @@ where
         cx: &mut Context<'_>,
         packets: &[UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        use g3_io_sys::udp::SendMsgHdr;
-
         let mut msgs: Vec<SendMsgHdr<2>> = packets
             .iter()
             .map(|p| {
@@ -106,8 +102,6 @@ where
         cx: &mut Context<'_>,
         packets: &[UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
-        use g3_io_sys::udp::SendMsgHdr;
-
         let mut msgs: Vec<SendMsgHdr<2>> = packets
             .iter()
             .map(|p| {
