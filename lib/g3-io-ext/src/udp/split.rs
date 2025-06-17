@@ -134,6 +134,14 @@ impl AsyncUdpRecv for RecvHalf {
         Poll::Ready(Ok(buf.filled().len()))
     }
 
+    fn poll_recvmsg<const C: usize>(
+        &mut self,
+        cx: &mut Context<'_>,
+        hdr: &mut RecvMsgHdr<'_, C>,
+    ) -> Poll<io::Result<()>> {
+        self.0.poll_recvmsg(cx, hdr)
+    }
+
     #[cfg(any(
         target_os = "linux",
         target_os = "android",

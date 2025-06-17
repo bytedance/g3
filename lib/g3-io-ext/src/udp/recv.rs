@@ -13,15 +13,6 @@ use std::time::Duration;
 use futures_util::FutureExt;
 use tokio::time::{Instant, Sleep};
 
-#[cfg(any(
-    target_os = "linux",
-    target_os = "android",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd",
-    target_os = "macos",
-    target_os = "solaris",
-))]
 use g3_io_sys::udp::RecvMsgHdr;
 
 use crate::limit::{DatagramLimitAction, DatagramLimiter};
@@ -35,6 +26,12 @@ pub trait AsyncUdpRecv {
     ) -> Poll<io::Result<(usize, SocketAddr)>>;
 
     fn poll_recv(&mut self, cx: &mut Context<'_>, buf: &mut [u8]) -> Poll<io::Result<usize>>;
+
+    fn poll_recvmsg<const C: usize>(
+        &mut self,
+        cx: &mut Context<'_>,
+        hdr: &mut RecvMsgHdr<'_, C>,
+    ) -> Poll<io::Result<()>>;
 
     #[cfg(any(
         target_os = "linux",
@@ -201,6 +198,62 @@ where
             self.stats.add_recv_packet();
             self.stats.add_recv_bytes(nr);
             Poll::Ready(Ok(nr))
+        }
+    }
+
+    fn poll_recvmsg<const C: usize>(
+        &mut self,
+        cx: &mut Context<'_>,
+        hdr: &mut RecvMsgHdr<'_, C>,
+    ) -> Poll<io::Result<()>> {
+        if self.limit.is_set() {
+            let dur_millis = self.started.elapsed().as_millis() as u64;
+            let total_size = hdr.iov.iter().map(|v| v.len()).sum::<usize>();
+            match self.limit.check_packet(dur_millis, total_size) {
+                DatagramLimitAction::Advance(_) => match self.inner.poll_recvmsg(cx, hdr) {
+                    Poll::Ready(Ok(_)) => {
+                        self.limit.set_advance(1, hdr.n_recv);
+                        self.stats.add_recv_packet();
+                        self.stats.add_recv_bytes(hdr.n_recv);
+                        Poll::Ready(Ok(()))
+                    }
+                    Poll::Ready(Err(e)) => {
+                        self.limit.release_global();
+                        Poll::Ready(Err(e))
+                    }
+                    Poll::Pending => {
+                        self.limit.release_global();
+                        Poll::Pending
+                    }
+                },
+                DatagramLimitAction::DelayUntil(t) => {
+                    self.delay.as_mut().reset(t);
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
+                }
+                DatagramLimitAction::DelayFor(ms) => {
+                    self.delay
+                        .as_mut()
+                        .reset(self.started + Duration::from_millis(dur_millis + ms));
+                    match self.delay.poll_unpin(cx) {
+                        Poll::Ready(_) => {
+                            cx.waker().wake_by_ref();
+                            Poll::Pending
+                        }
+                        Poll::Pending => Poll::Pending,
+                    }
+                }
+            }
+        } else {
+            ready!(self.inner.poll_recvmsg(cx, hdr))?;
+            self.stats.add_recv_packet();
+            self.stats.add_recv_bytes(hdr.n_recv);
+            Poll::Ready(Ok(()))
         }
     }
 
