@@ -18,7 +18,7 @@ use g3_io_ext::{AsyncUdpRecv, UdpCopyClientError, UdpCopyClientRecv};
     target_os = "macos",
     target_os = "solaris",
 ))]
-use g3_io_ext::{RecvMsgHdr, UdpCopyPacket, UdpCopyPacketMeta};
+use g3_io_ext::{UdpCopyPacket, UdpCopyPacketMeta};
 use g3_socks::v5::UdpInput;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::net::UpstreamAddr;
@@ -165,6 +165,8 @@ where
         cx: &mut Context<'_>,
         packets: &mut [UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyClientError>> {
+        use g3_io_sys::udp::RecvMsgHdr;
+
         let mut hdr_v: Vec<RecvMsgHdr<1>> = packets
             .iter_mut()
             .map(|p| RecvMsgHdr::new([std::io::IoSliceMut::new(p.buf_mut())]))

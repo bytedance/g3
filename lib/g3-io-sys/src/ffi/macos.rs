@@ -1,12 +1,12 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
- * Copyright 2024-2025 ByteDance and/or its affiliates.
+ * Copyright 2025 ByteDance and/or its affiliates.
  */
 
 use libc::{c_int, c_uint, c_void, iovec, size_t, socklen_t, ssize_t};
 
 #[repr(C)]
-pub(super) struct msghdr_x {
+pub struct msghdr_x {
     pub msg_name: *mut c_void,
     pub msg_namelen: socklen_t,
     pub msg_iov: *mut iovec,
@@ -18,6 +18,6 @@ pub(super) struct msghdr_x {
 }
 
 unsafe extern "C" {
-    pub(super) fn sendmsg_x(s: c_int, msgp: *mut msghdr_x, cnt: c_uint, flags: c_int) -> ssize_t;
-    pub(super) fn recvmsg_x(s: c_int, msgp: *mut msghdr_x, cnt: c_uint, flags: c_int) -> ssize_t;
+    pub fn sendmsg_x(s: c_int, msgp: *mut msghdr_x, cnt: c_uint, flags: c_int) -> ssize_t;
+    pub fn recvmsg_x(s: c_int, msgp: *mut msghdr_x, cnt: c_uint, flags: c_int) -> ssize_t;
 }

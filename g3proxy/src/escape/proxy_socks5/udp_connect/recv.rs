@@ -18,7 +18,7 @@ use g3_io_ext::{AsyncUdpRecv, UdpCopyRemoteError, UdpCopyRemoteRecv};
     target_os = "openbsd",
     target_os = "macos",
 ))]
-use g3_io_ext::{RecvMsgHdr, UdpCopyPacket, UdpCopyPacketMeta};
+use g3_io_ext::{UdpCopyPacket, UdpCopyPacketMeta};
 use g3_socks::v5::UdpInput;
 
 pub(crate) struct ProxySocks5UdpConnectRemoteRecv<T, C> {
@@ -108,6 +108,8 @@ where
         cx: &mut Context<'_>,
         packets: &mut [UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
+        use g3_io_sys::udp::RecvMsgHdr;
+
         if !self.ignore_ctl_stream {
             self.check_ctl_stream(cx)?;
         }

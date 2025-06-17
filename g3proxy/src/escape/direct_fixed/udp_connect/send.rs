@@ -6,7 +6,6 @@
 use std::io;
 use std::task::{Context, Poll, ready};
 
-use g3_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -15,7 +14,8 @@ use g3_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
     target_os = "openbsd",
     target_os = "macos",
 ))]
-use g3_io_ext::{SendMsgHdr, UdpCopyPacket};
+use g3_io_ext::UdpCopyPacket;
+use g3_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
 
 pub(crate) struct DirectUdpConnectRemoteSend<T> {
     inner: T,
@@ -62,6 +62,7 @@ where
         cx: &mut Context<'_>,
         packets: &[UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
+        use g3_io_sys::udp::SendMsgHdr;
         use std::io::IoSlice;
 
         let mut msgs: Vec<SendMsgHdr<1>> = packets
@@ -87,6 +88,7 @@ where
         cx: &mut Context<'_>,
         packets: &[UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
+        use g3_io_sys::udp::SendMsgHdr;
         use std::io::IoSlice;
 
         let mut msgs: Vec<SendMsgHdr<1>> = packets

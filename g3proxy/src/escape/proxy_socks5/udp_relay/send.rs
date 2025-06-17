@@ -7,7 +7,6 @@ use std::io::{self, IoSlice};
 use std::net::SocketAddr;
 use std::task::{Context, Poll, ready};
 
-use g3_io_ext::{AsyncUdpSend, UdpRelayRemoteError, UdpRelayRemoteSend};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -17,7 +16,8 @@ use g3_io_ext::{AsyncUdpSend, UdpRelayRemoteError, UdpRelayRemoteSend};
     target_os = "macos",
     target_os = "solaris",
 ))]
-use g3_io_ext::{SendMsgHdr, UdpRelayPacket};
+use g3_io_ext::UdpRelayPacket;
+use g3_io_ext::{AsyncUdpSend, UdpRelayRemoteError, UdpRelayRemoteSend};
 use g3_socks::v5::SocksUdpHeader;
 use g3_types::net::UpstreamAddr;
 
@@ -83,6 +83,8 @@ where
         cx: &mut Context<'_>,
         packets: &[UdpRelayPacket],
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
+        use g3_io_sys::udp::SendMsgHdr;
+
         if packets.len() > self.socks_headers.len() {
             self.socks_headers.resize(packets.len(), Default::default());
         }
@@ -116,6 +118,8 @@ where
         cx: &mut Context<'_>,
         packets: &[UdpRelayPacket],
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
+        use g3_io_sys::udp::SendMsgHdr;
+
         if packets.len() > self.socks_headers.len() {
             self.socks_headers.resize(packets.len(), Default::default());
         }

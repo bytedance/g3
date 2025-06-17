@@ -1097,6 +1097,7 @@ dependencies = [
  "g3-fluentd",
  "g3-http",
  "g3-io-ext",
+ "g3-io-sys",
  "g3-journal",
  "g3-runtime",
  "g3-socket",
@@ -1322,6 +1323,7 @@ dependencies = [
  "bytes",
  "fastrand",
  "futures-util",
+ "g3-io-sys",
  "g3-openssl",
  "g3-resolver",
  "g3-socket",
@@ -1340,6 +1342,14 @@ dependencies = [
  "tokio-rustls",
  "tokio-test",
  "tokio-util",
+ "windows-sys 0.60.2",
+]
+
+[[package]]
+name = "g3-io-sys"
+version = "0.1.0"
+dependencies = [
+ "libc",
  "windows-sys 0.60.2",
 ]
 
@@ -1542,6 +1552,7 @@ version = "0.3.0"
 dependencies = [
  "bytes",
  "g3-io-ext",
+ "g3-io-sys",
  "g3-types",
  "quinn",
  "smallvec",
@@ -1689,6 +1700,7 @@ dependencies = [
  "anyhow",
  "g3-dpi",
  "g3-io-ext",
+ "g3-io-sys",
  "g3-socket",
  "g3-types",
  "g3-yaml",
@@ -1949,6 +1961,7 @@ dependencies = [
  "g3-icap-client",
  "g3-imap-proto",
  "g3-io-ext",
+ "g3-io-sys",
  "g3-ip-locate",
  "g3-json",
  "g3-macros",

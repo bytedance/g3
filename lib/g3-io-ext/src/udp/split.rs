@@ -13,7 +13,6 @@ use std::task::{Context, Poll, ready};
 use tokio::io::ReadBuf;
 use tokio::net::UdpSocket;
 
-use super::{AsyncUdpRecv, AsyncUdpSend, UdpSocketExt};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -23,7 +22,9 @@ use super::{AsyncUdpRecv, AsyncUdpSend, UdpSocketExt};
     target_os = "macos",
     target_os = "solaris",
 ))]
-use super::{RecvMsgHdr, SendMsgHdr};
+use g3_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
+
+use super::{AsyncUdpRecv, AsyncUdpSend, UdpSocketExt};
 
 #[derive(Debug)]
 pub struct SendHalf(Arc<UdpSocket>);
