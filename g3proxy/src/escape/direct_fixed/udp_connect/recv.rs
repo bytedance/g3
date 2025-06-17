@@ -14,7 +14,7 @@ use g3_io_ext::{AsyncUdpRecv, UdpCopyRemoteError, UdpCopyRemoteRecv};
     target_os = "openbsd",
     target_os = "macos",
 ))]
-use g3_io_ext::{RecvMsgHdr, UdpCopyPacket, UdpCopyPacketMeta};
+use g3_io_ext::{UdpCopyPacket, UdpCopyPacketMeta};
 
 pub(crate) struct DirectUdpConnectRemoteRecv<T> {
     inner: T,
@@ -59,6 +59,8 @@ where
         cx: &mut Context<'_>,
         packets: &mut [UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
+        use g3_io_sys::udp::RecvMsgHdr;
+
         let mut hdr_v: Vec<RecvMsgHdr<1>> = packets
             .iter_mut()
             .map(|p| RecvMsgHdr::new([std::io::IoSliceMut::new(p.buf_mut())]))

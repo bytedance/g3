@@ -6,7 +6,6 @@
 use std::io::{self, IoSlice};
 use std::task::{Context, Poll, ready};
 
-use g3_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -15,7 +14,8 @@ use g3_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
     target_os = "openbsd",
     target_os = "macos",
 ))]
-use g3_io_ext::{SendMsgHdr, UdpCopyPacket};
+use g3_io_ext::UdpCopyPacket;
+use g3_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
 use g3_socks::v5::UdpOutput;
 use g3_types::net::UpstreamAddr;
 
@@ -76,6 +76,8 @@ where
         cx: &mut Context<'_>,
         packets: &[UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
+        use g3_io_sys::udp::SendMsgHdr;
+
         let mut msgs: Vec<SendMsgHdr<2>> = packets
             .iter()
             .map(|p| {
@@ -104,6 +106,8 @@ where
         cx: &mut Context<'_>,
         packets: &[UdpCopyPacket],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
+        use g3_io_sys::udp::SendMsgHdr;
+
         let mut msgs: Vec<SendMsgHdr<2>> = packets
             .iter()
             .map(|p| {

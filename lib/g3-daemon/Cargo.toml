@@ -37,6 +37,7 @@ g3-runtime = { workspace = true, features = ["yaml"] }
 g3-yaml = { workspace = true, features = ["sched"] }
 g3-statsd-client = { workspace = true, features = ["yaml"] }
 g3-io-ext.workspace = true
+g3-io-sys.workspace = true
 g3-socket.workspace = true
 g3-std-ext.workspace = true
 g3-http = { workspace = true, optional = true }

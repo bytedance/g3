@@ -38,6 +38,7 @@ members = [
     "lib/g3-icap-client",
     "lib/g3-imap-proto",
     "lib/g3-io-ext",
+    "lib/g3-io-sys",
     "lib/g3-ip-locate",
     "lib/g3-journal",
     "lib/g3-json",
@@ -215,6 +216,7 @@ g3-http = { version = "0.4", path = "lib/g3-http" }
 g3-icap-client = { version = "0.3", path = "lib/g3-icap-client" }
 g3-imap-proto = { version = "0.2", path = "lib/g3-imap-proto" }
 g3-io-ext = { version = "0.8", path = "lib/g3-io-ext" }
+g3-io-sys = { version = "0.1", path = "lib/g3-io-sys" }
 g3-ip-locate = { version = "0.2", path = "lib/g3-ip-locate" }
 g3-journal = { version = "0.3", path = "lib/g3-journal" }
 g3-json = { version = "0.4", path = "lib/g3-json" }

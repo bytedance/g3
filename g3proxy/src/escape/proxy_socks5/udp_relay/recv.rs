@@ -20,7 +20,7 @@ use g3_io_ext::{AsyncUdpRecv, UdpRelayRemoteError, UdpRelayRemoteRecv};
     target_os = "macos",
     target_os = "solaris",
 ))]
-use g3_io_ext::{RecvMsgHdr, UdpRelayPacket, UdpRelayPacketMeta};
+use g3_io_ext::{UdpRelayPacket, UdpRelayPacketMeta};
 use g3_socks::v5::UdpInput;
 use g3_types::net::UpstreamAddr;
 
@@ -132,6 +132,8 @@ where
         cx: &mut Context<'_>,
         packets: &mut [UdpRelayPacket],
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
+        use g3_io_sys::udp::RecvMsgHdr;
+
         if self.ignore_ctl_stream {
             self.check_tcp_close(cx)?;
         }

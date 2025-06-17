@@ -16,7 +16,7 @@ use g3_io_ext::{AsyncUdpRecv, UdpRelayRemoteError, UdpRelayRemoteRecv};
     target_os = "macos",
     target_os = "solaris",
 ))]
-use g3_io_ext::{RecvMsgHdr, UdpRelayPacket, UdpRelayPacketMeta};
+use g3_io_ext::{UdpRelayPacket, UdpRelayPacketMeta};
 use g3_types::net::UpstreamAddr;
 
 pub(crate) struct DirectUdpRelayRemoteRecv<T> {
@@ -101,6 +101,8 @@ where
         cx: &mut Context<'_>,
         packets: &mut [UdpRelayPacket],
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
+        use g3_io_sys::udp::RecvMsgHdr;
+
         let mut hdr_v: Vec<RecvMsgHdr<1>> = packets
             .iter_mut()
             .map(|p| RecvMsgHdr::new([std::io::IoSliceMut::new(p.buf_mut())]))

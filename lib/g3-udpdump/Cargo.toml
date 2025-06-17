@@ -14,6 +14,7 @@ yaml-rust = { workspace = true, optional = true }
 g3-types.workspace = true
 g3-socket.workspace = true
 g3-io-ext.workspace = true
+g3-io-sys.workspace = true
 g3-dpi.workspace = true
 g3-yaml = { workspace = true, optional = true }
 

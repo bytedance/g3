@@ -11,7 +11,6 @@ use std::task::{Context, Poll, ready};
 
 use lru::LruCache;
 
-use g3_io_ext::{AsyncUdpSend, UdpRelayRemoteError, UdpRelayRemoteSend};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -20,7 +19,8 @@ use g3_io_ext::{AsyncUdpSend, UdpRelayRemoteError, UdpRelayRemoteSend};
     target_os = "openbsd",
     target_os = "solaris",
 ))]
-use g3_io_ext::{SendMsgHdr, UdpRelayPacket};
+use g3_io_ext::UdpRelayPacket;
+use g3_io_ext::{AsyncUdpSend, UdpRelayRemoteError, UdpRelayRemoteSend};
 use g3_resolver::{ResolveError, ResolveLocalError};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::net::{Host, UpstreamAddr};
@@ -284,6 +284,7 @@ where
         cx: &mut Context<'_>,
         packets: &[UdpRelayPacket],
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
+        use g3_io_sys::udp::SendMsgHdr;
         use std::io::IoSlice;
 
         let mut msgs: Vec<SendMsgHdr<1>> = packets

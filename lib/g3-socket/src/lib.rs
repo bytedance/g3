@@ -19,5 +19,3 @@ pub use bind::BindAddr;
 
 mod connect;
 pub use connect::{TcpConnectInfo, UdpConnectInfo};
-
-pub mod cmsg;

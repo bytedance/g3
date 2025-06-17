@@ -22,7 +22,8 @@ use tokio::time::{Instant, Sleep};
     target_os = "macos",
     target_os = "solaris",
 ))]
-use super::SendMsgHdr;
+use g3_io_sys::udp::SendMsgHdr;
+
 use crate::limit::{DatagramLimitAction, DatagramLimiter};
 use crate::{ArcLimitedSendStats, GlobalDatagramLimit};
 

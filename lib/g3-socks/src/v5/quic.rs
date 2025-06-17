@@ -17,7 +17,8 @@ use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::sync::{broadcast, oneshot};
 use tokio::time::sleep_until;
 
-use g3_io_ext::{QuinnUdpPollHelper, RecvMsgHdr, UdpSocketExt};
+use g3_io_ext::{QuinnUdpPollHelper, UdpSocketExt};
+use g3_io_sys::udp::RecvMsgHdr;
 use g3_types::net::Host;
 
 use super::udp_io::{UDP_HEADER_LEN_IPV4, UDP_HEADER_LEN_IPV6};
