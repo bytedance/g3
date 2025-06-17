@@ -33,14 +33,16 @@ impl UdpSocketExt for UdpSocket {
         let raw_fd = self.as_raw_socket() as usize;
         let mut sendmsg = || {
             let mut n_sent = 0u32;
-            let r = WinSock::WSASendMsg(
-                raw_fd,
-                ptr::from_mut(&mut msghdr),
-                0,
-                &mut n_sent,
-                ptr::null_mut(),
-                None,
-            );
+            let r = unsafe {
+                WinSock::WSASendMsg(
+                    raw_fd,
+                    ptr::from_mut(&mut msghdr),
+                    0,
+                    &mut n_sent,
+                    ptr::null_mut(),
+                    None,
+                )
+            };
             if r != 0 {
                 Err(io::Error::last_os_error())
             } else {
@@ -69,14 +71,16 @@ impl UdpSocketExt for UdpSocket {
 
         self.try_io(Interest::WRITABLE, || {
             let mut n_sent = 0u32;
-            let r = WinSock::WSASendMsg(
-                raw_fd,
-                ptr::from_mut(&mut msghdr),
-                0,
-                &mut n_sent,
-                ptr::null_mut(),
-                None,
-            );
+            let r = unsafe {
+                WinSock::WSASendMsg(
+                    raw_fd,
+                    ptr::from_mut(&mut msghdr),
+                    0,
+                    &mut n_sent,
+                    ptr::null_mut(),
+                    None,
+                )
+            };
             if r != 0 {
                 Err(io::Error::last_os_error())
             } else {
