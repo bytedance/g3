@@ -4,13 +4,10 @@
  */
 
 use std::cell::RefCell;
-use std::io::IoSlice;
-use std::net::SocketAddr;
-use std::os::fd::{AsFd, AsRawFd};
+use std::os::fd::AsRawFd;
 use std::task::{Context, Poll, ready};
 use std::{io, ptr};
 
-use rustix::net::{SendAncillaryBuffer, SendFlags, sendmsg, sendmsg_addr};
 use tokio::io::Interest;
 use tokio::net::UdpSocket;
 
@@ -23,11 +20,10 @@ thread_local! {
 use super::UdpSocketExt;
 
 impl UdpSocketExt for UdpSocket {
-    fn poll_sendmsg(
+    fn poll_sendmsg<const C: usize>(
         &self,
         cx: &mut Context<'_>,
-        iov: &[IoSlice<'_>],
-        target: Option<SocketAddr>,
+        hdr: &SendMsgHdr<'_, C>,
     ) -> Poll<io::Result<usize>> {
         #[cfg(any(
             target_os = "linux",
@@ -39,21 +35,25 @@ impl UdpSocketExt for UdpSocket {
             target_os = "illumos",
             target_os = "solaris",
         ))]
-        let flags: SendFlags = SendFlags::DONTWAIT | SendFlags::NOSIGNAL;
+        let flags = libc::MSG_DONTWAIT | libc::MSG_NOSIGNAL;
         #[cfg(target_os = "macos")]
-        let flags: SendFlags = SendFlags::DONTWAIT;
+        let flags = libc::MSG_DONTWAIT;
 
-        let fd = self.as_fd();
-        let mut control = SendAncillaryBuffer::default();
+        let mut msghdr = unsafe { hdr.to_msghdr() };
+
+        let raw_fd = self.as_raw_fd();
+        let mut sendmsg = || {
+            let r = unsafe { libc::sendmsg(raw_fd, ptr::from_mut(&mut msghdr), flags) };
+            if r < 0 {
+                Err(io::Error::last_os_error())
+            } else {
+                Ok(r as usize)
+            }
+        };
 
         loop {
             ready!(self.poll_send_ready(cx))?;
-            match self.try_io(Interest::WRITABLE, || match target {
-                Some(addr) => {
-                    sendmsg_addr(fd, &addr, iov, &mut control, flags).map_err(io::Error::from)
-                }
-                None => sendmsg(fd, iov, &mut control, flags).map_err(io::Error::from),
-            }) {
+            match self.try_io(Interest::WRITABLE, &mut sendmsg) {
                 Ok(res) => return Poll::Ready(Ok(res)),
                 Err(e) => {
                     if e.kind() == io::ErrorKind::WouldBlock {
@@ -65,7 +65,7 @@ impl UdpSocketExt for UdpSocket {
         }
     }
 
-    fn try_sendmsg(&self, iov: &[IoSlice<'_>], target: Option<SocketAddr>) -> io::Result<usize> {
+    fn try_sendmsg<const C: usize>(&self, hdr: &SendMsgHdr<'_, C>) -> io::Result<usize> {
         #[cfg(any(
             target_os = "linux",
             target_os = "android",
@@ -76,18 +76,21 @@ impl UdpSocketExt for UdpSocket {
             target_os = "illumos",
             target_os = "solaris",
         ))]
-        let flags: SendFlags = SendFlags::DONTWAIT | SendFlags::NOSIGNAL;
+        let flags = libc::MSG_DONTWAIT | libc::MSG_NOSIGNAL;
         #[cfg(target_os = "macos")]
-        let flags: SendFlags = SendFlags::DONTWAIT;
+        let flags = libc::MSG_DONTWAIT;
 
-        let fd = self.as_fd();
-        let mut control = SendAncillaryBuffer::default();
+        let mut msghdr = unsafe { hdr.to_msghdr() };
 
-        self.try_io(Interest::WRITABLE, || match target {
-            Some(addr) => {
-                sendmsg_addr(fd, &addr, iov, &mut control, flags).map_err(io::Error::from)
+        let raw_fd = self.as_raw_fd();
+
+        self.try_io(Interest::WRITABLE, || {
+            let r = unsafe { libc::sendmsg(raw_fd, ptr::from_mut(&mut msghdr), flags) };
+            if r < 0 {
+                Err(io::Error::last_os_error())
+            } else {
+                Ok(r as usize)
             }
-            None => sendmsg(fd, iov, &mut control, flags).map_err(io::Error::from),
         })
     }
 
@@ -395,8 +398,8 @@ mod tests {
     use g3_std_ext::net::SocketAddrExt;
     use g3_types::net::UdpListenConfig;
     use std::future::poll_fn;
-    use std::io::IoSliceMut;
-    use std::net::IpAddr;
+    use std::io::{IoSlice, IoSliceMut};
+    use std::net::{IpAddr, SocketAddr};
     use std::str::FromStr;
 
     #[cfg(any(

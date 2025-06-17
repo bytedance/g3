@@ -1335,7 +1335,6 @@ dependencies = [
  "once_cell",
  "pin-project-lite",
  "quinn",
- "rustix 1.0.7",
  "smallvec",
  "thiserror",
  "tokio",

@@ -3,21 +3,10 @@
  * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use std::io::{self, IoSlice};
-use std::net::SocketAddr;
+use std::io;
 use std::task::{Context, Poll};
 
-use g3_io_sys::udp::RecvMsgHdr;
-#[cfg(any(
-    target_os = "linux",
-    target_os = "android",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd",
-    target_os = "solaris",
-    target_os = "macos",
-))]
-use g3_io_sys::udp::SendMsgHdr;
+use g3_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
 
 #[cfg(unix)]
 mod unix;
@@ -25,14 +14,13 @@ mod unix;
 mod windows;
 
 pub trait UdpSocketExt {
-    fn poll_sendmsg(
+    fn poll_sendmsg<const C: usize>(
         &self,
         cx: &mut Context<'_>,
-        iov: &[IoSlice<'_>],
-        target: Option<SocketAddr>,
+        hdr: &SendMsgHdr<'_, C>,
     ) -> Poll<io::Result<usize>>;
 
-    fn try_sendmsg(&self, iov: &[IoSlice<'_>], target: Option<SocketAddr>) -> io::Result<usize>;
+    fn try_sendmsg<const C: usize>(&self, hdr: &SendMsgHdr<'_, C>) -> io::Result<usize>;
 
     fn poll_recvmsg<const C: usize>(
         &self,
@@ -86,8 +74,8 @@ mod tests {
     use g3_std_ext::net::SocketAddrExt;
     use g3_types::net::UdpListenConfig;
     use std::future::poll_fn;
-    use std::io::IoSliceMut;
-    use std::net::IpAddr;
+    use std::io::{IoSlice, IoSliceMut};
+    use std::net::{IpAddr, SocketAddr};
     use std::str::FromStr;
     use tokio::net::UdpSocket;
 
@@ -102,9 +90,8 @@ mod tests {
 
         let msg_1 = b"abcd";
 
-        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &[IoSlice::new(msg_1)], None))
-            .await
-            .unwrap();
+        let hdr = SendMsgHdr::new([IoSlice::new(msg_1)], None);
+        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &hdr)).await.unwrap();
         assert_eq!(nw, msg_1.len());
 
         let mut recv_msg1 = [0u8; 16];
@@ -128,9 +115,8 @@ mod tests {
 
         let msg_1 = b"abcd";
 
-        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &[IoSlice::new(msg_1)], Some(s_addr)))
-            .await
-            .unwrap();
+        let hdr = SendMsgHdr::new([IoSlice::new(msg_1)], Some(s_addr));
+        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &hdr)).await.unwrap();
         assert_eq!(nw, msg_1.len());
 
         let mut recv_msg1 = [0u8; 16];
@@ -159,9 +145,8 @@ mod tests {
 
         let msg_1 = b"abcd";
 
-        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &[IoSlice::new(msg_1)], None))
-            .await
-            .unwrap();
+        let hdr = SendMsgHdr::new([IoSlice::new(msg_1)], None);
+        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &hdr)).await.unwrap();
         assert_eq!(nw, msg_1.len());
 
         let mut recv_msg1 = [0u8; 16];
@@ -194,9 +179,8 @@ mod tests {
 
         let msg_1 = b"abcd";
 
-        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &[IoSlice::new(msg_1)], None))
-            .await
-            .unwrap();
+        let hdr = SendMsgHdr::new([IoSlice::new(msg_1)], None);
+        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &hdr)).await.unwrap();
         assert_eq!(nw, msg_1.len());
 
         let mut recv_msg1 = [0u8; 16];
@@ -231,9 +215,8 @@ mod tests {
 
         let msg_1 = b"abcd";
 
-        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &[IoSlice::new(msg_1)], None))
-            .await
-            .unwrap();
+        let hdr = SendMsgHdr::new([IoSlice::new(msg_1)], None);
+        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &hdr)).await.unwrap();
         assert_eq!(nw, msg_1.len());
 
         let mut recv_msg1 = [0u8; 16];

@@ -4,24 +4,14 @@
  */
 
 use std::error::Error;
-use std::fmt;
-use std::io::{self, IoSlice};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::task::{Context, Poll, ready};
+use std::{fmt, io};
 
 use tokio::io::ReadBuf;
 use tokio::net::UdpSocket;
 
-#[cfg(any(
-    target_os = "linux",
-    target_os = "android",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd",
-    target_os = "macos",
-    target_os = "solaris",
-))]
 use g3_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
 
 use super::{AsyncUdpRecv, AsyncUdpSend, UdpSocketExt};
@@ -83,13 +73,12 @@ impl AsyncUdpSend for SendHalf {
         self.0.poll_send(cx, buf)
     }
 
-    fn poll_sendmsg(
+    fn poll_sendmsg<const C: usize>(
         &mut self,
         cx: &mut Context<'_>,
-        iov: &[IoSlice<'_>],
-        target: Option<SocketAddr>,
+        hdr: &SendMsgHdr<'_, C>,
     ) -> Poll<io::Result<usize>> {
-        self.0.poll_sendmsg(cx, iov, target)
+        self.0.poll_sendmsg(cx, hdr)
     }
 
     #[cfg(any(

@@ -4,8 +4,6 @@
  */
 
 use std::cell::RefCell;
-use std::io::IoSlice;
-use std::net::SocketAddr;
 use std::os::windows::io::AsRawSocket;
 use std::task::{Context, Poll, ready};
 use std::{io, ptr};
@@ -15,8 +13,7 @@ use tokio::io::Interest;
 use tokio::net::UdpSocket;
 use windows_sys::Win32::Networking::WinSock;
 
-use g3_io_sys::udp::{RecvAncillaryBuffer, RecvMsgHdr};
-use g3_socket::RawSocket;
+use g3_io_sys::udp::{RecvAncillaryBuffer, RecvMsgHdr, SendMsgHdr};
 
 use super::UdpSocketExt;
 
@@ -26,17 +23,34 @@ thread_local! {
 }
 
 impl UdpSocketExt for UdpSocket {
-    fn poll_sendmsg(
+    fn poll_sendmsg<const C: usize>(
         &self,
         cx: &mut Context<'_>,
-        iov: &[IoSlice<'_>],
-        target: Option<SocketAddr>,
+        hdr: &SendMsgHdr<'_, C>,
     ) -> Poll<io::Result<usize>> {
-        let socket = RawSocket::from(self);
+        let mut msghdr = unsafe { hdr.to_msghdr() };
+
+        let raw_fd = self.as_raw_socket() as usize;
+        let mut sendmsg = || {
+            let mut n_sent = 0u32;
+            let r = WinSock::WSASendMsg(
+                raw_fd,
+                ptr::from_mut(&mut msghdr),
+                0,
+                &mut n_sent,
+                ptr::null_mut(),
+                None,
+            );
+            if r != 0 {
+                Err(io::Error::last_os_error())
+            } else {
+                Ok(n_sent as usize)
+            }
+        };
 
         loop {
             ready!(self.poll_send_ready(cx))?;
-            match self.try_io(Interest::WRITABLE, || socket.sendmsg(iov, target)) {
+            match self.try_io(Interest::WRITABLE, &mut sendmsg) {
                 Ok(res) => return Poll::Ready(Ok(res)),
                 Err(e) => {
                     if e.kind() == io::ErrorKind::WouldBlock {
@@ -48,10 +62,27 @@ impl UdpSocketExt for UdpSocket {
         }
     }
 
-    fn try_sendmsg(&self, iov: &[IoSlice<'_>], target: Option<SocketAddr>) -> io::Result<usize> {
-        let socket = RawSocket::from(self);
+    fn try_sendmsg<const C: usize>(&self, hdr: &SendMsgHdr<'_, C>) -> io::Result<usize> {
+        let mut msghdr = unsafe { hdr.to_msghdr() };
 
-        self.try_io(Interest::WRITABLE, || socket.sendmsg(iov, target))
+        let raw_fd = self.as_raw_socket() as usize;
+
+        self.try_io(Interest::WRITABLE, || {
+            let mut n_sent = 0u32;
+            let r = WinSock::WSASendMsg(
+                raw_fd,
+                ptr::from_mut(&mut msghdr),
+                0,
+                &mut n_sent,
+                ptr::null_mut(),
+                None,
+            );
+            if r != 0 {
+                Err(io::Error::last_os_error())
+            } else {
+                Ok(n_sent as usize)
+            }
+        })
     }
 
     fn poll_recvmsg<const C: usize>(

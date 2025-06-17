@@ -18,6 +18,7 @@ use std::task::{Context, Poll, ready};
 ))]
 use g3_io_ext::UdpRelayPacket;
 use g3_io_ext::{AsyncUdpSend, UdpRelayRemoteError, UdpRelayRemoteSend};
+use g3_io_sys::udp::SendMsgHdr;
 use g3_socks::v5::SocksUdpHeader;
 use g3_types::net::UpstreamAddr;
 
@@ -53,12 +54,12 @@ where
         to: &UpstreamAddr,
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
         let socks_header = self.socks_headers.get_mut(0).unwrap();
-        let nw = ready!(self.inner.poll_sendmsg(
-            cx,
-            &[IoSlice::new(socks_header.encode(to)), IoSlice::new(buf)],
-            None
-        ))
-        .map_err(|e| UdpRelayRemoteError::SendFailed(self.local_addr, self.peer_addr, e))?;
+        let hdr = SendMsgHdr::new(
+            [IoSlice::new(socks_header.encode(to)), IoSlice::new(buf)],
+            None,
+        );
+        let nw = ready!(self.inner.poll_sendmsg(cx, &hdr))
+            .map_err(|e| UdpRelayRemoteError::SendFailed(self.local_addr, self.peer_addr, e))?;
         if nw == 0 {
             Poll::Ready(Err(UdpRelayRemoteError::SendFailed(
                 self.local_addr,
@@ -83,8 +84,6 @@ where
         cx: &mut Context<'_>,
         packets: &[UdpRelayPacket],
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
-        use g3_io_sys::udp::SendMsgHdr;
-
         if packets.len() > self.socks_headers.len() {
             self.socks_headers.resize(packets.len(), Default::default());
         }
@@ -118,8 +117,6 @@ where
         cx: &mut Context<'_>,
         packets: &[UdpRelayPacket],
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
-        use g3_io_sys::udp::SendMsgHdr;
-
         if packets.len() > self.socks_headers.len() {
             self.socks_headers.resize(packets.len(), Default::default());
         }
