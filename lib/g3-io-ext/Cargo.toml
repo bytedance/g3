@@ -30,10 +30,6 @@ g3-openssl = { workspace = true, optional = true }
 [target.'cfg(unix)'.dependencies]
 libc.workspace = true
 
-[target.'cfg(windows)'.dependencies]
-windows-sys = { workspace = true, features = ["Win32_Networking_WinSock", "Win32_System_IO"] }
-once_cell.workspace = true
-
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros"] }
 tokio-test.workspace = true

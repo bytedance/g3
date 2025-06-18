@@ -3,7 +3,8 @@
  * Copyright 2025 ByteDance and/or its affiliates.
  */
 
-use std::mem;
+use std::os::fd::AsRawFd;
+use std::{io, mem, ptr};
 
 use super::RecvMsgHdr;
 use crate::udp::RecvAncillaryBuffer;
@@ -51,5 +52,14 @@ impl<const C: usize> RecvMsgHdr<'_, C> {
             h.msg_controllen = control_buf.len() as _;
             h
         }
+    }
+}
+
+pub fn recvmsg<T: AsRawFd>(fd: &T, msghdr: &mut libc::msghdr) -> io::Result<usize> {
+    let r = unsafe { libc::recvmsg(fd.as_raw_fd(), ptr::from_mut(msghdr), libc::MSG_DONTWAIT) };
+    if r < 0 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(r as usize)
     }
 }

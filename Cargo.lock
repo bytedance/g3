@@ -1332,7 +1332,6 @@ dependencies = [
  "governor",
  "libc",
  "memchr",
- "once_cell",
  "pin-project-lite",
  "quinn",
  "smallvec",
@@ -1341,7 +1340,6 @@ dependencies = [
  "tokio-rustls",
  "tokio-test",
  "tokio-util",
- "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -1349,6 +1347,7 @@ name = "g3-io-sys"
 version = "0.1.0"
 dependencies = [
  "libc",
+ "once_cell",
  "windows-sys 0.60.2",
 ]
 
