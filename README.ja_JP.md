@@ -75,6 +75,8 @@ HTTP 1.x、HTTP 2、HTTP 3、TLSハンドシェイク、DNS、Cloudflare Keyless
 
 g3proxyのための偽の証明書ジェネレーター。
 
+[詳細な紹介](g3fcgen/README.md)
+
 ### g3iploc
 
 g3proxyのGeoIPサポートのためのIPロケーションルックアップサービス。

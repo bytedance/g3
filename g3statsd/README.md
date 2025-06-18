@@ -32,7 +32,7 @@ To build release binaries:
 cargo build --profile release-lto -p g3statsd -p g3statsd-ctl
 ```
 
-See [Packaging](../doc/packaging.md) if you want to build binary packages or docker images.
+See [Build and Package](../doc/build_and_package.md) if you want to build binary packages or docker images.
 
 ## Supported Metric Types
 

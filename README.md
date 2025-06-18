@@ -76,6 +76,8 @@ A tool to make root CA / intermediate CA / TLS server / TLS client certificates.
 
 Fake certificate generator for g3proxy.
 
+[README](g3fcgen/README.md)
+
 ### g3iploc
 
 IP location lookup service for g3proxy GeoIP support.
