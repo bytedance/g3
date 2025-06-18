@@ -100,17 +100,9 @@ Cloudflare keylessサーバーの簡単な実装。
 
 [Standards](doc/standards.md) に従ってください。
 
-## リリースとパッケージング
+## ビルド、パッケージ化、デプロイ
 
-[Packaging](doc/packaging.md) を参照してください。
-
-### 静的リンク
-
-[Static Linking](doc/static-linking.md) を参照してください。
-
-### 異なるOpenSSLバリアントでのビルド
-
-[OpenSSL Variants](doc/openssl-variants.md) を参照してください。
+[Build and Package](doc/build_and_package.md) を参照してください。
 
 ### LTSバージョン
 

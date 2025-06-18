@@ -98,17 +98,9 @@ Cloudflare Keyless Server的简单实现。
 
 参考 [Standards](doc/standards.md)。
 
-## 发布及打包
+## 构建、打包及部署
 
-参考 [Packaging](doc/packaging.md)。
-
-### 静态链接
-
-参考 [Static Linking](doc/static-linking.md)。
-
-### 使用OpenSSL变种编译
-
-参考 [OpenSSL Variants](doc/openssl-variants.md)。
+参考 [Build and Package](doc/build_and_package.md)。
 
 ### 长期支持版本
 
