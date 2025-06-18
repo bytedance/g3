@@ -25,7 +25,7 @@ pub(super) enum IcapServiceClientCommand {
 enum IcapServicePoolCommand {
     UpdateOptions(IcapServiceOptions),
     SaveConnection(IcapClientConnection),
-    CheckConnection,
+    CreateConnection,
 }
 
 pub(super) struct IcapServicePool {
@@ -112,8 +112,9 @@ impl IcapServicePool {
                             .await
                             .is_ok()
                         {
-                            let _ =
-                                pool_sender.try_send(IcapServicePoolCommand::SaveConnection(conn));
+                            let _ = pool_sender
+                                .send(IcapServicePoolCommand::SaveConnection(conn))
+                                .await;
                         }
                     }
                 }
@@ -124,13 +125,7 @@ impl IcapServicePool {
         let min_idle_count = self.config.connection_pool.min_idle_count();
         if current_idle_count < min_idle_count {
             for _i in current_idle_count..min_idle_count {
-                let pool_sender = self.pool_cmd_sender.clone();
-                let conn_creator = self.connector.clone();
-                tokio::spawn(async move {
-                    if let Ok(conn) = conn_creator.create().await {
-                        let _ = pool_sender.try_send(IcapServicePoolCommand::SaveConnection(conn));
-                    }
-                });
+                self.do_create();
             }
         }
     }
@@ -157,7 +152,11 @@ impl IcapServicePool {
                     });
                 }
             }
-            IcapServiceClientCommand::SaveConnection(conn) => self.save_connection(conn),
+            IcapServiceClientCommand::SaveConnection(conn) => {
+                if self.idle_conn_count() <= self.config.connection_pool.max_idle_count() {
+                    self.save_connection(conn);
+                }
+            }
         }
     }
 
@@ -165,27 +164,45 @@ impl IcapServicePool {
         match cmd {
             IcapServicePoolCommand::SaveConnection(conn) => self.save_connection(conn),
             IcapServicePoolCommand::UpdateOptions(options) => self.options = Arc::new(options),
-            IcapServicePoolCommand::CheckConnection => self.check(),
+            IcapServicePoolCommand::CreateConnection => self.create(),
         }
     }
 
-    fn save_connection(&mut self, conn: IcapClientConnection) {
-        // it's ok to skip compare_swap as we only increase the idle count in the same future context
-        if self.idle_conn_count() < self.config.connection_pool.max_idle_count() {
-            let Some(eof_poller) = IcapConnectionEofPoller::new(conn, &self.conn_req_receiver)
-            else {
-                return;
-            };
-            let idle_count = self.idle_conn_count.clone();
-            // relaxed is fine as we only increase it here in the same future context
-            idle_count.fetch_add(1, Ordering::Relaxed);
-            let idle_timeout = self.config.connection_pool.idle_timeout();
-            let pool_sender = self.pool_cmd_sender.clone();
-            tokio::spawn(async move {
-                eof_poller.into_running(idle_timeout).await;
-                idle_count.fetch_sub(1, Ordering::Relaxed);
-                let _ = pool_sender.try_send(IcapServicePoolCommand::CheckConnection);
-            });
+    fn create(&mut self) {
+        let max_idle_count = self.config.connection_pool.max_idle_count();
+        if self.idle_conn_count() < max_idle_count {
+            self.do_create()
         }
+    }
+
+    fn do_create(&mut self) {
+        let pool_sender = self.pool_cmd_sender.clone();
+        let conn_creator = self.connector.clone();
+        tokio::spawn(async move {
+            if let Ok(conn) = conn_creator.create().await {
+                let _ = pool_sender
+                    .send(IcapServicePoolCommand::SaveConnection(conn))
+                    .await;
+            }
+        });
+    }
+
+    fn save_connection(&mut self, conn: IcapClientConnection) {
+        let Some(eof_poller) = IcapConnectionEofPoller::new(conn, &self.conn_req_receiver) else {
+            return;
+        };
+
+        let idle_count = self.idle_conn_count.clone();
+        idle_count.fetch_add(1, Ordering::Relaxed);
+
+        let idle_timeout = self.config.connection_pool.idle_timeout();
+        let pool_sender = self.pool_cmd_sender.clone();
+        tokio::spawn(async move {
+            eof_poller.into_running(idle_timeout).await;
+            idle_count.fetch_sub(1, Ordering::Relaxed);
+            let _ = pool_sender
+                .send(IcapServicePoolCommand::CreateConnection)
+                .await;
+        });
     }
 }
