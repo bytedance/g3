@@ -1,28 +1,33 @@
 # g3fcgen
 
 g3fcgen is a server certificate generator/issuer to be used with g3proxy to enable TLS interception.
-The protocol is defined [here](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/protocol/helper/cert_generator.html).
+The protocol is
+defined [here](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/protocol/helper/cert_generator.html).
 
 g3fcgen is designed to run with g3proxy on the same host.
 It is recommended to write you own implementation if you need to:
 
- - serve a cluster of g3proxy instances
- - cache the generated server certificate for a much longer time
- - add custom certificate issue methods
+- serve a cluster of g3proxy instances
+- cache the generated server certificate for a much longer time
+- add custom certificate issue methods
 
 ## How to build
 
 To build debug binaries:
+
 ```shell
 cargo build -p g3fcgen
 ```
 
 To build release binaries:
+
 ```shell
 cargo build --profile release-lto -p g3fcgen
 ```
 
 To support SM2 certificates, you need to use *Tongsuo* by adding `--features vendored-tongsuo`.
+
+See [Build and Package](../doc/build_and_package.md) if you want to build binary packages or docker images.
 
 ## How to run
 
@@ -43,7 +48,7 @@ There are two ways to change the UDP listen port:
   You can set **-G port<port>** or **--group-name port<port>** to change the UDP listen port,
   the final listen address will be **[::]:<port>**.
 
-  You can set the systemd instance name to *port<port>*, so when you run `systemctl start g3fcgen@port<port>`, 
+  You can set the systemd instance name to *port<port>*, so when you run `systemctl start g3fcgen@port<port>`,
   it will listen to the correct port automatically.
 
 - Via environment variables

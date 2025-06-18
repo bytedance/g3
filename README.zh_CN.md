@@ -73,6 +73,8 @@ StatsD兼容的监控打点指标聚合服务。
 
 适用于g3proxy TLS劫持功能的伪造证书生成服务应用。
 
+[详细介绍](g3fcgen/README.md)
+
 ### g3iploc
 
 适用于g3proxy GeoIP功能的IP Location查找服务应用。

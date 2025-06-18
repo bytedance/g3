@@ -25,7 +25,7 @@ To build release binaries:
 cargo build --profile release-lto -p g3proxy -p g3proxy-ctl
 ```
 
-See [Packaging](../doc/packaging.md) if you want to build binary packages or docker images.
+See [Build and Package](../doc/build_and_package.md) if you want to build binary packages or docker images.
 
 ## Documents
 
