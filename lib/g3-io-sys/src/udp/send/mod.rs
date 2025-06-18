@@ -12,11 +12,11 @@ use crate::RawSocketAddr;
 #[cfg(unix)]
 mod unix;
 #[cfg(unix)]
-pub use unix::sendmsg;
+pub use unix::*;
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
-pub use windows::sendmsg;
+pub use windows::*;
 
 pub struct SendMsgHdr<'a, const C: usize> {
     pub iov: [IoSlice<'a>; C],

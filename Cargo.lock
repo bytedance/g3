@@ -1330,7 +1330,6 @@ dependencies = [
  "g3-std-ext",
  "g3-types",
  "governor",
- "libc",
  "memchr",
  "pin-project-lite",
  "quinn",
