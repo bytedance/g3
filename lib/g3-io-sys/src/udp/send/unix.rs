@@ -3,7 +3,8 @@
  * Copyright 2025 ByteDance and/or its affiliates.
  */
 
-use std::{mem, ptr};
+use std::os::fd::AsRawFd;
+use std::{io, mem, ptr};
 
 use super::SendMsgHdr;
 
@@ -41,5 +42,28 @@ impl<'a, const C: usize> SendMsgHdr<'a, C> {
             h.msg_iovlen = C as _;
             h
         }
+    }
+}
+
+pub fn sendmsg<T: AsRawFd>(fd: &T, msghdr: &mut libc::msghdr) -> io::Result<usize> {
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "dragonfly",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "illumos",
+        target_os = "solaris",
+    ))]
+    let flags = libc::MSG_DONTWAIT | libc::MSG_NOSIGNAL;
+    #[cfg(target_os = "macos")]
+    let flags = libc::MSG_DONTWAIT;
+
+    let r = unsafe { libc::sendmsg(fd.as_raw_fd(), ptr::from_mut(msghdr), flags) };
+    if r < 0 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(r as usize)
     }
 }

@@ -8,7 +8,7 @@ pub use cmsg::RecvAncillaryBuffer;
 use cmsg::RecvAncillaryData;
 
 mod recv;
-pub use recv::RecvMsgHdr;
+pub use recv::*;
 
 mod send;
-pub use send::SendMsgHdr;
+pub use send::*;

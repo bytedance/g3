@@ -3,7 +3,8 @@
  * Copyright 2025 ByteDance and/or its affiliates.
  */
 
-use std::ptr;
+use std::os::windows::io::AsRawSocket;
+use std::{io, ptr};
 
 use windows_sys::Win32::Networking::WinSock;
 
@@ -35,5 +36,24 @@ impl<'a, const C: usize> SendMsgHdr<'a, C> {
                 dwFlags: 0,
             }
         }
+    }
+}
+
+pub fn sendmsg<T: AsRawSocket>(socket: &T, msghdr: &mut WinSock::WSAMSG) -> io::Result<usize> {
+    let mut n_sent = 0u32;
+    let r = unsafe {
+        WinSock::WSASendMsg(
+            socket.as_raw_socket() as _,
+            ptr::from_mut(msghdr),
+            0,
+            &mut n_sent,
+            ptr::null_mut(),
+            None,
+        )
+    };
+    if r != 0 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(n_sent as usize)
     }
 }

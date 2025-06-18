@@ -13,8 +13,12 @@ use crate::RawSocketAddr;
 
 #[cfg(unix)]
 mod unix;
+#[cfg(unix)]
+pub use unix::recvmsg;
 #[cfg(windows)]
 mod windows;
+#[cfg(windows)]
+pub use windows::recvmsg;
 
 pub struct RecvMsgHdr<'a, const C: usize> {
     pub iov: [IoSliceMut<'a>; C],

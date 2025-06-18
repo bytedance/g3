@@ -4,14 +4,14 @@
  */
 
 use std::cell::RefCell;
+use std::io;
 use std::os::fd::AsRawFd;
 use std::task::{Context, Poll, ready};
-use std::{io, ptr};
 
 use tokio::io::Interest;
 use tokio::net::UdpSocket;
 
-use g3_io_sys::udp::{RecvAncillaryBuffer, RecvMsgHdr, SendMsgHdr};
+use g3_io_sys::udp::{RecvAncillaryBuffer, RecvMsgHdr, SendMsgHdr, recvmsg, sendmsg};
 
 thread_local! {
     static RECV_ANCILLARY_BUFFERS: RefCell<Vec<RecvAncillaryBuffer>> = const { RefCell::new(Vec::new()) };
@@ -25,35 +25,10 @@ impl UdpSocketExt for UdpSocket {
         cx: &mut Context<'_>,
         hdr: &SendMsgHdr<'_, C>,
     ) -> Poll<io::Result<usize>> {
-        #[cfg(any(
-            target_os = "linux",
-            target_os = "android",
-            target_os = "freebsd",
-            target_os = "dragonfly",
-            target_os = "netbsd",
-            target_os = "openbsd",
-            target_os = "illumos",
-            target_os = "solaris",
-        ))]
-        let flags = libc::MSG_DONTWAIT | libc::MSG_NOSIGNAL;
-        #[cfg(target_os = "macos")]
-        let flags = libc::MSG_DONTWAIT;
-
         let mut msghdr = unsafe { hdr.to_msghdr() };
-
-        let raw_fd = self.as_raw_fd();
-        let mut sendmsg = || {
-            let r = unsafe { libc::sendmsg(raw_fd, ptr::from_mut(&mut msghdr), flags) };
-            if r < 0 {
-                Err(io::Error::last_os_error())
-            } else {
-                Ok(r as usize)
-            }
-        };
-
         loop {
             ready!(self.poll_send_ready(cx))?;
-            match self.try_io(Interest::WRITABLE, &mut sendmsg) {
+            match self.try_io(Interest::WRITABLE, || sendmsg(self, &mut msghdr)) {
                 Ok(res) => return Poll::Ready(Ok(res)),
                 Err(e) => {
                     if e.kind() == io::ErrorKind::WouldBlock {
@@ -66,32 +41,8 @@ impl UdpSocketExt for UdpSocket {
     }
 
     fn try_sendmsg<const C: usize>(&self, hdr: &SendMsgHdr<'_, C>) -> io::Result<usize> {
-        #[cfg(any(
-            target_os = "linux",
-            target_os = "android",
-            target_os = "freebsd",
-            target_os = "dragonfly",
-            target_os = "netbsd",
-            target_os = "openbsd",
-            target_os = "illumos",
-            target_os = "solaris",
-        ))]
-        let flags = libc::MSG_DONTWAIT | libc::MSG_NOSIGNAL;
-        #[cfg(target_os = "macos")]
-        let flags = libc::MSG_DONTWAIT;
-
         let mut msghdr = unsafe { hdr.to_msghdr() };
-
-        let raw_fd = self.as_raw_fd();
-
-        self.try_io(Interest::WRITABLE, || {
-            let r = unsafe { libc::sendmsg(raw_fd, ptr::from_mut(&mut msghdr), flags) };
-            if r < 0 {
-                Err(io::Error::last_os_error())
-            } else {
-                Ok(r as usize)
-            }
-        })
+        self.try_io(Interest::WRITABLE, || sendmsg(self, &mut msghdr))
     }
 
     fn poll_recvmsg<const C: usize>(
@@ -106,22 +57,9 @@ impl UdpSocketExt for UdpSocket {
             let control_buf = &mut buffers[0];
 
             let mut msghdr = unsafe { hdr.to_msghdr(control_buf) };
-
-            let raw_fd = self.as_raw_fd();
-            let mut recvmsg = || {
-                let r = unsafe {
-                    libc::recvmsg(raw_fd, ptr::from_mut(&mut msghdr), libc::MSG_DONTWAIT as _)
-                };
-                if r < 0 {
-                    Err(io::Error::last_os_error())
-                } else {
-                    Ok(r as usize)
-                }
-            };
-
             loop {
                 ready!(self.poll_recv_ready(cx))?;
-                match self.try_io(Interest::READABLE, &mut recvmsg) {
+                match self.try_io(Interest::READABLE, || recvmsg(self, &mut msghdr)) {
                     Ok(nr) => {
                         hdr.n_recv = nr;
                         control_buf.parse(msghdr.msg_controllen as _, hdr)?;
@@ -283,7 +221,7 @@ impl UdpSocketExt for UdpSocket {
                         msgvec.as_mut_ptr(),
                         msgvec.len() as _,
                         libc::MSG_DONTWAIT as _,
-                        ptr::null_mut(),
+                        std::ptr::null_mut(),
                     )
                 };
                 if r < 0 {
