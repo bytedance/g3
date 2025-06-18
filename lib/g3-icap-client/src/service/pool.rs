@@ -3,8 +3,8 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Interval;
@@ -25,7 +25,7 @@ pub(super) enum IcapServiceClientCommand {
 enum IcapServicePoolCommand {
     UpdateOptions(IcapServiceOptions),
     SaveConnection(IcapClientConnection),
-    CheckConnection,
+    CreateConnection,
 }
 
 pub(super) struct IcapServicePool {
@@ -76,7 +76,7 @@ impl IcapServicePool {
                 biased;
 
                 _ = self.check_interval.tick() => {
-                    self.handle_pool_cmd(IcapServicePoolCommand::CheckConnection);
+                    self.check();
                 }
                 r = self.client_cmd_receiver.recv_async() => {
                     match r {
@@ -123,19 +123,10 @@ impl IcapServicePool {
 
         let current_idle_count = self.idle_conn_count();
         let min_idle_count = self.config.connection_pool.min_idle_count();
-        for _i in current_idle_count..min_idle_count {
-            if min_idle_count <= self.idle_conn_count() {
-                break;
+        if current_idle_count < min_idle_count {
+            for _i in current_idle_count..min_idle_count {
+                self.do_create();
             }
-            let pool_sender = self.pool_cmd_sender.clone();
-            let conn_creator = self.connector.clone();
-            tokio::spawn(async move {
-                if let Ok(conn) = conn_creator.create().await {
-                    let _ = pool_sender
-                        .send(IcapServicePoolCommand::SaveConnection(conn))
-                        .await;
-                }
-            });
         }
     }
 
@@ -143,7 +134,7 @@ impl IcapServicePool {
         match cmd {
             IcapServiceClientCommand::FetchConnection(sender) => {
                 if self.idle_conn_count() > 0 {
-                    // there maybe race condition, so we have fallback at 1 client side
+                    // there maybe race condition, so we have fallback at client side
                     let req_sender = self.conn_req_sender.clone();
                     let options = self.options.clone();
                     tokio::spawn(async move {
@@ -173,8 +164,27 @@ impl IcapServicePool {
         match cmd {
             IcapServicePoolCommand::SaveConnection(conn) => self.save_connection(conn),
             IcapServicePoolCommand::UpdateOptions(options) => self.options = Arc::new(options),
-            IcapServicePoolCommand::CheckConnection => self.check(),
+            IcapServicePoolCommand::CreateConnection => self.create(),
         }
+    }
+
+    fn create(&mut self) {
+        let max_idle_count = self.config.connection_pool.max_idle_count();
+        if self.idle_conn_count() < max_idle_count {
+            self.do_create()
+        }
+    }
+
+    fn do_create(&mut self) {
+        let pool_sender = self.pool_cmd_sender.clone();
+        let conn_creator = self.connector.clone();
+        tokio::spawn(async move {
+            if let Ok(conn) = conn_creator.create().await {
+                let _ = pool_sender
+                    .send(IcapServicePoolCommand::SaveConnection(conn))
+                    .await;
+            }
+        });
     }
 
     fn save_connection(&mut self, conn: IcapClientConnection) {
@@ -186,9 +196,13 @@ impl IcapServicePool {
         idle_count.fetch_add(1, Ordering::Relaxed);
 
         let idle_timeout = self.config.connection_pool.idle_timeout();
+        let pool_sender = self.pool_cmd_sender.clone();
         tokio::spawn(async move {
             eof_poller.into_running(idle_timeout).await;
             idle_count.fetch_sub(1, Ordering::Relaxed);
+            let _ = pool_sender
+                .send(IcapServicePoolCommand::CreateConnection)
+                .await;
         });
     }
 }
