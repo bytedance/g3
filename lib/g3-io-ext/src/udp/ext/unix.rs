@@ -5,7 +5,6 @@
 
 use std::cell::RefCell;
 use std::io;
-use std::os::fd::AsRawFd;
 use std::task::{Context, Poll, ready};
 
 use tokio::io::Interest;
@@ -90,32 +89,17 @@ impl UdpSocketExt for UdpSocket {
         cx: &mut Context<'_>,
         msgs: &mut [SendMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
+        use g3_io_sys::udp::sendmmsg;
         use smallvec::SmallVec;
 
         let mut msgvec: SmallVec<[_; 32]> = SmallVec::with_capacity(msgs.len());
         for m in msgs.iter_mut() {
-            msgvec.push(libc::mmsghdr {
-                msg_hdr: unsafe { m.to_msghdr() },
-                msg_len: 0,
-            });
+            msgvec.push(unsafe { m.to_mmsghdr() });
         }
-
-        let raw_fd = self.as_raw_fd();
-        let flags = libc::MSG_DONTWAIT | libc::MSG_NOSIGNAL;
-        let mut sendmmsg = || {
-            let r = unsafe {
-                libc::sendmmsg(raw_fd, msgvec.as_mut_ptr(), msgvec.len() as _, flags as _)
-            };
-            if r < 0 {
-                Err(io::Error::last_os_error())
-            } else {
-                Ok(r as usize)
-            }
-        };
 
         loop {
             ready!(self.poll_send_ready(cx))?;
-            match self.try_io(Interest::WRITABLE, &mut sendmmsg) {
+            match self.try_io(Interest::WRITABLE, || sendmmsg(self, &mut msgvec)) {
                 Ok(count) => {
                     for (m, h) in msgs.iter_mut().take(count).zip(msgvec) {
                         m.n_send = h.msg_len as usize;
@@ -139,6 +123,7 @@ impl UdpSocketExt for UdpSocket {
         cx: &mut Context<'_>,
         msgs: &mut [SendMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
+        use g3_io_sys::udp::sendmsg_x;
         use smallvec::SmallVec;
 
         let mut msgvec: SmallVec<[_; 32]> = SmallVec::with_capacity(msgs.len());
@@ -146,27 +131,9 @@ impl UdpSocketExt for UdpSocket {
             msgvec.push(unsafe { m.to_msghdr_x() });
         }
 
-        let raw_fd = self.as_raw_fd();
-        let flags = libc::MSG_DONTWAIT;
-        let mut sendmsg_x = || {
-            let r = unsafe {
-                g3_io_sys::ffi::sendmsg_x(
-                    raw_fd,
-                    msgvec.as_mut_ptr(),
-                    msgvec.len() as _,
-                    flags as _,
-                )
-            };
-            if r < 0 {
-                Err(io::Error::last_os_error())
-            } else {
-                Ok(r as usize)
-            }
-        };
-
         loop {
             ready!(self.poll_send_ready(cx))?;
-            match self.try_io(Interest::WRITABLE, &mut sendmsg_x) {
+            match self.try_io(Interest::WRITABLE, || sendmsg_x(self, &mut msgvec)) {
                 Ok(count) => {
                     for m in msgs.iter_mut().take(count) {
                         m.n_send = m.iov.iter().map(|iov| iov.len()).sum();
@@ -197,6 +164,7 @@ impl UdpSocketExt for UdpSocket {
         cx: &mut Context<'_>,
         hdr_v: &mut [RecvMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
+        use g3_io_sys::udp::recvmmsg;
         use smallvec::SmallVec;
 
         RECV_ANCILLARY_BUFFERS.with_borrow_mut(|buffers| {
@@ -207,33 +175,12 @@ impl UdpSocketExt for UdpSocket {
             let mut msgvec: SmallVec<[_; 32]> = SmallVec::with_capacity(hdr_v.len());
             for (i, m) in hdr_v.iter_mut().enumerate() {
                 let control_buf = &mut buffers[i];
-                msgvec.push(libc::mmsghdr {
-                    msg_hdr: unsafe { m.to_msghdr(control_buf) },
-                    msg_len: 0,
-                });
+                msgvec.push(unsafe { m.to_mmsghdr(control_buf) });
             }
-
-            let raw_fd = self.as_raw_fd();
-            let mut recvmmsg = || {
-                let r = unsafe {
-                    libc::recvmmsg(
-                        raw_fd,
-                        msgvec.as_mut_ptr(),
-                        msgvec.len() as _,
-                        libc::MSG_DONTWAIT as _,
-                        std::ptr::null_mut(),
-                    )
-                };
-                if r < 0 {
-                    Err(io::Error::last_os_error())
-                } else {
-                    Ok(r as usize)
-                }
-            };
 
             loop {
                 ready!(self.poll_recv_ready(cx))?;
-                match self.try_io(Interest::READABLE, &mut recvmmsg) {
+                match self.try_io(Interest::READABLE, || recvmmsg(self, &mut msgvec)) {
                     Ok(count) => {
                         for (m, h) in hdr_v.iter_mut().take(count).zip(msgvec) {
                             m.n_recv = h.msg_len as usize;
@@ -268,6 +215,7 @@ impl UdpSocketExt for UdpSocket {
         cx: &mut Context<'_>,
         hdr_v: &mut [RecvMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
+        use g3_io_sys::udp::recvmsg_x;
         use smallvec::SmallVec;
 
         RECV_ANCILLARY_BUFFERS.with_borrow_mut(|buffers| {
@@ -281,26 +229,9 @@ impl UdpSocketExt for UdpSocket {
                 msgvec.push(unsafe { m.to_msghdr_x(control_buf) });
             }
 
-            let raw_fd = self.as_raw_fd();
-            let mut recvmsg_x = || {
-                let r = unsafe {
-                    g3_io_sys::ffi::recvmsg_x(
-                        raw_fd,
-                        msgvec.as_mut_ptr(),
-                        msgvec.len() as _,
-                        libc::MSG_DONTWAIT as _,
-                    )
-                };
-                if r < 0 {
-                    Err(io::Error::last_os_error())
-                } else {
-                    Ok(r as usize)
-                }
-            };
-
             loop {
                 ready!(self.poll_recv_ready(cx))?;
-                match self.try_io(Interest::READABLE, &mut recvmsg_x) {
+                match self.try_io(Interest::READABLE, || recvmsg_x(self, &mut msgvec)) {
                     Ok(count) => {
                         for (m, h) in hdr_v.iter_mut().take(count).zip(msgvec) {
                             m.n_recv = h.msg_datalen;

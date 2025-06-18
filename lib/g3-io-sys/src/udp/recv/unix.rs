@@ -33,6 +33,24 @@ impl<const C: usize> RecvMsgHdr<'_, C> {
     /// # Safety
     ///
     /// `self` should not be dropped before the returned value
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "solaris",
+    ))]
+    pub unsafe fn to_mmsghdr(&self, control_buf: &mut RecvAncillaryBuffer) -> libc::mmsghdr {
+        libc::mmsghdr {
+            msg_hdr: unsafe { self.to_msghdr(control_buf) },
+            msg_len: 0,
+        }
+    }
+
+    /// # Safety
+    ///
+    /// `self` should not be dropped before the returned value
     #[cfg(target_os = "macos")]
     pub unsafe fn to_msghdr_x(
         &self,
@@ -57,6 +75,48 @@ impl<const C: usize> RecvMsgHdr<'_, C> {
 
 pub fn recvmsg<T: AsRawFd>(fd: &T, msghdr: &mut libc::msghdr) -> io::Result<usize> {
     let r = unsafe { libc::recvmsg(fd.as_raw_fd(), ptr::from_mut(msghdr), libc::MSG_DONTWAIT) };
+    if r < 0 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(r as usize)
+    }
+}
+
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "solaris",
+))]
+pub fn recvmmsg<T: AsRawFd>(fd: &T, msgvec: &mut [libc::mmsghdr]) -> io::Result<usize> {
+    let r = unsafe {
+        libc::recvmmsg(
+            fd.as_raw_fd(),
+            msgvec.as_mut_ptr(),
+            msgvec.len() as _,
+            libc::MSG_DONTWAIT as _,
+            ptr::null_mut(),
+        )
+    };
+    if r < 0 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(r as usize)
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub fn recvmsg_x<T: AsRawFd>(fd: &T, msgvec: &mut [crate::ffi::msghdr_x]) -> io::Result<usize> {
+    let r = unsafe {
+        crate::ffi::recvmsg_x(
+            fd.as_raw_fd(),
+            msgvec.as_mut_ptr(),
+            msgvec.len() as _,
+            libc::MSG_DONTWAIT,
+        )
+    };
     if r < 0 {
         Err(io::Error::last_os_error())
     } else {
