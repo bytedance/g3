@@ -102,17 +102,9 @@ Follow [Dev-Setup](doc/dev-setup.md).
 
 Follow [Standards](doc/standards.md).
 
-## Release and Packaging
+## Build, Package and Deploy
 
-See [Packaging](doc/packaging.md).
-
-### Static Linking
-
-See [Static Linking](doc/static-linking.md).
-
-### Build with different OpenSSL variants
-
-See [OpenSSL Variants](doc/openssl-variants.md).
+See [Build and Package](doc/build_and_package.md).
 
 ### LTS Version
 
