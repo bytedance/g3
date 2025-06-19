@@ -1,5 +1,6 @@
 
 v1.11.8:
+ - BUG FIX: fix panic when detect DNS over TLS traffic
  - Optimization: rename stat config option emit_duration to emit_interval
 
 v1.11.7:
