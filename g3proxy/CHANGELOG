@@ -1,4 +1,7 @@
 
+v1.10.7:
+ - BUG FIX: fix panic when detect DNS over TLS traffic
+
 v1.10.6:
  - BUG FIX: fix read of H2 zero size body frame
  - BUG FIX: fix format of HTTP 1 OPTIONS header line
