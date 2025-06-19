@@ -17,6 +17,7 @@ pub struct msghdr_x {
     pub msg_datalen: size_t,
 }
 
+// https://github.com/apple/darwin-xnu/blob/main/bsd/sys/socket.h
 unsafe extern "C" {
     pub fn sendmsg_x(s: c_int, msgp: *mut msghdr_x, cnt: c_uint, flags: c_int) -> ssize_t;
     pub fn recvmsg_x(s: c_int, msgp: *mut msghdr_x, cnt: c_uint, flags: c_int) -> ssize_t;

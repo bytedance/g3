@@ -12,3 +12,6 @@ pub use recv::*;
 
 mod send;
 pub use send::*;
+
+mod ext;
+pub use ext::UdpSocketExt;

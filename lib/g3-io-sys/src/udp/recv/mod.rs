@@ -20,6 +20,28 @@ mod windows;
 #[cfg(windows)]
 pub use windows::*;
 
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "solaris",
+    target_os = "macos",
+))]
+mod buf;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "solaris",
+))]
+pub use buf::with_recvmmsg_buf;
+#[cfg(target_os = "macos")]
+pub use buf::with_recvmsg_x_buf;
+
 pub struct RecvMsgHdr<'a, const C: usize> {
     pub iov: [IoSliceMut<'a>; C],
     pub n_recv: usize,

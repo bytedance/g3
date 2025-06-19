@@ -13,10 +13,63 @@ use tokio::net::UdpSocket;
 use g3_io_sys::udp::{RecvAncillaryBuffer, RecvMsgHdr, SendMsgHdr, recvmsg, sendmsg};
 
 thread_local! {
-    static RECV_ANCILLARY_BUFFERS: RefCell<Vec<RecvAncillaryBuffer>> = const { RefCell::new(Vec::new()) };
+    static RECV_ANCILLARY_BUFFER: RefCell<RecvAncillaryBuffer> = const { RefCell::new(RecvAncillaryBuffer::new()) };
 }
 
-use super::UdpSocketExt;
+pub trait UdpSocketExt {
+    fn poll_sendmsg<const C: usize>(
+        &self,
+        cx: &mut Context<'_>,
+        hdr: &SendMsgHdr<'_, C>,
+    ) -> Poll<io::Result<usize>>;
+
+    fn try_sendmsg<const C: usize>(&self, hdr: &SendMsgHdr<'_, C>) -> io::Result<usize>;
+
+    fn poll_recvmsg<const C: usize>(
+        &self,
+        cx: &mut Context<'_>,
+        hdr: &mut RecvMsgHdr<'_, C>,
+    ) -> Poll<io::Result<()>>;
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "solaris",
+    ))]
+    fn poll_batch_sendmsg<const C: usize>(
+        &self,
+        cx: &mut Context<'_>,
+        msgs: &mut [SendMsgHdr<'_, C>],
+    ) -> Poll<io::Result<usize>>;
+
+    /// Do a batch sendmsg via macOS private method sendmsg_x
+    ///
+    /// Only work for connected socket
+    #[cfg(target_os = "macos")]
+    fn poll_batch_sendmsg_x<const C: usize>(
+        &self,
+        cx: &mut Context<'_>,
+        msgs: &mut [SendMsgHdr<'_, C>],
+    ) -> Poll<io::Result<usize>>;
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
+    ))]
+    fn poll_batch_recvmsg<const C: usize>(
+        &self,
+        cx: &mut Context<'_>,
+        hdr_v: &mut [RecvMsgHdr<'_, C>],
+    ) -> Poll<io::Result<usize>>;
+}
 
 impl UdpSocketExt for UdpSocket {
     fn poll_sendmsg<const C: usize>(
@@ -49,19 +102,14 @@ impl UdpSocketExt for UdpSocket {
         cx: &mut Context<'_>,
         hdr: &mut RecvMsgHdr<'_, C>,
     ) -> Poll<io::Result<()>> {
-        RECV_ANCILLARY_BUFFERS.with_borrow_mut(|buffers| {
-            if buffers.is_empty() {
-                buffers.push(RecvAncillaryBuffer::default());
-            }
-            let control_buf = &mut buffers[0];
-
+        RECV_ANCILLARY_BUFFER.with_borrow_mut(|control_buf| {
             let mut msghdr = unsafe { hdr.to_msghdr(control_buf) };
             loop {
                 ready!(self.poll_recv_ready(cx))?;
                 match self.try_io(Interest::READABLE, || recvmsg(self, &mut msghdr)) {
                     Ok(nr) => {
                         hdr.n_recv = nr;
-                        control_buf.parse(msghdr.msg_controllen as _, hdr)?;
+                        control_buf.parse_msg(msghdr, hdr)?;
                         return Poll::Ready(Ok(()));
                     }
                     Err(e) => {
@@ -89,32 +137,28 @@ impl UdpSocketExt for UdpSocket {
         cx: &mut Context<'_>,
         msgs: &mut [SendMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
-        use g3_io_sys::udp::sendmmsg;
-        use smallvec::SmallVec;
-
-        let mut msgvec: SmallVec<[_; 32]> = SmallVec::with_capacity(msgs.len());
-        for m in msgs.iter_mut() {
-            msgvec.push(unsafe { m.to_mmsghdr() });
-        }
-
-        loop {
-            ready!(self.poll_send_ready(cx))?;
-            match self.try_io(Interest::WRITABLE, || sendmmsg(self, &mut msgvec)) {
-                Ok(count) => {
-                    for (m, h) in msgs.iter_mut().take(count).zip(msgvec) {
-                        m.n_send = h.msg_len as usize;
+        g3_io_sys::udp::with_sendmmsg_buf(msgs, |msgs, msgvec| {
+            loop {
+                ready!(self.poll_send_ready(cx))?;
+                match self.try_io(Interest::WRITABLE, || {
+                    g3_io_sys::udp::sendmmsg(self, msgvec)
+                }) {
+                    Ok(count) => {
+                        for (m, h) in msgs.iter_mut().take(count).zip(msgvec) {
+                            m.n_send = h.msg_len as usize;
+                        }
+                        return Poll::Ready(Ok(count));
                     }
-                    return Poll::Ready(Ok(count));
-                }
-                Err(e) => {
-                    if e.kind() == io::ErrorKind::WouldBlock {
-                        continue;
-                    } else {
-                        return Poll::Ready(Err(e));
+                    Err(e) => {
+                        if e.kind() == io::ErrorKind::WouldBlock {
+                            continue;
+                        } else {
+                            return Poll::Ready(Err(e));
+                        }
                     }
                 }
             }
-        }
+        })
     }
 
     #[cfg(target_os = "macos")]
@@ -123,32 +167,28 @@ impl UdpSocketExt for UdpSocket {
         cx: &mut Context<'_>,
         msgs: &mut [SendMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
-        use g3_io_sys::udp::sendmsg_x;
-        use smallvec::SmallVec;
-
-        let mut msgvec: SmallVec<[_; 32]> = SmallVec::with_capacity(msgs.len());
-        for m in msgs.iter_mut() {
-            msgvec.push(unsafe { m.to_msghdr_x() });
-        }
-
-        loop {
-            ready!(self.poll_send_ready(cx))?;
-            match self.try_io(Interest::WRITABLE, || sendmsg_x(self, &mut msgvec)) {
-                Ok(count) => {
-                    for m in msgs.iter_mut().take(count) {
-                        m.n_send = m.iov.iter().map(|iov| iov.len()).sum();
+        g3_io_sys::udp::with_sendmsg_x_buf(msgs, |msgs, msgvec| {
+            loop {
+                ready!(self.poll_send_ready(cx))?;
+                match self.try_io(Interest::WRITABLE, || {
+                    g3_io_sys::udp::sendmsg_x(self, msgvec)
+                }) {
+                    Ok(count) => {
+                        for m in msgs.iter_mut().take(count) {
+                            m.n_send = m.iov.iter().map(|iov| iov.len()).sum();
+                        }
+                        return Poll::Ready(Ok(count));
                     }
-                    return Poll::Ready(Ok(count));
-                }
-                Err(e) => {
-                    if e.kind() == io::ErrorKind::WouldBlock {
-                        continue;
-                    } else {
-                        return Poll::Ready(Err(e));
+                    Err(e) => {
+                        if e.kind() == io::ErrorKind::WouldBlock {
+                            continue;
+                        } else {
+                            return Poll::Ready(Err(e));
+                        }
                     }
                 }
             }
-        }
+        })
     }
 
     #[cfg(any(
@@ -164,23 +204,12 @@ impl UdpSocketExt for UdpSocket {
         cx: &mut Context<'_>,
         hdr_v: &mut [RecvMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
-        use g3_io_sys::udp::recvmmsg;
-        use smallvec::SmallVec;
-
-        RECV_ANCILLARY_BUFFERS.with_borrow_mut(|buffers| {
-            if buffers.len() < hdr_v.len() {
-                buffers.resize_with(hdr_v.len(), RecvAncillaryBuffer::default);
-            }
-
-            let mut msgvec: SmallVec<[_; 32]> = SmallVec::with_capacity(hdr_v.len());
-            for (i, m) in hdr_v.iter_mut().enumerate() {
-                let control_buf = &mut buffers[i];
-                msgvec.push(unsafe { m.to_mmsghdr(control_buf) });
-            }
-
+        g3_io_sys::udp::with_recvmmsg_buf(hdr_v, |hdr_v, msgvec| {
             loop {
                 ready!(self.poll_recv_ready(cx))?;
-                match self.try_io(Interest::READABLE, || recvmmsg(self, &mut msgvec)) {
+                match self.try_io(Interest::READABLE, || {
+                    g3_io_sys::udp::recvmmsg(self, msgvec)
+                }) {
                     Ok(count) => {
                         for (m, h) in hdr_v.iter_mut().take(count).zip(msgvec) {
                             m.n_recv = h.msg_len as usize;
@@ -215,23 +244,12 @@ impl UdpSocketExt for UdpSocket {
         cx: &mut Context<'_>,
         hdr_v: &mut [RecvMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
-        use g3_io_sys::udp::recvmsg_x;
-        use smallvec::SmallVec;
-
-        RECV_ANCILLARY_BUFFERS.with_borrow_mut(|buffers| {
-            if buffers.len() < hdr_v.len() {
-                buffers.resize_with(hdr_v.len(), RecvAncillaryBuffer::default);
-            }
-
-            let mut msgvec: SmallVec<[_; 32]> = SmallVec::with_capacity(hdr_v.len());
-            for (i, m) in hdr_v.iter_mut().enumerate() {
-                let control_buf = &mut buffers[i];
-                msgvec.push(unsafe { m.to_msghdr_x(control_buf) });
-            }
-
+        g3_io_sys::udp::with_recvmsg_x_buf(hdr_v, |hdr_v, msgvec| {
             loop {
                 ready!(self.poll_recv_ready(cx))?;
-                match self.try_io(Interest::READABLE, || recvmsg_x(self, &mut msgvec)) {
+                match self.try_io(Interest::READABLE, || {
+                    g3_io_sys::udp::recvmsg_x(self, msgvec)
+                }) {
                     Ok(count) => {
                         for (m, h) in hdr_v.iter_mut().take(count).zip(msgvec) {
                             m.n_recv = h.msg_datalen;
@@ -270,6 +288,158 @@ mod tests {
     use std::io::{IoSlice, IoSliceMut};
     use std::net::{IpAddr, SocketAddr};
     use std::str::FromStr;
+
+    #[tokio::test]
+    async fn msg_connect() {
+        let s_sock = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let s_addr = s_sock.local_addr().unwrap();
+
+        let c_sock = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let c_addr = c_sock.local_addr().unwrap();
+        c_sock.connect(&s_addr).await.unwrap();
+
+        let msg_1 = b"abcd";
+
+        let hdr = SendMsgHdr::new([IoSlice::new(msg_1)], None);
+        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &hdr)).await.unwrap();
+        assert_eq!(nw, msg_1.len());
+
+        let mut recv_msg1 = [0u8; 16];
+        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg1)]);
+        poll_fn(|cx| s_sock.poll_recvmsg(cx, &mut hdr))
+            .await
+            .unwrap();
+        assert_eq!(hdr.n_recv, msg_1.len());
+        assert_eq!(hdr.src_addr(), Some(c_addr));
+
+        assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
+    }
+
+    #[tokio::test]
+    async fn msg_no_connect() {
+        let s_sock = UdpSocket::bind("[::1]:0").await.unwrap();
+        let s_addr = s_sock.local_addr().unwrap();
+
+        let c_sock = UdpSocket::bind("[::1]:0").await.unwrap();
+        let c_addr = c_sock.local_addr().unwrap();
+
+        let msg_1 = b"abcd";
+
+        let hdr = SendMsgHdr::new([IoSlice::new(msg_1)], Some(s_addr));
+        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &hdr)).await.unwrap();
+        assert_eq!(nw, msg_1.len());
+
+        let mut recv_msg1 = [0u8; 16];
+        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg1)]);
+        poll_fn(|cx| s_sock.poll_recvmsg(cx, &mut hdr))
+            .await
+            .unwrap();
+        assert_eq!(hdr.n_recv, msg_1.len());
+        assert_eq!(hdr.src_addr(), Some(c_addr));
+        assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
+    }
+
+    #[tokio::test]
+    async fn recv_ancillary_v4() {
+        let listen_config = UdpListenConfig::new(SocketAddr::from_str("0.0.0.0:0").unwrap());
+        let s_sock = g3_socket::udp::new_std_bind_listen(&listen_config).unwrap();
+        let s_sock = UdpSocket::from_std(s_sock).unwrap();
+        let s_addr = s_sock.local_addr().unwrap();
+        assert!(s_addr.ip().is_unspecified());
+        assert_ne!(s_addr.port(), 0);
+        let target_s_addr = SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), s_addr.port());
+
+        let c_sock = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let c_addr = c_sock.local_addr().unwrap();
+        c_sock.connect(&target_s_addr).await.unwrap();
+
+        let msg_1 = b"abcd";
+
+        let hdr = SendMsgHdr::new([IoSlice::new(msg_1)], None);
+        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &hdr)).await.unwrap();
+        assert_eq!(nw, msg_1.len());
+
+        let mut recv_msg1 = [0u8; 16];
+        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg1)]);
+        poll_fn(|cx| s_sock.poll_recvmsg(cx, &mut hdr))
+            .await
+            .unwrap();
+        assert_eq!(hdr.n_recv, msg_1.len());
+        assert_eq!(hdr.src_addr(), Some(c_addr));
+        assert_eq!(hdr.dst_addr(s_addr), target_s_addr);
+        assert!(hdr.interface_id().is_some());
+        assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
+    }
+
+    #[tokio::test]
+    async fn recv_ancillary_v6() {
+        let mut listen_config = UdpListenConfig::new(SocketAddr::from_str("[::]:0").unwrap());
+        #[cfg(not(target_os = "openbsd"))]
+        listen_config.set_ipv6_only(true);
+        let s_sock = g3_socket::udp::new_std_bind_listen(&listen_config).unwrap();
+        let s_sock = UdpSocket::from_std(s_sock).unwrap();
+        let s_addr = s_sock.local_addr().unwrap();
+        assert!(s_addr.ip().is_unspecified());
+        assert_ne!(s_addr.port(), 0);
+        let target_s_addr = SocketAddr::new(IpAddr::from_str("::1").unwrap(), s_addr.port());
+
+        let c_sock = UdpSocket::bind("[::1]:0").await.unwrap();
+        let c_addr = c_sock.local_addr().unwrap();
+        c_sock.connect(&target_s_addr).await.unwrap();
+
+        let msg_1 = b"abcd";
+
+        let hdr = SendMsgHdr::new([IoSlice::new(msg_1)], None);
+        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &hdr)).await.unwrap();
+        assert_eq!(nw, msg_1.len());
+
+        let mut recv_msg1 = [0u8; 16];
+        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg1)]);
+        poll_fn(|cx| s_sock.poll_recvmsg(cx, &mut hdr))
+            .await
+            .unwrap();
+        assert_eq!(hdr.n_recv, msg_1.len());
+        assert_eq!(hdr.src_addr(), Some(c_addr));
+        assert_eq!(hdr.dst_addr(s_addr), target_s_addr);
+        assert!(hdr.interface_id().is_some());
+        assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
+    }
+
+    #[cfg(not(target_os = "openbsd"))]
+    #[tokio::test]
+    async fn recv_ancillary_mapped_v4() {
+        let mut listen_config = UdpListenConfig::new(SocketAddr::from_str("[::]:0").unwrap());
+        listen_config.set_ipv6_only(false);
+        let s_sock = g3_socket::udp::new_std_bind_listen(&listen_config).unwrap();
+        let s_sock = UdpSocket::from_std(s_sock).unwrap();
+        let s_addr = s_sock.local_addr().unwrap();
+        assert!(s_addr.ip().is_unspecified());
+        assert_ne!(s_addr.port(), 0);
+        let target_s_addr = SocketAddr::new(IpAddr::from_str("127.0.0.1").unwrap(), s_addr.port());
+
+        let c_sock = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let c_addr = c_sock.local_addr().unwrap();
+        let expect_c_addr =
+            SocketAddr::new(IpAddr::from_str("::ffff:127.0.0.1").unwrap(), c_addr.port());
+        c_sock.connect(&target_s_addr).await.unwrap();
+
+        let msg_1 = b"abcd";
+
+        let hdr = SendMsgHdr::new([IoSlice::new(msg_1)], None);
+        let nw = poll_fn(|cx| c_sock.poll_sendmsg(cx, &hdr)).await.unwrap();
+        assert_eq!(nw, msg_1.len());
+
+        let mut recv_msg1 = [0u8; 16];
+        let mut hdr = RecvMsgHdr::new([IoSliceMut::new(&mut recv_msg1)]);
+        poll_fn(|cx| s_sock.poll_recvmsg(cx, &mut hdr))
+            .await
+            .unwrap();
+        assert_eq!(hdr.n_recv, msg_1.len());
+        assert_eq!(hdr.src_addr(), Some(expect_c_addr));
+        assert_eq!(hdr.dst_addr(s_addr).to_canonical(), target_s_addr);
+        assert!(hdr.interface_id().is_some());
+        assert_eq!(&recv_msg1[..msg_1.len()], msg_1);
+    }
 
     #[cfg(any(
         target_os = "linux",
@@ -390,7 +560,7 @@ mod tests {
         target_os = "solaris",
     ))]
     #[tokio::test]
-    async fn recv_ancillary_v4() {
+    async fn batch_recv_ancillary_v4() {
         let listen_config = UdpListenConfig::new(SocketAddr::from_str("0.0.0.0:0").unwrap());
         let s_sock = g3_socket::udp::new_std_bind_listen(&listen_config).unwrap();
         let s_sock = UdpSocket::from_std(s_sock).unwrap();
@@ -458,7 +628,7 @@ mod tests {
         target_os = "solaris",
     ))]
     #[tokio::test]
-    async fn recv_ancillary_v6() {
+    async fn batch_recv_ancillary_v6() {
         let mut listen_config = UdpListenConfig::new(SocketAddr::from_str("[::]:0").unwrap());
         #[cfg(not(target_os = "openbsd"))]
         listen_config.set_ipv6_only(true);
@@ -527,7 +697,7 @@ mod tests {
         target_os = "solaris",
     ))]
     #[tokio::test]
-    async fn recv_ancillary_mapped_v4() {
+    async fn batch_recv_ancillary_mapped_v4() {
         let mut listen_config = UdpListenConfig::new(SocketAddr::from_str("[::]:0").unwrap());
         listen_config.set_ipv6_only(false);
         let s_sock = g3_socket::udp::new_std_bind_listen(&listen_config).unwrap();

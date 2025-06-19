@@ -19,6 +19,14 @@ const fn cmsg_space(length: usize) -> usize {
 const CMSG_HDR_SIZE: usize = cmsg_len(0);
 
 impl RecvAncillaryBuffer {
+    pub fn parse_msg<T: RecvAncillaryData>(
+        &self,
+        msghdr: libc::msghdr,
+        data: &mut T,
+    ) -> io::Result<()> {
+        self.parse(msghdr.msg_controllen as _, data)
+    }
+
     #[allow(clippy::single_match)]
     pub fn parse_buf<T: RecvAncillaryData>(control_buf: &[u8], data: &mut T) -> io::Result<()> {
         let total_size = control_buf.len();
