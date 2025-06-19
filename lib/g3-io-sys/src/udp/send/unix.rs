@@ -58,6 +58,8 @@ impl<'a, const C: usize> SendMsgHdr<'a, C> {
             let mut h = mem::zeroed::<crate::ffi::msghdr_x>();
             h.msg_iov = self.iov.as_ptr() as _;
             h.msg_iovlen = C as _;
+            // All other fields must be set to zero.
+            // See https://github.com/apple-oss-distributions/xnu/blob/main/bsd/sys/socket_private.h
             h
         }
     }
@@ -98,14 +100,10 @@ pub fn sendmmsg<T: AsRawFd>(fd: &T, msgvec: &mut [libc::mmsghdr]) -> io::Result<
 
 #[cfg(target_os = "macos")]
 pub fn sendmsg_x<T: AsRawFd>(fd: &T, msgvec: &mut [crate::ffi::msghdr_x]) -> io::Result<usize> {
-    let r = unsafe {
-        crate::ffi::sendmsg_x(
-            fd.as_raw_fd(),
-            msgvec.as_mut_ptr(),
-            msgvec.len() as _,
-            libc::MSG_NOSIGNAL,
-        )
-    };
+    // MSG_NOSIGNAL is not supported, check
+    // https://github.com/apple-oss-distributions/xnu/blob/main/bsd/sys/socket_private.h
+    let r =
+        unsafe { crate::ffi::sendmsg_x(fd.as_raw_fd(), msgvec.as_mut_ptr(), msgvec.len() as _, 0) };
     if r < 0 {
         Err(io::Error::last_os_error())
     } else {

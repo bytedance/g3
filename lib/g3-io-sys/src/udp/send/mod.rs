@@ -18,6 +18,28 @@ mod windows;
 #[cfg(windows)]
 pub use windows::*;
 
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "solaris",
+    target_os = "macos",
+))]
+mod buf;
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "solaris",
+))]
+pub use buf::with_sendmmsg_buf;
+#[cfg(target_os = "macos")]
+pub use buf::with_sendmsg_x_buf;
+
 pub struct SendMsgHdr<'a, const C: usize> {
     pub iov: [IoSlice<'a>; C],
     c_addr: Option<UnsafeCell<RawSocketAddr>>,
