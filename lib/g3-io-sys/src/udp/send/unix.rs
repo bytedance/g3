@@ -64,21 +64,7 @@ impl<'a, const C: usize> SendMsgHdr<'a, C> {
 }
 
 pub fn sendmsg<T: AsRawFd>(fd: &T, msghdr: &mut libc::msghdr) -> io::Result<usize> {
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "android",
-        target_os = "freebsd",
-        target_os = "dragonfly",
-        target_os = "netbsd",
-        target_os = "openbsd",
-        target_os = "illumos",
-        target_os = "solaris",
-    ))]
-    let flags = libc::MSG_DONTWAIT | libc::MSG_NOSIGNAL;
-    #[cfg(target_os = "macos")]
-    let flags = libc::MSG_DONTWAIT;
-
-    let r = unsafe { libc::sendmsg(fd.as_raw_fd(), ptr::from_mut(msghdr), flags) };
+    let r = unsafe { libc::sendmsg(fd.as_raw_fd(), ptr::from_mut(msghdr), libc::MSG_NOSIGNAL) };
     if r < 0 {
         Err(io::Error::last_os_error())
     } else {
@@ -95,13 +81,12 @@ pub fn sendmsg<T: AsRawFd>(fd: &T, msghdr: &mut libc::msghdr) -> io::Result<usiz
     target_os = "solaris",
 ))]
 pub fn sendmmsg<T: AsRawFd>(fd: &T, msgvec: &mut [libc::mmsghdr]) -> io::Result<usize> {
-    let flags = libc::MSG_DONTWAIT | libc::MSG_NOSIGNAL;
     let r = unsafe {
         libc::sendmmsg(
             fd.as_raw_fd(),
             msgvec.as_mut_ptr(),
             msgvec.len() as _,
-            flags as _,
+            libc::MSG_NOSIGNAL as _,
         )
     };
     if r < 0 {
@@ -118,7 +103,7 @@ pub fn sendmsg_x<T: AsRawFd>(fd: &T, msgvec: &mut [crate::ffi::msghdr_x]) -> io:
             fd.as_raw_fd(),
             msgvec.as_mut_ptr(),
             msgvec.len() as _,
-            libc::MSG_DONTWAIT,
+            libc::MSG_NOSIGNAL,
         )
     };
     if r < 0 {

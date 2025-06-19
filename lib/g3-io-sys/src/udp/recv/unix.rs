@@ -74,7 +74,7 @@ impl<const C: usize> RecvMsgHdr<'_, C> {
 }
 
 pub fn recvmsg<T: AsRawFd>(fd: &T, msghdr: &mut libc::msghdr) -> io::Result<usize> {
-    let r = unsafe { libc::recvmsg(fd.as_raw_fd(), ptr::from_mut(msghdr), libc::MSG_DONTWAIT) };
+    let r = unsafe { libc::recvmsg(fd.as_raw_fd(), ptr::from_mut(msghdr), 0) };
     if r < 0 {
         Err(io::Error::last_os_error())
     } else {
@@ -96,7 +96,7 @@ pub fn recvmmsg<T: AsRawFd>(fd: &T, msgvec: &mut [libc::mmsghdr]) -> io::Result<
             fd.as_raw_fd(),
             msgvec.as_mut_ptr(),
             msgvec.len() as _,
-            libc::MSG_DONTWAIT as _,
+            0,
             ptr::null_mut(),
         )
     };
@@ -109,14 +109,8 @@ pub fn recvmmsg<T: AsRawFd>(fd: &T, msgvec: &mut [libc::mmsghdr]) -> io::Result<
 
 #[cfg(target_os = "macos")]
 pub fn recvmsg_x<T: AsRawFd>(fd: &T, msgvec: &mut [crate::ffi::msghdr_x]) -> io::Result<usize> {
-    let r = unsafe {
-        crate::ffi::recvmsg_x(
-            fd.as_raw_fd(),
-            msgvec.as_mut_ptr(),
-            msgvec.len() as _,
-            libc::MSG_DONTWAIT,
-        )
-    };
+    let r =
+        unsafe { crate::ffi::recvmsg_x(fd.as_raw_fd(), msgvec.as_mut_ptr(), msgvec.len() as _, 0) };
     if r < 0 {
         Err(io::Error::last_os_error())
     } else {
