@@ -74,6 +74,10 @@ impl ProtocolPortMapValue {
                 self.check_ssl = true;
                 MaybeProtocol::Rtmp
             }
+            MaybeProtocol::DnsOverTls => {
+                self.check_ssl = true;
+                MaybeProtocol::Dns
+            }
             p => p,
         };
         if !self.protocols.contains(&p) {
