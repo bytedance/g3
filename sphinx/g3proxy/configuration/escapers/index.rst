@@ -174,8 +174,6 @@ Set the HappyEyeballs config.
 
 **default**: default HappyEyeballs config
 
-.. versionadded:: 1.5.3
-
 .. _conf_escaper_common_tcp_misc_opts:
 
 tcp_misc_opts

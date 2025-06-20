@@ -309,8 +309,6 @@ The same connection used for different users will be counted for each of them.
 
 **default**: no limit, **alias**: tcp_conn_limit_quota
 
-.. versionadded:: 1.4.0
-
 request_rate_limit
 ------------------
 
@@ -402,8 +400,6 @@ Set if we should use socks udp associate instead of the simplified udp connect m
 
 **default**: false
 
-.. versionadded:: 1.3.0
-
 audit
 -----
 
@@ -413,16 +409,12 @@ Set audit config for this user.
 
 **default**: set with default values
 
-.. versionadded:: 1.7.0
-
 explicit_sites
 --------------
 
 **optional**, **type**: seq of :ref:`user site <configuration_user_group_user_site>`
 
 Set explicit sites for this user.
-
-.. versionadded:: 1.3.4
 
 .. _config_user_egress_path_id_map:
 

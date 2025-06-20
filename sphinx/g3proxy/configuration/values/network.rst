@@ -979,15 +979,15 @@ The followings values are supported:
 
   If *dns over http/3* should be used.
 
+  .. versionadded:: 1.7.27
+
 * dns-over-quic | doq | quic
 
   If `dns over quic`_ should be used.
 
+  .. versionadded:: 1.7.15
+
 .. _dns over quic: https://datatracker.ietf.org/doc/html/rfc9250
-
-.. versionchanged:: added dns over quic support since version 1.7.15
-
-.. versionchanged:: added dns over http/3 support since version 1.7.27
 
 .. _conf_value_dns_encryption_config:
 
