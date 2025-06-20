@@ -7,6 +7,7 @@ use std::str::FromStr;
 
 use ahash::AHashMap;
 use anyhow::{Context, anyhow};
+use log::warn;
 use serde_json::{Map, Value};
 
 use g3_types::metrics::NodeName;
@@ -55,15 +56,23 @@ impl UserConfig {
                 self.tcp_connect = Some(config);
                 Ok(())
             }
-            "tcp_sock_speed_limit" | "tcp_conn_speed_limit" | "tcp_conn_limit" => {
+            "tcp_sock_speed_limit" => {
                 self.tcp_sock_speed_limit = g3_json::value::as_tcp_sock_speed_limit(v)
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 Ok(())
             }
-            "udp_sock_speed_limit" | "udp_relay_speed_limit" | "udp_relay_limit" => {
+            "tcp_conn_speed_limit" | "tcp_conn_limit" => {
+                warn!("deprecated config key {k}, please use 'tcp_sock_speed_limit' instead");
+                self.set_json("tcp_sock_speed_limit", v)
+            }
+            "udp_sock_speed_limit" => {
                 self.udp_sock_speed_limit = g3_json::value::as_udp_sock_speed_limit(v)
                     .context(format!("invalid udp socket speed limit value for key {k}"))?;
                 Ok(())
+            }
+            "udp_relay_speed_limit" | "udp_relay_limit" => {
+                warn!("deprecated config key {k}, please use 'udp_sock_speed_limit' instead");
+                self.set_json("udp_sock_speed_limit", v)
             }
             "tcp_all_upload_speed_limit" => {
                 let limit = g3_json::value::as_global_stream_speed_limit(v).context(format!(
