@@ -217,9 +217,28 @@ udp_sock_speed_limit
 
 Set speed limit for each udp socket.
 
-**default**: no limit, **alias**: udp_relay_speed_limit | udp_relay_limit
+**default**: no limit
 
-.. versionchanged:: 1.4.0 changed name to udp_sock_speed_limit
+udp_relay_speed_limit
+---------------------
+
+**deprecated**
+
+.. versionchanged:: 1.11.8 deprecated, use udp_sock_speed_limit instead
+
+udp_relay_limit
+---------------------
+
+**deprecated**
+
+.. versionchanged:: 1.11.8 deprecated, use udp_sock_speed_limit instead
+
+relay_limit
+-----------
+
+**deprecated**
+
+.. versionchanged:: 1.11.8 deprecated, use udp_sock_speed_limit instead
 
 .. _conf_server_common_tcp_copy_buffer_size:
 
