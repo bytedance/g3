@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
+use log::warn;
 use yaml_rust::{Yaml, yaml};
 
 use g3_types::auth::{Password, Username};
@@ -195,10 +196,14 @@ impl ProxyHttpsEscaperConfig {
                 self.resolve_strategy = g3_yaml::value::as_resolve_strategy(v)?;
                 Ok(())
             }
-            "tcp_sock_speed_limit" | "tcp_conn_speed_limit" | "tcp_conn_limit" | "conn_limit" => {
+            "tcp_sock_speed_limit" => {
                 self.general.tcp_sock_speed_limit = g3_yaml::value::as_tcp_sock_speed_limit(v)
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 Ok(())
+            }
+            "tcp_conn_speed_limit" | "tcp_conn_limit" | "conn_limit" => {
+                warn!("deprecated config key '{k}', please use 'tcp_sock_speed_limit' instead");
+                self.set("tcp_sock_speed_limit", v)
             }
             "http_forward_capability" => {
                 self.http_forward_capability = g3_yaml::value::as_http_forward_capability(v)

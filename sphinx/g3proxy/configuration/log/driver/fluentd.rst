@@ -91,9 +91,8 @@ Enable tls and set the config.
 
 **default**: not set
 
-.. versionchanged:: 1.7.35
-
-   change to use rustls
+.. versionchanged:: 1.7.35 switch to use rustls
+.. versionchanged:: 1.11.1 switch to use OpenSSL
 
 tls_name
 --------

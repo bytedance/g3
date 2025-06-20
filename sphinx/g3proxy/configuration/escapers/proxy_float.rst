@@ -236,8 +236,6 @@ Common keys
 
   Set the speed limit for each tcp connections to this peer.
 
-  .. versionchanged:: 1.4.0 changed name to tcp_sock_speed_limit
-
 The following types are supported:
 
 http
