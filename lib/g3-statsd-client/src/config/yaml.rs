@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
+use log::warn;
 use yaml_rust::Yaml;
 
 use g3_types::metrics::NodeName;
@@ -89,63 +90,66 @@ impl StatsdClientConfig {
     pub fn parse_yaml(v: &Yaml, prefix: NodeName) -> anyhow::Result<Self> {
         if let Yaml::Hash(map) = v {
             let mut config = StatsdClientConfig::with_prefix(prefix);
-
-            g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
-                "target_udp" | "backend_udp" => {
-                    let target = StatsdBackend::parse_udp_yaml(v)
-                        .context(format!("invalid value for key {k}"))?;
-                    config.set_backend(target);
-                    Ok(())
-                }
-                #[cfg(unix)]
-                "target_unix" | "backend_unix" => {
-                    let target = StatsdBackend::parse_unix_yaml(v)
-                        .context(format!("invalid value for key {k}"))?;
-                    config.set_backend(target);
-                    Ok(())
-                }
-                "target" | "backend" => {
-                    if let Yaml::Hash(map) = v {
-                        g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
-                            "udp" => {
-                                let target = StatsdBackend::parse_udp_yaml(v)
-                                    .context(format!("invalid value for key {k}"))?;
-                                config.set_backend(target);
-                                Ok(())
-                            }
-                            #[cfg(unix)]
-                            "unix" => {
-                                let target = StatsdBackend::parse_unix_yaml(v)
-                                    .context(format!("invalid value for key {k}"))?;
-                                config.set_backend(target);
-                                Ok(())
-                            }
-                            _ => Err(anyhow!("invalid key {k}")),
-                        })
-                        .context(format!("invalid value for key {k}"))
-                    } else {
-                        Err(anyhow!("yaml value type for key {k} should be 'map'"))
-                    }
-                }
-                "prefix" => {
-                    let prefix = g3_yaml::value::as_metric_node_name(v)
-                        .context(format!("invalid metrics name value for key {k}"))?;
-                    config.set_prefix(prefix);
-                    Ok(())
-                }
-                "emit_interval" | "emit_duration" => {
-                    config.emit_interval = g3_yaml::humanize::as_duration(v)
-                        .context(format!("invalid humanize duration value for key {k}"))?;
-                    Ok(())
-                }
-                _ => Err(anyhow!("invalid key {k}")),
-            })?;
-
+            g3_yaml::foreach_kv(map, |k, v| config.set_by_yaml_kv(k, v))?;
             Ok(config)
         } else {
             Err(anyhow!(
                 "yaml value type for 'statsd client config' should be 'map'"
             ))
         }
+    }
+
+    fn set_by_yaml_kv(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
+        match g3_yaml::key::normalize(k).as_str() {
+            "target_udp" | "backend_udp" => {
+                let target = StatsdBackend::parse_udp_yaml(v)
+                    .context(format!("invalid value for key {k}"))?;
+                self.set_backend(target);
+            }
+            #[cfg(unix)]
+            "target_unix" | "backend_unix" => {
+                let target = StatsdBackend::parse_unix_yaml(v)
+                    .context(format!("invalid value for key {k}"))?;
+                self.set_backend(target);
+            }
+            "target" | "backend" => {
+                return if let Yaml::Hash(map) = v {
+                    g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+                        "udp" => {
+                            let target = StatsdBackend::parse_udp_yaml(v)
+                                .context(format!("invalid value for key {k}"))?;
+                            self.set_backend(target);
+                            Ok(())
+                        }
+                        #[cfg(unix)]
+                        "unix" => {
+                            let target = StatsdBackend::parse_unix_yaml(v)
+                                .context(format!("invalid value for key {k}"))?;
+                            self.set_backend(target);
+                            Ok(())
+                        }
+                        _ => Err(anyhow!("invalid key {k}")),
+                    })
+                    .context(format!("invalid value for key {k}"))
+                } else {
+                    Err(anyhow!("yaml value type for key {k} should be 'map'"))
+                };
+            }
+            "prefix" => {
+                let prefix = g3_yaml::value::as_metric_node_name(v)
+                    .context(format!("invalid metrics name value for key {k}"))?;
+                self.set_prefix(prefix);
+            }
+            "emit_duration" => {
+                warn!("deprecated config key '{k}', please use 'emit_interval' instead");
+                return self.set_by_yaml_kv("emit_interval", v);
+            }
+            "emit_interval" => {
+                self.emit_interval = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+            }
+            _ => return Err(anyhow!("invalid key {k}")),
+        }
+        Ok(())
     }
 }
