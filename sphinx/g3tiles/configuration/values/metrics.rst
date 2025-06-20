@@ -209,6 +209,13 @@ emit_interval
 
 Set the emit interval for local stats. All stats will be send out in sequence.
 
-**default**: 200ms, **alias**: emit_duration
+**default**: 200ms
 
-.. versionchanged:: 0.3.9 name changed to emit_interval
+.. versionadded:: 0.3.9
+
+emit_duration
+-------------
+
+**deprecated**
+
+.. versionchanged:: 0.3.9 deprecated, use emit_interval instead

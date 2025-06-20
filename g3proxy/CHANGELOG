@@ -1,7 +1,8 @@
 
 v1.11.8:
  - BUG FIX: fix panic when detect DNS over TLS traffic
- - Optimization: rename stat config option emit_duration to emit_interval
+ - Deprecated: the following config options are deprecated:
+     - emit_duration in statsd config, use emit_interval instead
 
 v1.11.7:
  - BUG FIX: fix read of H2 zero size body frame
