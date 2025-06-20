@@ -136,7 +136,13 @@ If no matched key found in the map, the unspecified ip address of the same famil
 
 For bool value, an empty map will be used if set to true, or disabled if set to false.
 
-**default**: not set, **alias**: auto_reply_local_ip_map
+**default**: not set
 
-.. versionchanged:: 1.7.19 change option name to transmute_udp_echo_ip
 .. versionchanged:: 1.9.9 allow bool value and change to use unspecified ip if no match records
+
+auto_reply_local_ip_map
+-----------------------
+
+**deprecated**
+
+.. versionchanged:: 1.11.8 deprecated, use transmute_udp_echo_ip instead
