@@ -4,9 +4,9 @@ v1.11.8:
  - Deprecated: the following config options are deprecated:
      - emit_duration in statsd config, use emit_interval instead
      - auto_reply_local_ip_map in socks server config, use transmute_udp_echo_ip instead
-     - udp_relay_speed_limit/udp_relay_limit/relay_limit in server config, use udp_sock_speed_limit instead
      - untrusted_read_limit in server config, use untrusted_read_speed_limit instead
-     - tcp_conn_speed_limit/tcp_conn_limit/conn_limit in server config, use tcp_sock_speed_limit instead
+     - tcp_conn_speed_limit/tcp_conn_limit/conn_limit in server & escaper config, use tcp_sock_speed_limit instead
+     - udp_relay_speed_limit/udp_relay_limit/relay_limit in server & escaper config, use udp_sock_speed_limit instead
      - tcp_conn_speed_limit/tcp_conn_limit in user config, use tcp_sock_speed_limit instead
      - udp_relay_speed_limit/udp_relay_limit in user config, use udp_sock_speed_limit instead
 

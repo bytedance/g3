@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
+use log::warn;
 use rustc_hash::FxHashMap;
 use yaml_rust::{Yaml, yaml};
 
@@ -194,18 +195,23 @@ impl ProxySocks5sEscaperConfig {
                 self.resolve_strategy = g3_yaml::value::as_resolve_strategy(v)?;
                 Ok(())
             }
-            "tcp_sock_speed_limit" | "tcp_conn_speed_limit" | "tcp_conn_limit" | "conn_limit" => {
+            "tcp_sock_speed_limit" => {
                 self.general.tcp_sock_speed_limit = g3_yaml::value::as_tcp_sock_speed_limit(v)
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 Ok(())
             }
-            "udp_sock_speed_limit"
-            | "udp_relay_speed_limit"
-            | "udp_relay_limit"
-            | "relay_limit" => {
+            "tcp_conn_speed_limit" | "tcp_conn_limit" | "conn_limit" => {
+                warn!("deprecated config key '{k}', please use 'tcp_sock_speed_limit' instead");
+                self.set("tcp_sock_speed_limit", v)
+            }
+            "udp_sock_speed_limit" => {
                 self.general.udp_sock_speed_limit = g3_yaml::value::as_udp_sock_speed_limit(v)
                     .context(format!("invalid udp socket speed limit value for key {k}"))?;
                 Ok(())
+            }
+            "udp_relay_speed_limit" | "udp_relay_limit" | "relay_limit" => {
+                warn!("deprecated config key '{k}', please use 'udp_sock_speed_limit' instead");
+                self.set("udp_sock_speed_limit", v)
             }
             "tcp_keepalive" => {
                 self.tcp_keepalive = g3_yaml::value::as_tcp_keepalive_config(v)
