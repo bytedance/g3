@@ -120,7 +120,7 @@ The metric names are:
 
   .. note:: You may see user_canceled followed by a close_notify on one connection.
 
-  .. versionchanged:: 1.11.4
+  .. versionadded:: 1.11.4
 
 * escaper.tls.peer.closure.abortive
 
@@ -128,7 +128,7 @@ The metric names are:
 
   Show the count of received TLS error alerts (abortive closure of connection) from peer.
 
-  .. versionchanged:: 1.11.4
+  .. versionadded:: 1.11.4
 
 * escaper.forbidden.ip_blocked
 

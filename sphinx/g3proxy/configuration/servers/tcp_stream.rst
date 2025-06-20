@@ -60,8 +60,6 @@ The key for ketama/rendezvous/jump hash is *<client-ip><server-ip>*.
 
 **default**: random
 
-.. versionadded:: 1.5.3
-
 tls_client
 ----------
 
