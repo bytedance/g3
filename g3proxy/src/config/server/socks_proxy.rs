@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
+use log::warn;
 use rustc_hash::FxHashMap;
 use yaml_rust::{Yaml, yaml};
 
@@ -304,7 +305,7 @@ impl SocksProxyServerConfig {
                 self.task_log_flush_interval = Some(interval);
                 Ok(())
             }
-            "transmute_udp_echo_ip" | "auto_reply_local_ip_map" => {
+            "transmute_udp_echo_ip" => {
                 if let Yaml::Hash(_) = v {
                     let map = g3_yaml::value::as_hashmap(
                         v,
@@ -319,6 +320,10 @@ impl SocksProxyServerConfig {
                     }
                 }
                 Ok(())
+            }
+            "auto_reply_local_ip_map" => {
+                warn!("deprecated config key '{k}', please use 'transmute_udp_echo_ip' instead");
+                self.set("transmute_udp_echo_ip", v)
             }
             _ => Err(anyhow!("invalid key {k}")),
         }
