@@ -228,13 +228,14 @@ impl SocksProxyServerConfig {
                 warn!("deprecated config key '{k}', please use 'tcp_sock_speed_limit' instead");
                 self.set("tcp_sock_speed_limit", v)
             }
-            "udp_sock_speed_limit"
-            | "udp_relay_speed_limit"
-            | "udp_relay_limit"
-            | "relay_limit" => {
+            "udp_sock_speed_limit" => {
                 self.udp_sock_speed_limit = g3_yaml::value::as_udp_sock_speed_limit(v)
                     .context(format!("invalid udp socket speed limit value for key {k}"))?;
                 Ok(())
+            }
+            "udp_relay_speed_limit" | "udp_relay_limit" | "relay_limit" => {
+                warn!("deprecated config key '{k}', please use 'udp_sock_speed_limit' instead");
+                self.set("udp_sock_speed_limit", v)
             }
             "tcp_copy_buffer_size" => {
                 let buffer_size = g3_yaml::humanize::as_usize(v)
