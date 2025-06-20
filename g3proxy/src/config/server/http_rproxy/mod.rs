@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
+use log::warn;
 use yaml_rust::{Yaml, yaml};
 
 use g3_io_ext::StreamCopyConfig;
@@ -292,11 +293,17 @@ impl HttpRProxyServerConfig {
                     .context(format!("invalid http keepalive config value for key {k}"))?;
                 Ok(())
             }
-            "untrusted_read_speed_limit" | "untrusted_read_limit" => {
+            "untrusted_read_speed_limit" => {
                 let limit = g3_yaml::value::as_tcp_sock_speed_limit(v)
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 self.untrusted_read_limit = Some(limit);
                 Ok(())
+            }
+            "untrusted_read_limit" => {
+                warn!(
+                    "deprecated config key '{k}', please use 'untrusted_read_speed_limit' instead"
+                );
+                self.set("untrusted_read_speed_limit", v)
             }
             "append_forwarded_for" => {
                 self.append_forwarded_for = g3_yaml::value::as_http_forwarded_header_type(v)

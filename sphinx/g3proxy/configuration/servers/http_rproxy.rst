@@ -177,9 +177,14 @@ Enable untrusted read of the body of requests with no auth info, and set the rea
 
 Set this if you need to be compatible with buggy java http clients which won't handle the 407 error response in time.
 
-**default**: not set, which means untrusted read is disabled, **alias**: untrusted_read_limit
+**default**: not set, which means untrusted read is disabled
 
-.. versionchanged:: 1.4.0 changed name to untrusted_read_speed_limit
+untrusted_read_limit
+--------------------
+
+**deprecated**
+
+.. versionchanged:: 1.11.8 deprecated, use untrusted_read_speed_limit instead
 
 append_forwarded_for
 --------------------
