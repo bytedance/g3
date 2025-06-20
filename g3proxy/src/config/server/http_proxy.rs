@@ -12,6 +12,7 @@ use std::time::Duration;
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use http::HeaderName;
+use log::warn;
 use yaml_rust::{Yaml, yaml};
 
 use g3_ftp_client::FtpClientConfig;
@@ -374,11 +375,15 @@ impl HttpProxyServerConfig {
                 self.echo_chained_info = g3_yaml::value::as_bool(v)?;
                 Ok(())
             }
-            "untrusted_read_speed_limit" | "untrusted_read_limit" => {
+            "untrusted_read_speed_limit" => {
                 let limit = g3_yaml::value::as_tcp_sock_speed_limit(v)
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 self.untrusted_read_limit = Some(limit);
                 Ok(())
+            }
+            "untrusted_read_limit" => {
+                warn!("deprecated config key {k}, please use 'untrusted_read_speed_limit' instead");
+                self.set("untrusted_read_speed_limit", v)
             }
             "egress_path_selection_header" | "path_selection_header" => {
                 if let Yaml::String(s) = v {
