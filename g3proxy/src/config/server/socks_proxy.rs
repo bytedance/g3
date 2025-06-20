@@ -219,10 +219,14 @@ impl SocksProxyServerConfig {
                 self.dst_port_filter = Some(filter);
                 Ok(())
             }
-            "tcp_sock_speed_limit" | "tcp_conn_speed_limit" | "tcp_conn_limit" | "conn_limit" => {
+            "tcp_sock_speed_limit" => {
                 self.tcp_sock_speed_limit = g3_yaml::value::as_tcp_sock_speed_limit(v)
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 Ok(())
+            }
+            "tcp_conn_speed_limit" | "tcp_conn_limit" | "conn_limit" => {
+                warn!("deprecated config key '{k}', please use 'tcp_sock_speed_limit' instead");
+                self.set("tcp_sock_speed_limit", v)
             }
             "udp_sock_speed_limit"
             | "udp_relay_speed_limit"

@@ -266,10 +266,14 @@ impl HttpProxyServerConfig {
                     .context(format!("invalid ascii string value for key {k}"))?;
                 Ok(())
             }
-            "tcp_sock_speed_limit" | "tcp_conn_speed_limit" | "tcp_conn_limit" | "conn_limit" => {
+            "tcp_sock_speed_limit" => {
                 self.tcp_sock_speed_limit = g3_yaml::value::as_tcp_sock_speed_limit(v)
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 Ok(())
+            }
+            "tcp_conn_speed_limit" | "tcp_conn_limit" | "conn_limit" => {
+                warn!("deprecated config key '{k}', please use 'tcp_sock_speed_limit' instead");
+                self.set("tcp_sock_speed_limit", v)
             }
             "tcp_copy_buffer_size" => {
                 let buffer_size = g3_yaml::humanize::as_usize(v)

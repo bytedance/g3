@@ -185,9 +185,28 @@ tcp_sock_speed_limit
 
 Set speed limit for each tcp socket.
 
-**default**: no limit, **alias**: tcp_conn_speed_limit | tcp_conn_limit
+**default**: no limit
 
-.. versionchanged:: 1.4.0 changed name to tcp_sock_speed_limit
+tcp_conn_speed_limit
+--------------------
+
+**deprecated**
+
+.. versionchanged:: 1.11.8 deprecated, use tcp_sock_speed_limit instead
+
+tcp_conn_limit
+--------------
+
+**deprecated**
+
+.. versionchanged:: 1.11.8 deprecated, use tcp_sock_speed_limit instead
+
+conn_limit
+----------
+
+**deprecated**
+
+.. versionchanged:: 1.11.8 deprecated, use tcp_sock_speed_limit instead
 
 .. _conf_server_common_udp_sock_speed_limit:
 
