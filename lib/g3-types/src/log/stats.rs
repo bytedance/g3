@@ -65,6 +65,10 @@ impl LogIoStats {
         self.passed.fetch_add(1, Ordering::Relaxed);
     }
 
+    pub fn add_passed_n(&self, n: usize) {
+        self.passed.fetch_add(n as u64, Ordering::Relaxed);
+    }
+
     pub fn add_size(&self, size: usize) {
         self.size.fetch_add(size as u64, Ordering::Relaxed);
     }
@@ -102,6 +106,11 @@ impl LogDropStats {
 
     pub fn add_peer_unreachable(&self) {
         self.peer_unreachable.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub fn add_peer_unreachable_n(&self, count: usize) {
+        self.peer_unreachable
+            .fetch_add(count as u64, Ordering::Relaxed);
     }
 }
 
