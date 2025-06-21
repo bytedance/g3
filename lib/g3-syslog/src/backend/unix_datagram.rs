@@ -14,14 +14,32 @@ fn connect<P: AsRef<Path>>(path: P) -> io::Result<UnixDatagram> {
     Ok(sock)
 }
 
+#[cfg(any(target_os = "linux", target_os = "openbsd"))]
 pub(super) fn default() -> io::Result<UnixDatagram> {
-    connect("/dev/log").or_else(|e| {
-        if e.kind() == io::ErrorKind::NotFound {
-            connect("/var/run/syslog")
-        } else {
-            Err(e)
-        }
-    })
+    connect("/dev/log")
+}
+
+#[cfg(any(target_os = "freebsd", target_os = "dragonfly", target_os = "netbsd"))]
+pub(super) fn default() -> io::Result<UnixDatagram> {
+    connect("/var/run/log")
+}
+
+#[cfg(target_os = "macos")]
+pub(super) fn default() -> io::Result<UnixDatagram> {
+    connect("/var/run/syslog")
+}
+
+#[cfg(not(any(
+    target_os = "linux",
+    target_os = "freebsd",
+    target_os = "dragonfly",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "macos",
+)))]
+pub(super) fn default() -> io::Result<UnixDatagram> {
+    log::warn!("no default syslog path known on this platform, will try /dev/log");
+    connect("/dev/log")
 }
 
 pub(super) fn custom<P: AsRef<Path>>(path: P) -> io::Result<UnixDatagram> {
