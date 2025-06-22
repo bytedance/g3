@@ -38,6 +38,8 @@ impl Default for StatsdBackend {
 pub struct StatsdClientConfig {
     backend: StatsdBackend,
     prefix: NodeName,
+    cache_size: usize,
+    max_segment_size: Option<usize>,
     pub emit_interval: Duration,
 }
 
@@ -52,6 +54,8 @@ impl StatsdClientConfig {
         StatsdClientConfig {
             backend: StatsdBackend::default(),
             prefix,
+            cache_size: 256 * 1024,
+            max_segment_size: None,
             emit_interval: Duration::from_millis(200),
         }
     }
@@ -72,12 +76,22 @@ impl StatsdClientConfig {
                     SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
                 });
                 let socket = UdpSocket::bind(SocketAddr::new(bind_ip, 0))?;
-                StatsdMetricsSink::udp_with_capacity(*addr, socket, 1024)
+                StatsdMetricsSink::udp_with_capacity(
+                    *addr,
+                    socket,
+                    self.cache_size,
+                    self.max_segment_size,
+                )
             }
             #[cfg(unix)]
             StatsdBackend::Unix(path) => {
                 let socket = UnixDatagram::unbound()?;
-                StatsdMetricsSink::unix_with_capacity(path.clone(), socket, 4096)
+                StatsdMetricsSink::unix_with_capacity(
+                    path.clone(),
+                    socket,
+                    self.cache_size,
+                    self.max_segment_size,
+                )
             }
         };
 
