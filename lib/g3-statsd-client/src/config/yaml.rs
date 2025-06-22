@@ -140,6 +140,15 @@ impl StatsdClientConfig {
                     .context(format!("invalid metrics name value for key {k}"))?;
                 self.set_prefix(prefix);
             }
+            "cache_size" => {
+                self.cache_size = g3_yaml::humanize::as_usize(v)
+                    .context(format!("invalid humanize usize value for key {k}"))?;
+            }
+            "max_segment_size" => {
+                let size = g3_yaml::humanize::as_usize(v)
+                    .context(format!("invalid humanize usize value for key {k}"))?;
+                self.max_segment_size = Some(size);
+            }
             "emit_duration" => {
                 warn!("deprecated config key '{k}', please use 'emit_interval' instead");
                 return self.set_by_yaml_kv("emit_interval", v);

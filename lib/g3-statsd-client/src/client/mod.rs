@@ -68,58 +68,58 @@ mod tests {
     #[test]
     fn count_simple() {
         let buf = Rc::new(Mutex::new(Vec::default()));
-        let sink = StatsdMetricsSink::buf_with_capacity(buf.clone(), 32);
+        let sink = StatsdMetricsSink::test_with_capacity(buf.clone(), 32);
         let prefix = unsafe { NodeName::new_unchecked("test") };
         let mut client = StatsdClient::new(prefix, sink);
         client.count("count", 20).send();
         client.flush_sink();
 
         let buf = buf.lock().unwrap();
-        assert_eq!(buf.as_slice(), b"test.count:20|c");
+        assert_eq!(buf.as_slice(), b"test.count:20|c\n");
     }
 
     #[test]
     fn gauge_simple() {
         let buf = Rc::new(Mutex::new(Vec::default()));
-        let sink = StatsdMetricsSink::buf_with_capacity(buf.clone(), 32);
+        let sink = StatsdMetricsSink::test_with_capacity(buf.clone(), 32);
         let prefix = unsafe { NodeName::new_unchecked("test") };
         let mut client = StatsdClient::new(prefix, sink);
         client.gauge("gauge", 20).send();
         client.flush_sink();
 
         let buf = buf.lock().unwrap();
-        assert_eq!(buf.as_slice(), b"test.gauge:20|g");
+        assert_eq!(buf.as_slice(), b"test.gauge:20|g\n");
     }
 
     #[test]
     fn gauge_with_tags_no_prefix() {
         let buf = Rc::new(Mutex::new(Vec::default()));
-        let sink = StatsdMetricsSink::buf_with_capacity(buf.clone(), 32);
+        let sink = StatsdMetricsSink::test_with_capacity(buf.clone(), 32);
         let mut client = StatsdClient::new(NodeName::default(), sink);
         client.gauge("gauge", 20).with_tag("t", "v").send();
         client.flush_sink();
 
         let buf = buf.lock().unwrap();
-        assert_eq!(buf.as_slice(), b"gauge:20|g|#t:v");
+        assert_eq!(buf.as_slice(), b"gauge:20|g|#t:v\n");
     }
 
     #[test]
     fn count_with_tags() {
         let buf = Rc::new(Mutex::new(Vec::default()));
-        let sink = StatsdMetricsSink::buf_with_capacity(buf.clone(), 32);
+        let sink = StatsdMetricsSink::test_with_capacity(buf.clone(), 32);
         let prefix = unsafe { NodeName::new_unchecked("test") };
         let mut client = StatsdClient::new(prefix, sink).with_tag("tag1", "1234");
         client.count("count", 20).with_tag("tag2", "a").send();
         client.flush_sink();
 
         let buf = buf.lock().unwrap();
-        assert_eq!(buf.as_slice(), b"test.count:20|c|#tag1:1234,tag2:a");
+        assert_eq!(buf.as_slice(), b"test.count:20|c|#tag1:1234,tag2:a\n");
     }
 
     #[test]
     fn count_multiple_simple() {
         let buf = Rc::new(Mutex::new(Vec::default()));
-        let sink = StatsdMetricsSink::buf_with_capacity(buf.clone(), 32);
+        let sink = StatsdMetricsSink::test_with_capacity(buf.clone(), 32);
         let prefix = unsafe { NodeName::new_unchecked("test") };
         let mut client = StatsdClient::new(prefix, sink);
         client.count("count", 20).send();
@@ -127,13 +127,13 @@ mod tests {
         client.flush_sink();
 
         let buf = buf.lock().unwrap();
-        assert_eq!(buf.as_slice(), b"test.count:20|c\ntest.count:30|c");
+        assert_eq!(buf.as_slice(), b"test.count:20|c\ntest.count:30|c\n");
     }
 
     #[test]
     fn count_multiple_with_tags() {
         let buf = Rc::new(Mutex::new(Vec::default()));
-        let sink = StatsdMetricsSink::buf_with_capacity(buf.clone(), 64);
+        let sink = StatsdMetricsSink::test_with_capacity(buf.clone(), 64);
         let prefix = unsafe { NodeName::new_unchecked("test") };
 
         let mut common_tags = StatsdTagGroup::default();
@@ -150,14 +150,14 @@ mod tests {
         let buf = buf.lock().unwrap();
         assert_eq!(
             buf.as_slice(),
-            b"test.count:20|c|#c1:v1,c2:v2\ntest.count:30|c|#c1:v1"
+            b"test.count:20|c|#c1:v1,c2:v2\ntest.count:30|c|#c1:v1\n"
         );
     }
 
     #[test]
     fn count_multiple_overflow() {
         let buf = Rc::new(Mutex::new(Vec::default()));
-        let sink = StatsdMetricsSink::buf_with_capacity(buf.clone(), 32);
+        let sink = StatsdMetricsSink::test_with_capacity(buf.clone(), 32);
         let prefix = unsafe { NodeName::new_unchecked("test") };
 
         let mut common_tags = StatsdTagGroup::default();
@@ -174,7 +174,7 @@ mod tests {
         let buf = buf.lock().unwrap();
         assert_eq!(
             buf.as_slice(),
-            b"test.count:20|c|#c1:v1,c2:v2test.count:30|c|#c1:v1"
+            b"test.count:20|c|#c1:v1,c2:v2\ntest.count:30|c|#c1:v1\n"
         );
     }
 }

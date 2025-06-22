@@ -1562,6 +1562,7 @@ name = "g3-statsd-client"
 version = "0.2.0"
 dependencies = [
  "anyhow",
+ "g3-io-sys",
  "g3-types",
  "g3-yaml",
  "itoa",

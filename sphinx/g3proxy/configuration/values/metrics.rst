@@ -202,6 +202,28 @@ Set the global prefix for all metrics.
 
 **default**: "g3proxy"
 
+cache_size
+----------
+
+**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+
+Set the batch cache size before sending it to backend.
+
+**default**: 256KiB
+
+.. versionadded:: 1.11.8
+
+max_segment_size
+----------------
+
+**optional**, **type**: :ref:`humanize usize <conf_value_humanize_usize>`
+
+Set the max segment size when sending data to the backend.
+
+**default**: 1400 for UDP Socket, 4096 for UNIX Datagram Socket
+
+.. versionadded:: 1.11.8
+
 emit_interval
 -------------
 
