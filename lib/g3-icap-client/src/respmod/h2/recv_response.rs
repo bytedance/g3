@@ -3,12 +3,11 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use bytes::Bytes;
 use h2::RecvStream;
 use http::Response;
 
 use g3_h2::{
-    H2BodyTransfer, H2StreamBodyTransferError, H2StreamFromChunkedTransfer,
+    H2BodyTransfer, H2PreviewData, H2StreamBodyTransferError, H2StreamFromChunkedTransfer,
     H2StreamFromChunkedTransferError, ResponseExt,
 };
 use g3_http::client::HttpAdaptedResponse;
@@ -66,7 +65,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
         state: &mut RespmodAdaptationRunState,
         icap_rsp: RespmodResponse,
         http_response: Response<()>,
-        initial_body_data: Bytes,
+        preview_data: H2PreviewData,
         ups_body: RecvStream,
         clt_send_response: &mut CW,
     ) -> Result<RespmodAdaptationEndState, H2RespmodAdaptationError>
@@ -83,19 +82,9 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             .map_err(H2RespmodAdaptationError::HttpClientSendHeadFailed)?;
         state.mark_clt_send_header();
 
-        if ups_body.is_end_stream() {
-            // no reserve of capacity, let the driver buffer it
-            clt_send_stream
-                .send_data(initial_body_data, true)
-                .map_err(H2RespmodAdaptationError::HttpClientSendDataFailed)?;
-            state.mark_clt_send_all();
-
-            return Ok(RespmodAdaptationEndState::OriginalTransferred);
-        }
-
         // no reserve of capacity, let the driver buffer it
-        clt_send_stream
-            .send_data(initial_body_data, false)
+        preview_data
+            .h2_unbounded_send_all(&mut clt_send_stream)
             .map_err(H2RespmodAdaptationError::HttpClientSendDataFailed)?;
 
         let mut body_transfer =

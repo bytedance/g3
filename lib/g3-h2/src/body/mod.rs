@@ -25,3 +25,6 @@ pub use to_chunked_transfer::{H2StreamToChunkedTransfer, H2StreamToChunkedTransf
 
 mod from_chunked_transfer;
 pub use from_chunked_transfer::{H2StreamFromChunkedTransfer, H2StreamFromChunkedTransferError};
+
+mod preview;
+pub use preview::{H2PreviewData, H2PreviewError};

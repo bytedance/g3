@@ -3,15 +3,15 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::io::{self, IoSlice, Write};
+use std::io::{IoSlice, Write};
 
 use bytes::{BufMut, Bytes};
+use h2::RecvStream;
 use h2::client::SendRequest;
-use h2::{RecvStream, SendStream};
 use http::Request;
-use tokio::io::{AsyncWrite, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 
-use g3_h2::{H2StreamToChunkedTransfer, RequestExt};
+use g3_h2::{H2PreviewData, H2StreamToChunkedTransfer, RequestExt};
 use g3_io_ext::{IdleCheck, LimitedWriteExt};
 
 use super::{
@@ -44,10 +44,12 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         ups_send_request: SendRequest<Bytes>,
         max_preview_size: usize,
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
-        let mut preview_data = PreviewData::new(max_preview_size);
-        preview_data.recv(&mut clt_body, &self.idle_checker).await?;
+        let mut preview_data = H2PreviewData::new(max_preview_size);
+        preview_data
+            .recv_all(&mut clt_body, &self.idle_checker)
+            .await?;
 
-        if preview_data.end_of_data {
+        if preview_data.end_of_data() {
             return self
                 .xfer_small_body(
                     state,
@@ -69,7 +71,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             .await
             .map_err(H2ReqmodAdaptationError::IcapServerWriteFailed)?;
         preview_data
-            .write_preview_data(icap_w)
+            .icap_write_preview_data(icap_w)
             .await
             .map_err(H2ReqmodAdaptationError::IcapServerWriteFailed)?;
         icap_w
@@ -90,7 +92,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
 
         match rsp.code {
             100 => {
-                let mut body_transfer = if let Some(left_data) = preview_data.left.take() {
+                let mut body_transfer = if let Some(left_data) = preview_data.take_left() {
                     H2StreamToChunkedTransfer::with_chunk(
                         &mut clt_body,
                         &mut self.icap_connection.writer,
@@ -283,159 +285,5 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                 ))
             }
         }
-    }
-}
-
-pub(super) struct PreviewData {
-    max_size: usize,
-    received: usize,
-    buffer: Vec<u8>,
-    left: Option<Bytes>,
-    end_of_data: bool,
-}
-
-impl PreviewData {
-    fn new(preview_size: usize) -> Self {
-        PreviewData {
-            max_size: preview_size,
-            received: 0,
-            buffer: Vec::with_capacity(preview_size),
-            left: None,
-            end_of_data: false,
-        }
-    }
-
-    fn preview_size(&self) -> usize {
-        self.buffer.len()
-    }
-
-    async fn recv<I: IdleCheck>(
-        &mut self,
-        clt_body: &mut RecvStream,
-        idle_checker: &I,
-    ) -> Result<(), H2ReqmodAdaptationError> {
-        let mut is_active = false;
-        let mut idle_count = 0;
-
-        let mut idle_interval = idle_checker.interval_timer();
-
-        loop {
-            tokio::select! {
-                biased;
-
-                r = clt_body.data() => {
-                    let mut data = match r {
-                        Some(Ok(data)) => data,
-                        Some(Err(e)) => {
-                            return Err(H2ReqmodAdaptationError::HttpClientRecvDataFailed(e));
-                        }
-                        None => break,
-                    };
-                    if data.is_empty() {
-                        continue;
-                    }
-
-                    self.received += data.len();
-                    match self.received.checked_sub(self.max_size) {
-                        Some(0) => {
-                            self.buffer.extend_from_slice(&data);
-                            return Ok(());
-                        }
-                        Some(left) => {
-                            let keep = data.len() - left;
-                            let left = data.split_off(keep);
-                            self.buffer.extend_from_slice(&data);
-                            self.left = Some(left);
-                            return Ok(());
-                        }
-                        None => self.buffer.extend_from_slice(&data),
-                    }
-                }
-                n = idle_interval.tick() => {
-                    if !is_active {
-                        idle_count += n;
-
-                        let quit = idle_checker.check_quit(idle_count);
-                        if quit {
-                            return Err(H2ReqmodAdaptationError::HttpClientReadIdle);
-                        }
-                    } else {
-                        idle_count = 0;
-                        is_active = false;
-                    }
-
-                    if let Some(reason) = idle_checker.check_force_quit() {
-                        return Err(H2ReqmodAdaptationError::IdleForceQuit(reason));
-                    }
-                }
-            }
-        }
-
-        self.end_of_data = true;
-        Ok(())
-    }
-
-    async fn write_preview_data<W>(&self, writer: &mut W) -> io::Result<()>
-    where
-        W: AsyncWrite + Unpin,
-    {
-        const END_SLICE: &[u8] = b"\r\n0\r\n\r\n";
-
-        let header = format!("{:x}\r\n", self.buffer.len());
-
-        writer
-            .write_all_vectored([
-                IoSlice::new(header.as_bytes()),
-                IoSlice::new(&self.buffer),
-                IoSlice::new(END_SLICE),
-            ])
-            .await?;
-
-        Ok(())
-    }
-
-    pub(super) async fn write_all_as_chunked<W>(&self, writer: &mut W) -> io::Result<()>
-    where
-        W: AsyncWrite + Unpin,
-    {
-        const END_SLICE: &[u8] = b"\r\n0\r\n";
-
-        if self.received == 0 {
-            writer.write_all(b"0\r\n").await?;
-        } else {
-            let header = format!("{:x}\r\n", self.received);
-
-            if let Some(left) = &self.left {
-                writer
-                    .write_all_vectored([
-                        IoSlice::new(header.as_bytes()),
-                        IoSlice::new(&self.buffer),
-                        IoSlice::new(left),
-                        IoSlice::new(END_SLICE),
-                    ])
-                    .await?;
-            } else {
-                writer
-                    .write_all_vectored([
-                        IoSlice::new(header.as_bytes()),
-                        IoSlice::new(&self.buffer),
-                        IoSlice::new(END_SLICE),
-                    ])
-                    .await?;
-            }
-        }
-
-        Ok(())
-    }
-
-    pub(super) fn h2_unbounded_send(
-        mut self,
-        send_stream: &mut SendStream<Bytes>,
-    ) -> Result<(), h2::Error> {
-        send_stream.send_data(self.buffer.into(), false)?;
-        if let Some(left) = self.left.take() {
-            send_stream.send_data(left, false)?;
-        }
-        Ok(())
     }
 }

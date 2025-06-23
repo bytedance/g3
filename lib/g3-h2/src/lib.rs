@@ -4,12 +4,7 @@
  */
 
 mod body;
-pub use body::{
-    H2BodyEncodeTransfer, H2BodyTransfer, H2StreamBodyEncodeTransferError,
-    H2StreamBodyTransferError, H2StreamFromChunkedTransfer, H2StreamFromChunkedTransferError,
-    H2StreamReader, H2StreamToChunkedTransfer, H2StreamToChunkedTransferError, H2StreamWriter,
-    ROwnedH2BodyEncodeTransfer,
-};
+pub use body::*;
 
 mod ext;
 pub use ext::{RequestExt, ResponseExt};

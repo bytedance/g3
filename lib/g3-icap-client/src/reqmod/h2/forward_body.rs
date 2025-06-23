@@ -10,12 +10,12 @@ use h2::RecvStream;
 use h2::client::SendRequest;
 use http::Request;
 
-use g3_h2::{H2StreamToChunkedTransfer, H2StreamToChunkedTransferError, RequestExt};
+use g3_h2::{H2PreviewData, H2StreamToChunkedTransfer, H2StreamToChunkedTransferError, RequestExt};
 use g3_io_ext::{IdleCheck, LimitedWriteExt};
 
 use super::{
     BidirectionalRecvHttpRequest, BidirectionalRecvIcapResponse, H2ReqmodAdaptationError,
-    H2RequestAdapter, PreviewData, ReqmodAdaptationEndState, ReqmodAdaptationRunState,
+    H2RequestAdapter, ReqmodAdaptationEndState, ReqmodAdaptationRunState,
 };
 use crate::reason::IcapErrorReason;
 use crate::reqmod::IcapReqmodResponsePayload;
@@ -38,7 +38,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         mut self,
         state: &mut ReqmodAdaptationRunState,
         http_request: Request<()>,
-        preview_data: PreviewData,
+        preview_data: H2PreviewData,
         clt_body: RecvStream,
         ups_send_request: SendRequest<Bytes>,
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
@@ -52,7 +52,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             .map_err(H2ReqmodAdaptationError::IcapServerWriteFailed)?;
 
         preview_data
-            .write_all_as_chunked(icap_w)
+            .icap_write_all_as_chunked(icap_w)
             .await
             .map_err(H2ReqmodAdaptationError::IcapServerWriteFailed)?;
         self.recv_send_trailer(clt_body).await?;

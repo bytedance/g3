@@ -7,6 +7,7 @@ use std::io;
 
 use thiserror::Error;
 
+use g3_h2::H2PreviewError;
 use g3_http::client::HttpResponseParseError;
 use g3_http::server::HttpRequestParseError;
 use g3_io_ext::IdleForceQuitReason;
@@ -60,4 +61,16 @@ pub enum H2ReqmodAdaptationError {
     IcapServerWriteIdle,
     #[error("not implemented feature: {0}")]
     NotImplemented(&'static str),
+}
+
+impl From<H2PreviewError> for H2ReqmodAdaptationError {
+    fn from(value: H2PreviewError) -> Self {
+        match value {
+            H2PreviewError::ReadDataFailed(e) => {
+                H2ReqmodAdaptationError::HttpClientRecvDataFailed(e)
+            }
+            H2PreviewError::ReadIdle => H2ReqmodAdaptationError::HttpClientReadIdle,
+            H2PreviewError::IdleForceQuit(r) => H2ReqmodAdaptationError::IdleForceQuit(r),
+        }
+    }
 }

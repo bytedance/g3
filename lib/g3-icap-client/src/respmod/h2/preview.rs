@@ -3,14 +3,14 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::io::{self, IoSlice, Write};
+use std::io::{IoSlice, Write};
 
 use bytes::BufMut;
 use h2::RecvStream;
 use http::{Request, Response};
-use tokio::io::{AsyncWrite, AsyncWriteExt};
+use tokio::io::AsyncWriteExt;
 
-use g3_h2::{H2StreamToChunkedTransfer, RequestExt, ResponseExt};
+use g3_h2::{H2PreviewData, H2StreamToChunkedTransfer, RequestExt, ResponseExt};
 use g3_io_ext::{IdleCheck, LimitedWriteExt};
 
 use super::{
@@ -54,36 +54,44 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
     where
         CW: H2SendResponseToClient,
     {
-        let mut initial_body_data = match tokio::time::timeout(
-            self.icap_client.config.preview_data_read_timeout,
-            ups_body.data(),
-        )
-        .await
-        {
-            Ok(Some(Ok(data))) => data,
-            Ok(Some(Err(e))) => {
-                return Err(H2RespmodAdaptationError::HttpUpstreamRecvDataFailed(e));
-            }
-            Ok(None) | Err(_) => {
-                return self
-                    .xfer_without_preview(
-                        state,
-                        http_request,
-                        http_response,
-                        ups_body,
-                        clt_send_response,
-                    )
-                    .await;
-            }
-        };
-        let initial_data_len = initial_body_data.len();
-        let preview_size = initial_data_len.min(max_preview_size);
-        let preview_eof = (preview_size == initial_data_len) && ups_body.is_end_stream();
+        let mut preview_data = H2PreviewData::new(max_preview_size);
+        preview_data
+            .recv_initial(
+                &mut ups_body,
+                self.icap_client.config.preview_data_read_timeout,
+            )
+            .await?;
+
+        if preview_data.end_of_data() {
+            return self
+                .xfer_small_body(
+                    state,
+                    http_request,
+                    http_response,
+                    preview_data,
+                    ups_body,
+                    clt_send_response,
+                )
+                .await;
+        } else if preview_data.preview_size() == 0 {
+            return self
+                .xfer_without_preview(
+                    state,
+                    http_request,
+                    http_response,
+                    ups_body,
+                    clt_send_response,
+                )
+                .await;
+        }
 
         let http_req_header = http_request.serialize_for_adapter();
         let http_rsp_header = http_response.serialize_for_adapter();
-        let icap_header =
-            self.build_preview_request(http_req_header.len(), http_rsp_header.len(), preview_size);
+        let icap_header = self.build_preview_request(
+            http_req_header.len(),
+            http_rsp_header.len(),
+            preview_data.preview_size(),
+        );
 
         let icap_w = &mut self.icap_connection.writer;
         icap_w
@@ -94,7 +102,8 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             ])
             .await
             .map_err(H2RespmodAdaptationError::IcapServerWriteFailed)?;
-        write_preview_data(icap_w, &initial_body_data[0..preview_size], preview_eof)
+        preview_data
+            .icap_write_preview_data(icap_w)
             .await
             .map_err(H2RespmodAdaptationError::IcapServerWriteFailed)?;
         icap_w
@@ -110,27 +119,18 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
 
         match rsp.code {
             100 => {
-                if preview_eof {
-                    return Err(H2RespmodAdaptationError::IcapServerErrorResponse(
-                        IcapErrorReason::ContinueAfterPreviewEof,
-                        rsp.code,
-                        rsp.reason.to_string(),
-                    ));
-                }
-
-                let left_data = initial_body_data.split_off(preview_size);
-                let mut body_transfer = if left_data.is_empty() {
-                    H2StreamToChunkedTransfer::new(
-                        &mut ups_body,
-                        &mut self.icap_connection.writer,
-                        self.copy_config.yield_size(),
-                    )
-                } else {
+                let mut body_transfer = if let Some(left_data) = preview_data.take_left() {
                     H2StreamToChunkedTransfer::with_chunk(
                         &mut ups_body,
                         &mut self.icap_connection.writer,
                         self.copy_config.yield_size(),
                         left_data,
+                    )
+                } else {
+                    H2StreamToChunkedTransfer::new(
+                        &mut ups_body,
+                        &mut self.icap_connection.writer,
+                        self.copy_config.yield_size(),
                     )
                 };
 
@@ -221,7 +221,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
                     state,
                     rsp,
                     http_response,
-                    initial_body_data,
+                    preview_data,
                     ups_body,
                     clt_send_response,
                 )
@@ -274,27 +274,4 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             }
         }
     }
-}
-
-async fn write_preview_data<W>(writer: &mut W, data: &[u8], preview_eof: bool) -> io::Result<()>
-where
-    W: AsyncWrite + Unpin,
-{
-    const END_SLICE_EOF: &[u8] = b"\r\n0; ieof\r\n\r\n";
-    const END_SLICE_NO_EOF: &[u8] = b"\r\n0\r\n\r\n";
-
-    let header = format!("{:x}\r\n", data.len());
-    let end_slice = if preview_eof {
-        END_SLICE_EOF
-    } else {
-        END_SLICE_NO_EOF
-    };
-    writer
-        .write_all_vectored([
-            IoSlice::new(header.as_bytes()),
-            IoSlice::new(data),
-            IoSlice::new(end_slice),
-        ])
-        .await?;
-    Ok(())
 }
