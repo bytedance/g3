@@ -34,7 +34,6 @@ mod bidirectional;
 use bidirectional::{BidirectionalRecvHttpRequest, BidirectionalRecvIcapResponse};
 
 mod preview;
-use preview::PreviewData;
 
 mod forward_body;
 mod forward_header;

@@ -11,15 +11,15 @@ use h2::client::{ResponseFuture, SendRequest};
 use http::{Request, Response};
 
 use g3_h2::{
-    H2BodyTransfer, H2StreamBodyTransferError, H2StreamFromChunkedTransfer,
+    H2BodyTransfer, H2PreviewData, H2StreamBodyTransferError, H2StreamFromChunkedTransfer,
     H2StreamFromChunkedTransferError, RequestExt,
 };
 use g3_http::server::HttpAdaptedRequest;
 use g3_io_ext::IdleCheck;
 
 use super::{
-    H2ReqmodAdaptationError, H2RequestAdapter, PreviewData, ReqmodAdaptationEndState,
-    ReqmodAdaptationMidState, ReqmodAdaptationRunState,
+    H2ReqmodAdaptationError, H2RequestAdapter, ReqmodAdaptationEndState, ReqmodAdaptationMidState,
+    ReqmodAdaptationRunState,
 };
 use crate::reqmod::response::ReqmodResponse;
 
@@ -54,7 +54,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         state: &mut ReqmodAdaptationRunState,
         icap_rsp: ReqmodResponse,
         http_request: Request<()>,
-        preview_data: PreviewData,
+        preview_data: H2PreviewData,
         clt_body: RecvStream,
         mut ups_send_request: SendRequest<Bytes>,
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
@@ -69,7 +69,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
 
         // no reserve of capacity, let the driver buffer it
         preview_data
-            .h2_unbounded_send(&mut ups_send_stream)
+            .h2_unbounded_send_all(&mut ups_send_stream)
             .map_err(H2ReqmodAdaptationError::HttpUpstreamSendDataFailed)?;
 
         let mut body_transfer =
