@@ -4,9 +4,9 @@
  */
 
 use anyhow::anyhow;
-use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
-use g3_http::{HttpBodyDecodeReader, HttpBodyReader, HttpBodyType};
+use g3_http::{HttpBodyDecodeReader, HttpBodyReader};
 use g3_io_ext::{IdleCheck, StreamCopy, StreamCopyError};
 
 use super::{
@@ -63,79 +63,6 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         state.mark_clt_send_no_body();
 
         Ok(RespmodAdaptationEndState::OriginalTransferred)
-    }
-
-    pub(super) async fn handle_original_http_response_with_body<H, UR, CW>(
-        self,
-        state: &mut RespmodAdaptationRunState,
-        icap_rsp: RespmodResponse,
-        http_response: &H,
-        ups_body_io: &mut UR,
-        ups_body_type: HttpBodyType,
-        clt_writer: &mut CW,
-    ) -> Result<RespmodAdaptationEndState<H>, H1RespmodAdaptationError>
-    where
-        H: HttpResponseForAdaptation,
-        UR: AsyncBufRead + Unpin,
-        CW: HttpResponseClientWriter<H> + Unpin,
-    {
-        if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection);
-        }
-
-        state.mark_clt_send_start();
-        clt_writer
-            .send_response_header(http_response)
-            .await
-            .map_err(H1RespmodAdaptationError::HttpClientWriteFailed)?;
-        state.mark_clt_send_header();
-
-        let mut ups_body_reader =
-            HttpBodyReader::new(ups_body_io, ups_body_type, self.http_body_line_max_size);
-        let mut body_copy = StreamCopy::new(&mut ups_body_reader, clt_writer, &self.copy_config);
-
-        let mut idle_interval = self.idle_checker.interval_timer();
-        let mut idle_count = 0;
-
-        loop {
-            tokio::select! {
-                biased;
-
-                r = &mut body_copy => {
-                    return match r {
-                        Ok(_) => {
-                            state.mark_ups_recv_all();
-                            state.mark_clt_send_all();
-                            Ok(RespmodAdaptationEndState::OriginalTransferred)
-                        }
-                        Err(StreamCopyError::ReadFailed(e)) => Err(H1RespmodAdaptationError::HttpUpstreamReadFailed(e)),
-                        Err(StreamCopyError::WriteFailed(e)) => Err(H1RespmodAdaptationError::HttpClientWriteFailed(e)),
-                    };
-                }
-                n = idle_interval.tick() => {
-                    if body_copy.is_idle() {
-                        idle_count += n;
-
-                        let quit = self.idle_checker.check_quit(idle_count);
-                        if quit {
-                            return if body_copy.no_cached_data() {
-                                Err(H1RespmodAdaptationError::HttpUpstreamReadIdle)
-                            } else {
-                                Err(H1RespmodAdaptationError::HttpClientWriteIdle)
-                            };
-                        }
-                    } else {
-                        idle_count = 0;
-
-                        body_copy.reset_active();
-                    }
-
-                    if let Some(reason) = self.idle_checker.check_force_quit() {
-                        return Err(H1RespmodAdaptationError::IdleForceQuit(reason));
-                    }
-                }
-            }
-        }
     }
 
     pub(super) async fn handle_icap_http_response_without_body<H, CW>(

@@ -11,8 +11,7 @@ pub use parse::{
 mod body;
 pub use body::{
     ChunkedDataDecodeReader, H1BodyToChunkedTransfer, HttpBodyDecodeReader, HttpBodyReader,
-    HttpBodyType, PreviewData, PreviewDataState, PreviewError, StreamToChunkedTransfer,
-    TrailerReadError, TrailerReader,
+    HttpBodyType, StreamToChunkedTransfer, TrailerReadError, TrailerReader,
 };
 
 pub mod client;

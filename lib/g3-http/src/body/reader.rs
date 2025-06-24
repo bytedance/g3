@@ -745,4 +745,32 @@ mod tests {
         //assert_eq!(len, 0);
         assert!(body_reader.finished());
     }
+
+    #[tokio::test]
+    async fn direct_read_single_trailer() {
+        let content = b"A: B\r\n\r\n1234";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut body_reader = HttpBodyReader::new_trailer(&mut buf_stream, 1024);
+
+        let mut buf = [0u8; 64];
+        let len = body_reader.read(&mut buf).await.unwrap();
+        assert_eq!(len, 8);
+        assert_eq!(&buf[..len], b"A: B\r\n\r\n");
+        assert!(body_reader.finished);
+    }
+
+    #[tokio::test]
+    async fn direct_read_empty_trailer() {
+        let content = b"\r\n\r\n1234";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut body_reader = HttpBodyReader::new_trailer(&mut buf_stream, 1024);
+
+        let mut buf = [0u8; 64];
+        let len = body_reader.read(&mut buf).await.unwrap();
+        assert_eq!(len, 2);
+        assert_eq!(&buf[..len], b"\r\n");
+        assert!(body_reader.finished);
+    }
 }

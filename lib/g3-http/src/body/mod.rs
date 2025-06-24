@@ -16,9 +16,6 @@ pub use reader::HttpBodyReader;
 mod decoder;
 pub use decoder::HttpBodyDecodeReader;
 
-mod preview;
-pub use preview::{PreviewData, PreviewDataState, PreviewError};
-
 mod body_to_chunked;
 pub use body_to_chunked::H1BodyToChunkedTransfer;
 

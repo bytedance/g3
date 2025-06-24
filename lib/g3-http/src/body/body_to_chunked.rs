@@ -6,11 +6,11 @@
 use std::pin::Pin;
 use std::task::{Context, Poll, ready};
 
-use tokio::io::{AsyncBufRead, AsyncBufReadExt, AsyncWrite};
+use tokio::io::{AsyncBufRead, AsyncWrite};
 
 use g3_io_ext::{ROwnedStreamCopy, StreamCopyConfig, StreamCopyError};
 
-use super::{HttpBodyReader, HttpBodyType, PreviewDataState, StreamToChunkedTransfer};
+use super::{HttpBodyReader, HttpBodyType, StreamToChunkedTransfer};
 
 const NO_TRAILER_END_BUFFER: &[u8] = b"\r\n0\r\n\r\n";
 
@@ -124,63 +124,6 @@ where
             state: ChunkedTransferState::Copy(copy),
             total_write: 0,
             active: false,
-        }
-    }
-
-    pub fn new_after_preview(
-        reader: &'a mut R,
-        writer: &'a mut W,
-        body_type: HttpBodyType,
-        body_line_max_len: usize,
-        copy_config: StreamCopyConfig,
-        preview_state: PreviewDataState,
-    ) -> H1BodyToChunkedTransfer<'a, R, W> {
-        match body_type {
-            HttpBodyType::ContentLength(len) => {
-                let left_len = len - (preview_state.preview_size as u64);
-                let head = format!("{left_len:x}\r\n");
-                reader.consume(preview_state.consume_size);
-                let body_reader = HttpBodyReader::new_fixed_length(reader, left_len);
-                let state = ChunkedTransferState::SendHead(SendHead {
-                    head,
-                    offset: 0,
-                    body_reader,
-                    writer,
-                });
-                H1BodyToChunkedTransfer {
-                    body_type,
-                    copy_config,
-                    state,
-                    total_write: 0,
-                    active: false,
-                }
-            }
-            HttpBodyType::ReadUntilEnd => {
-                reader.consume(preview_state.consume_size);
-                let encoder = StreamToChunkedTransfer::new_with_no_trailer(
-                    reader,
-                    writer,
-                    copy_config.yield_size(),
-                );
-                H1BodyToChunkedTransfer {
-                    body_type,
-                    copy_config,
-                    state: ChunkedTransferState::Encode(encoder),
-                    total_write: 0,
-                    active: false,
-                }
-            }
-            HttpBodyType::Chunked => {
-                let next_chunk_size = preview_state.chunked_next_size;
-                reader.consume(preview_state.consume_size);
-                Self::new_chunked_after_preview(
-                    reader,
-                    writer,
-                    next_chunk_size,
-                    body_line_max_len,
-                    copy_config,
-                )
-            }
         }
     }
 
