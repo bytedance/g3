@@ -14,11 +14,10 @@ override_dh_auto_clean:
 override_dh_auto_build:
 	G3_PACKAGE_VERSION=$(DEB_VERSION) \
 	  cargo build --frozen --offline --profile $(BUILD_PROFILE) \
-	    --package g3iploc --package g3iploc-db
+	    --package g3iploc
 
 override_dh_auto_install:
 	install -m 755 -D target/$(BUILD_PROFILE)/g3iploc debian/tmp/usr/bin/g3iploc
-	install -m 755 -D target/$(BUILD_PROFILE)/g3iploc-db debian/tmp/usr/bin/g3iploc-db
 
 override_dh_installchangelogs:
 	dh_installchangelogs $(PACKAGE_NAME)/CHANGELOG
