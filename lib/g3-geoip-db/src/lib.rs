@@ -6,5 +6,5 @@
 mod record;
 pub use record::{GeoIpAsnRecord, GeoIpCountryRecord};
 
+pub mod file;
 pub mod store;
-pub mod vendor;

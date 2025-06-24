@@ -28,19 +28,17 @@ IP Locate Service for G3 Project
 %build
 G3_PACKAGE_VERSION="%{version}-%{release}"
 export G3_PACKAGE_VERSION
-cargo build --frozen --offline --profile %{build_profile} --package g3iploc --package g3iploc-db
+cargo build --frozen --offline --profile %{build_profile} --package g3iploc
 
 
 %install
 rm -rf $RPM_BUILD_ROOT
 install -m 755 -D target/%{build_profile}/g3iploc %{buildroot}%{_bindir}/g3iploc
-install -m 755 -D target/%{build_profile}/g3iploc-db %{buildroot}%{_bindir}/g3iploc-db
 install -m 644 -D %{name}/service/g3iploc@.service %{buildroot}/lib/systemd/system/g3iploc@.service
 
 
 %files
 %{_bindir}/g3iploc
-%{_bindir}/g3iploc-db
 /lib/systemd/system/g3iploc@.service
 %license LICENSE
 %license LICENSE-BUNDLED
