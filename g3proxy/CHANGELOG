@@ -1,5 +1,6 @@
 
 v1.11.8:
+ - BUG FIX: fix corrupt data when send small chunked body to ICAP REQMOD service
  - BUG FIX: fix panic when detect DNS over TLS traffic
  - Deprecated: the following config options are deprecated:
      - emit_duration in statsd config, use emit_interval instead

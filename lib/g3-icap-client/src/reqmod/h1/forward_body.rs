@@ -44,8 +44,6 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         H: HttpRequestForAdaptation,
         UW: HttpRequestUpstreamWriter<H> + Unpin,
     {
-        const CHUNK_END: &[u8] = b"\r\n0\r\n\r\n";
-
         let http_header = http_request.serialize_for_adapter();
         let icap_header = self.build_forward_all_request(http_header.len());
 
@@ -58,7 +56,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                 IoSlice::new(&http_header),
                 IoSlice::new(chunk_start.as_bytes()),
                 IoSlice::new(&clt_body),
-                IoSlice::new(CHUNK_END),
+                IoSlice::new(b"\r\n0\r\n\r\n"),
             ])
             .await
             .map_err(H1ReqmodAdaptationError::IcapServerWriteFailed)?;
@@ -88,21 +86,32 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         let http_header = http_request.serialize_for_adapter();
         let icap_header = self.build_forward_all_request(http_header.len());
 
-        let chunk_start = format!("{:x}\r\n", clt_body.len());
+        if clt_body.is_empty() {
+            self.icap_connection
+                .writer
+                .write_all_vectored([
+                    IoSlice::new(&icap_header),
+                    IoSlice::new(&http_header),
+                    IoSlice::new(b"0\r\n"),
+                ])
+                .await
+                .map_err(H1ReqmodAdaptationError::IcapServerWriteFailed)?;
+        } else {
+            let chunk_start = format!("{:x}\r\n", clt_body.len());
+            self.icap_connection
+                .writer
+                .write_all_vectored([
+                    IoSlice::new(&icap_header),
+                    IoSlice::new(&http_header),
+                    IoSlice::new(chunk_start.as_bytes()),
+                    IoSlice::new(&clt_body),
+                    IoSlice::new(b"\r\n0\r\n"),
+                ])
+                .await
+                .map_err(H1ReqmodAdaptationError::IcapServerWriteFailed)?;
+        }
 
-        let icap_w = &mut self.icap_connection.writer;
-        icap_w
-            .write_all_vectored([
-                IoSlice::new(&icap_header),
-                IoSlice::new(&http_header),
-                IoSlice::new(chunk_start.as_bytes()),
-                IoSlice::new(&clt_body),
-            ])
-            .await
-            .map_err(H1ReqmodAdaptationError::IcapServerWriteFailed)?;
-
-        self.recv_send_trailer(&mut trailer_reader, ups_writer)
-            .await?;
+        self.recv_send_trailer(&mut trailer_reader).await?;
 
         state.clt_read_finished = true;
         self.icap_connection.mark_writer_finished();
@@ -111,20 +120,21 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
             .await
     }
 
-    async fn recv_send_trailer<H, CR, UW>(
+    async fn recv_send_trailer<CR>(
         &mut self,
         trailer_reader: &mut HttpBodyReader<'_, CR>,
-        ups_writer: &mut UW,
     ) -> Result<(), H1ReqmodAdaptationError>
     where
-        H: HttpRequestForAdaptation,
         CR: AsyncBufRead + Unpin,
-        UW: HttpRequestUpstreamWriter<H> + Unpin,
     {
         let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
 
-        let mut trailer_transfer = StreamCopy::new(trailer_reader, ups_writer, &self.copy_config);
+        let mut trailer_transfer = StreamCopy::new(
+            trailer_reader,
+            &mut self.icap_connection.writer,
+            &self.copy_config,
+        );
         loop {
             tokio::select! {
                 biased;

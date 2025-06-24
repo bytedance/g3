@@ -7,7 +7,6 @@ use std::io;
 
 use thiserror::Error;
 
-use g3_http::PreviewError;
 use g3_http::client::HttpResponseParseError;
 use g3_io_ext::IdleForceQuitReason;
 
@@ -50,24 +49,4 @@ pub enum H1RespmodAdaptationError {
     IcapServerWriteIdle,
     #[error("not implemented feature: {0}")]
     NotImplemented(&'static str),
-}
-
-impl From<PreviewError> for H1RespmodAdaptationError {
-    fn from(e: PreviewError) -> Self {
-        match e {
-            PreviewError::ReadError(e) => H1RespmodAdaptationError::HttpUpstreamReadFailed(e),
-            PreviewError::ReaderClosed => {
-                H1RespmodAdaptationError::HttpUpstreamReadFailed(io::Error::new(
-                    io::ErrorKind::UnexpectedEof,
-                    "connection closed while reading preview data",
-                ))
-            }
-            PreviewError::AlreadyPolled => {
-                H1RespmodAdaptationError::InternalServerError("preview data already polled")
-            }
-            PreviewError::InvalidChunkedBody => {
-                H1RespmodAdaptationError::InvalidHttpUpstreamResponseBody
-            }
-        }
-    }
 }

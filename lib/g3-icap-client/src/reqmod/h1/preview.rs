@@ -28,8 +28,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         // do not send `Allow: 204, 206` as we don't want to accept 204/206 after 100-continue
         let _ = write!(
             header,
-            "Encapsulated: req-hdr=0, req-body={}\r\nPreview: {}\r\n",
-            http_header_len, preview_size
+            "Encapsulated: req-hdr=0, req-body={http_header_len}\r\nPreview: {preview_size}\r\n",
         );
         header.put_slice(b"\r\n");
         header

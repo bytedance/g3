@@ -46,6 +46,10 @@ impl ChunkedDataDecodeReaderInternal {
         Some(self.left_chunk_size)
     }
 
+    fn pending_cancel_safe(&self) -> bool {
+        self.chunk_header.is_empty() && !self.poll_chunk_end_r && !self.poll_chunk_end_n
+    }
+
     fn poll_decode<R>(
         &mut self,
         cx: &mut Context<'_>,
@@ -215,12 +219,25 @@ impl<'a, R> ChunkedDataDecodeReader<'a, R> {
         }
     }
 
+    #[inline]
     pub fn into_reader(self) -> &'a mut R {
         self.reader
     }
 
+    #[inline]
     pub fn left_chunk_size(&self) -> Option<u64> {
         self.internal.left_chunk_size()
+    }
+
+    /**
+     * Check whether it's safe to break from a Poll::Pending state
+     *
+     * Return true of the inner reader is still possible to be read as chunked,
+     * the `left_chink_size()` must be used in this case and the value must be `Some(size)`.
+     */
+    #[inline]
+    pub fn pending_cancel_safe(&self) -> bool {
+        self.internal.pending_cancel_safe()
     }
 
     pub fn finished(&self) -> bool {
