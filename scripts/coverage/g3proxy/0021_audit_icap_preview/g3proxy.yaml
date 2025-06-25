@@ -27,8 +27,14 @@ auditor:
     tls_interception_client:
       ca-certificate: ../rootCA.pem
     tls_ticketer: { }
-    icap_reqmod_service: icap://127.0.0.1:1344/echo
-    icap_respmod_service: icap://127.0.0.1:1344/echo
+    icap_reqmod_service:
+      url: icap://127.0.0.1:1344/echo
+      pool:
+        max_idle_count: 50
+    icap_respmod_service:
+      url: icap://127.0.0.1:1344/echo
+      pool:
+        max_idle_count: 50
 
 server:
   - name: rss
