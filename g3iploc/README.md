@@ -69,7 +69,8 @@ The following vendors are supported:
 - [Maxmind](https://www.maxmind.com/en/geoip-databases)
 
     1. Download the GeoLite2 database mmdb file. See https://dev.maxmind.com/geoip/geolite2-free-geolocation-data/.
-    2. Convert by using g3iploc-db
+    2. Install [MaxMind DB Python Module](https://github.com/maxmind/MaxMind-DB-Reader-python).
+    3. Convert by using [geoip-dump](../scripts/geoip-dump) scripts
 
        ```shell
        python3 geoip_dump_country.py --maxmind -i GeoLite2-Country.mmdb -o g3-country.csv.gz
@@ -79,7 +80,8 @@ The following vendors are supported:
 - [IPinfo](https://ipinfo.io/)
 
     1. Download the database mmdb file. See https://ipinfo.io/developers/database-download#getting-started.
-    2. Convert by using g3iploc-db
+    2. Install [MaxMind DB Python Module](https://github.com/maxmind/MaxMind-DB-Reader-python).
+    3. Convert by using [geoip-dump](../scripts/geoip-dump) scripts
 
        ```shell
        python3 geoip_dump_country.py --ipinfo -i ipinfo_lite.mmdb -o g3-country.csv.gz
@@ -90,7 +92,8 @@ The following vendors are supported:
 
     1. Download the database file location.db.xz from https://www.ipfire.org/location/install.
     2. Extract location.db
-    3. Convert by using g3iploc-db
+    3. Install [libloc Python binding module](https://www.ipfire.org/location/how-to-use/python).
+    4. Convert by using [geoip-dump](../scripts/geoip-dump) scripts
 
        ```shell
        python3 geoip_dump_country.py --ipfire -i location.db -o g3-country.csv.gz

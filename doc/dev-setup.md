@@ -133,6 +133,7 @@ apt-get install libssl-dev libc-ares-dev
 apt-get install lua5.4-dev
 apt-get install libpython3-dev
 apt-get install python3-toml python3-requests python3-pycurl python3-semver python3-socks python3-dnspyton
+apt-get install python3-maxminddb python3-location
 apt-get install python3-sphinx python3-sphinx-rtd-theme
 apt-get install lsb-release dpkg-dev debhelper
 ```
@@ -156,6 +157,7 @@ dnf install curl jq xz tar
 dnf install openssl-devel c-ares-devel lua-devel
 dnf install python3-devel
 dnf install python3-toml python3-requests python3-pycurl python3-semver
+dnf install python3-maxminddb
 dnf install python3-sphinx python3-sphinx_rtd_theme
 dnf install rpmdevtools rpm-build
 ```
@@ -340,6 +342,7 @@ requests
 semver
 PySocks
 dnspython
+maxminddb
 ```
 
 ## Document Tools
