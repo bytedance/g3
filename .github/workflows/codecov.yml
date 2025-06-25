@@ -118,10 +118,6 @@ jobs:
       - name: Install nginx
         run: |
           sudo apt-get install nginx-light
-      - name: Install and run c-icap
-        run: |
-          sudo apt-get install c-icap
-          sudo systemctl start c-icap
       - name: Install netcat-openbsd
         run: |
           sudo apt-get install netcat-openbsd
@@ -133,6 +129,13 @@ jobs:
           sudo curl https://raw.githubusercontent.com/fluent/fluent-bit/master/install.sh | sh
           sudo cp ${{ github.workspace }}/scripts/coverage/g3proxy/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf
           sudo systemctl start fluent-bit
+      - name: Build and run icapeg
+        run: |
+          git clone https://github.com/egirna/icapeg.git
+          cd icapeg
+          sed -i 's/:8081/:6081/' server/server.go
+          go build
+          ./icapeg &
       - name: Install dnsmasq
         run: |
           sudo apt-get install dnsmasq-base

@@ -87,6 +87,20 @@ class TestHttpBin(unittest.TestCase):
         self.c.perform()
         self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
 
+    def test_post_small_chunked(self):
+        data = "Content to post"
+
+        self.set_url_and_request_target('/post')
+        self.c.setopt(pycurl.POSTFIELDS, data)
+        self.c.setopt(pycurl.HTTPHEADER, ['Transfer-Encoding: chunked'])
+        self.c.perform()
+        self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
+
+        # add Expect and try again
+        self.c.setopt(pycurl.HTTPHEADER, ['Expect: 100-continue'])
+        self.c.perform()
+        self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
+
     def test_post_large(self):
         post_data = {'data': "Content to post" * 1024 * 100}
         post_fields = urlencode(post_data)
@@ -101,9 +115,34 @@ class TestHttpBin(unittest.TestCase):
         self.c.perform()
         self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
 
+    def test_post_large_chunked(self):
+        post_data = {'data': "Content to post" * 1024 * 100}
+        post_fields = urlencode(post_data)
+
+        self.set_url_and_request_target('/post')
+        self.c.setopt(pycurl.POSTFIELDS, post_fields)
+        self.c.setopt(pycurl.HTTPHEADER, ['Transfer-Encoding: chunked'])
+        self.c.perform()
+        self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
+
+        # disable Expect and try again
+        self.c.setopt(pycurl.HTTPHEADER, ['Expect:'])
+        self.c.perform()
+        self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
+
     def test_put_file(self):
         self.set_url_and_request_target('/put')
         self.c.setopt(pycurl.UPLOAD, 1)
+        file = open(__file__)
+        self.c.setopt(pycurl.READDATA, file)
+        self.c.perform()
+        self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
+        file.close()
+
+    def test_put_file_chunked(self):
+        self.set_url_and_request_target('/put')
+        self.c.setopt(pycurl.UPLOAD, 1)
+        self.c.setopt(pycurl.HTTPHEADER, ['Transfer-Encoding: chunked'])
         file = open(__file__)
         self.c.setopt(pycurl.READDATA, file)
         self.c.perform()
