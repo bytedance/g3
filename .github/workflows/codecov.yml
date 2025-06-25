@@ -121,6 +121,7 @@ jobs:
       - name: Install and run c-icap
         run: |
           sudo apt-get install c-icap
+          sudo sed -i 's/^MaxServers .*/MaxServers 100/' /etc/c-icap/c-icap.conf
           sudo systemctl start c-icap
       - name: Install netcat-openbsd
         run: |

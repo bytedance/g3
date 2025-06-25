@@ -48,6 +48,7 @@ do
 	[ -f "${dir}/g3proxy.yaml" ] || continue
 
 	echo "=== ${dir}"
+	date
 
 	"${PROJECT_DIR}"/target/debug/g3proxy -c "${dir}/g3proxy.yaml" -G ${TEST_NAME} &
 	PROXY_PID=$!
