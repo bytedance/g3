@@ -1,6 +1,6 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
- * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2023 ByteDance and/or its affiliates.
  */
 
 ///
