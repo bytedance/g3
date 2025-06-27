@@ -71,3 +71,19 @@ As an alternative, you can switch to use AWS-LC as a solution on AWS EC2 hosts.
 - Install a recent version of [go](https://go.dev/dl/) if you want to do AWS-LC code generation.
 
 - Build with `--no-default-features --features vendored-aws-lc,rustls-aws-lc,<other features>` cargo build option.
+
+# AWS-LC-FIPS
+
+See [AWS-LC](https://github.com/aws/aws-lc)
+and [AWS-LC FIPS 140-3](https://github.com/aws/aws-lc/blob/main/crypto/fipsmodule/FIPS.md) for more introduction.
+
+## How
+
+### Build
+
+- Make sure you have `cmake`, `pkg-config` installed
+
+- Install a recent version of [go](https://go.dev/dl/).
+
+- Build with `--no-default-features --features vendored-aws-lc-fips,rustls-aws-lc-fips,<other features>` cargo build
+  option.

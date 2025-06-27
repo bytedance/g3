@@ -41,6 +41,7 @@ jobs:
           - vendored-tongsuo,rustls-ring
           # - vendored-boringssl
           # - vendored-aws-lc
+          # - vendored-aws-lc-fips
     steps:
       - name: Checkout sources
         uses: actions/checkout@v4

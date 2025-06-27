@@ -69,7 +69,7 @@ impl RustlsServerConfigExt for ServerConfig {
     }
 }
 
-#[cfg(feature = "rustls-aws-lc")]
+#[cfg(any(feature = "rustls-aws-lc", feature = "rustls-aws-lc-fips"))]
 fn set_default_session_ticketer(config: &mut ServerConfig) -> anyhow::Result<()> {
     use anyhow::anyhow;
 
@@ -87,7 +87,11 @@ fn set_default_session_ticketer(config: &mut ServerConfig) -> anyhow::Result<()>
     Ok(())
 }
 
-#[cfg(not(any(feature = "rustls-aws-lc", feature = "rustls-ring")))]
+#[cfg(not(any(
+    feature = "rustls-aws-lc",
+    feature = "rustls-aws-lc-fips",
+    feature = "rustls-ring"
+)))]
 fn set_default_session_ticketer(config: &mut ServerConfig) -> anyhow::Result<()> {
     config.send_tls13_tickets = 0;
     Ok(())

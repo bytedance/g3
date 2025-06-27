@@ -35,7 +35,7 @@ G3 プロジェクトは多数のアプリケーションで構成されてお�
 - プロキシチェイニング、上流プロキシの動的選択をサポート
 - 多くの出口ルート選択方法、カスタム出口選択エージェントをサポート
 - TCP/TLSストリームプロキシ、基本的なHTTPリバースプロキシ
-- OpenSSL、BoringSSL、AWS-LC、Tongsuo、さらにはrustlsを使用したTLS
+- OpenSSL、BoringSSL、AWS-LC、AWS-LC-FIPS、Tongsuo、さらにはrustlsを使用したTLS
 - TLS MITMインターセプション、復号化されたトラフィックダンプ、HTTP1/HTTP2/IMAP/SMTPインターセプション
 - HTTP1/HTTP2/IMAP/SMTPのICAP適応、サードパーティのセキュリティ製品とシームレスに統合可能
 - 優雅なリロード
