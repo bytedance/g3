@@ -54,7 +54,7 @@ impl<T> GlobalStatsMap<T> {
     }
 
     #[inline]
-    pub fn drain(&mut self) -> Drain<StatId, T> {
+    pub fn drain(&mut self) -> Drain<'_, StatId, T> {
         self.inner.drain()
     }
 }

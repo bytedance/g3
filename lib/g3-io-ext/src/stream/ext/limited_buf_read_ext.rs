@@ -36,7 +36,7 @@ pub trait LimitedBufReadExt: AsyncBufRead {
         LimitedReadBufUntil::new(self, delimiter, max_len, buf)
     }
 
-    fn limited_skip_until(&mut self, delimiter: u8, max_len: usize) -> LimitedSkipUntil<Self>
+    fn limited_skip_until(&mut self, delimiter: u8, max_len: usize) -> LimitedSkipUntil<'_, Self>
     where
         Self: Unpin,
     {
@@ -48,7 +48,7 @@ pub trait LimitedBufReadExt: AsyncBufRead {
     /// return Poll::Ready(Ok(true)) if some data can be read
     /// return Poll::Ready(Ok(false)) if read ready but no data can be read
     /// return Poll::Ready(Err(e)) if read io error
-    fn fill_wait_data(&mut self) -> FillWaitData<Self>
+    fn fill_wait_data(&mut self) -> FillWaitData<'_, Self>
     where
         Self: Unpin,
     {

@@ -208,7 +208,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         }
     }
 
-    fn get_log_context(&self) -> Option<TaskLogForHttpForward> {
+    fn get_log_context(&self) -> Option<TaskLogForHttpForward<'_>> {
         let Some(logger) = &self.ctx.task_logger else {
             return None;
         };
