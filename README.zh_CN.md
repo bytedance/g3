@@ -33,7 +33,7 @@ G3项目包含许多应用，每一个应用程序单独一个子目录，包含
 - 代理串联，动态下一级代理节点选择
 - 丰富的出口路由选择方法，支持接入自定义选路Agent
 - TCP/TLS反向代理，基础HTTP反向代理
-- TLS支持OpenSSL / BoringSSL / AWS-LC / Tongsuo, 部分场景支持rustls
+- TLS支持OpenSSL / BoringSSL / AWS-LC / AWS-LC-FIPS / Tongsuo, 部分场景支持rustls
 - TLS中间人劫持, 解密流量导出, HTTP1/HTTP2/IMAP/SMTP协议解析
 - ICAP审计，支持HTTP1/HTTP2/IMAP/SMTP，无缝集成第三方安全审计/杀毒产品
 - 优雅重载 & 热升级

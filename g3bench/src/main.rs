@@ -44,7 +44,7 @@ fn main() -> anyhow::Result<ExitCode> {
     }
     openssl::init();
 
-    #[cfg(feature = "rustls-aws-lc")]
+    #[cfg(any(feature = "rustls-aws-lc", feature = "rustls-aws-lc-fips"))]
     rustls::crypto::aws_lc_rs::default_provider()
         .install_default()
         .unwrap();
@@ -52,7 +52,11 @@ fn main() -> anyhow::Result<ExitCode> {
     rustls::crypto::ring::default_provider()
         .install_default()
         .unwrap();
-    #[cfg(not(any(feature = "rustls-aws-lc", feature = "rustls-ring")))]
+    #[cfg(not(any(
+        feature = "rustls-aws-lc",
+        feature = "rustls-aws-lc-fips",
+        feature = "rustls-ring"
+    )))]
     compile_error!("either rustls-aws-lc or rustls-ring should be enabled");
 
     let args = build_cli_args().get_matches();

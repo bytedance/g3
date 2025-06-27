@@ -36,7 +36,7 @@ as we have basic support built in.
 - Proxy Chaining, with support for dynamic selection of upstream proxies
 - Plenty of egress route selection methods, with support for custom egress selection agent
 - TCP/TLS Stream Proxy, Basic HTTP Reverse Proxy
-- TLS over OpenSSL or BoringSSL or AWS-LC or Tongsuo, and even rustls
+- TLS over OpenSSL / BoringSSL / AWS-LC / AWS-LC-FIPS / Tongsuo, and even rustls
 - TLS MITM interception, decrypted traffic dump, HTTP1/HTTP2/IMAP/SMTP interception
 - ICAP adaptation for HTTP1/HTTP2/IMAP/SMTP, can integrate seamlessly with 3rd-party security products
 - Graceful reload
