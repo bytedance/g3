@@ -47,6 +47,25 @@ class TestHttpBin(unittest.TestCase):
         self.c.perform()
         self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
 
+    def test_get_delay(self):
+        self.set_url_and_request_target('/delay/1')
+        self.c.perform()
+        self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
+
+    def test_get_chunked_small(self):
+        self.set_url_and_request_target('/stream/1')
+        self.c.perform()
+        self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
+
+        self.set_url_and_request_target('/stream/4')
+        self.c.perform()
+        self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
+
+    def test_get_chunked_large(self):
+        self.set_url_and_request_target('/stream/100')
+        self.c.perform()
+        self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
+
     def test_basic_auth_get(self):
         self.set_url_and_request_target('/basic-auth/name/pass')
         self.c.perform()
@@ -89,6 +108,15 @@ class TestHttpBin(unittest.TestCase):
 
     def test_put_file(self):
         self.set_url_and_request_target('/put')
+        self.c.setopt(pycurl.UPLOAD, 1)
+        file = open(__file__)
+        self.c.setopt(pycurl.READDATA, file)
+        self.c.perform()
+        self.assertEqual(self.c.getinfo(pycurl.RESPONSE_CODE), 200)
+        file.close()
+
+    def test_put_file_delay(self):
+        self.set_url_and_request_target('/delay/1')
         self.c.setopt(pycurl.UPLOAD, 1)
         file = open(__file__)
         self.c.setopt(pycurl.READDATA, file)
