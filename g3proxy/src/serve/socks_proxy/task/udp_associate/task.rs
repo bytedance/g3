@@ -77,7 +77,7 @@ impl SocksProxyUdpAssociateTask {
         }
     }
 
-    fn get_log_context(&self) -> Option<TaskLogForUdpAssociate> {
+    fn get_log_context(&self) -> Option<TaskLogForUdpAssociate<'_>> {
         self.ctx
             .task_logger
             .as_ref()

@@ -94,7 +94,7 @@ impl<'a> FtpOverHttpTask<'a> {
         self.should_close
     }
 
-    fn get_log_context(&self) -> Option<TaskLogForFtpOverHttp> {
+    fn get_log_context(&self) -> Option<TaskLogForFtpOverHttp<'_>> {
         let Some(logger) = &self.ctx.task_logger else {
             return None;
         };

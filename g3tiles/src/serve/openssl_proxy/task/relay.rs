@@ -56,7 +56,7 @@ impl OpensslRelayTask {
         }
     }
 
-    fn get_log_context(&self) -> Option<TaskLogForTcpConnect> {
+    fn get_log_context(&self) -> Option<TaskLogForTcpConnect<'_>> {
         self.ctx
             .task_logger
             .as_ref()

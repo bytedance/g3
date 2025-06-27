@@ -42,7 +42,7 @@ impl KeylessForwardTask {
         }
     }
 
-    fn get_log_context(&self) -> Option<TaskLogForKeyless> {
+    fn get_log_context(&self) -> Option<TaskLogForKeyless<'_>> {
         self.ctx
             .task_logger
             .as_ref()

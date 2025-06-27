@@ -44,11 +44,11 @@ impl LocalControllerImpl {
         daemon_name: &str,
         daemon_group: &str,
     ) -> anyhow::Result<impl AsyncRead + AsyncWrite + use<>> {
-        let pipe_name = format!(r"\\.\pipe\{daemon_name}@{}", daemon_group);
+        let pipe_name = format!(r"\\.\pipe\{daemon_name}@{daemon_group}");
 
         tokio::net::windows::named_pipe::ClientOptions::new()
             .open(&pipe_name)
-            .map_err(|e| anyhow!("failed to open connection to pipe {}: {e:?}", pipe_name))
+            .map_err(|e| anyhow!("failed to open connection to pipe {pipe_name}: {e:?}"))
     }
 
     pub(super) async fn into_running(

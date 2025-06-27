@@ -53,7 +53,7 @@ impl UpstreamAddr {
         &self.host
     }
 
-    pub fn host_str(&self) -> Cow<str> {
+    pub fn host_str(&self) -> Cow<'_, str> {
         match &self.host {
             Host::Domain(s) => Cow::Borrowed(s),
             Host::Ip(ip) => Cow::Owned(ip.to_string()),

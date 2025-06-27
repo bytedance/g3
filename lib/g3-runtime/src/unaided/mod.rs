@@ -254,8 +254,7 @@ impl UnaidedRuntimeConfig {
                             openssl_async_job_init_size,
                         ) {
                             warn!(
-                                "failed to init ({}, {}) openssl async jobs: {e}",
-                                openssl_async_job_max_size, openssl_async_job_init_size
+                                "failed to init ({openssl_async_job_max_size}, {openssl_async_job_init_size}) openssl async jobs: {e}",
                             );
                         }
                     });

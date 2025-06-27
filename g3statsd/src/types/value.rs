@@ -19,7 +19,7 @@ pub(crate) enum MetricValue {
 }
 
 impl MetricValue {
-    pub(crate) fn display_influxdb(&self) -> DisplayInfluxdbValue {
+    pub(crate) fn display_influxdb(&self) -> DisplayInfluxdbValue<'_> {
         DisplayInfluxdbValue(self)
     }
 
