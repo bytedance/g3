@@ -4,6 +4,7 @@
  */
 
 #![allow(clippy::needless_lifetimes)]
+#![allow(clippy::uninlined_format_args)]
 
 pub mod types_capnp {
     #![allow(clippy::extra_unused_type_parameters)]
