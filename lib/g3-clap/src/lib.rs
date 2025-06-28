@@ -4,3 +4,6 @@
  */
 
 pub mod humanize;
+
+#[cfg(feature = "http")]
+pub mod http;
