@@ -67,3 +67,12 @@ impl FromStr for HttpBasicAuth {
         }
     }
 }
+
+impl TryFrom<&HttpBasicAuth> for http::HeaderValue {
+    type Error = http::header::InvalidHeaderValue;
+
+    fn try_from(value: &HttpBasicAuth) -> Result<Self, Self::Error> {
+        let value = format!("Basic {}", value.encoded_value());
+        http::HeaderValue::from_str(&value)
+    }
+}

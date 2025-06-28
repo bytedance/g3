@@ -11,7 +11,6 @@ use bytes::Bytes;
 use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
 use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
-use http::HeaderValue;
 use quinn::crypto::rustls::QuicClientConfig;
 use quinn::{ClientConfig, Endpoint, TokioRuntime, TransportConfig, VarInt};
 use rustls_pki_types::ServerName;
@@ -20,9 +19,9 @@ use url::Url;
 use g3_io_ext::LimitedTokioRuntime;
 use g3_socks::v5::Socks5UdpTokioRuntime;
 use g3_types::collection::{SelectiveVec, WeightedValue};
-use g3_types::net::{AlpnProtocol, HttpAuth, Proxy, RustlsClientConfigBuilder, Socks5Proxy};
+use g3_types::net::{AlpnProtocol, Proxy, RustlsClientConfigBuilder, Socks5Proxy};
 
-use super::{H3PreRequest, HttpRuntimeStats, ProcArgs};
+use super::{HttpRuntimeStats, ProcArgs};
 use crate::module::http::{AppendHttpArgs, HttpClientArgs};
 use crate::module::rustls::{AppendRustlsArgs, RustlsTlsClientArgs};
 use crate::module::socket::{AppendSocketArgs, SocketArgs};
@@ -209,36 +208,6 @@ impl BenchH3Args {
         });
 
         Ok(send_request)
-    }
-
-    pub(super) fn build_pre_request_header(&self) -> anyhow::Result<H3PreRequest> {
-        let path_and_query = if let Some(q) = self.common.target_url.query() {
-            format!("{}?{q}", self.common.target_url.path())
-        } else {
-            self.common.target_url.path().to_string()
-        };
-        let uri = http::Uri::builder()
-            .scheme(self.common.target_url.scheme())
-            .authority(self.common.target.to_string())
-            .path_and_query(path_and_query)
-            .build()
-            .map_err(|e| anyhow!("failed to build request: {e:?}"))?;
-
-        let auth = match &self.common.auth {
-            HttpAuth::None => None,
-            HttpAuth::Basic(basic) => {
-                let value = format!("Basic {}", basic.encoded_value());
-                let value = HeaderValue::from_str(&value)
-                    .map_err(|e| anyhow!("invalid auth value: {e:?}"))?;
-                Some(value)
-            }
-        };
-
-        Ok(H3PreRequest {
-            method: self.common.method.clone(),
-            uri,
-            auth,
-        })
     }
 }
 

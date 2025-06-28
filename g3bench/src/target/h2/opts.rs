@@ -10,7 +10,6 @@ use anyhow::{Context, anyhow};
 use bytes::Bytes;
 use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
 use h2::client::SendRequest;
-use http::HeaderValue;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use url::Url;
@@ -19,10 +18,10 @@ use g3_io_ext::LimitedStream;
 use g3_openssl::SslStream;
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{
-    AlpnProtocol, HttpAuth, OpensslClientConfig, OpensslClientConfigBuilder, Proxy, UpstreamAddr,
+    AlpnProtocol, OpensslClientConfig, OpensslClientConfigBuilder, Proxy, UpstreamAddr,
 };
 
-use super::{H2PreRequest, HttpRuntimeStats, ProcArgs};
+use super::{HttpRuntimeStats, ProcArgs};
 use crate::module::http::{AppendHttpArgs, HttpClientArgs};
 use crate::module::openssl::{AppendOpensslArgs, OpensslTlsClientArgs};
 use crate::module::proxy_protocol::{AppendProxyProtocolArgs, ProxyProtocolArgs};
@@ -49,7 +48,7 @@ pub(super) struct BenchH2Args {
 impl BenchH2Args {
     fn new(common: HttpClientArgs) -> anyhow::Result<Self> {
         let mut target_tls = OpensslTlsClientArgs::default();
-        if common.target_url.scheme() == "https" {
+        if common.is_https() {
             target_tls.config = Some(OpensslClientConfigBuilder::with_cache_for_one_site());
             target_tls.alpn_protocol = Some(AlpnProtocol::Http2);
         }
@@ -290,36 +289,6 @@ impl BenchH2Args {
         }
 
         Ok(tls_stream)
-    }
-
-    pub(super) fn build_pre_request_header(&self) -> anyhow::Result<H2PreRequest> {
-        let path_and_query = if let Some(q) = self.common.target_url.query() {
-            format!("{}?{q}", self.common.target_url.path())
-        } else {
-            self.common.target_url.path().to_string()
-        };
-        let uri = http::Uri::builder()
-            .scheme(self.common.target_url.scheme())
-            .authority(self.common.target.to_string())
-            .path_and_query(path_and_query)
-            .build()
-            .map_err(|e| anyhow!("failed to build request: {e:?}"))?;
-
-        let auth = match &self.common.auth {
-            HttpAuth::None => None,
-            HttpAuth::Basic(basic) => {
-                let value = format!("Basic {}", basic.encoded_value());
-                let value = HeaderValue::from_str(&value)
-                    .map_err(|e| anyhow!("invalid auth value: {e:?}"))?;
-                Some(value)
-            }
-        };
-
-        Ok(H2PreRequest {
-            method: self.common.method.clone(),
-            uri,
-            auth,
-        })
     }
 }
 

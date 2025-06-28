@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use clap::{Arg, ArgMatches, Command, value_parser};
-use http::{Method, StatusCode};
+use http::{HeaderValue, Method, Request, StatusCode, Version};
 use url::Url;
 
 use g3_types::net::{HttpAuth, UpstreamAddr};
@@ -31,7 +31,7 @@ pub(crate) struct HttpClientArgs {
     pub(crate) connect_timeout: Duration,
 
     pub(crate) target: UpstreamAddr,
-    pub(crate) auth: HttpAuth,
+    auth: HttpAuth,
 }
 
 impl HttpClientArgs {
@@ -48,6 +48,44 @@ impl HttpClientArgs {
             target: upstream,
             auth,
         })
+    }
+
+    pub(crate) fn is_https(&self) -> bool {
+        self.target_url.scheme() == "https"
+    }
+
+    pub(crate) fn build_static_request(&self, version: Version) -> anyhow::Result<Request<()>> {
+        let path_and_query = if let Some(q) = self.target_url.query() {
+            format!("{}?{q}", self.target_url.path())
+        } else {
+            self.target_url.path().to_string()
+        };
+        let uri = http::Uri::builder()
+            .scheme(self.target_url.scheme())
+            .authority(self.target.to_string())
+            .path_and_query(path_and_query)
+            .build()
+            .map_err(|e| anyhow!("failed to build request: {e:?}"))?;
+
+        let mut req = Request::builder()
+            .version(version)
+            .method(self.method.clone())
+            .uri(uri)
+            .body(())
+            .map_err(|e| anyhow!("failed to build request: {e:?}"))?;
+
+        if !req.headers().contains_key(http::header::AUTHORIZATION) {
+            match &self.auth {
+                HttpAuth::None => {}
+                HttpAuth::Basic(basic) => {
+                    let value = HeaderValue::try_from(basic)
+                        .map_err(|e| anyhow!("invalid auth value: {e:?}"))?;
+                    req.headers_mut().insert(http::header::AUTHORIZATION, value);
+                }
+            }
+        }
+
+        Ok(req)
     }
 
     pub(crate) fn parse_http_args(args: &ArgMatches) -> anyhow::Result<Self> {

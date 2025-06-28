@@ -8,11 +8,12 @@ use std::sync::Arc;
 use anyhow::{Context, anyhow};
 use bytes::Bytes;
 use h2::client::SendRequest;
+use http::{Request, Version};
 use tokio::time::Instant;
 
 use super::{
-    BenchH2Args, BenchTaskContext, H2ConnectionPool, H2PreRequest, HttpHistogramRecorder,
-    HttpRuntimeStats, ProcArgs,
+    BenchH2Args, BenchTaskContext, H2ConnectionPool, HttpHistogramRecorder, HttpRuntimeStats,
+    ProcArgs,
 };
 use crate::target::BenchError;
 
@@ -24,7 +25,7 @@ pub(super) struct H2TaskContext {
     h2s: Option<SendRequest<Bytes>>,
 
     reuse_conn_count: u64,
-    pre_request: H2PreRequest,
+    static_request: Request<()>,
 
     runtime_stats: Arc<HttpRuntimeStats>,
     histogram_recorder: HttpHistogramRecorder,
@@ -45,16 +46,17 @@ impl H2TaskContext {
         histogram_recorder: HttpHistogramRecorder,
         pool: Option<Arc<H2ConnectionPool>>,
     ) -> anyhow::Result<Self> {
-        let pre_request = args
-            .build_pre_request_header()
-            .context("failed to build request header")?;
+        let static_request = args
+            .common
+            .build_static_request(Version::HTTP_2)
+            .context("failed to build static request header")?;
         Ok(H2TaskContext {
             args: Arc::clone(args),
             proc_args: Arc::clone(proc_args),
             pool,
             h2s: None,
             reuse_conn_count: 0,
-            pre_request,
+            static_request,
             runtime_stats: Arc::clone(runtime_stats),
             histogram_recorder,
         })
@@ -110,10 +112,7 @@ impl H2TaskContext {
         time_started: Instant,
         mut send_req: SendRequest<Bytes>,
     ) -> anyhow::Result<()> {
-        let req = self
-            .pre_request
-            .build_request()
-            .context("failed to build request header")?;
+        let req = self.static_request.clone();
 
         // send hdr
         let (rsp_fut, _) = send_req

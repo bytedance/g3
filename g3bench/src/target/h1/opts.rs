@@ -8,6 +8,7 @@ use std::net::SocketAddr;
 
 use anyhow::{Context, anyhow};
 use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
+use http::{HeaderValue, Request, Version, header};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use url::Url;
@@ -48,7 +49,7 @@ pub(super) struct BenchHttpArgs {
 impl BenchHttpArgs {
     fn new(common: HttpClientArgs) -> anyhow::Result<Self> {
         let mut target_tls = OpensslTlsClientArgs::default();
-        if common.target_url.scheme() == "https" {
+        if common.is_https() {
             target_tls.config = Some(OpensslClientConfigBuilder::with_cache_for_one_site());
         }
 
@@ -281,8 +282,8 @@ impl BenchHttpArgs {
         Ok(tls_stream)
     }
 
-    fn write_request_line<W: io::Write>(&self, buf: &mut W) -> io::Result<()> {
-        write!(buf, "{} ", self.common.method)?;
+    fn write_request_line<W: io::Write>(&self, buf: &mut W, req: &Request<()>) -> io::Result<()> {
+        write!(buf, "{} ", req.method())?;
         if self.forward_proxy.is_some() {
             write!(
                 buf,
@@ -291,44 +292,65 @@ impl BenchHttpArgs {
                 self.common.target
             )?;
         }
-        buf.write_all(self.common.target_url.path().as_bytes())?;
-        if let Some(s) = self.common.target_url.query() {
-            write!(buf, "?{s}")?;
+        match req.uri().path_and_query() {
+            Some(v) => {
+                buf.write_all(v.as_str().as_bytes())?;
+            }
+            None => {
+                buf.write_all(b"/")?;
+            }
         }
-        buf.write_all(b" HTTP/1.1\r\n")?; // TODO allow to use http1.0 ?
+        buf.write_all(b" HTTP/1.1\r\n")?;
 
         Ok(())
     }
 
-    pub(super) fn write_fixed_request_header<W: io::Write>(&self, buf: &mut W) -> io::Result<()> {
-        self.write_request_line(buf)?;
+    pub(super) fn write_fixed_request_header<W: io::Write>(
+        &self,
+        buf: &mut W,
+    ) -> anyhow::Result<()> {
+        let mut static_request = self.common.build_static_request(Version::HTTP_11)?;
 
-        write!(buf, "Host: {}\r\n", self.common.target)?;
+        if !static_request.headers().contains_key(header::HOST) {
+            let v = HeaderValue::from_str(&self.common.target.to_string())?;
+            static_request.headers_mut().insert(header::HOST, v);
+        }
 
         if let Some(p) = &self.forward_proxy {
             match &p.auth {
                 HttpAuth::None => {}
                 HttpAuth::Basic(basic) => {
-                    buf.write_all(b"Proxy-Authorization: Basic ")?;
-                    buf.write_all(basic.encoded_value().as_bytes())?;
-                    buf.write_all(b"\r\n")?;
+                    if !static_request
+                        .headers()
+                        .contains_key(header::PROXY_AUTHORIZATION)
+                    {
+                        let value = HeaderValue::try_from(basic)
+                            .map_err(|e| anyhow!("invalid auth value: {e:?}"))?;
+                        static_request
+                            .headers_mut()
+                            .insert(header::PROXY_AUTHORIZATION, value);
+                    }
                 }
             }
         }
 
-        match &self.common.auth {
-            HttpAuth::None => {}
-            HttpAuth::Basic(basic) => {
-                buf.write_all(b"Authorization: Basic ")?;
-                buf.write_all(basic.encoded_value().as_bytes())?;
-                buf.write_all(b"\r\n")?;
-            }
+        if self.no_keepalive {
+            static_request
+                .headers_mut()
+                .insert(header::CONNECTION, HeaderValue::from_static("close"));
+        } else {
+            static_request
+                .headers_mut()
+                .insert(header::CONNECTION, HeaderValue::from_static("keep-alive"));
         }
 
-        if self.no_keepalive {
-            buf.write_all(b"Connection: close\r\n")?;
-        } else {
-            buf.write_all(b"Connection: keep-alive\r\n")?;
+        self.write_request_line(buf, &static_request)?;
+
+        for (k, v) in static_request.headers() {
+            buf.write_all(k.as_str().as_bytes())?;
+            buf.write_all(b": ")?;
+            buf.write_all(v.as_bytes())?;
+            buf.write_all(b"\r\n")?;
         }
 
         Ok(())
