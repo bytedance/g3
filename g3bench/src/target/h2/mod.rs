@@ -6,9 +6,7 @@
 use std::process::ExitCode;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use clap::{ArgMatches, Command};
-use http::{HeaderValue, Method, Request, Uri, Version};
 
 use super::{BenchTarget, BenchTaskContext, ProcArgs};
 use crate::module::http::{HttpHistogram, HttpHistogramRecorder, HttpRuntimeStats};
@@ -89,26 +87,4 @@ pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Re
     };
 
     super::run(target, proc_args).await
-}
-
-struct H2PreRequest {
-    method: Method,
-    uri: Uri,
-    auth: Option<HeaderValue>,
-}
-
-impl H2PreRequest {
-    fn build_request(&self) -> anyhow::Result<Request<()>> {
-        let mut req = Request::builder()
-            .version(Version::HTTP_2)
-            .method(self.method.clone())
-            .uri(self.uri.clone())
-            .body(())
-            .map_err(|e| anyhow!("failed to build request: {e:?}"))?;
-        if let Some(v) = &self.auth {
-            req.headers_mut()
-                .insert(http::header::AUTHORIZATION, v.clone());
-        }
-        Ok(req)
-    }
 }
