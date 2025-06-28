@@ -75,7 +75,7 @@ impl HttpTaskContext {
 
         self.runtime_stats.add_conn_attempt();
         let (r, w) = match tokio::time::timeout(
-            self.args.connect_timeout,
+            self.args.common.connect_timeout,
             self.args
                 .new_http_connection(&self.runtime_stats, &self.proc_args),
         )
@@ -132,10 +132,10 @@ impl HttpTaskContext {
 
         // recv hdr
         let rsp = match tokio::time::timeout(
-            self.args.timeout,
+            self.args.common.timeout,
             HttpForwardRemoteResponse::parse(
                 ups_r,
-                &self.args.method,
+                &self.args.common.method,
                 keep_alive,
                 self.args.max_header_size,
             ),
@@ -149,7 +149,7 @@ impl HttpTaskContext {
 
         let recv_hdr_time = time_started.elapsed();
         self.histogram_recorder.record_recv_hdr_time(recv_hdr_time);
-        if let Some(ok_status) = self.args.ok_status {
+        if let Some(ok_status) = self.args.common.ok_status {
             if rsp.code != ok_status.as_u16() {
                 return Err(anyhow!(
                     "Got rsp code {} while {} is expected",
@@ -160,7 +160,7 @@ impl HttpTaskContext {
         }
 
         // recv body
-        if let Some(body_type) = rsp.body_type(&self.args.method) {
+        if let Some(body_type) = rsp.body_type(&self.args.common.method) {
             let mut body_reader = HttpBodyReader::new(ups_r, body_type, 2048);
             let mut sink = tokio::io::sink();
             tokio::io::copy(&mut body_reader, &mut sink)

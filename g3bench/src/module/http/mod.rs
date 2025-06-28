@@ -5,3 +5,6 @@
 
 mod stats;
 pub(crate) use stats::{HttpHistogram, HttpHistogramRecorder, HttpRuntimeStats};
+
+mod opts;
+pub(crate) use opts::{AppendHttpArgs, HttpClientArgs};

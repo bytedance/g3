@@ -84,7 +84,7 @@ impl H2TaskContext {
 
         self.runtime_stats.add_conn_attempt();
         let h2s = match tokio::time::timeout(
-            self.args.connect_timeout,
+            self.args.common.connect_timeout,
             self.args
                 .new_h2_connection(&self.runtime_stats, &self.proc_args),
         )
@@ -123,7 +123,7 @@ impl H2TaskContext {
         self.histogram_recorder.record_send_hdr_time(send_hdr_time);
 
         // recv hdr
-        let rsp = match tokio::time::timeout(self.args.timeout, rsp_fut).await {
+        let rsp = match tokio::time::timeout(self.args.common.timeout, rsp_fut).await {
             Ok(Ok(rsp)) => rsp,
             Ok(Err(e)) => return Err(anyhow!("failed to read response: {e}")),
             Err(_) => return Err(anyhow!("timeout to read response")),
@@ -131,7 +131,7 @@ impl H2TaskContext {
         let (rsp, mut rsp_recv_body) = rsp.into_parts();
         let recv_hdr_time = time_started.elapsed();
         self.histogram_recorder.record_recv_hdr_time(recv_hdr_time);
-        if let Some(ok_status) = self.args.ok_status {
+        if let Some(ok_status) = self.args.common.ok_status {
             if rsp.status != ok_status {
                 return Err(anyhow!(
                     "Got rsp code {} while {} is expected",

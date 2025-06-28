@@ -84,7 +84,7 @@ impl H3TaskContext {
 
         self.runtime_stats.add_conn_attempt();
         let h3s = match tokio::time::timeout(
-            self.args.connect_timeout,
+            self.args.common.connect_timeout,
             self.args
                 .new_h3_connection(&self.runtime_stats, &self.proc_args),
         )
@@ -121,14 +121,16 @@ impl H3TaskContext {
         self.histogram_recorder.record_send_hdr_time(send_hdr_time);
 
         // recv hdr
-        let rsp = match tokio::time::timeout(self.args.timeout, send_stream.recv_response()).await {
+        let rsp = match tokio::time::timeout(self.args.common.timeout, send_stream.recv_response())
+            .await
+        {
             Ok(Ok(rsp)) => rsp,
             Ok(Err(e)) => return Err(anyhow!("failed to read response: {e}")),
             Err(_) => return Err(anyhow!("timeout to read response")),
         };
         let recv_hdr_time = time_started.elapsed();
         self.histogram_recorder.record_recv_hdr_time(recv_hdr_time);
-        if let Some(ok_status) = self.args.ok_status {
+        if let Some(ok_status) = self.args.common.ok_status {
             let status = rsp.status();
             if status != ok_status {
                 return Err(anyhow!(

@@ -64,7 +64,7 @@ impl H3ConnectionUnlocked {
 
         self.runtime_stats.add_conn_attempt();
         let new_h3s = match tokio::time::timeout(
-            self.args.connect_timeout,
+            self.args.common.connect_timeout,
             self.args
                 .new_h3_connection(&self.runtime_stats, &self.proc_args),
         )
