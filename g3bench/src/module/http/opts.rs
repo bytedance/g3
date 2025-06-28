@@ -7,14 +7,15 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use clap::{Arg, ArgMatches, Command, value_parser};
-use http::{HeaderValue, Method, Request, StatusCode, Version};
+use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
+use http::{HeaderName, HeaderValue, Method, Request, StatusCode, Version};
 use url::Url;
 
 use g3_types::net::{HttpAuth, UpstreamAddr};
 
 const HTTP_ARG_URL: &str = "url";
 const HTTP_ARG_METHOD: &str = "method";
+const HTTP_ARG_HEADER: &str = "header";
 const HTTP_ARG_OK_STATUS: &str = "ok-status";
 const HTTP_ARG_TIMEOUT: &str = "timeout";
 const HTTP_ARG_CONNECT_TIMEOUT: &str = "connect-timeout";
@@ -26,6 +27,7 @@ pub(crate) trait AppendHttpArgs {
 pub(crate) struct HttpClientArgs {
     pub(crate) method: Method,
     pub(crate) target_url: Url,
+    headers: Vec<(HeaderName, HeaderValue)>,
     pub(crate) ok_status: Option<StatusCode>,
     pub(crate) timeout: Duration,
     pub(crate) connect_timeout: Duration,
@@ -42,6 +44,7 @@ impl HttpClientArgs {
         Ok(HttpClientArgs {
             method: Method::GET,
             target_url: url,
+            headers: Vec::new(),
             ok_status: None,
             timeout: Duration::from_secs(30),
             connect_timeout: Duration::from_secs(15),
@@ -74,6 +77,10 @@ impl HttpClientArgs {
             .body(())
             .map_err(|e| anyhow!("failed to build request: {e:?}"))?;
 
+        for (key, value) in self.headers.iter() {
+            req.headers_mut().append(key, value.clone());
+        }
+
         if !req.headers().contains_key(http::header::AUTHORIZATION) {
             match &self.auth {
                 HttpAuth::None => {}
@@ -100,6 +107,7 @@ impl HttpClientArgs {
             let method = Method::from_str(v).context(format!("invalid {HTTP_ARG_METHOD} value"))?;
             http_args.method = method;
         }
+        http_args.headers = g3_clap::http::get_headers(args, HTTP_ARG_HEADER)?;
         if let Some(code) = args.get_one::<StatusCode>(HTTP_ARG_OK_STATUS) {
             http_args.ok_status = Some(*code);
         }
@@ -125,6 +133,13 @@ impl AppendHttpArgs for Command {
                     .num_args(1)
                     .value_parser(["GET", "HEAD"])
                     .default_value("GET"),
+            )
+            .arg(
+                Arg::new(HTTP_ARG_HEADER)
+                    .value_name("HEADER")
+                    .short('H')
+                    .long(HTTP_ARG_HEADER)
+                    .action(ArgAction::Append),
             )
             .arg(
                 Arg::new(HTTP_ARG_OK_STATUS)

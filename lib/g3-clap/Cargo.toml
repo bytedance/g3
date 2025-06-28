@@ -10,3 +10,8 @@ edition.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 humanize-rs.workspace = true
+http = { workspace = true, optional = true }
+
+[features]
+default = []
+http = ["dep:http"]

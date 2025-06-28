@@ -6,6 +6,7 @@ test_http()
 	URL=$1
 
 	g3bench h1 "${URL}" --ok-status 200
+	g3bench h1 "${URL}" -H "Accept: application/json" --ok-status 200
 
 	g3bench h1 "${URL}" -x http://t1:toor@g3proxy.local:8080 --ok-status 200
 	g3bench h1 "${URL}" -x http://t1:toor@g3proxy.local:8080 -p --ok-status 200
@@ -26,6 +27,7 @@ test_https()
 	URL=$1
 
 	g3bench h1 "${URL}" --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
+	g3bench h1 "${URL}" -H "Accept: application/json" --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
 
 	g3bench h1 "${URL}" -x http://t1:toor@g3proxy.local:8080 --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
 	g3bench h1 "${URL}" -x http://t1:toor@g3proxy.local:8080 -p --ok-status 200 --tls-ca-cert "${TEST_CA_CERT_FILE}"
