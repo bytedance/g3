@@ -17,6 +17,8 @@ all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk
 
 # run g3proxy tests
 
+cargo test -p g3proxy -p g3proxy-ctl -p g3proxy-ftp
+
 RUN_DIR="${SCRIPTS_DIR}/g3proxy"
 . "${RUN_DIR}/run.sh"
 

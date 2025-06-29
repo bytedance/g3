@@ -17,6 +17,8 @@ all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk
 
 # run g3bench tests
 
+cargo test -p g3bench
+
 RUN_DIR="${SCRIPTS_DIR}/g3bench"
 . "${RUN_DIR}/run.sh"
 
