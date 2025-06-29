@@ -17,6 +17,8 @@ all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk
 
 # run g3statsd tests
 
+cargo test -p g3statsd -p g3statsd-ctl
+
 RUN_DIR="${SCRIPTS_DIR}/g3statsd"
 . "${RUN_DIR}/run.sh"
 
