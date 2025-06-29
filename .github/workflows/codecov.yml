@@ -62,6 +62,39 @@ jobs:
           name: lib-unit-test
           token: ${{ secrets.CODECOV_TOKEN }}
           verbose: false
+  g3mkcert-test:
+    name: g3mkcert test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
+        with:
+          toolchain: stable
+          components: llvm-tools
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install libssl-dev
+      - name: Install binutils
+        run: |
+          cargo install cargo-binutils
+      - name: run unit test
+        run: |
+          ./scripts/coverage/g3mkcert.sh
+      - name: Upload coverage data
+        uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: true
+          disable_search: true
+          files: output.lcov
+          flags: g3mkcert
+          name: g3mkcert-all-test
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: false
   g3proxy-test:
     name: g3proxy test
     runs-on: ubuntu-latest
