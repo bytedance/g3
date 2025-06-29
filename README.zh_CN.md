@@ -67,7 +67,9 @@ StatsD兼容的监控打点指标聚合服务。
 
 ### g3mkcert
 
-用来生成 根CA / 中间CA / TLS服务端证书 / TLS客户端证书 的工具。
+用来生成 根CA / 中间CA / TLS服务端 / TLS客户端 / 国密服务端 / 国密客户端 证书的工具。
+
+[详细介绍](g3mkcert/README.md)
 
 ### g3fcgen
 
