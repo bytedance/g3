@@ -28,14 +28,27 @@ impl X509BuilderExt for X509Builder {
             // see https://www.openssl.org/docs/manmaster/man3/EVP_DigestSign.html
             #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
             Id::SM2 => MessageDigest::sm3(),
-            #[cfg(not(boringssl))]
-            Id::ED25519 => MessageDigest::null(),
-            #[cfg(boringssl)]
-            Id::ED25519 => unsafe { MessageDigest::from_ptr(std::ptr::null()) },
+            Id::ED25519 => null_message_digest(),
             #[cfg(not(any(libressl, boringssl, awslc)))]
             Id::ED448 => MessageDigest::null(),
-            _ => MessageDigest::sha256(),
+            id => {
+                if id.as_raw() == -1 {
+                    null_message_digest()
+                } else {
+                    MessageDigest::sha256()
+                }
+            }
         });
         self.sign(key, digest)
     }
+}
+
+#[cfg(not(boringssl))]
+fn null_message_digest() -> MessageDigest {
+    MessageDigest::null()
+}
+
+#[cfg(boringssl)]
+fn null_message_digest() -> MessageDigest {
+    unsafe { MessageDigest::from_ptr(std::ptr::null()) }
 }
