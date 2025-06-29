@@ -20,7 +20,7 @@ cargo build -p g3mkcert
 all_binaries=$(find target/debug/ -maxdepth 1 -type f -perm /111 | awk '{print "-object "$0}')
 all_objects=$(find target/debug/deps/ -type f -perm /111 -not -name "*.so" | awk '{print "-object "$0}')
 
-# run g3bench tests
+# run g3mkcert tests
 
 cargo test -p g3mkcert
 
@@ -44,6 +44,7 @@ IGNORE_FLAGS="--ignore-filename-regex=.cargo \
     --ignore-filename-regex=g3proxy \
     --ignore-filename-regex=g3tiles \
     --ignore-filename-regex=g3keymess \
+    --ignore-filename-regex=g3statsd \
     --ignore-filename-regex=g3iploc"
 
 echo "==== Coverage for all ===="
