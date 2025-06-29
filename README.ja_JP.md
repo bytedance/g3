@@ -69,7 +69,9 @@ HTTP 1.x、HTTP 2、HTTP 3、TLSハンドシェイク、DNS、Cloudflare Keyless
 
 ### g3mkcert
 
-ルートCA / 中間CA / TLSサーバー / TLSクライアント証明書を作成するツール。
+ルートCA / 中間CA / TLSサーバー / TLSクライアント / TLCPサーバー / TLCPクライアント 証明書を作成するツール。
+
+[詳細な紹介](g3mkcert/README.md)
 
 ### g3fcgen
 

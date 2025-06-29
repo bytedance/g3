@@ -70,7 +70,9 @@ A benchmark tool that supports HTTP 1.x, HTTP 2, HTTP 3, TLS Handshake, DNS and 
 
 ### g3mkcert
 
-A tool to make root CA / intermediate CA / TLS server / TLS client certificates.
+A tool to make root CA / intermediate CA / TLS server / TLS client / TLCP server / TLCP client certificates.
+
+[README](g3mkcert/README.md)
 
 ### g3fcgen
 
