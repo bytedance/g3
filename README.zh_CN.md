@@ -81,6 +81,8 @@ StatsD兼容的监控打点指标聚合服务。
 
 适用于g3proxy GeoIP功能的IP Location查找服务应用。
 
+[详细介绍](g3iploc/README.md)
+
 ### g3keymess
 
 Cloudflare Keyless Server的简单实现。

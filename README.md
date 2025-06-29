@@ -84,6 +84,8 @@ Fake certificate generator for g3proxy.
 
 IP location lookup service for g3proxy GeoIP support.
 
+[README](g3iploc/README.md)
+
 ### g3keymess
 
 A simple implementation of Cloudflare keyless server.

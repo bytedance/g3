@@ -83,6 +83,8 @@ g3proxyのための偽の証明書ジェネレーター。
 
 g3proxyのGeoIPサポートのためのIPロケーションルックアップサービス。
 
+[詳細な紹介](g3iploc/README.md)
+
 ### g3keymess
 
 Cloudflare keylessサーバーの簡単な実装。
