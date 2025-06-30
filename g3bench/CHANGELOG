@@ -1,4 +1,10 @@
 
+v0.9.5:
+ - Feature: support DELETE/OPTIONS/TRACE method in h1/h2/h3 target
+ - Feature: support to set headers in h1/h2/h3 target
+ - Feature: restore support for aws-lc
+ - Feature: add support for aws-lc-fips
+
 v0.9.4:
  - BUG FIX: fix https proxy support for h2 target
  - Feature: allow to set max openssl async job size for each worker thread

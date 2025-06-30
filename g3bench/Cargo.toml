@@ -1,6 +1,6 @@
 [package]
 name = "g3bench"
-version = "0.9.4"
+version = "0.9.5"
 license.workspace = true
 edition.workspace = true
 description = "G3 Benchmark Tool"
