@@ -2,6 +2,8 @@
 v1.11.8:
  - BUG FIX: fix corrupt data when send small chunked body to ICAP REQMOD service
  - BUG FIX: fix panic when detect DNS over TLS traffic
+ - Feature: restore support for aws-lc
+ - Feature: add support for aws-lc-fips
  - Deprecated: the following config options are deprecated:
      - emit_duration in statsd config, use emit_interval instead
      - auto_reply_local_ip_map in socks server config, use transmute_udp_echo_ip instead
