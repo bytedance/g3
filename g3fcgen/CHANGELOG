@@ -1,4 +1,10 @@
 
+v0.8.4:
+ - Feature: restore support for aws-lc
+ - Feature: add support for aws-lc-fips
+ - Deprecated: the following config options are deprecated:
+     - emit_duration in statsd config, use emit_interval instead
+
 v0.8.3:
  - Feature: listen to Ctrl-C event and shutdown gracefully
  - Compatibility: drop AWS-LC support to reduce outdated dependencies
