@@ -131,7 +131,7 @@ impl AppendHttpArgs for Command {
                     .short('m')
                     .long(HTTP_ARG_METHOD)
                     .num_args(1)
-                    .value_parser(["GET", "HEAD"])
+                    .value_parser(["DELETE", "GET", "HEAD", "OPTIONS", "TRACE"])
                     .default_value("GET"),
             )
             .arg(
