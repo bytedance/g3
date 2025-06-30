@@ -1,5 +1,7 @@
 
 v0.3.9:
+ - Feature: restore support for aws-lc
+ - Feature: add support for aws-lc-fips
  - Deprecated: the following config options are deprecated:
      - emit_duration in statsd config, use emit_interval instead
 
