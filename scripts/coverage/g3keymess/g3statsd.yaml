@@ -1,0 +1,17 @@
+importer:
+  - name: statsd_udp
+    type: statsd_udp
+    collector: aggregate_1s
+    listen: 127.0.0.1:8125
+
+collector:
+  - name: aggregate_1s
+    type: aggregate
+    emit_interval: 1s
+    join_tags:
+      - stat_id
+    exporter: discard
+
+exporter:
+  - name: discard
+    type: discard
