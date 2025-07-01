@@ -61,12 +61,11 @@ impl KeylessTask {
         });
 
         let mut log_ok = true;
-        if let Err(e) = self.read_spawn_till_end(reader, &msg_sender).await {
+        if let Err(e) = self.read_spawn_till_end(reader, msg_sender).await {
             self.log_task_err(e);
             log_ok = false;
         }
 
-        drop(msg_sender);
         match write_handle.await {
             Ok(Ok(_)) => {}
             Ok(Err(e)) => {
@@ -84,7 +83,7 @@ impl KeylessTask {
     async fn read_spawn_till_end<R>(
         &mut self,
         reader: R,
-        msg_sender: &mpsc::Sender<WrappedKeylessResponse>,
+        msg_sender: mpsc::Sender<WrappedKeylessResponse>,
     ) -> Result<(), ServerTaskError>
     where
         R: AsyncRead + Send + Unpin + 'static,
@@ -99,7 +98,7 @@ impl KeylessTask {
                 r = buf_reader.fill_wait_data() => {
                     match r {
                         Ok(true) => {
-                            self.read_and_spawn(&mut buf_reader, msg_count, msg_sender).await?;
+                            self.read_and_spawn(&mut buf_reader, msg_count, &msg_sender).await?;
                             msg_count += 1;
                         }
                         Ok(false) => return Ok(()),
