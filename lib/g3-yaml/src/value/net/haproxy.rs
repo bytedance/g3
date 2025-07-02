@@ -17,3 +17,34 @@ pub fn as_proxy_protocol_version(value: &Yaml) -> anyhow::Result<ProxyProtocolVe
         _ => Err(anyhow!("unsupported PROXY protocol version {v}")),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_as_proxy_protocol_version() {
+        let yaml = Yaml::String("1".to_string());
+        let version = as_proxy_protocol_version(&yaml).unwrap();
+        assert_eq!(version, ProxyProtocolVersion::V1);
+
+        let yaml = Yaml::Integer(2);
+        let version = as_proxy_protocol_version(&yaml).unwrap();
+        assert_eq!(version, ProxyProtocolVersion::V2);
+
+        let yaml = Yaml::String("3".to_string()); // Invalid version
+        assert!(as_proxy_protocol_version(&yaml).is_err());
+
+        let yaml = Yaml::Integer(256); // Beyond u8 range
+        assert!(as_proxy_protocol_version(&yaml).is_err());
+
+        let yaml = Yaml::Boolean(true); // Invalid type
+        assert!(as_proxy_protocol_version(&yaml).is_err());
+
+        let yaml = Yaml::Array(vec![]); // Invalid type
+        assert!(as_proxy_protocol_version(&yaml).is_err());
+
+        let yaml = Yaml::Null; // Invalid type
+        assert!(as_proxy_protocol_version(&yaml).is_err())
+    }
+}
