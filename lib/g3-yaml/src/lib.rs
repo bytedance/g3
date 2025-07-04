@@ -3,6 +3,9 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+#[macro_use]
+mod macros;
+
 mod callback;
 mod hash;
 mod hybrid;
