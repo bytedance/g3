@@ -221,6 +221,13 @@ pub fn as_weighted_upstream_addr(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::{Mutex, OnceLock};
+
+    // ensure the environment variable is thread-safe
+    fn env_lock() -> &'static Mutex<()> {
+        static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        ENV_LOCK.get_or_init(|| Mutex::new(()))
+    }
 
     #[test]
     fn as_env_sockaddr_ok() {
@@ -228,15 +235,18 @@ mod tests {
         let addr = as_env_sockaddr(&yaml).unwrap();
         assert_eq!(addr, "127.0.0.1:8080".parse().unwrap());
 
-        unsafe {
-            std::env::set_var("TEST_ADDR", "192.168.1.1:9090");
-        }
-        let yaml = yaml_str!("$TEST_ADDR");
-        let addr = as_env_sockaddr(&yaml).unwrap();
-        assert_eq!(addr, "192.168.1.1:9090".parse().unwrap());
-        unsafe {
-            std::env::remove_var("TEST_ADDR");
-        }
+        {
+            let _guard = env_lock().lock().unwrap(); // Acquire lock
+            unsafe {
+                std::env::set_var("TEST_ADDR", "192.168.1.1:9090");
+            }
+            let yaml = yaml_str!("$TEST_ADDR");
+            let addr = as_env_sockaddr(&yaml).unwrap();
+            assert_eq!(addr, "192.168.1.1:9090".parse().unwrap());
+            unsafe {
+                std::env::remove_var("TEST_ADDR");
+            }
+        } // Lock is released
 
         let yaml = yaml_str!("@127.0.0.1:80");
         let addr = as_env_sockaddr(&yaml).unwrap();
@@ -245,14 +255,17 @@ mod tests {
 
     #[test]
     fn as_env_sockaddr_err() {
-        unsafe {
-            std::env::set_var("TEST_ADDR", "invalid_address");
-        }
-        let yaml = yaml_str!("$TEST_ADDR");
-        assert!(as_env_sockaddr(&yaml).is_err());
-        unsafe {
-            std::env::remove_var("TEST_ADDR");
-        }
+        {
+            let _guard = env_lock().lock().unwrap(); // Acquire lock
+            unsafe {
+                std::env::set_var("TEST_ADDR", "invalid_address");
+            }
+            let yaml = yaml_str!("$TEST_ADDR");
+            assert!(as_env_sockaddr(&yaml).is_err());
+            unsafe {
+                std::env::remove_var("TEST_ADDR");
+            }
+        } // Lock is released
 
         let yaml = yaml_str!("$NOEXISTING_VAR");
         assert!(as_env_sockaddr(&yaml).is_err());
