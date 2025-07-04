@@ -23,16 +23,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_as_proxy_protocol_version() {
-        let yaml = Yaml::String("1".to_string());
-        let version = as_proxy_protocol_version(&yaml).unwrap();
-        assert_eq!(version, ProxyProtocolVersion::V1);
+    fn as_proxy_protocol_version_ok() {
+        let yaml = yaml_str!("1");
+        assert_eq!(
+            as_proxy_protocol_version(&yaml).unwrap(),
+            ProxyProtocolVersion::V1
+        );
 
         let yaml = Yaml::Integer(2);
-        let version = as_proxy_protocol_version(&yaml).unwrap();
-        assert_eq!(version, ProxyProtocolVersion::V2);
+        assert_eq!(
+            as_proxy_protocol_version(&yaml).unwrap(),
+            ProxyProtocolVersion::V2
+        );
+    }
 
-        let yaml = Yaml::String("3".to_string()); // Invalid version
+    #[test]
+    fn as_proxy_protocol_version_err() {
+        let yaml = yaml_str!("3"); // Invalid version
         assert!(as_proxy_protocol_version(&yaml).is_err());
 
         let yaml = Yaml::Integer(256); // Beyond u8 range

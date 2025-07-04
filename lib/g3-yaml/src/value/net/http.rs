@@ -152,67 +152,37 @@ mod tests {
     use yaml_rust::YamlLoader;
 
     #[test]
-    fn test_as_http_keepalive_config() {
+    fn as_http_keepalive_config_ok() {
         // Valid config with enable and idle_expire
-        let yaml = YamlLoader::load_from_str(
+        let yaml = yaml_doc!(
             r#"
-            enable: true
-            idle_expire: 30s
-            "#,
-        )
-        .unwrap();
-        let config = as_http_keepalive_config(&yaml[0]).unwrap();
+                enable: true
+                idle_expire: 30s
+            "#
+        );
+        let config = as_http_keepalive_config(&yaml).unwrap();
         assert_eq!(config.is_enabled(), true);
         assert_eq!(config.idle_expire(), Duration::from_secs(30));
 
         // Valid config with only enable
-        let yaml = YamlLoader::load_from_str(
+        let yaml = yaml_doc!(
             r#"
-            enable: false
-            "#,
-        )
-        .unwrap();
-        let config = as_http_keepalive_config(&yaml[0]).unwrap();
+                enable: false
+            "#
+        );
+        let config = as_http_keepalive_config(&yaml).unwrap();
         assert_eq!(config.is_enabled(), false);
         assert_eq!(config.idle_expire(), Duration::from_nanos(0));
 
         // Valid config with only idle_expire
-        let yaml = YamlLoader::load_from_str(
+        let yaml = yaml_doc!(
             r#"
-            idle_expire: 30s
-            "#,
-        )
-        .unwrap();
-        let config = as_http_keepalive_config(&yaml[0]).unwrap();
+                idle_expire: 30s
+            "#
+        );
+        let config = as_http_keepalive_config(&yaml).unwrap();
         assert_eq!(config.is_enabled(), true);
         assert_eq!(config.idle_expire(), Duration::from_secs(30));
-
-        // Invalid config with wrong enable type
-        let yaml = YamlLoader::load_from_str(
-            r#"
-            enable: not_a_bool
-            "#,
-        )
-        .unwrap();
-        assert!(as_http_keepalive_config(&yaml[0]).is_err());
-
-        // Invalid config with wrong idle_expire type
-        let yaml = YamlLoader::load_from_str(
-            r#"
-            idle_expire: not_a_duration
-            "#,
-        )
-        .unwrap();
-        assert!(as_http_keepalive_config(&yaml[0]).is_err());
-
-        // Invalid config with wrong key
-        let yaml = YamlLoader::load_from_str(
-            r#"
-            invalid_key: true
-            "#,
-        )
-        .unwrap();
-        assert!(as_http_keepalive_config(&yaml[0]).is_err());
 
         // Valid config with boolean value
         let yaml = Yaml::Boolean(true);
@@ -220,7 +190,7 @@ mod tests {
         assert_eq!(config.is_enabled(), true);
 
         // Valid config with string value
-        let yaml = Yaml::String("30s".to_string());
+        let yaml = yaml_str!("30s");
         let config = as_http_keepalive_config(&yaml).unwrap();
         assert_eq!(config.is_enabled(), true);
         assert_eq!(config.idle_expire(), Duration::from_secs(30));
@@ -230,6 +200,33 @@ mod tests {
         let config = as_http_keepalive_config(&yaml).unwrap();
         assert_eq!(config.is_enabled(), true);
         assert_eq!(config.idle_expire(), Duration::from_secs(60));
+    }
+
+    #[test]
+    fn as_http_keepalive_config_err() {
+        // Invalid config with wrong enable type
+        let yaml = yaml_doc!(
+            r#"
+                enable: not_a_bool
+            "#
+        );
+        assert!(as_http_keepalive_config(&yaml).is_err());
+
+        // Invalid config with wrong idle_expire type
+        let yaml = yaml_doc!(
+            r#"
+                idle_expire: not_a_duration
+            "#
+        );
+        assert!(as_http_keepalive_config(&yaml).is_err());
+
+        // Invalid config with wrong key
+        let yaml = yaml_doc!(
+            r#"
+                invalid_key: true
+            "#
+        );
+        assert!(as_http_keepalive_config(&yaml).is_err());
 
         // Invalid config with unsupported type
         let yaml = Yaml::Real("not_a_duration".to_string());
@@ -237,7 +234,7 @@ mod tests {
     }
 
     #[test]
-    fn test_as_http_forwarded_header_type() {
+    fn as_http_forwarded_header_type_ok() {
         // Valid config with boolean value
         let yaml = Yaml::Boolean(true);
         let header_type = as_http_forwarded_header_type(&yaml).unwrap();
@@ -248,13 +245,9 @@ mod tests {
         assert_eq!(header_type, HttpForwardedHeaderType::Disable);
 
         // Valid config with string value
-        let yaml = Yaml::String("Standard".to_string());
+        let yaml = yaml_str!("Standard");
         let header_type = as_http_forwarded_header_type(&yaml).unwrap();
         assert_eq!(header_type, HttpForwardedHeaderType::Standard);
-
-        // Invalid config with invalid string value
-        let yaml = Yaml::String("Invalid".to_string());
-        assert!(as_http_forwarded_header_type(&yaml).is_err());
 
         // Valid config with integer value
         let yaml = Yaml::Integer(1);
@@ -264,88 +257,95 @@ mod tests {
         let yaml = Yaml::Integer(0);
         let header_type = as_http_forwarded_header_type(&yaml).unwrap();
         assert_eq!(header_type, HttpForwardedHeaderType::Disable);
+    }
 
+    #[test]
+    fn as_http_forwarded_header_type_err() {
         // Invalid config with unsupported type
         let yaml = Yaml::Null;
+        assert!(as_http_forwarded_header_type(&yaml).is_err());
+
+        // Invalid config with invalid string value
+        let yaml = yaml_str!("Invalid");
         assert!(as_http_forwarded_header_type(&yaml).is_err());
     }
 
     #[test]
-    fn test_as_http_forward_capability() {
+    fn as_http_forward_capability_ok() {
         // Valid config with all forward options enabled
-        let yaml = YamlLoader::load_from_str(
+        let yaml = yaml_doc!(
             r#"
-            forward_https: true
-            forward_ftp: true
-            forward_ftp_get: true
-            forward_ftp_put: true
-            forward_ftp_del: true
-        "#,
-        )
-        .unwrap();
-        let cap = as_http_forward_capability(&yaml[0]).unwrap();
+                forward_https: true
+                forward_ftp: true
+                forward_ftp_get: true
+                forward_ftp_put: true
+                forward_ftp_del: true
+            "#
+        );
+        let cap = as_http_forward_capability(&yaml).unwrap();
         assert!(cap.forward_https());
         assert!(cap.forward_ftp(&Method::GET));
         assert!(cap.forward_ftp(&Method::PUT));
         assert!(cap.forward_ftp(&Method::DELETE));
 
         // Valid config with only HTTPS forwarding enabled
-        let yaml = YamlLoader::load_from_str("{ forward_https: true }").unwrap();
-        let cap = as_http_forward_capability(&yaml[0]).unwrap();
+        let yaml = yaml_doc!("{ forward_https: true }");
+        let cap = as_http_forward_capability(&yaml).unwrap();
         assert!(cap.forward_https());
 
         // Valid config with FTP forwarding enabled
-        let yaml = YamlLoader::load_from_str("{ forward_ftp: true }").unwrap();
-        let cap = as_http_forward_capability(&yaml[0]).unwrap();
+        let yaml = yaml_doc!("{ forward_ftp: true }");
+        let cap = as_http_forward_capability(&yaml).unwrap();
         assert!(cap.forward_ftp(&Method::GET));
         assert!(cap.forward_ftp(&Method::PUT));
         assert!(cap.forward_ftp(&Method::DELETE));
 
-        let yaml = YamlLoader::load_from_str(
+        let yaml = yaml_doc!(
             r#"
-            forward_ftp_get: true
-            forward_ftp_put: false
-            forward_ftp_del: true
-        "#,
-        )
-        .unwrap();
-        let cap = as_http_forward_capability(&yaml[0]).unwrap();
+                forward_ftp_get: true
+                forward_ftp_put: false
+                forward_ftp_del: true
+            "#
+        );
+        let cap = as_http_forward_capability(&yaml).unwrap();
         assert!(cap.forward_ftp(&Method::GET));
         assert!(!cap.forward_ftp(&Method::PUT));
         assert!(cap.forward_ftp(&Method::DELETE));
 
         // Valid config with only FTP GET forwarding enabled
-        let yaml = YamlLoader::load_from_str(
+        let yaml = yaml_doc!(
             r#"
-            forward_ftp: false
-            forward_ftp_get: true
-        "#,
-        )
-        .unwrap();
-        let cap = as_http_forward_capability(&yaml[0]).unwrap();
+                forward_ftp: false
+                forward_ftp_get: true
+            "#
+        );
+        let cap = as_http_forward_capability(&yaml).unwrap();
         assert!(cap.forward_ftp(&Method::GET));
         assert!(!cap.forward_ftp(&Method::PUT));
         assert!(!cap.forward_ftp(&Method::DELETE));
+    }
 
+    #[test]
+    fn as_http_forward_capability_err() {
         // Invalid config with invalid key
-        let yaml = YamlLoader::load_from_str("{ invalid_key: true }").unwrap();
-        assert!(as_http_forward_capability(&yaml[0]).is_err());
+        let yaml = yaml_doc!("{ invalid_key: true }");
+        assert!(as_http_forward_capability(&yaml).is_err());
 
         // Invalid config with wrong value type
-        let yaml = YamlLoader::load_from_str("{ forward_https: not_a_bool }").unwrap();
-        assert!(as_http_forward_capability(&yaml[0]).is_err());
+        let yaml = yaml_doc!("{ forward_https: not_a_bool }");
+        assert!(as_http_forward_capability(&yaml).is_err());
 
-        let yaml = YamlLoader::load_from_str("{ forward_ftp: not_a_bool }").unwrap();
-        assert!(as_http_forward_capability(&yaml[0]).is_err());
+        let yaml = yaml_doc!("{ forward_ftp: not_a_bool }");
+        assert!(as_http_forward_capability(&yaml).is_err());
 
-        let yaml = YamlLoader::load_from_str("{ forward_ftp_get: not_a_bool }").unwrap();
-        assert!(as_http_forward_capability(&yaml[0]).is_err());
+        let yaml = yaml_doc!("{ forward_ftp_get: not_a_bool }");
+        assert!(as_http_forward_capability(&yaml).is_err());
 
-        let yaml = YamlLoader::load_from_str("{ forward_ftp_put: not_a_bool }").unwrap();
-        assert!(as_http_forward_capability(&yaml[0]).is_err());
+        let yaml = yaml_doc!("{ forward_ftp_put: not_a_bool }");
+        assert!(as_http_forward_capability(&yaml).is_err());
 
-        let yaml = YamlLoader::load_from_str("{ forward_ftp_del: not_a_bool }").unwrap();
-        assert!(as_http_forward_capability(&yaml[0]).is_err());
+        let yaml = yaml_doc!("{ forward_ftp_del: not_a_bool }");
+        assert!(as_http_forward_capability(&yaml).is_err());
 
         // Invalid config with unsupported type
         let yaml = Yaml::Null;
@@ -353,26 +353,32 @@ mod tests {
     }
 
     #[test]
-    fn test_as_http_server_id() {
+    fn as_http_server_id_ok() {
         // Valid config with string value
-        let yaml = Yaml::String("server1".to_string());
+        let yaml = yaml_str!("server1");
         let id = as_http_server_id(&yaml).unwrap();
         assert_eq!(id.as_str(), "server1");
+    }
 
+    #[test]
+    fn as_http_server_id_err() {
         // Invalid config with wrong value type
         let yaml = Yaml::Integer(123);
         assert!(as_http_server_id(&yaml).is_err());
     }
 
     #[test]
-    fn test_as_http_header_name() {
+    fn as_http_header_name_ok() {
         // Valid header name
-        let yaml = Yaml::String("Content-Type".to_string());
+        let yaml = yaml_str!("Content-Type");
         let header_name = as_http_header_name(&yaml).unwrap();
         assert_eq!(header_name.as_str(), "content-type");
+    }
 
+    #[test]
+    fn as_http_header_name_err() {
         // Invalid header name
-        let yaml = Yaml::String("Invalid Header".to_string());
+        let yaml = yaml_str!("Invalid Header");
         assert!(as_http_header_name(&yaml).is_err());
 
         // Invalid type
@@ -381,18 +387,21 @@ mod tests {
     }
 
     #[test]
-    fn test_as_http_header_value_string() {
+    fn as_http_header_value_string_ok() {
         // Valid header value
-        let yaml = Yaml::String("text/plain; charset=utf-8".to_string());
+        let yaml = yaml_str!("text/plain; charset=utf-8");
         let value = as_http_header_value_string(&yaml).unwrap();
         assert_eq!(value, "text/plain; charset=utf-8");
 
-        let yaml = Yaml::String("".to_string());
+        let yaml = yaml_str!("");
         let value = as_http_header_value_string(&yaml).unwrap();
         assert_eq!(value, "");
+    }
 
+    #[test]
+    fn as_http_header_value_string_err() {
         // Invalid header value
-        let yaml = Yaml::String("Invalid\x0bValue".to_string());
+        let yaml = yaml_str!("Invalid\x0bValue");
         assert!(as_http_header_value_string(&yaml).is_err());
 
         // Invalid type
@@ -401,14 +410,17 @@ mod tests {
     }
 
     #[test]
-    fn test_as_http_path_and_query() {
+    fn as_http_path_and_query_ok() {
         // Valid path and query
-        let yaml = Yaml::String("/path?query=value".to_string());
+        let yaml = yaml_str!("/path?query=value");
         let path_and_query = as_http_path_and_query(&yaml).unwrap();
         assert_eq!(path_and_query.as_str(), "/path?query=value");
+    }
 
+    #[test]
+    fn as_http_path_and_query_err() {
         // Invalid path and query
-        let yaml = Yaml::String("Invalid Path".to_string());
+        let yaml = yaml_str!("Invalid Path");
         assert!(as_http_path_and_query(&yaml).is_err());
 
         // Invalid type

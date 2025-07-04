@@ -36,16 +36,19 @@ mod tests {
     const LOOPBACK_INTERFACE: &str = "lo0";
 
     #[test]
-    fn test_as_interface() {
+    fn as_interface_ok() {
         let yaml = Yaml::String(LOOPBACK_INTERFACE.to_string());
         assert_eq!(as_interface(&yaml).unwrap().name(), LOOPBACK_INTERFACE);
-
-        let yaml = Yaml::String("invalid_interface".to_string());
-        assert!(as_interface(&yaml).is_err());
 
         let yaml = Yaml::Integer(1);
         let interface = as_interface(&yaml).unwrap();
         assert_eq!(interface.id().get(), 1);
+    }
+
+    #[test]
+    fn as_interface_err() {
+        let yaml = yaml_str!("invalid_interface");
+        assert!(as_interface(&yaml).is_err());
 
         let yaml = Yaml::Integer(u32::MAX as i64 + 1);
         assert!(as_interface(&yaml).is_err());
