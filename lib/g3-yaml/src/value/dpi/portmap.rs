@@ -76,3 +76,148 @@ pub fn update_protocol_portmap(portmap: &mut ProtocolPortMap, value: &Yaml) -> a
         _ => Err(anyhow!("invalid yaml value type for 'protocol portmap'")),
     }
 }
+
+#[cfg(test)]
+#[cfg(feature = "dpi")]
+mod tests {
+    use super::*;
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn update_protocol_portmap_ok() {
+        // map style value, single protocol.
+        let mut portmap = ProtocolPortMap::empty();
+        let yaml = yaml_doc!(
+            r#"
+            80: http
+            25: smtp
+            "#
+        );
+        update_protocol_portmap(&mut portmap, &yaml).unwrap();
+        let mut expected = ProtocolPortMap::empty();
+        expected.insert(80, MaybeProtocol::Http);
+        expected.insert(25, MaybeProtocol::Smtp);
+        assert_eq!(portmap, expected);
+
+        // map style value, multiple protocols.
+        let mut portmap = ProtocolPortMap::empty();
+        let yaml = yaml_doc!(
+            r#"
+            443: [https, http]
+            "#
+        );
+        update_protocol_portmap(&mut portmap, &yaml).unwrap();
+        let mut expected = ProtocolPortMap::empty();
+        expected.insert_batch(443, &[MaybeProtocol::Https, MaybeProtocol::Http]);
+        assert_eq!(portmap, expected);
+
+        // map style value, ssl only protocol.
+        let mut portmap = ProtocolPortMap::empty();
+        let yaml = yaml_doc!(
+            r#"
+            443: ssl
+            "#
+        );
+        update_protocol_portmap(&mut portmap, &yaml).unwrap();
+        let mut expected = ProtocolPortMap::empty();
+        expected.insert(443, MaybeProtocol::Ssl);
+        assert_eq!(portmap, expected);
+
+        // sequence style value, single protocol.
+        let mut portmap = ProtocolPortMap::empty();
+        let yaml = yaml_doc!(
+            r#"
+            - port: 53
+              protocol: dot
+            - port: 22
+              protocol: ssh
+            "#
+        );
+        update_protocol_portmap(&mut portmap, &yaml).unwrap();
+        let mut expected = ProtocolPortMap::empty();
+        expected.insert(53, MaybeProtocol::DnsOverTls);
+        expected.insert(22, MaybeProtocol::Ssh);
+        assert_eq!(portmap, expected);
+
+        // sequence style value, multiple protocols.
+        let mut portmap = ProtocolPortMap::empty();
+        let yaml = yaml_doc!(
+            r#"
+            - port: 993
+              protocol: [imaps, imap]
+            "#
+        );
+        update_protocol_portmap(&mut portmap, &yaml).unwrap();
+        let mut expected = ProtocolPortMap::empty();
+        expected.insert_batch(993, &[MaybeProtocol::Imaps, MaybeProtocol::Imap]);
+        assert_eq!(portmap, expected);
+    }
+
+    #[test]
+    fn update_protocol_portmap_err() {
+        // invalid top-level type.
+        let mut portmap = ProtocolPortMap::empty();
+        let yaml = yaml_str!("a string value");
+        assert!(update_protocol_portmap(&mut portmap, &yaml).is_err());
+
+        // map style with invalid port key.
+        let mut portmap = ProtocolPortMap::empty();
+        let yaml = yaml_doc!("key: http");
+        assert!(update_protocol_portmap(&mut portmap, &yaml).is_err());
+
+        // map style with invalid protocol value type.
+        let mut portmap = ProtocolPortMap::empty();
+        let yaml = yaml_doc!("80: 1024");
+        assert!(update_protocol_portmap(&mut portmap, &yaml).is_err());
+
+        // map style with unrecognized protocol string.
+        let mut portmap = ProtocolPortMap::empty();
+        let yaml = yaml_doc!("80: no-such-protocol");
+        assert!(update_protocol_portmap(&mut portmap, &yaml).is_err());
+
+        // map style with invalid protocol value type in array.
+        let mut portmap = ProtocolPortMap::empty();
+        let yaml = yaml_doc!("443: [https, 1024]");
+        assert!(update_protocol_portmap(&mut portmap, &yaml).is_err());
+
+        // map style with unrecognized protocol string in array.
+        let mut portmap = ProtocolPortMap::empty();
+        let yaml = yaml_doc!("443: [https, no-such-protocol]");
+        assert!(update_protocol_portmap(&mut portmap, &yaml).is_err());
+
+        // seq style with invalid element type.
+        let mut portmap = ProtocolPortMap::empty();
+        let yaml = yaml_doc!("- 1024");
+        assert!(update_protocol_portmap(&mut portmap, &yaml).is_err());
+
+        // seq style with element missing 'port'.
+        let mut portmap = ProtocolPortMap::empty();
+        let yaml = yaml_doc!("- protocol: http");
+        assert!(update_protocol_portmap(&mut portmap, &yaml).is_err());
+
+        // seq style with element missing 'protocol'.
+        let mut portmap = ProtocolPortMap::empty();
+        let yaml = yaml_doc!("- port: 80");
+        assert!(update_protocol_portmap(&mut portmap, &yaml).is_err());
+
+        // seq style with invalid port value.
+        let mut portmap = ProtocolPortMap::empty();
+        let yaml = yaml_doc!(
+            r#"
+            - port: invalid
+              protocol: http
+            "#
+        );
+        assert!(update_protocol_portmap(&mut portmap, &yaml).is_err());
+
+        // seq style with invalid protocol value.
+        let mut portmap = ProtocolPortMap::empty();
+        let yaml = yaml_doc!(
+            r#"
+            - port: 80
+              protocol: 1024
+            "#
+        );
+        assert!(update_protocol_portmap(&mut portmap, &yaml).is_err());
+    }
+}
