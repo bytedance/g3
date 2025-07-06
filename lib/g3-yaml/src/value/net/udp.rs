@@ -21,10 +21,22 @@ pub fn as_udp_misc_sock_opts(v: &Yaml) -> anyhow::Result<UdpMiscSockOpts> {
                 config.time_to_live = Some(ttl);
                 Ok(())
             }
+            "hop_limit" => {
+                let hops =
+                    crate::value::as_u32(v).context(format!("invalid u32 value for key {k}"))?;
+                config.hop_limit = Some(hops);
+                Ok(())
+            }
             "type_of_service" | "tos" => {
                 let tos =
                     crate::value::as_u8(v).context(format!("invalid u8 value for key {k}"))?;
                 config.type_of_service = Some(tos);
+                Ok(())
+            }
+            "traffic_class" => {
+                let class =
+                    crate::value::as_u8(v).context(format!("invalid u8 value for key {k}"))?;
+                config.traffic_class = Some(class);
                 Ok(())
             }
             "netfilter_mark" | "mark" => {
@@ -171,14 +183,18 @@ mod tests {
         let yaml = yaml_doc!(
             r#"
                 time_to_live: 128
+                hop_limit: 128
                 type_of_service: 0x10
+                traffic_class: 0x10
                 netfilter_mark: 100
             "#
         );
         let parsed_config = as_udp_misc_sock_opts(&yaml).unwrap();
         let mut expected_config = UdpMiscSockOpts::default();
         expected_config.time_to_live = Some(128);
+        expected_config.hop_limit = Some(128);
         expected_config.type_of_service = Some(0x10);
+        expected_config.traffic_class = Some(0x10);
         expected_config.netfilter_mark = Some(100);
         assert_eq!(parsed_config, expected_config);
 

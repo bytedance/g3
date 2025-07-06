@@ -218,7 +218,7 @@ where
                                 listen_addr = addr;
                             }
                         } else {
-                            self.update_socket_opts(&sock_raw_fd);
+                            self.update_socket_opts(&sock_raw_fd, listen_addr);
                         }
                     }
                 }
@@ -329,8 +329,10 @@ where
         }
     }
 
-    fn update_socket_opts(&self, raw_socket: &RawSocket) {
-        if let Err(e) = raw_socket.set_udp_misc_opts(self.listen_config.socket_misc_opts()) {
+    fn update_socket_opts(&self, raw_socket: &RawSocket, listen_addr: SocketAddr) {
+        if let Err(e) =
+            raw_socket.set_udp_misc_opts(listen_addr, self.listen_config.socket_misc_opts())
+        {
             warn!(
                 "SRT[{}_v{}#{}] update socket misc opts failed: {e}",
                 self.server.name(),

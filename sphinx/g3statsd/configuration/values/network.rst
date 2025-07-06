@@ -200,25 +200,45 @@ This set misc udp socket options.
 
 Keys:
 
-* ttl
+* time_to_live
 
-  **optional**, **type**: u32, **alias**: time_to_live
+  **optional**, **type**: u32, **alias**: ttl
 
   Set value for ip level socket option IP_TTL, the time-to-live field in each sent packet.
 
   **default**: not set
 
-* tos
+* hop_limit
 
-  **optional**, **type**: u8, **alias**: type_of_service
+  **optional**, **type**: u32
+
+  Set value for ipv6 level socket option IPV6_UNICAST_HOPS, the hop limit field in each sent packet.
+
+  **default**: not set
+
+  .. versionadded:: 0.1.1
+
+* type_of_service
+
+  **optional**, **type**: u8, **alias**: tos
 
   Set value for ip level socket option IP_TOS, the type-of-service field in each sent packet.
 
   **default**: not set
 
-* mark
+* traffic_class
 
-  **optional**, **type**: u32, **alias**: netfilter_mark
+  **optional**, **type**: u8
+
+  Set value for ipv6 level socket option IPV6_TCLASS, the traffic class field in each sent packet.
+
+  **default**: not set
+
+  .. versionadded:: 0.1.1
+
+* netfilter_mark
+
+  **optional**, **type**: u32, **alias**: mark
 
   Set value for socket level socket option SO_MARK, the netfilter mark value for our tcp sockets.
 

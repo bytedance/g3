@@ -8,6 +8,7 @@ use std::net::{IpAddr, SocketAddr};
 
 use g3_io_ext::haproxy::ProxyAddr;
 use g3_socket::RawSocket;
+use g3_socket::util::AddressFamily;
 use g3_types::net::TcpMiscSockOpts;
 
 #[derive(Clone, Debug)]
@@ -95,7 +96,11 @@ impl ClientConnectionInfo {
         default_set_nodelay: bool,
     ) -> io::Result<()> {
         if let Some(raw_socket) = &self.tcp_raw_socket {
-            raw_socket.set_tcp_misc_opts(opts, default_set_nodelay)
+            raw_socket.set_tcp_misc_opts(
+                AddressFamily::from(&self.client_addr),
+                opts,
+                default_set_nodelay,
+            )
         } else {
             Ok(())
         }

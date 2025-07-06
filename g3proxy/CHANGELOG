@@ -1,4 +1,7 @@
 
+v1.11.9:
+ - Feature: allow to set hop_limit and traffic_class ipv6 socket options
+
 v1.11.8:
  - BUG FIX: fix corrupt data when send small chunked body to ICAP REQMOD service
  - BUG FIX: fix panic when detect DNS over TLS traffic

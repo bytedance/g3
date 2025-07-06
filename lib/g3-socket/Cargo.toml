@@ -8,7 +8,7 @@ edition.workspace = true
 
 [dependencies]
 tokio = { workspace = true, features = ["net"] }
-socket2 = { version = "0.5.9", features = ["all"] }
+socket2 = { version = "0.6", features = ["all"] }
 fastrand.workspace = true
 g3-compat.workspace = true
 g3-types.workspace = true

@@ -8,7 +8,9 @@ use g3_std_ext::core::OptionExt;
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct UdpMiscSockOpts {
     pub time_to_live: Option<u32>,
+    pub hop_limit: Option<u32>,
     pub type_of_service: Option<u8>,
+    pub traffic_class: Option<u8>,
     pub netfilter_mark: Option<u32>,
 }
 
@@ -16,13 +18,17 @@ impl UdpMiscSockOpts {
     #[must_use]
     pub fn adjust_to(self, other: &Self) -> Self {
         let time_to_live = self.time_to_live.existed_min(other.time_to_live);
+        let hop_limit = self.hop_limit.existed_min(other.hop_limit);
 
         let type_of_service = other.type_of_service.or(self.type_of_service);
+        let traffic_class = other.traffic_class.or(self.traffic_class);
         let netfilter_mark = other.netfilter_mark.or(self.netfilter_mark);
 
         UdpMiscSockOpts {
             time_to_live,
+            hop_limit,
             type_of_service,
+            traffic_class,
             netfilter_mark,
         }
     }

@@ -27,7 +27,14 @@ pub fn new_std_listener(config: &TcpListenConfig) -> io::Result<std::net::TcpLis
     }
     #[cfg(target_os = "linux")]
     if config.transparent() {
-        socket.set_ip_transparent(true)?;
+        match family {
+            AddressFamily::Ipv4 => {
+                socket.set_ip_transparent_v4(true)?;
+            }
+            AddressFamily::Ipv6 => {
+                crate::sockopt::set_ip_transparent_v6(&socket, true)?;
+            }
+        }
     }
     #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
     if let Some(mark) = config.mark() {
@@ -60,16 +67,7 @@ pub fn new_std_socket_to(
     let peer_family = AddressFamily::from(&peer_ip);
     let socket = new_tcp_socket(peer_family)?;
     bind.bind_tcp_for_connect(&socket, peer_family)?;
-    #[cfg(windows)]
-    if keepalive.is_enabled() {
-        // set keepalive_idle
-        let mut setting = TcpKeepalive::new().with_time(keepalive.idle_time());
-        if let Some(interval) = keepalive.probe_interval() {
-            setting = setting.with_interval(interval);
-        }
-        socket.set_tcp_keepalive(&setting)?;
-    }
-    #[cfg(all(unix, not(target_os = "openbsd")))]
+    #[cfg(not(target_os = "openbsd"))]
     if keepalive.is_enabled() {
         // set keepalive_idle
         let mut setting = TcpKeepalive::new().with_time(keepalive.idle_time());
@@ -87,7 +85,7 @@ pub fn new_std_socket_to(
         let setting = TcpKeepalive::new().with_time(keepalive.idle_time());
         socket.set_tcp_keepalive(&setting)?;
     }
-    RawSocket::from(&socket).set_tcp_misc_opts(misc_opts, default_set_nodelay)?;
+    RawSocket::from(&socket).set_tcp_misc_opts(peer_family, misc_opts, default_set_nodelay)?;
     Ok(std::net::TcpStream::from(socket))
 }
 

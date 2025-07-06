@@ -19,10 +19,20 @@ pub fn as_udp_misc_sock_opts(v: &Value) -> anyhow::Result<UdpMiscSockOpts> {
                         .context(format!("invalid u32 value for key {k}"))?;
                     config.time_to_live = Some(ttl);
                 }
+                "hop_limit" => {
+                    let hops = crate::value::as_u32(v)
+                        .context(format!("invalid u32 value for key {k}"))?;
+                    config.hop_limit = Some(hops);
+                }
                 "type_of_service" | "tos" => {
                     let tos =
                         crate::value::as_u8(v).context(format!("invalid u8 value for key {k}"))?;
                     config.type_of_service = Some(tos);
+                }
+                "traffic_class" => {
+                    let class =
+                        crate::value::as_u8(v).context(format!("invalid u8 value for key {k}"))?;
+                    config.traffic_class = Some(class);
                 }
                 "netfilter_mark" | "mark" => {
                     let mark = crate::value::as_u32(v)
