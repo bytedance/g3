@@ -117,7 +117,10 @@ impl RawSocket {
                 if let Some(class) = misc_opts.traffic_class {
                     socket.set_tclass_v6(class as u32)?;
                 }
-                if s6.ip().is_unspecified() {
+                #[cfg(not(target_os = "openbsd"))]
+                if s6.ip().is_unspecified()
+                    && (misc_opts.time_to_live.is_some() || misc_opts.type_of_service.is_some())
+                {
                     let v6only = socket.only_v6()?;
                     if !v6only {
                         if let Some(ttl) = misc_opts.time_to_live {
