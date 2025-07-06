@@ -69,6 +69,7 @@ impl RawSocket {
                 if let Some(hops) = misc_opts.hop_limit {
                     socket.set_unicast_hops_v6(hops)?;
                 }
+                #[cfg(not(windows))]
                 if let Some(class) = misc_opts.traffic_class {
                     socket.set_tclass_v6(class as u32)?;
                 }
@@ -112,6 +113,7 @@ impl RawSocket {
                 if let Some(hops) = misc_opts.hop_limit {
                     socket.set_unicast_hops_v6(hops)?;
                 }
+                #[cfg(not(windows))]
                 if let Some(class) = misc_opts.traffic_class {
                     socket.set_tclass_v6(class as u32)?;
                 }
