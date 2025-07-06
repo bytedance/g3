@@ -85,12 +85,9 @@ impl DirectFixedEscaper {
             self.config.udp_misc_opts
         };
 
-        let socket =
+        let (socket, bind_addr) =
             g3_socket::udp::new_std_bind_relay(&bind, family, task_conf.sock_buf, misc_opts)
                 .map_err(UdpRelaySetupError::SetupSocketFailed)?;
-        let bind_addr = socket
-            .local_addr()
-            .map_err(UdpRelaySetupError::SetupSocketFailed)?;
         let socket = UdpSocket::from_std(socket).map_err(UdpRelaySetupError::SetupSocketFailed)?;
 
         let (recv, send) = g3_io_ext::split_udp(socket);

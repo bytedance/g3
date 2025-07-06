@@ -263,10 +263,22 @@ pub fn as_tcp_misc_sock_opts(v: &Yaml) -> anyhow::Result<TcpMiscSockOpts> {
                 config.time_to_live = Some(ttl);
                 Ok(())
             }
+            "hop_limit" => {
+                let hops =
+                    crate::value::as_u32(v).context(format!("invalid u32 value for key {k}"))?;
+                config.hop_limit = Some(hops);
+                Ok(())
+            }
             "type_of_service" | "tos" => {
                 let tos =
                     crate::value::as_u8(v).context(format!("invalid u8 value for key {k}"))?;
                 config.type_of_service = Some(tos);
+                Ok(())
+            }
+            "traffic_class" => {
+                let class =
+                    crate::value::as_u8(v).context(format!("invalid u8 value for key {k}"))?;
+                config.traffic_class = Some(class);
                 Ok(())
             }
             "netfilter_mark" | "mark" => {
@@ -544,14 +556,18 @@ mod tests {
                 no_delay: true
                 max_segment_size: 1460
                 time_to_live: 64
+                hop_limit: 64
                 type_of_service: 0x10
+                traffic_class: 0x10
             "#
         );
         let config = as_tcp_misc_sock_opts(&yaml).unwrap();
         assert_eq!(config.no_delay, Some(true));
         assert_eq!(config.max_segment_size, Some(1460));
         assert_eq!(config.time_to_live, Some(64));
+        assert_eq!(config.hop_limit, Some(64));
         assert_eq!(config.type_of_service, Some(0x10));
+        assert_eq!(config.traffic_class, Some(0x10));
 
         let yaml = yaml_doc!("{}");
         let config = as_tcp_misc_sock_opts(&yaml).unwrap();

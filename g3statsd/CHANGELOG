@@ -1,2 +1,5 @@
+v0.1.1:
+ - Feature: allow to set hop_limit and traffic_class ipv6 socket options
+
 v0.1.0:
  - Initial release

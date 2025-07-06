@@ -10,7 +10,9 @@ pub struct TcpMiscSockOpts {
     pub no_delay: Option<bool>,
     pub max_segment_size: Option<u32>,
     pub time_to_live: Option<u32>,
+    pub hop_limit: Option<u32>,
     pub type_of_service: Option<u8>,
+    pub traffic_class: Option<u8>,
     pub netfilter_mark: Option<u32>,
 }
 
@@ -25,15 +27,19 @@ impl TcpMiscSockOpts {
 
         let max_segment_size = self.max_segment_size.existed_min(other.max_segment_size);
         let time_to_live = self.time_to_live.existed_min(other.time_to_live);
+        let hop_limit = self.hop_limit.existed_min(other.hop_limit);
 
         let type_of_service = other.type_of_service.or(self.type_of_service);
+        let traffic_class = other.traffic_class.or(self.traffic_class);
         let netfilter_mark = other.netfilter_mark.or(self.netfilter_mark);
 
         TcpMiscSockOpts {
             no_delay,
             max_segment_size,
             time_to_live,
+            hop_limit,
             type_of_service,
+            traffic_class,
             netfilter_mark,
         }
     }

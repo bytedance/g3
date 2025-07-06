@@ -36,6 +36,18 @@ pub(crate) fn set_bind_address_no_port<T: AsRawFd>(fd: &T, enable: bool) -> io::
     }
 }
 
+pub(crate) fn set_ip_transparent_v6<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<()> {
+    unsafe {
+        super::setsockopt(
+            fd.as_raw_fd(),
+            libc::IPPROTO_IPV6,
+            libc::IPV6_TRANSPARENT,
+            enable as c_int,
+        )?;
+        Ok(())
+    }
+}
+
 pub(crate) fn set_incoming_cpu<T: AsRawFd>(fd: &T, cpu_id: usize) -> io::Result<()> {
     let cpu_id = i32::try_from(cpu_id)
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "out of range cpu id"))?;
