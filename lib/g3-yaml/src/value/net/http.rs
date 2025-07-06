@@ -161,7 +161,7 @@ mod tests {
             "#
         );
         let config = as_http_keepalive_config(&yaml).unwrap();
-        assert_eq!(config.is_enabled(), true);
+        assert!(config.is_enabled());
         assert_eq!(config.idle_expire(), Duration::from_secs(30));
 
         // Valid config with only enable
@@ -171,7 +171,7 @@ mod tests {
             "#
         );
         let config = as_http_keepalive_config(&yaml).unwrap();
-        assert_eq!(config.is_enabled(), false);
+        assert!(!config.is_enabled());
         assert_eq!(config.idle_expire(), Duration::from_nanos(0));
 
         // Valid config with only idle_expire
@@ -181,24 +181,24 @@ mod tests {
             "#
         );
         let config = as_http_keepalive_config(&yaml).unwrap();
-        assert_eq!(config.is_enabled(), true);
+        assert!(config.is_enabled());
         assert_eq!(config.idle_expire(), Duration::from_secs(30));
 
         // Valid config with boolean value
         let yaml = Yaml::Boolean(true);
         let config = as_http_keepalive_config(&yaml).unwrap();
-        assert_eq!(config.is_enabled(), true);
+        assert!(config.is_enabled());
 
         // Valid config with string value
         let yaml = yaml_str!("30s");
         let config = as_http_keepalive_config(&yaml).unwrap();
-        assert_eq!(config.is_enabled(), true);
+        assert!(config.is_enabled());
         assert_eq!(config.idle_expire(), Duration::from_secs(30));
 
         // Valid config with integer value
         let yaml = Yaml::Integer(60);
         let config = as_http_keepalive_config(&yaml).unwrap();
-        assert_eq!(config.is_enabled(), true);
+        assert!(config.is_enabled());
         assert_eq!(config.idle_expire(), Duration::from_secs(60));
     }
 

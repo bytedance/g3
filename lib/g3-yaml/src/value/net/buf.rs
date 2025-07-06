@@ -111,8 +111,7 @@ mod tests {
             let docs = YamlLoader::load_from_str(yaml_str).unwrap();
             assert!(
                 as_socket_buffer_config(&docs[0]).is_err(),
-                "Case failed: {}",
-                yaml_str
+                "Case failed: {yaml_str}",
             );
         }
     }

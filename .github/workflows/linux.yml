@@ -75,7 +75,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
       - name: Cargo clippy
-        run: cargo clippy --tests -- --deny warnings
+        run: cargo clippy --tests --all -- --deny warnings
 
   build-vendored-g1:
     name: Build vendored
