@@ -169,7 +169,7 @@ mod tests {
         assert_eq!(config.req_head_max_size, 64000);
         assert_eq!(config.rsp_head_max_size, 64000);
         assert_eq!(config.body_line_max_len, 8192);
-        assert_eq!(config.steal_forwarded_for, true);
+        assert!(config.steal_forwarded_for);
 
         // default configuration
         let yaml = Yaml::Hash(Default::default());
@@ -181,7 +181,7 @@ mod tests {
         assert_eq!(config.req_head_max_size, 65536);
         assert_eq!(config.rsp_head_max_size, 65536);
         assert_eq!(config.body_line_max_len, 8192);
-        assert_eq!(config.steal_forwarded_for, false);
+        assert!(!config.steal_forwarded_for);
 
         // partial configuration with default values
         let yaml = yaml_doc!(
@@ -193,7 +193,7 @@ mod tests {
         let config = as_h1_interception_config(&yaml).unwrap();
         assert_eq!(config.pipeline_size.get(), 5);
         assert_eq!(config.req_head_max_size, 32000);
-        assert_eq!(config.steal_forwarded_for, false); // default value
+        assert!(!config.steal_forwarded_for); // default value
 
         // boundary values
         let yaml = yaml_doc!(
@@ -317,7 +317,7 @@ mod tests {
         assert_eq!(config.client_handshake_timeout, Duration::from_secs(4));
         assert_eq!(config.ping_interval, Duration::from_secs(60));
         assert_eq!(config.rsp_head_recv_timeout, Duration::from_secs(60));
-        assert_eq!(config.silent_drop_expect_header, true);
+        assert!(config.silent_drop_expect_header);
 
         // alias key (max_header_size)
         let yaml = yaml_doc!(
@@ -342,7 +342,7 @@ mod tests {
         assert_eq!(config.client_handshake_timeout, Duration::from_secs(4));
         assert_eq!(config.ping_interval, Duration::from_secs(60));
         assert_eq!(config.rsp_head_recv_timeout, Duration::from_secs(60));
-        assert_eq!(config.silent_drop_expect_header, false);
+        assert!(!config.silent_drop_expect_header);
 
         // value clamping
         let yaml = yaml_doc!(

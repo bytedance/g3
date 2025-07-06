@@ -189,14 +189,12 @@ mod tests {
                 netfilter_mark: 100
             "#
         );
-        let parsed_config = as_udp_misc_sock_opts(&yaml).unwrap();
-        let mut expected_config = UdpMiscSockOpts::default();
-        expected_config.time_to_live = Some(128);
-        expected_config.hop_limit = Some(128);
-        expected_config.type_of_service = Some(0x10);
-        expected_config.traffic_class = Some(0x10);
-        expected_config.netfilter_mark = Some(100);
-        assert_eq!(parsed_config, expected_config);
+        let config = as_udp_misc_sock_opts(&yaml).unwrap();
+        assert_eq!(config.time_to_live, Some(128));
+        assert_eq!(config.hop_limit, Some(128));
+        assert_eq!(config.type_of_service, Some(0x10));
+        assert_eq!(config.traffic_class, Some(0x10));
+        assert_eq!(config.netfilter_mark, Some(100));
 
         let yaml = yaml_doc!(
             r#"
@@ -205,12 +203,12 @@ mod tests {
                 mark: 200
             "#
         );
-        let parsed_config = as_udp_misc_sock_opts(&yaml).unwrap();
-        let mut expected_config = UdpMiscSockOpts::default();
-        expected_config.time_to_live = Some(64);
-        expected_config.type_of_service = Some(20);
-        expected_config.netfilter_mark = Some(200);
-        assert_eq!(parsed_config, expected_config);
+        let config = as_udp_misc_sock_opts(&yaml).unwrap();
+        assert_eq!(config.time_to_live, Some(64));
+        assert!(config.hop_limit.is_none());
+        assert_eq!(config.type_of_service, Some(20));
+        assert!(config.traffic_class.is_none());
+        assert_eq!(config.netfilter_mark, Some(200));
     }
 
     #[test]
@@ -281,8 +279,10 @@ mod tests {
         let socket_buffer_yaml = yaml_doc!("receive: 2MB\nsend: 1MB");
         let expected_buf_conf = crate::value::as_socket_buffer_config(&socket_buffer_yaml).unwrap();
         expected_config.set_socket_buffer(expected_buf_conf);
-        let mut misc_opts = UdpMiscSockOpts::default();
-        misc_opts.time_to_live = Some(120);
+        let misc_opts = UdpMiscSockOpts {
+            time_to_live: Some(120),
+            ..Default::default()
+        };
         expected_config.set_socket_misc_opts(misc_opts);
         expected_config.set_scale(0.75).unwrap();
         assert_eq!(parsed_config, expected_config);
@@ -354,10 +354,9 @@ mod tests {
 
             let yaml_str = format!(
                 r#"
-                address: "0.0.0.0:5353"
-                interface: "{}"
-            "#,
-                LOOPBACK_INTERFACE
+                    address: "0.0.0.0:5353"
+                    interface: "{LOOPBACK_INTERFACE}"
+                "#,
             );
 
             let v = &YamlLoader::load_from_str(&yaml_str).unwrap()[0];

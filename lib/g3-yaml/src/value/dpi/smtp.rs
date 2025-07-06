@@ -96,9 +96,9 @@ mod test {
         assert_eq!(config.response_wait_timeout, Duration::from_secs(30));
         assert_eq!(config.data_initiation_timeout, Duration::from_secs(20));
         assert_eq!(config.data_termination_timeout, Duration::from_secs(50));
-        assert_eq!(config.allow_on_demand_mail_relay, true);
-        assert_eq!(config.allow_data_chunking, true);
-        assert_eq!(config.allow_burl_data, true);
+        assert!(config.allow_on_demand_mail_relay);
+        assert!(config.allow_data_chunking);
+        assert!(config.allow_burl_data);
 
         // alias key (allow_odmr and allow_burl)
         let yaml = yaml_doc!(
@@ -108,8 +108,8 @@ mod test {
             "
         );
         let config = as_smtp_interception_config(&yaml).unwrap();
-        assert_eq!(config.allow_on_demand_mail_relay, true);
-        assert_eq!(config.allow_burl_data, true);
+        assert!(config.allow_on_demand_mail_relay);
+        assert!(config.allow_burl_data);
 
         // default configuation
         let yaml = Yaml::Hash(Default::default());
@@ -120,9 +120,9 @@ mod test {
         assert_eq!(config.response_wait_timeout, Duration::from_secs(300));
         assert_eq!(config.data_initiation_timeout, Duration::from_secs(120));
         assert_eq!(config.data_termination_timeout, Duration::from_secs(600));
-        assert_eq!(config.allow_on_demand_mail_relay, false);
-        assert_eq!(config.allow_data_chunking, false);
-        assert_eq!(config.allow_burl_data, false);
+        assert!(!config.allow_on_demand_mail_relay);
+        assert!(!config.allow_data_chunking);
+        assert!(!config.allow_burl_data);
     }
 
     #[test]
