@@ -21,3 +21,65 @@ pub fn as_selective_pick_policy(value: &Yaml) -> anyhow::Result<SelectivePickPol
         ))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn as_selective_pick_policy_ok() {
+        // valid pick policy
+        let value = yaml_str!("random");
+        assert_eq!(
+            as_selective_pick_policy(&value).unwrap(),
+            SelectivePickPolicy::Random
+        );
+
+        let value = yaml_str!("serial");
+        assert_eq!(
+            as_selective_pick_policy(&value).unwrap(),
+            SelectivePickPolicy::Serial
+        );
+
+        let value = yaml_str!("roundrobin");
+        assert_eq!(
+            as_selective_pick_policy(&value).unwrap(),
+            SelectivePickPolicy::RoundRobin
+        );
+
+        let value = yaml_str!("ketama");
+        assert_eq!(
+            as_selective_pick_policy(&value).unwrap(),
+            SelectivePickPolicy::Ketama
+        );
+
+        let value = yaml_str!("rendezvous");
+        assert_eq!(
+            as_selective_pick_policy(&value).unwrap(),
+            SelectivePickPolicy::Rendezvous
+        );
+
+        let value = yaml_str!("jump");
+        assert_eq!(
+            as_selective_pick_policy(&value).unwrap(),
+            SelectivePickPolicy::JumpHash
+        )
+    }
+
+    #[test]
+    fn as_selective_pick_policy_err() {
+        // invalid pick policy
+        let value = yaml_str!("invalid");
+        assert!(as_selective_pick_policy(&value).is_err());
+
+        let value = yaml_str!("");
+        assert!(as_selective_pick_policy(&value).is_err());
+
+        // non-string value
+        let value = Yaml::Integer(1);
+        assert!(as_selective_pick_policy(&value).is_err());
+
+        let value = Yaml::Boolean(true);
+        assert!(as_selective_pick_policy(&value).is_err());
+    }
+}

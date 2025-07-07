@@ -90,3 +90,214 @@ pub fn as_weighted_metric_node_name(value: &Yaml) -> anyhow::Result<WeightedValu
         Ok(WeightedValue::new(name))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn as_metric_node_name_ok() {
+        // Valid node names
+        let yaml = yaml_str!("valid-node1");
+        assert_eq!(as_metric_node_name(&yaml).unwrap().as_str(), "valid-node1");
+
+        let yaml = yaml_str!("node_with_underscore");
+        assert_eq!(
+            as_metric_node_name(&yaml).unwrap().as_str(),
+            "node_with_underscore"
+        );
+    }
+
+    #[test]
+    fn as_metric_node_name_err() {
+        // Empty string
+        let yaml = yaml_str!("");
+        assert!(as_metric_node_name(&yaml).is_err());
+
+        // Invalid characters
+        let yaml = yaml_str!("node@name");
+        assert!(as_metric_node_name(&yaml).is_err());
+
+        // Non-string type
+        let yaml = Yaml::Integer(123);
+        assert!(as_metric_node_name(&yaml).is_err());
+    }
+
+    #[test]
+    fn as_metric_tag_name_ok() {
+        // Valid tag names
+        let yaml = yaml_str!("valid_tag");
+        assert_eq!(as_metric_tag_name(&yaml).unwrap().as_str(), "valid_tag");
+
+        let yaml = yaml_str!("tag_with_numbers123");
+        assert_eq!(
+            as_metric_tag_name(&yaml).unwrap().as_str(),
+            "tag_with_numbers123"
+        );
+    }
+
+    #[test]
+    fn as_metric_tag_name_err() {
+        // Invalid characters
+        let yaml = yaml_str!("tag=invalid");
+        assert!(as_metric_tag_name(&yaml).is_err());
+
+        // Non-string type
+        let yaml = Yaml::Boolean(true);
+        assert!(as_metric_tag_name(&yaml).is_err());
+    }
+
+    #[test]
+    fn as_metric_tag_value_ok() {
+        // Valid tag values
+        let yaml = yaml_str!("valid_value");
+        assert_eq!(as_metric_tag_value(&yaml).unwrap().as_str(), "valid_value");
+
+        let yaml = yaml_str!("value_with_underscores");
+        assert_eq!(
+            as_metric_tag_value(&yaml).unwrap().as_str(),
+            "value_with_underscores"
+        );
+    }
+
+    #[test]
+    fn as_metric_tag_value_err() {
+        // Invalid characters
+        let yaml = yaml_str!("value=invalid");
+        assert!(as_metric_tag_value(&yaml).is_err());
+
+        // Non-string type
+        let yaml = Yaml::Array(vec![]);
+        assert!(as_metric_tag_value(&yaml).is_err());
+    }
+
+    #[test]
+    fn as_static_metrics_tags_ok() {
+        // Empty map
+        let yaml = yaml_doc!("{}");
+        assert!(as_static_metrics_tags(&yaml).unwrap().is_empty());
+
+        // Single key-value pair
+        let yaml = yaml_doc!(
+            r#"
+                key1: value1
+            "#
+        );
+        let tags = as_static_metrics_tags(&yaml).unwrap();
+        assert_eq!(tags.len(), 1);
+        assert_eq!(
+            tags.get(&MetricTagName::from_str("key1").unwrap())
+                .unwrap()
+                .as_str(),
+            "value1"
+        );
+
+        // Multiple key-value pairs
+        let yaml = yaml_doc!(
+            r#"
+                key1: value1
+                key2: value2
+            "#
+        );
+        let tags = as_static_metrics_tags(&yaml).unwrap();
+        assert_eq!(tags.len(), 2);
+        assert_eq!(
+            tags.get(&MetricTagName::from_str("key1").unwrap())
+                .unwrap()
+                .as_str(),
+            "value1"
+        );
+        assert_eq!(
+            tags.get(&MetricTagName::from_str("key2").unwrap())
+                .unwrap()
+                .as_str(),
+            "value2"
+        );
+    }
+
+    #[test]
+    fn as_static_metrics_tags_err() {
+        // Non-map type
+        let yaml = yaml_str!("invalid");
+        assert!(as_static_metrics_tags(&yaml).is_err());
+
+        // Invalid key
+        let yaml = yaml_doc!(
+            r#"
+                invalid@key: value
+            "#
+        );
+        assert!(as_static_metrics_tags(&yaml).is_err());
+
+        // Invalid value
+        let yaml = yaml_doc!(
+            r#"
+                key: invalid@value
+            "#
+        );
+        assert!(as_static_metrics_tags(&yaml).is_err());
+    }
+
+    #[test]
+    fn as_weighted_metric_node_name_ok() {
+        // String input
+        let yaml = yaml_str!("node1");
+        let weighted = as_weighted_metric_node_name(&yaml).unwrap();
+        assert_eq!(weighted.inner().as_str(), "node1");
+        assert_eq!(weighted.weight(), 1.0);
+
+        // Map with name and weight
+        let yaml = yaml_doc!(
+            r#"
+                name: node2
+                weight: 2.5
+            "#
+        );
+        let weighted = as_weighted_metric_node_name(&yaml).unwrap();
+        assert_eq!(weighted.inner().as_str(), "node2");
+        assert_eq!(weighted.weight(), 2.5);
+
+        // Map with only name
+        let yaml = yaml_doc!(
+            r#"
+                name: node3
+            "#
+        );
+        let weighted = as_weighted_metric_node_name(&yaml).unwrap();
+        assert_eq!(weighted.inner().as_str(), "node3");
+        assert_eq!(weighted.weight(), 1.0);
+    }
+
+    #[test]
+    fn as_weighted_metric_node_name_err() {
+        // Empty string
+        let yaml = yaml_str!("");
+        assert!(as_weighted_metric_node_name(&yaml).is_err());
+
+        // Map with no name
+        let yaml = yaml_doc!(
+            r#"
+                weight: 2.0
+            "#
+        );
+        assert!(as_weighted_metric_node_name(&yaml).is_err());
+
+        // Invalid name in map
+        let yaml = yaml_doc!(
+            r#"
+                name: invalid@node
+            "#
+        );
+        assert!(as_weighted_metric_node_name(&yaml).is_err());
+
+        // Invalid weight type
+        let yaml = yaml_doc!(
+            r#"
+                name: node4
+                weight: invalid
+            "#
+        );
+        assert!(as_weighted_metric_node_name(&yaml).is_err());
+    }
+}
