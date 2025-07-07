@@ -75,6 +75,15 @@ impl RawSocket {
                 }
             }
         }
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "solaris",
+            target_os = "illumos"
+        ))]
+        if let Some(ca) = misc_opts.congestion_control() {
+            socket.set_tcp_congestion(ca)?;
+        }
         #[cfg(target_os = "linux")]
         if let Some(mark) = misc_opts.netfilter_mark {
             socket.set_mark(mark)?;
