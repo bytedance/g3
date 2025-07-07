@@ -3,6 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use std::time::Duration;
@@ -196,11 +197,14 @@ impl UserConfig {
         Ok(())
     }
 
-    pub(crate) fn tcp_remote_misc_opts(&self, base_opts: &TcpMiscSockOpts) -> TcpMiscSockOpts {
-        if let Some(user_opts) = self.tcp_remote_misc_opts {
-            user_opts.adjust_to(base_opts)
+    pub(crate) fn tcp_remote_misc_opts<'a>(
+        &self,
+        base_opts: &'a TcpMiscSockOpts,
+    ) -> Cow<'a, TcpMiscSockOpts> {
+        if let Some(user_opts) = &self.tcp_remote_misc_opts {
+            Cow::Owned(user_opts.adjust_to(base_opts))
         } else {
-            *base_opts
+            Cow::Borrowed(base_opts)
         }
     }
 
@@ -212,11 +216,14 @@ impl UserConfig {
         }
     }
 
-    pub(crate) fn tcp_client_misc_opts(&self, base_opts: &TcpMiscSockOpts) -> TcpMiscSockOpts {
-        if let Some(user_opts) = self.tcp_client_misc_opts {
-            user_opts.adjust_to(base_opts)
+    pub(crate) fn tcp_client_misc_opts<'a>(
+        &self,
+        base_opts: &'a TcpMiscSockOpts,
+    ) -> Cow<'a, TcpMiscSockOpts> {
+        if let Some(user_opts) = &self.tcp_client_misc_opts {
+            Cow::Owned(user_opts.adjust_to(base_opts))
         } else {
-            *base_opts
+            Cow::Borrowed(base_opts)
         }
     }
 

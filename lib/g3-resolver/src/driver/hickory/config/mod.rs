@@ -143,7 +143,7 @@ impl HickoryDriverConfig {
                 positive_min_ttl: self.positive_min_ttl,
                 positive_max_ttl: self.positive_max_ttl,
                 negative_ttl: self.negative_ttl,
-                tcp_misc_opts: self.tcp_misc_opts,
+                tcp_misc_opts: self.tcp_misc_opts.clone(),
                 udp_misc_opts: self.udp_misc_opts,
             };
             let (req_sender, req_receiver) = flume::unbounded();

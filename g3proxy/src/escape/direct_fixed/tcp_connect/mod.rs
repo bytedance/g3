@@ -3,6 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::borrow::Cow;
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
@@ -29,10 +30,10 @@ use crate::module::tcp_connect::{
 use crate::resolve::HappyEyeballsResolveJob;
 use crate::serve::ServerTaskNotes;
 
-pub(crate) struct DirectTcpConnectConfig {
+pub(crate) struct DirectTcpConnectConfig<'a> {
     pub(crate) connect: TcpConnectConfig,
     pub(crate) keepalive: TcpKeepAliveConfig,
-    pub(crate) misc_opts: TcpMiscSockOpts,
+    pub(crate) misc_opts: Cow<'a, TcpMiscSockOpts>,
 }
 
 impl DirectFixedEscaper {
@@ -69,7 +70,7 @@ impl DirectFixedEscaper {
         peer_ip: IpAddr,
         mut bind: BindAddr,
         task_notes: &ServerTaskNotes,
-        connect_config: &DirectTcpConnectConfig,
+        connect_config: &DirectTcpConnectConfig<'_>,
     ) -> Result<(TcpSocket, BindAddr), TcpConnectError> {
         match peer_ip {
             IpAddr::V4(_) => {
@@ -105,7 +106,7 @@ impl DirectFixedEscaper {
     async fn fixed_try_connect(
         &self,
         peer_ip: IpAddr,
-        config: DirectTcpConnectConfig,
+        config: DirectTcpConnectConfig<'_>,
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
@@ -174,7 +175,7 @@ impl DirectFixedEscaper {
     async fn happy_try_connect(
         &self,
         mut resolver_job: HappyEyeballsResolveJob,
-        config: DirectTcpConnectConfig,
+        config: DirectTcpConnectConfig<'_>,
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
@@ -339,7 +340,7 @@ impl DirectFixedEscaper {
         let mut config = DirectTcpConnectConfig {
             connect: self.config.general.tcp_connect,
             keepalive: self.config.tcp_keepalive,
-            misc_opts: self.config.tcp_misc_opts,
+            misc_opts: Cow::Borrowed(&self.config.tcp_misc_opts),
         };
 
         if let Some(user_ctx) = task_notes.user_ctx() {
@@ -350,7 +351,7 @@ impl DirectFixedEscaper {
             }
 
             config.keepalive = config.keepalive.adjust_to(user_config.tcp_remote_keepalive);
-            config.misc_opts = user_config.tcp_remote_misc_opts(&config.misc_opts);
+            config.misc_opts = user_config.tcp_remote_misc_opts(&self.config.tcp_misc_opts);
         }
 
         match task_conf.upstream.host() {
@@ -385,7 +386,7 @@ impl DirectFixedEscaper {
             connect: self.config.general.tcp_connect,
             // tcp keepalive is not needed for ftp transfer connection as it shouldn't be idle
             keepalive: TcpKeepAliveConfig::default(),
-            misc_opts: self.config.tcp_misc_opts,
+            misc_opts: Cow::Borrowed(&self.config.tcp_misc_opts),
         };
 
         if let Some(user_ctx) = task_notes.user_ctx() {
@@ -395,7 +396,7 @@ impl DirectFixedEscaper {
 
             config.misc_opts = user_ctx
                 .user_config()
-                .tcp_remote_misc_opts(&config.misc_opts)
+                .tcp_remote_misc_opts(&self.config.tcp_misc_opts);
         }
 
         if task_conf.upstream.host_eq(old_upstream) {

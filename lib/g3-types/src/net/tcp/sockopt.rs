@@ -5,7 +5,7 @@
 
 use g3_std_ext::core::OptionExt;
 
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct TcpMiscSockOpts {
     pub no_delay: Option<bool>,
     pub max_segment_size: Option<u32>,
@@ -20,7 +20,7 @@ pub struct TcpMiscSockOpts {
 
 impl TcpMiscSockOpts {
     #[must_use]
-    pub fn adjust_to(self, other: &Self) -> Self {
+    pub fn adjust_to(&self, other: &Self) -> Self {
         let no_delay = match (self.no_delay, other.no_delay) {
             (None, None) => None,
             (Some(true), _) | (_, Some(true)) => Some(true),

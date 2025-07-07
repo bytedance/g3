@@ -3,6 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -532,7 +533,7 @@ impl<'a> HttpProxyForwardTask<'a> {
         CDW: AsyncWrite + Send + Unpin,
     {
         let mut upstream_keepalive = self.ctx.server_config.http_forward_upstream_keepalive;
-        let mut tcp_client_misc_opts = self.ctx.server_config.tcp_misc_opts;
+        let tcp_client_misc_opts;
         let mut audit_task = false;
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
@@ -566,6 +567,11 @@ impl<'a> HttpProxyForwardTask<'a> {
             let action = user_ctx.check_upstream(&self.upstream);
             self.handle_user_upstream_acl_action(action, clt_w).await?;
 
+            // server level dst host/port acl rules
+            let action = self.ctx.check_upstream(&self.upstream);
+            self.handle_server_upstream_acl_action(action, clt_w)
+                .await?;
+
             if let Some(action) = user_ctx.check_http_user_agent(&self.req.end_to_end_headers) {
                 self.handle_user_ua_acl_action(action, clt_w).await?;
             }
@@ -573,7 +579,8 @@ impl<'a> HttpProxyForwardTask<'a> {
             let user_config = user_ctx.user_config();
 
             upstream_keepalive = upstream_keepalive.adjust_to(user_config.http_upstream_keepalive);
-            tcp_client_misc_opts = user_config.tcp_client_misc_opts(&tcp_client_misc_opts);
+            tcp_client_misc_opts =
+                user_config.tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts);
 
             if let Some(audit_handle) = self.audit_ctx.handle() {
                 audit_task = user_config
@@ -581,14 +588,18 @@ impl<'a> HttpProxyForwardTask<'a> {
                     .do_task_audit()
                     .unwrap_or_else(|| audit_handle.do_task_audit());
             }
-        } else if let Some(audit_handle) = self.audit_ctx.handle() {
-            audit_task = audit_handle.do_task_audit();
-        }
+        } else {
+            // server level dst host/port acl rules
+            let action = self.ctx.check_upstream(&self.upstream);
+            self.handle_server_upstream_acl_action(action, clt_w)
+                .await?;
 
-        // server level dst host/port acl rules
-        let action = self.ctx.check_upstream(&self.upstream);
-        self.handle_server_upstream_acl_action(action, clt_w)
-            .await?;
+            tcp_client_misc_opts = Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts);
+
+            if let Some(audit_handle) = self.audit_ctx.handle() {
+                audit_task = audit_handle.do_task_audit();
+            }
+        }
 
         // set client side socket options
         self.ctx
