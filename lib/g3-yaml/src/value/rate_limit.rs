@@ -67,7 +67,7 @@ mod tests {
     use yaml_rust::YamlLoader;
 
     #[test]
-    fn request_quota_simple() {
+    fn as_rate_limit_quota_ok() {
         let ten = NonZeroU32::new(10).unwrap();
         let exp = RateLimitQuotaConfig::per_second(ten);
 
@@ -75,44 +75,63 @@ mod tests {
         let quota = as_rate_limit_quota(&v).unwrap();
         assert_eq!(quota, exp);
 
-        let v = Yaml::String("10".to_string());
+        let v = yaml_str!("10");
         let quota = as_rate_limit_quota(&v).unwrap();
         assert_eq!(quota, exp);
 
-        let v = Yaml::String("10/s".to_string());
+        let v = yaml_str!("10/s");
         let quota = as_rate_limit_quota(&v).unwrap();
         assert_eq!(quota, exp);
-    }
 
-    #[test]
-    fn request_quota_map() {
         let ten = NonZeroU32::new(10).unwrap();
         let thirty = NonZeroU32::new(30).unwrap();
         let mut exp = RateLimitQuotaConfig::per_second(ten);
         exp.allow_burst(thirty);
 
-        let s = "\
-rate: 10
-max_burst: 30
-        ";
-        let docs = YamlLoader::load_from_str(s).unwrap();
-        let quota = as_rate_limit_quota(&docs[0]).unwrap();
+        let yaml = yaml_doc!(
+            "
+            rate: 10
+            max_burst: 30
+            "
+        );
+        let quota = as_rate_limit_quota(&yaml).unwrap();
         assert_eq!(quota, exp);
 
-        let s = "\
-rate: 10/s
-max_burst: 30
-        ";
-        let docs = YamlLoader::load_from_str(s).unwrap();
-        let quota = as_rate_limit_quota(&docs[0]).unwrap();
+        let yaml = yaml_doc!(
+            "
+            rate: 10/s
+            max_burst: 30
+            "
+        );
+        let quota = as_rate_limit_quota(&yaml).unwrap();
         assert_eq!(quota, exp);
 
-        let s = "\
-replenish_interval: 100ms
-max_burst: 30
-        ";
-        let docs = YamlLoader::load_from_str(s).unwrap();
-        let quota = as_rate_limit_quota(&docs[0]).unwrap();
+        let yaml = yaml_doc!(
+            "
+            replenish_interval: 100ms
+            max_burst: 30
+            "
+        );
+        let quota = as_rate_limit_quota(&yaml).unwrap();
         assert_eq!(quota, exp);
+    }
+
+    #[test]
+    fn as_rate_limit_quota_err() {
+        // invalid value type for key rate
+        let yaml = yaml_doc!("rate: []");
+        assert!(as_rate_limit_quota(&yaml).is_err());
+
+        // invalid key
+        let yaml = yaml_doc!("invalid: 10");
+        assert!(as_rate_limit_quota(&yaml).is_err());
+
+        // no rate / replenish_interval is set
+        let yaml = yaml_doc!("max_burst: 30");
+        assert!(as_rate_limit_quota(&yaml).is_err());
+
+        // invalid yaml value type
+        let yaml = Yaml::Null;
+        assert!(as_rate_limit_quota(&yaml).is_err());
     }
 }
