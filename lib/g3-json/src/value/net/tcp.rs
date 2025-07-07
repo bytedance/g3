@@ -112,11 +112,13 @@ pub fn as_tcp_misc_sock_opts(v: &Value) -> anyhow::Result<TcpMiscSockOpts> {
                         crate::value::as_u8(v).context(format!("invalid u8 value for key {k}"))?;
                     config.type_of_service = Some(tos);
                 }
+                #[cfg(not(windows))]
                 "traffic_class" => {
                     let class =
                         crate::value::as_u8(v).context(format!("invalid u8 value for key {k}"))?;
                     config.traffic_class = Some(class);
                 }
+                #[cfg(target_os = "linux")]
                 "netfilter_mark" | "mark" => {
                     let mark = crate::value::as_u32(v)
                         .context(format!("invalid u32 value for key {k}"))?;
