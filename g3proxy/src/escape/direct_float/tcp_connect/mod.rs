@@ -3,6 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::borrow::Cow;
 use std::io;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
@@ -62,7 +63,7 @@ impl DirectFloatEscaper {
         peer_ip: IpAddr,
         bind: BindAddr,
         task_notes: &ServerTaskNotes,
-        config: &DirectTcpConnectConfig,
+        config: &DirectTcpConnectConfig<'_>,
     ) -> Result<(TcpSocket, DirectFloatBindIp), TcpConnectError> {
         match peer_ip {
             IpAddr::V4(_) => {
@@ -102,7 +103,7 @@ impl DirectFloatEscaper {
     async fn fixed_try_connect(
         &self,
         peer_ip: IpAddr,
-        config: DirectTcpConnectConfig,
+        config: DirectTcpConnectConfig<'_>,
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
@@ -173,7 +174,7 @@ impl DirectFloatEscaper {
     async fn happy_try_connect(
         &self,
         mut resolver_job: HappyEyeballsResolveJob,
-        config: DirectTcpConnectConfig,
+        config: DirectTcpConnectConfig<'_>,
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
@@ -340,7 +341,7 @@ impl DirectFloatEscaper {
         let mut config = DirectTcpConnectConfig {
             connect: self.config.general.tcp_connect,
             keepalive: self.config.tcp_keepalive,
-            misc_opts: self.config.tcp_misc_opts,
+            misc_opts: Cow::Borrowed(&self.config.tcp_misc_opts),
         };
 
         if let Some(user_ctx) = task_notes.user_ctx() {
@@ -351,7 +352,7 @@ impl DirectFloatEscaper {
             }
 
             config.keepalive = config.keepalive.adjust_to(user_config.tcp_remote_keepalive);
-            config.misc_opts = user_config.tcp_remote_misc_opts(&config.misc_opts);
+            config.misc_opts = user_config.tcp_remote_misc_opts(&self.config.tcp_misc_opts);
         }
 
         match task_conf.upstream.host() {
@@ -386,7 +387,7 @@ impl DirectFloatEscaper {
             connect: self.config.general.tcp_connect,
             // tcp keepalive is not needed for ftp transfer connection as it shouldn't be idle
             keepalive: TcpKeepAliveConfig::default(),
-            misc_opts: self.config.tcp_misc_opts,
+            misc_opts: Cow::Borrowed(&self.config.tcp_misc_opts),
         };
 
         if let Some(user_ctx) = task_notes.user_ctx() {
@@ -396,7 +397,7 @@ impl DirectFloatEscaper {
 
             config.misc_opts = user_ctx
                 .user_config()
-                .tcp_remote_misc_opts(&config.misc_opts)
+                .tcp_remote_misc_opts(&self.config.tcp_misc_opts);
         }
 
         if task_conf.upstream.host_eq(old_upstream) {

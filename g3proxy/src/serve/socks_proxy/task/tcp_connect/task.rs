@@ -3,6 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::borrow::Cow;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 use std::time::Duration;
@@ -232,7 +233,7 @@ impl SocksProxyTcpConnectTask {
         R: AsyncRead + Send + Sync + Unpin + 'static,
         W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        let mut tcp_client_misc_opts = self.ctx.server_config.tcp_misc_opts;
+        let tcp_client_misc_opts;
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             let user_ctx = user_ctx.clone();
@@ -262,15 +263,22 @@ impl SocksProxyTcpConnectTask {
             self.handle_user_acl_action(action, &mut clt_w, ServerTaskForbiddenError::DestDenied)
                 .await?;
 
+            // server level dst host/port acl rules
+            let action = self.ctx.check_upstream(&self.upstream);
+            self.handle_server_upstream_acl_action(action, &mut clt_w)
+                .await?;
+
             tcp_client_misc_opts = user_ctx
                 .user_config()
-                .tcp_client_misc_opts(&tcp_client_misc_opts);
-        }
+                .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts);
+        } else {
+            // server level dst host/port acl rules
+            let action = self.ctx.check_upstream(&self.upstream);
+            self.handle_server_upstream_acl_action(action, &mut clt_w)
+                .await?;
 
-        // server level dst host/port acl rules
-        let action = self.ctx.check_upstream(&self.upstream);
-        self.handle_server_upstream_acl_action(action, &mut clt_w)
-            .await?;
+            tcp_client_misc_opts = Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts);
+        }
 
         // set client side socket options
         self.ctx

@@ -273,7 +273,7 @@ impl HickoryClientConfig {
             server: self.target,
             bind: self.bind,
             keepalive: Default::default(),
-            misc_opts: self.tcp_misc_opts,
+            misc_opts: self.tcp_misc_opts.clone(),
         }
     }
 

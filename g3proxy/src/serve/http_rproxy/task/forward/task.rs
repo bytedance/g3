@@ -3,6 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::borrow::Cow;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -446,7 +447,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
         CDW: AsyncWrite + Unpin,
     {
         let mut upstream_keepalive = self.ctx.server_config.http_forward_upstream_keepalive;
-        let mut tcp_client_misc_opts = self.ctx.server_config.tcp_misc_opts;
+        let tcp_client_misc_opts;
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             let user_ctx = user_ctx.clone();
@@ -479,7 +480,9 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 upstream_keepalive.adjust_to(user_ctx.user_config().http_upstream_keepalive);
             tcp_client_misc_opts = user_ctx
                 .user_config()
-                .tcp_client_misc_opts(&tcp_client_misc_opts);
+                .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts);
+        } else {
+            tcp_client_misc_opts = Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts);
         }
 
         // set client side socket options
