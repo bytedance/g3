@@ -118,6 +118,16 @@ pub fn as_tcp_misc_sock_opts(v: &Value) -> anyhow::Result<TcpMiscSockOpts> {
                         crate::value::as_u8(v).context(format!("invalid u8 value for key {k}"))?;
                     config.traffic_class = Some(class);
                 }
+                #[cfg(any(
+                    target_os = "linux",
+                    target_os = "freebsd",
+                    target_os = "solaris",
+                    target_os = "illumos"
+                ))]
+                "congestion_control" => {
+                    let ca = crate::value::as_string(v)?;
+                    config.set_congestion_control(ca);
+                }
                 #[cfg(target_os = "linux")]
                 "netfilter_mark" | "mark" => {
                     let mark = crate::value::as_u32(v)

@@ -3,6 +3,7 @@ v0.3.9:
  - Feature: restore support for aws-lc
  - Feature: add support for aws-lc-fips
  - Feature: allow to set hop_limit and traffic_class ipv6 socket options
+ - Feature: allow to set congestion control algorithm for TCP socket
  - Deprecated: the following config options are deprecated:
      - emit_duration in statsd config, use emit_interval instead
 

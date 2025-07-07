@@ -282,6 +282,17 @@ pub fn as_tcp_misc_sock_opts(v: &Yaml) -> anyhow::Result<TcpMiscSockOpts> {
                 config.traffic_class = Some(class);
                 Ok(())
             }
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "freebsd",
+                target_os = "solaris",
+                target_os = "illumos"
+            ))]
+            "congestion_control" => {
+                let ca = crate::value::as_string(v)?;
+                config.set_congestion_control(ca);
+                Ok(())
+            }
             #[cfg(target_os = "linux")]
             "netfilter_mark" | "mark" => {
                 let mark =

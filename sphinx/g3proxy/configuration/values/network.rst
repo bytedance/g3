@@ -662,6 +662,18 @@ Keys:
 
   .. versionadded:: 1.11.9
 
+* congestion_control
+
+  **optional**, **type**: str
+
+  Set a custom TCP congestion control algorithm to use.
+
+  It is recommended to load the corresponding kernel module before you use it.
+
+  **default**: not set
+
+  .. versionadded:: 1.11.9
+
 * netfilter_mark
 
   **optional**, **type**: u32, **alias**: mark
