@@ -1,6 +1,7 @@
 
 v1.10.7:
  - BUG FIX: fix panic when detect DNS over TLS traffic
+ - BUG FIX: fix default min ttl value in c-ares resolver
 
 v1.10.6:
  - BUG FIX: fix read of H2 zero size body frame
