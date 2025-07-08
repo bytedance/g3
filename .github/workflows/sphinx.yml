@@ -16,8 +16,7 @@ jobs:
     strategy:
       matrix:
         component:
-        - g3proxy
-        - g3tiles
+          - g3proxy
     steps:
       - uses: actions/checkout@v4
       - uses: ammaraskar/sphinx-action@master

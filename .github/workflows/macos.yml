@@ -57,11 +57,6 @@ jobs:
           - vendored-boringssl
         component:
           - g3proxy
-          - g3bench
-          - g3tiles
-          - g3fcgen
-          - g3mkcert
-          - g3keymess
         include:
           - feature: vendored-c-ares
             component: g3proxy
