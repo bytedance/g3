@@ -60,7 +60,7 @@ impl Default for CAresDriverConfig {
             bind_v4: None,
             bind_v6: None,
             negative_ttl: crate::config::RESOLVER_MINIMUM_CACHE_TTL,
-            positive_min_ttl: crate::config::RESOLVER_MAXIMUM_CACHE_TTL,
+            positive_min_ttl: crate::config::RESOLVER_MINIMUM_CACHE_TTL,
             positive_max_ttl: crate::config::RESOLVER_MAXIMUM_CACHE_TTL,
         }
     }
