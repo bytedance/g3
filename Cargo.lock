@@ -222,21 +222,8 @@ version = "1.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93fcc8f365936c834db5514fc45aee5b1202d677e6b40e48468aaaa8183ca8c7"
 dependencies = [
- "aws-lc-sys 0.29.0",
+ "aws-lc-sys",
  "zeroize",
-]
-
-[[package]]
-name = "aws-lc-sys"
-version = "0.27.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77926887776171ced7d662120a75998e444d3750c951abfe07f90da130514b1f"
-dependencies = [
- "bindgen 0.69.5",
- "cc",
- "cmake",
- "dunce",
- "fs_extra",
 ]
 
 [[package]]
@@ -4018,9 +4005,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.15.12"
+version = "0.16.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "abb7046052a182d3259306d5e40a1642ace9d7ecde5da8d60d92492d2970ff00"
+checksum = "aed6c9b719940276d519875690becfecb6ecd4b9397b5b5360b010e50effae32"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -4033,11 +4020,11 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl-sys"
-version = "0.15.12"
+version = "0.16.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a71004190ce2947a7647688aea8d4ada66addf520c364c546033d7d20489fdc2"
+checksum = "02c50278f19a87f4366c4cf744ba1a067338bf2da967e4037a6967192371eb15"
 dependencies = [
- "aws-lc-sys 0.27.1",
+ "aws-lc-sys",
  "bssl-cmake-sys",
  "cc",
  "libc",
