@@ -14,7 +14,9 @@ server:
     listen:
       address: "[::]:10086"
     tls_client: { }
-    local_server_name: 127.0.0.1
+    local_server_name:
+      - 127.0.0.1
+      - ::1
     tcp_sock_speed_limit: 100M
   - name: test-tls
     tls_server:
