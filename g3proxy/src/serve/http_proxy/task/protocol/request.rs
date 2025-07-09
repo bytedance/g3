@@ -9,7 +9,7 @@ use tokio::sync::mpsc;
 use tokio::time::Instant;
 
 use g3_http::server::{HttpProxyClientRequest, HttpRequestParseError, UriExt};
-use g3_http::uri::WellKnownUri;
+use g3_http::uri::{HttpMasque, WellKnownUri};
 use g3_types::net::{HttpProxySubProtocol, UpstreamAddr};
 
 use super::HttpClientReader;
@@ -74,6 +74,12 @@ where
                     req.set_host(&addr);
                     (addr, protocol)
                 }
+                Some(WellKnownUri::Masque(HttpMasque::Http(uri))) => {
+                    req.uri = uri;
+                    let (addr, protocol) = req.uri.get_upstream_and_protocol()?;
+                    req.set_host(&addr);
+                    (addr, protocol)
+                }
                 Some(v) => {
                     return Err(HttpRequestParseError::UnsupportedRequest(format!(
                         "unsupported well-known uri suffix: {}",
@@ -86,21 +92,8 @@ where
                     ));
                 }
             }
-        } else if let Some(scheme) = req.uri.scheme() {
-            if scheme.eq(&http::uri::Scheme::HTTP) {
-                let upstream = req.uri.get_upstream_with_default_port(80)?;
-                (upstream, HttpProxySubProtocol::HttpForward)
-            } else if scheme.eq(&http::uri::Scheme::HTTPS) {
-                let upstream = req.uri.get_upstream_with_default_port(443)?;
-                (upstream, HttpProxySubProtocol::HttpsForward)
-            } else if scheme.as_str().eq_ignore_ascii_case("ftp") {
-                let upstream = req.uri.get_upstream_with_default_port(21)?;
-                (upstream, HttpProxySubProtocol::FtpOverHttp)
-            } else {
-                return Err(HttpRequestParseError::UnsupportedScheme);
-            }
         } else {
-            return Err(HttpRequestParseError::InvalidRequestTarget);
+            req.uri.get_upstream_and_protocol()?
         };
 
         if !config.allow_custom_host {

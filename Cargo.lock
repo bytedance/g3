@@ -1239,6 +1239,7 @@ dependencies = [
  "httparse",
  "memchr",
  "mime",
+ "percent-encoding",
  "smol_str",
  "thiserror",
  "tokio",

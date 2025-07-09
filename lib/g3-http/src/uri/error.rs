@@ -17,4 +17,6 @@ pub enum UriParseError {
     NotValidPort(&'static str),
     #[error("{0} field is not valid protocol")]
     NotValidProtocol(&'static str),
+    #[error("{0} field is not valid uri")]
+    NotValidUri(&'static str),
 }

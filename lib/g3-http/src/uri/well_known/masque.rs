@@ -38,6 +38,14 @@ impl WellKnownUriParser<'_> {
                 let masque = HttpMasque::new_ip(host, proto)?;
                 Ok(WellKnownUri::Masque(masque))
             }
+            "http" => {
+                let Some(uri) = self.next_path_segment() else {
+                    return Err(UriParseError::RequiredFieldNotFound("target_uri"));
+                };
+
+                let masque = HttpMasque::new_http(uri)?;
+                Ok(WellKnownUri::Masque(masque))
+            }
             _ => Ok(WellKnownUri::Unsupported(SmolStr::from_iter([
                 "masque", "/", segment,
             ]))),
