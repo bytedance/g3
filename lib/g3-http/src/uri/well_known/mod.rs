@@ -112,7 +112,7 @@ mod tests {
         let uri = Uri::from_static("/.well-known/masque/udp/192.0.2.6/443/");
         let parsed = WellKnownUri::parse(&uri).unwrap().unwrap();
         let WellKnownUri::Masque(HttpMasque::Udp(addr)) = parsed else {
-            panic!("not parsed as easy-proxy")
+            panic!("not parsed as masque/udp")
         };
         assert_eq!(addr.port(), 443);
         assert_eq!(addr.host_str(), "192.0.2.6");
@@ -123,7 +123,7 @@ mod tests {
         let uri = Uri::from_static("/.well-known/masque/ip/*/*/");
         let parsed = WellKnownUri::parse(&uri).unwrap().unwrap();
         let WellKnownUri::Masque(HttpMasque::Ip(host, proto)) = parsed else {
-            panic!("not parsed as easy-proxy")
+            panic!("not parsed as masque/ip")
         };
         assert!(host.is_none());
         assert!(proto.is_none());
@@ -131,11 +131,23 @@ mod tests {
         let uri = Uri::from_static("/.well-known/masque/ip/target.example.com/17/");
         let parsed = WellKnownUri::parse(&uri).unwrap().unwrap();
         let WellKnownUri::Masque(HttpMasque::Ip(host, proto)) = parsed else {
-            panic!("not parsed as easy-proxy")
+            panic!("not parsed as masque/ip")
         };
         let host = host.unwrap();
         assert_eq!(host.to_string().as_str(), "target.example.com");
         let proto = proto.unwrap();
         assert_eq!(proto, 17);
+    }
+
+    #[test]
+    fn masque_http() {
+        let uri = Uri::from_static("/.well-known/masque/http/http%3A%2F%2Fhttpbin.org%2Fget");
+        let parsed = WellKnownUri::parse(&uri).unwrap().unwrap();
+        let WellKnownUri::Masque(HttpMasque::Http(uri)) = parsed else {
+            panic!("not parsed as masque/http")
+        };
+        assert_eq!(uri.scheme_str(), Some("http"));
+        assert_eq!(uri.host(), Some("httpbin.org"));
+        assert_eq!(uri.path(), "/get")
     }
 }

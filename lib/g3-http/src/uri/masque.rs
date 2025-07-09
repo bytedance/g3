@@ -5,6 +5,9 @@
 
 use std::str::FromStr;
 
+use http::Uri;
+use percent_encoding::percent_decode_str;
+
 use g3_types::net::{Host, UpstreamAddr};
 
 use super::UriParseError;
@@ -12,6 +15,7 @@ use super::UriParseError;
 pub enum HttpMasque {
     Udp(UpstreamAddr),
     Ip(Option<Host>, Option<u16>),
+    Http(Uri),
 }
 
 impl HttpMasque {
@@ -33,5 +37,13 @@ impl HttpMasque {
             Some(u16::from_str(proto).map_err(|_| UriParseError::NotValidProtocol("ipproto"))?)
         };
         Ok(HttpMasque::Ip(host, proto))
+    }
+
+    pub(super) fn new_http(uri: &str) -> Result<Self, UriParseError> {
+        let decoded = percent_decode_str(uri)
+            .decode_utf8()
+            .map_err(|_| UriParseError::NotValidUri("target_uri"))?;
+        let uri = Uri::from_str(&decoded).map_err(|_| UriParseError::NotValidUri("target_uri"))?;
+        Ok(HttpMasque::Http(uri))
     }
 }

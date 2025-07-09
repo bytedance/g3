@@ -7,11 +7,15 @@ use std::str::FromStr;
 
 use http::Uri;
 
-use g3_types::net::UpstreamAddr;
+use g3_types::net::{HttpProxySubProtocol, UpstreamAddr};
 
 use super::HttpRequestParseError;
 
 pub trait UriExt {
+    fn get_upstream_and_protocol(
+        &self,
+    ) -> Result<(UpstreamAddr, HttpProxySubProtocol), HttpRequestParseError>;
+
     fn get_upstream_with_default_port(
         &self,
         default_port: u16,
@@ -26,6 +30,27 @@ pub trait UriExt {
 }
 
 impl UriExt for Uri {
+    fn get_upstream_and_protocol(
+        &self,
+    ) -> Result<(UpstreamAddr, HttpProxySubProtocol), HttpRequestParseError> {
+        if let Some(scheme) = self.scheme() {
+            if scheme.eq(&http::uri::Scheme::HTTP) {
+                let upstream = self.get_upstream_with_default_port(80)?;
+                Ok((upstream, HttpProxySubProtocol::HttpForward))
+            } else if scheme.eq(&http::uri::Scheme::HTTPS) {
+                let upstream = self.get_upstream_with_default_port(443)?;
+                Ok((upstream, HttpProxySubProtocol::HttpsForward))
+            } else if scheme.as_str().eq_ignore_ascii_case("ftp") {
+                let upstream = self.get_upstream_with_default_port(21)?;
+                Ok((upstream, HttpProxySubProtocol::FtpOverHttp))
+            } else {
+                Err(HttpRequestParseError::UnsupportedScheme)
+            }
+        } else {
+            Err(HttpRequestParseError::InvalidRequestTarget)
+        }
+    }
+
     fn get_upstream_with_default_port(
         &self,
         default_port: u16,
