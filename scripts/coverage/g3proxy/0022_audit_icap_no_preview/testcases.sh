@@ -3,6 +3,7 @@
 
 HTTP_PROXY="http://127.0.0.1:8080"
 test_http_proxy_http_forward
+test_http_proxy_http_connect
 test_http_proxy_ftp_over_http
 test_http_proxy_https_connect
 test_http_proxy_https_forward
