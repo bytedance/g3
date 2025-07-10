@@ -93,3 +93,167 @@ where
 
     Ok(obj)
 }
+
+#[cfg(test)]
+#[cfg(feature = "route")]
+mod tests {
+    use super::*;
+    use yaml_rust::YamlLoader;
+
+    // Test structure implementing YamlMapCallback
+    #[derive(Default, PartialEq, Debug)]
+    struct TestCallback {
+        id: u32,
+        enabled: bool,
+    }
+
+    impl YamlMapCallback for TestCallback {
+        fn type_name(&self) -> &'static str {
+            "TestUriPathCallback"
+        }
+
+        fn parse_kv(
+            &mut self,
+            key: &str,
+            value: &Yaml,
+            _doc: Option<&YamlDocPosition>,
+        ) -> anyhow::Result<()> {
+            match key {
+                "id" => {
+                    self.id = value.as_i64().ok_or(anyhow!("invalid integer"))? as u32;
+                    Ok(())
+                }
+                "enabled" => {
+                    self.enabled = crate::value::as_bool(value)?;
+                    Ok(())
+                }
+                _ => Err(anyhow!("unknown key: {}", key)),
+            }
+        }
+
+        fn check(&mut self) -> anyhow::Result<()> {
+            if self.id == 0 {
+                Err(anyhow!("id cannot be zero"))
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    #[test]
+    fn as_url_path_matched_obj_ok() {
+        // Single object with prefix_match
+        let yaml = yaml_doc!(
+            r#"
+                prefix_match: /api
+                id: 1
+                enabled: true
+            "#
+        );
+        let path_match = as_url_path_matched_obj::<TestCallback>(&yaml, None).unwrap();
+        let value = path_match.get("/api").unwrap();
+        assert_eq!(value.id, 1);
+        assert!(value.enabled);
+
+        // Single object with set_default
+        let yaml = yaml_doc!(
+            r#"
+                set_default: true
+                id: 2
+                enabled: false
+            "#
+        );
+        let path_match = as_url_path_matched_obj::<TestCallback>(&yaml, None).unwrap();
+        let default_value = path_match.get("/unmatched").unwrap();
+        assert_eq!(default_value.id, 2);
+        assert!(!default_value.enabled);
+
+        // Auto default
+        let yaml = yaml_doc!(
+            r#"
+                id: 3
+                enabled: true
+            "#
+        );
+        let path_match = as_url_path_matched_obj::<TestCallback>(&yaml, None).unwrap();
+        let value = path_match.get("/any/path").unwrap();
+        assert_eq!(value.id, 3);
+        assert!(value.enabled);
+
+        // Array input with multiple objects
+        let yaml = yaml_doc!(
+            r#"
+                - prefix_match: /v1
+                  id: 10
+                - prefix_match: /v2
+                  id: 20
+                - set_default: true
+                  id: 30
+            "#
+        );
+        let path_match = as_url_path_matched_obj::<TestCallback>(&yaml, None).unwrap();
+        assert_eq!(path_match.get("/v1").unwrap().id, 10);
+        assert_eq!(path_match.get("/v2").unwrap().id, 20);
+        assert_eq!(path_match.get("/unknown").unwrap().id, 30);
+
+        // Multiple prefix matches
+        let yaml = yaml_doc!(
+            r#"
+                - prefix_match: /static
+                  id: 100
+                - prefix_match: /images
+                  id: 100
+            "#
+        );
+        let path_match = as_url_path_matched_obj::<TestCallback>(&yaml, None).unwrap();
+        assert_eq!(path_match.get("/static").unwrap().id, 100);
+        assert_eq!(path_match.get("/images").unwrap().id, 100);
+    }
+
+    #[test]
+    fn as_url_path_matched_obj_err() {
+        // Duplicate prefix
+        let yaml = yaml_doc!(
+            r#"
+                - prefix_match: /api
+                  id: 1
+                - prefix_match: /api
+                  id: 2
+            "#
+        );
+        assert!(as_url_path_matched_obj::<TestCallback>(&yaml, None).is_err());
+
+        // Duplicate default
+        let yaml = yaml_doc!(
+            r#"
+                - set_default: true
+                  id: 1
+                - set_default: true
+                  id: 2
+            "#
+        );
+        assert!(as_url_path_matched_obj::<TestCallback>(&yaml, None).is_err());
+
+        // Invalid YAML type
+        let yaml = yaml_str!("invalid_type");
+        assert!(as_url_path_matched_obj::<TestCallback>(&yaml, None).is_err());
+
+        // Field parse error
+        let yaml = yaml_doc!(
+            r#"
+                prefix_match: /api
+                id: "not_an_integer"
+            "#
+        );
+        assert!(as_url_path_matched_obj::<TestCallback>(&yaml, None).is_err());
+
+        // Check failure (id=0)
+        let yaml = yaml_doc!(
+            r#"
+                prefix_match: /api
+                id: 0
+            "#
+        );
+        assert!(as_url_path_matched_obj::<TestCallback>(&yaml, None).is_err());
+    }
+}
