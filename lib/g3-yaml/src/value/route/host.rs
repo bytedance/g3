@@ -141,3 +141,240 @@ where
 
     Ok(obj)
 }
+
+#[cfg(test)]
+#[cfg(feature = "route")]
+mod tests {
+    use super::*;
+    use std::net::IpAddr;
+    use std::str::FromStr;
+    use yaml_rust::YamlLoader;
+
+    // Define a test struct implementing YamlMapCallback
+    #[derive(Default)]
+    struct TestCallback {
+        name: String,
+        value: i32,
+    }
+
+    impl YamlMapCallback for TestCallback {
+        fn type_name(&self) -> &'static str {
+            "TestCallback"
+        }
+
+        fn parse_kv(
+            &mut self,
+            key: &str,
+            value: &Yaml,
+            _doc: Option<&YamlDocPosition>,
+        ) -> anyhow::Result<()> {
+            match key {
+                "name" => {
+                    self.name = value.as_str().ok_or(anyhow!("invalid string"))?.to_string();
+                    Ok(())
+                }
+                "value" => {
+                    self.value = value.as_i64().ok_or(anyhow!("invalid integer"))? as i32;
+                    Ok(())
+                }
+                _ => Err(anyhow!("unknown key: {}", key)),
+            }
+        }
+
+        fn check(&mut self) -> anyhow::Result<()> {
+            if self.name.is_empty() {
+                Err(anyhow!("name is required"))
+            } else {
+                Ok(())
+            }
+        }
+    }
+
+    #[test]
+    fn as_host_matched_obj_ok() {
+        // Single map with exact IP match
+        let yaml = yaml_doc!(
+            r#"
+                exact_match: 192.168.0.1
+                name: test1
+                value: 100
+            "#
+        );
+        let host_match: HostMatch<Arc<TestCallback>> = as_host_matched_obj(&yaml, None).unwrap();
+        let ip = IpAddr::from_str("192.168.0.1").unwrap();
+        let value = host_match.get(&Host::Ip(ip)).unwrap();
+        assert_eq!(value.name, "test1");
+        assert_eq!(value.value, 100);
+        assert!(host_match.get_default().is_none());
+
+        // Single map with domain match
+        let yaml = yaml_doc!(
+            r#"
+                child_match: example.com
+                name: test2
+                value: 200
+            "#
+        );
+        let host_match: HostMatch<Arc<TestCallback>> = as_host_matched_obj(&yaml, None).unwrap();
+        let domain = Host::Domain(Arc::from("example.com"));
+        let value = host_match.get(&domain).unwrap();
+        assert_eq!(value.name, "test2");
+        assert_eq!(value.value, 200);
+        assert!(host_match.get_default().is_none());
+
+        // Single map with default
+        let yaml = yaml_doc!(
+            r#"
+                set_default: true
+                name: default
+                value: 0
+            "#
+        );
+        let host_match: HostMatch<Arc<TestCallback>> = as_host_matched_obj(&yaml, None).unwrap();
+        let default_value = host_match.get_default().unwrap();
+        assert_eq!(default_value.name, "default");
+        assert_eq!(default_value.value, 0);
+        let ip = IpAddr::from_str("192.168.0.1").unwrap();
+        let value = host_match.get(&Host::Ip(ip)).unwrap();
+        assert_eq!(value.name, "default");
+        assert_eq!(value.value, 0);
+
+        // Array of maps
+        let yaml = yaml_doc!(
+            r#"
+                - exact_match: 192.168.0.1
+                  name: test1
+                  value: 100
+                - child_match: example.com
+                  name: test2
+                  value: 200
+                - set_default: true
+                  name: default
+                  value: 0
+            "#
+        );
+        let host_match: HostMatch<Arc<TestCallback>> = as_host_matched_obj(&yaml, None).unwrap();
+        let ip = IpAddr::from_str("192.168.0.1").unwrap();
+        let value = host_match.get(&Host::Ip(ip)).unwrap();
+        assert_eq!(value.name, "test1");
+        assert_eq!(value.value, 100);
+        let domain = Host::Domain(Arc::from("example.com"));
+        let value = host_match.get(&domain).unwrap();
+        assert_eq!(value.name, "test2");
+        assert_eq!(value.value, 200);
+        let default_value = host_match.get_default().unwrap();
+        assert_eq!(default_value.name, "default");
+        assert_eq!(default_value.value, 0);
+        let other_ip = IpAddr::from_str("10.0.0.1").unwrap();
+        let value = host_match.get(&Host::Ip(other_ip)).unwrap();
+        assert_eq!(value.name, "default");
+        assert_eq!(value.value, 0);
+
+        // Exact match as array
+        let yaml = yaml_doc!(
+            r#"
+                exact_match:
+                  - 192.168.0.1
+                  - 10.0.0.1
+                name: test
+                value: 100
+            "#
+        );
+        let host_match: HostMatch<Arc<TestCallback>> =
+            as_host_matched_obj::<TestCallback>(&yaml, None).unwrap();
+        let ip1 = IpAddr::from_str("192.168.0.1").unwrap();
+        let value1 = host_match.get(&Host::Ip(ip1)).unwrap();
+        assert_eq!(value1.name, "test");
+        assert_eq!(value1.value, 100);
+        let ip2 = IpAddr::from_str("10.0.0.1").unwrap();
+        let value2 = host_match.get(&Host::Ip(ip2)).unwrap();
+        assert_eq!(value2.name, "test");
+        assert_eq!(value2.value, 100);
+
+        // Child match as array
+        let yaml = yaml_doc!(
+            r#"
+                child_match:
+                  - example.com
+                  - test.org
+                name: test
+                value: 100
+            "#
+        );
+        let host_match: HostMatch<Arc<TestCallback>> =
+            as_host_matched_obj::<TestCallback>(&yaml, None).unwrap();
+        let domain1 = Host::Domain(Arc::from("example.com"));
+        let value1 = host_match.get(&domain1).unwrap();
+        assert_eq!(value1.name, "test");
+        assert_eq!(value1.value, 100);
+        let domain2 = Host::Domain(Arc::from("test.org"));
+        let value2 = host_match.get(&domain2).unwrap();
+        assert_eq!(value2.name, "test");
+        assert_eq!(value2.value, 100);
+    }
+
+    #[test]
+    fn as_host_matched_obj_err() {
+        // Invalid YAML type
+        let yaml = yaml_str!("not a map or array");
+        assert!(as_host_matched_obj::<TestCallback>(&yaml, None).is_err());
+
+        // Duplicate exact IP match
+        let yaml = yaml_doc!(
+            r#"
+                - exact_match: 192.168.0.1
+                  name: test1
+                  value: 100
+                - exact_match: 192.168.0.1
+                  name: test2
+                  value: 200
+            "#
+        );
+        assert!(as_host_matched_obj::<TestCallback>(&yaml, None).is_err());
+
+        // Duplicate child domain match
+        let yaml = yaml_doc!(
+            r#"
+                - child_match: example.com
+                  name: test1
+                  value: 100
+                - child_match: example.com
+                  name: test2
+                  value: 200
+            "#
+        );
+        assert!(as_host_matched_obj::<TestCallback>(&yaml, None).is_err());
+
+        // Multiple defaults
+        let yaml = yaml_doc!(
+            r#"
+                - set_default: true
+                  name: default1
+                  value: 0
+                - set_default: true
+                  name: default2
+                  value: 1
+            "#
+        );
+        assert!(as_host_matched_obj::<TestCallback>(&yaml, None).is_err());
+
+        // Missing host string
+        let yaml = yaml_doc!(
+            r#"
+                exact_match:
+                name: test
+                value: 100
+            "#
+        );
+        assert!(as_host_matched_obj::<TestCallback>(&yaml, None).is_err());
+
+        // Missing required fields
+        let yaml = yaml_doc!(
+            r#"
+                exact_match: 192.168.0.1
+                value: 100
+            "#
+        );
+        assert!(as_host_matched_obj::<TestCallback>(&yaml, None).is_err());
+    }
+}
