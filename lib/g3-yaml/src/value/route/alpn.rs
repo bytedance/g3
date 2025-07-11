@@ -168,7 +168,6 @@ pub fn as_alpn_matched_backends(value: &Yaml) -> anyhow::Result<AlpnMatch<NodeNa
 }
 
 #[cfg(test)]
-#[cfg(feature = "route")]
 mod tests {
     use super::*;
     use yaml_rust::YamlLoader;

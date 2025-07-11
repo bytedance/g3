@@ -95,7 +95,6 @@ where
 }
 
 #[cfg(test)]
-#[cfg(feature = "route")]
 mod tests {
     use super::*;
     use yaml_rust::YamlLoader;
