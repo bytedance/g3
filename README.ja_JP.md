@@ -31,7 +31,7 @@ G3 プロジェクトは多数のアプリケーションで構成されてお�
 
 - 非同期Rust: 高速で信頼性が高い
 - Http1 / Socks5フォワードプロキシプロトコル、SNIプロキシおよびTCP TPROXY
-- easy-proxy Well-Known URI
+- サポート easy-proxy & masque/http Well-Known URI
 - プロキシチェイニング、上流プロキシの動的選択をサポート
 - 多くの出口ルート選択方法、カスタム出口選択エージェントをサポート
 - TCP/TLSストリームプロキシ、基本的なHTTPリバースプロキシ

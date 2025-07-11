@@ -29,7 +29,7 @@ G3项目包含许多应用，每一个应用程序单独一个子目录，包含
 
 - Async Rust: 高效、稳定
 - Http1 / Socks5 正向代理协议, SNI Proxy and TCP TPROXY
-- easy-proxy Well-Known URI
+- 支持 easy-proxy & masque/http Well-Known URI
 - 代理串联，动态下一级代理节点选择
 - 丰富的出口路由选择方法，支持接入自定义选路Agent
 - TCP/TLS反向代理，基础HTTP反向代理

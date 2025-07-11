@@ -19,6 +19,7 @@
     + [线路绑定](#线路绑定)
     + [代理串联](#代理串联)
     + [连接限速](#连接限速)
+    + [进程全局限速](#进程全局限速)
     + [域名解析](#域名解析)
     + [安全解析](#安全解析)
     + [容灾解析](#容灾解析)
@@ -48,7 +49,7 @@
 ## 如何安装
 
 目前只支持Linux系统，并对Debian、RHEL等发行版提供了打包安装支持，
-参考[发行&打包步骤](/README.md#release-and-packaging)完成打包后直接在目标系统上安装即可。
+参考[发行&打包步骤](/doc/build_and_package.md)完成打包后直接在目标系统上安装即可。
 
 ## 基础概念
 
@@ -311,14 +312,25 @@ escaper:
 
 ### 连接限速
 
-入口、出口均支持全局维度单连接限速，配置key相同，在对应的server & escaper里设置：
+server、escaper、user维度均支持设置单连接限速，配置key相同，在对应的server & escaper & user里设置：
 
 ```yaml
 tcp_sock_speed_limit: 10M/s
 udp_sock_speed_limit: 10M/s
 ```
 
-入口配置针对的是Client-Proxy的连接，出口配置针对的是Proxy-Target的连接。
+server及user配置针对的是Client-Proxy的连接，escaper配置针对的是Proxy-Target的连接。
+
+### 进程全局限速
+
+用户配置支持设置进程全局限速：
+
+```yaml
+tcp_all_download_speed_limit: 100M/s
+tcp_all_upload_speed_limit: 100M/s
+udp_all_download_speed_limit: 100M/s
+udp_all_upload_speed_limit: 100M/s
+```
 
 ### 域名解析
 

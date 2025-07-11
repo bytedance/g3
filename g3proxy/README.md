@@ -59,7 +59,7 @@ The common features are:
 - Http(s) Proxy
     * TLS / mTLS
     * Http Forward | Https Forward | Http CONNECT | Ftp over HTTP
-    * easy-proxy Well-Known URI
+    * easy-proxy | masque/http Well-Known URI
     * Basic User Authentication
     * Port Hiding
 
