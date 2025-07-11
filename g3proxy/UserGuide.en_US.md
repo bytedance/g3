@@ -19,6 +19,7 @@
     + [Route Binding](#route-binding)
     + [Proxy Chaining](#proxy-chaining)
     + [Connection Throttling](#connection-throttling)
+    + [Global Process Speed Limit](#global-process-speed-limit)
     + [Domain Resolution](#domain-resolution)
     + [Secure Resolution](#secure-resolution)
     + [Fault-Tolerant Resolution](#fault-tolerant-resolution)
@@ -49,7 +50,7 @@
 
 Currently, g3proxy only supports Linux systems and provides packaging and installation support for Debian, RHEL, and
 other distributions.
-Refer to the [Release and Packaging Steps](/README.md#release-and-packaging) to package and install directly on the
+Refer to the [Release and Packaging Steps](/doc/build_and_package.md) to package and install directly on the
 target system.
 
 ## Basic Concepts
@@ -333,16 +334,27 @@ escaper:
 
 ### Connection Throttling
 
-Both the inbound and outbound support per-connection throttling on a global level. Set the same key in the corresponding
-server & escaper:
+All servers, escapers, users support per-connection throttling. Set the same key in the corresponding server &
+escaper & user config:
 
 ```yaml
 tcp_sock_speed_limit: 10M/s
 udp_sock_speed_limit: 10M/s
 ```
 
-The inbound configuration is for the Client-Proxy connection, and the outbound configuration is for the Proxy-Target
-connection.
+The server and user configuration is for Client-Proxy connections, and the escaper configuration is for Proxy-Target
+connections.
+
+### Global Process Speed Limit
+
+Process global speed limit for all client connections can be set in user configuration for each user:
+
+```yaml
+tcp_all_download_speed_limit: 100M/s
+tcp_all_upload_speed_limit: 100M/s
+udp_all_download_speed_limit: 100M/s
+udp_all_upload_speed_limit: 100M/s
+```
 
 ### Domain Resolution
 
