@@ -143,7 +143,6 @@ where
 }
 
 #[cfg(test)]
-#[cfg(feature = "route")]
 mod tests {
     use super::*;
     use std::net::IpAddr;

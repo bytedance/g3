@@ -84,8 +84,6 @@ pub fn as_ip_location(value: &Yaml) -> anyhow::Result<IpLocation> {
 }
 
 #[cfg(test)]
-#[cfg(feature = "acl-rule")]
-#[cfg(feature = "geoip")]
 mod tests {
     use super::*;
     use yaml_rust::YamlLoader;
