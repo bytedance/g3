@@ -16,6 +16,7 @@ use num_traits::ToPrimitive;
     target_os = "solaris"
 ))]
 use crate::net::Interface;
+use crate::net::TcpKeepAliveConfig;
 
 const DEFAULT_LISTEN_BACKLOG: u32 = 4096;
 const MINIMAL_LISTEN_BACKLOG: u32 = 8;
@@ -41,6 +42,7 @@ pub struct TcpListenConfig {
     instance: usize,
     scale: usize,
     follow_cpu_affinity: bool,
+    keepalive: Option<TcpKeepAliveConfig>,
 }
 
 impl Default for TcpListenConfig {
@@ -71,6 +73,7 @@ impl TcpListenConfig {
             instance: 1,
             scale: 0,
             follow_cpu_affinity: false,
+            keepalive: None,
         }
     }
 
@@ -109,6 +112,11 @@ impl TcpListenConfig {
     #[inline]
     pub fn transparent(&self) -> bool {
         self.transparent
+    }
+
+    #[inline]
+    pub fn keepalive(&self) -> Option<&TcpKeepAliveConfig> {
+        self.keepalive.as_ref()
     }
 
     #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
@@ -172,6 +180,11 @@ impl TcpListenConfig {
         if backlog >= MINIMAL_LISTEN_BACKLOG {
             self.backlog = backlog;
         }
+    }
+
+    #[inline]
+    pub fn set_keepalive(&mut self, keepalive_config: TcpKeepAliveConfig) {
+        self.keepalive = Some(keepalive_config);
     }
 
     pub fn set_instance(&mut self, instance: usize) {
