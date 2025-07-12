@@ -125,6 +125,12 @@ pub fn as_tcp_listen_config(value: &Yaml) -> anyhow::Result<TcpListenConfig> {
                     config.set_follow_cpu_affinity(enable);
                     Ok(())
                 }
+                "keepalive" => {
+                    let keepalive = as_tcp_keepalive_config(v)
+                        .context(format!("invalid tcp keepalive config value for key {k}"))?;
+                    config.set_keepalive(keepalive);
+                    Ok(())
+                }
                 _ => Err(anyhow!("invalid key {k}")),
             })?;
         }
