@@ -147,3 +147,241 @@ pub fn as_resolve_redirection_builder(v: &Yaml) -> anyhow::Result<ResolveRedirec
         _ => Err(anyhow!("invalid yaml value type for resolve redirection")),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use g3_types::resolve::ResolveRedirectionValue;
+    use std::net::IpAddr;
+    use std::sync::Arc;
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn as_query_strategy_ok() {
+        // valid strings
+        assert_eq!(
+            as_query_strategy(&yaml_str!("ipv4only")).unwrap(),
+            QueryStrategy::Ipv4Only
+        );
+        assert_eq!(
+            as_query_strategy(&yaml_str!("ipv6only")).unwrap(),
+            QueryStrategy::Ipv6Only
+        );
+        assert_eq!(
+            as_query_strategy(&yaml_str!("ipv4first")).unwrap(),
+            QueryStrategy::Ipv4First
+        );
+        assert_eq!(
+            as_query_strategy(&yaml_str!("ipv6first")).unwrap(),
+            QueryStrategy::Ipv6First
+        );
+        assert_eq!(
+            as_query_strategy(&yaml_str!("ipv4_only")).unwrap(),
+            QueryStrategy::Ipv4Only
+        );
+        assert_eq!(
+            as_query_strategy(&yaml_str!("ipv6_first")).unwrap(),
+            QueryStrategy::Ipv6First
+        );
+    }
+
+    #[test]
+    fn as_query_strategy_err() {
+        // invalid string
+        assert!(as_query_strategy(&yaml_str!("invalid")).is_err());
+
+        // non-string type
+        assert!(as_query_strategy(&Yaml::Integer(42)).is_err());
+        assert!(as_query_strategy(&Yaml::Boolean(true)).is_err());
+    }
+
+    #[test]
+    fn as_pick_strategy_ok() {
+        // valid strings
+        assert_eq!(
+            as_pick_strategy(&yaml_str!("random")).unwrap(),
+            PickStrategy::Random
+        );
+        assert_eq!(
+            as_pick_strategy(&yaml_str!("serial")).unwrap(),
+            PickStrategy::Serial
+        );
+        assert_eq!(
+            as_pick_strategy(&yaml_str!("first")).unwrap(),
+            PickStrategy::Serial
+        );
+    }
+
+    #[test]
+    fn as_pick_strategy_err() {
+        // invalid string
+        assert!(as_pick_strategy(&yaml_str!("invalid")).is_err());
+
+        // non-string type
+        assert!(as_pick_strategy(&Yaml::Integer(42)).is_err());
+        assert!(as_pick_strategy(&Yaml::Boolean(true)).is_err());
+    }
+
+    #[test]
+    fn as_resolve_strategy_ok() {
+        // valid string
+        let strategy = as_resolve_strategy(&yaml_str!("ipv4first")).unwrap();
+        assert_eq!(strategy.query, QueryStrategy::Ipv4First);
+        assert_eq!(strategy.pick, PickStrategy::default());
+
+        // valid hash
+        let yaml = yaml_doc!(
+            r#"
+            query: ipv6first
+            pick: serial
+            "#
+        );
+        let strategy = as_resolve_strategy(&yaml).unwrap();
+        assert_eq!(strategy.query, QueryStrategy::Ipv6First);
+        assert_eq!(strategy.pick, PickStrategy::Serial);
+    }
+
+    #[test]
+    fn as_resolve_strategy_err() {
+        // invalid key
+        let yaml = yaml_doc!(
+            r#"
+            invalid_key: ipv4first
+            "#
+        );
+        assert!(as_resolve_strategy(&yaml).is_err());
+
+        // invalid value type
+        assert!(as_resolve_strategy(&Yaml::Integer(42)).is_err());
+    }
+
+    #[test]
+    fn as_resolve_redirection_builder_ok() {
+        // valid hash
+        let yaml = yaml_doc!(
+            r#"
+            example.com: "192.168.1.1"
+            example.org: [10.0.0.1, 10.0.0.2]
+            alias.com: another.com
+            "#
+        );
+        let builder = as_resolve_redirection_builder(&yaml).unwrap();
+        let redirection = builder.build();
+
+        let value = redirection.query_value("example.com").unwrap();
+        if let ResolveRedirectionValue::Ip((ipv4, ipv6)) = value {
+            assert_eq!(ipv4, vec![IpAddr::from_str("192.168.1.1").unwrap()]);
+            assert!(ipv6.is_empty());
+        }
+
+        let value = redirection.query_value("example.org").unwrap();
+        if let ResolveRedirectionValue::Ip((ipv4, ipv6)) = value {
+            assert_eq!(
+                ipv4,
+                vec![
+                    IpAddr::from_str("10.0.0.1").unwrap(),
+                    IpAddr::from_str("10.0.0.2").unwrap()
+                ]
+            );
+            assert!(ipv6.is_empty());
+        }
+
+        let value = redirection.query_value("alias.com").unwrap();
+        if let ResolveRedirectionValue::Domain(alias) = value {
+            assert_eq!(alias.as_ref(), "another.com");
+        }
+
+        // valid array
+        let yaml = yaml_doc!(
+            r#"
+            - exact: exact1.example.com
+              to: 192.168.1.1
+            - exact: exact2.example.com
+              to: [10.0.0.1, 10.0.0.2]
+            - exact: exact3.example.com
+              to: alias.domain.com
+            - parent: example.com
+              to: redirected.com
+            "#
+        );
+        let builder = as_resolve_redirection_builder(&yaml).unwrap();
+        let redirection = builder.build();
+
+        let value = redirection.query_value("exact1.example.com").unwrap();
+        if let ResolveRedirectionValue::Ip((ipv4, ipv6)) = value {
+            assert_eq!(ipv4, vec![IpAddr::from_str("192.168.1.1").unwrap()]);
+            assert!(ipv6.is_empty());
+        }
+
+        let value = redirection.query_value("exact2.example.com").unwrap();
+        if let ResolveRedirectionValue::Ip((ipv4, ipv6)) = value {
+            assert_eq!(
+                ipv4,
+                vec![
+                    IpAddr::from_str("10.0.0.1").unwrap(),
+                    IpAddr::from_str("10.0.0.2").unwrap()
+                ]
+            );
+            assert!(ipv6.is_empty());
+        }
+
+        let value = redirection.query_value("exact3.example.com").unwrap();
+        if let ResolveRedirectionValue::Domain(alias) = value {
+            assert_eq!(alias.as_ref(), "alias.domain.com");
+        }
+
+        let ret = redirection
+            .query_first("sub.example.com", QueryStrategy::Ipv4First)
+            .unwrap();
+        assert_eq!(ret, Host::Domain(Arc::from("sub.redirected.com")));
+    }
+
+    #[test]
+    fn as_resolve_redirection_builder_err() {
+        // invalid YAML type
+        let yaml = yaml_str!("invalid");
+        assert!(as_resolve_redirection_builder(&yaml).is_err());
+
+        let yaml = Yaml::Integer(42);
+        assert!(as_resolve_redirection_builder(&yaml).is_err());
+
+        // array with non-hash element
+        let yaml = yaml_doc!(r#"- invalid"#);
+        assert!(as_resolve_redirection_builder(&yaml).is_err());
+
+        // array with invalid map element
+        let yaml = yaml_doc!(r#"- 42"#);
+        assert!(as_resolve_redirection_builder(&yaml).is_err());
+
+        // array with missing required keys (exact or parent)
+        let yaml = yaml_doc!(r#"- to: 192.168.1.1"#);
+        assert!(as_resolve_redirection_builder(&yaml).is_err());
+
+        // array with no domain set in "parent"
+        let yaml = yaml_doc!(
+            r#"
+            - parent:
+              to: redirected.com
+            "#
+        );
+        assert!(as_resolve_redirection_builder(&yaml).is_err());
+
+        // array with invalid domain in "exact"
+        let yaml = yaml_doc!(
+            r#"
+            - exact: null
+              to: 192.168.1.1
+            "#
+        );
+        assert!(as_resolve_redirection_builder(&yaml).is_err());
+
+        // array with invalid "to" value for exact (non-string/array)
+        let yaml = yaml_doc!(
+            r#"
+            - exact: example.com
+              to: 42
+            "#
+        );
+        assert!(as_resolve_redirection_builder(&yaml).is_err());
+    }
+}
