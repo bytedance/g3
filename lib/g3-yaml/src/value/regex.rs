@@ -17,3 +17,29 @@ pub fn as_regex(value: &Yaml) -> anyhow::Result<Regex> {
         ))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn as_regex_ok() {
+        // valid regex string
+        let yaml = yaml_str!("^\\d{3}-\\d{2}-\\d{4}$");
+        assert_eq!(as_regex(&yaml).unwrap().as_str(), "^\\d{3}-\\d{2}-\\d{4}$");
+
+        let yaml = yaml_str!("^[a-zA-Z]+$");
+        assert_eq!(as_regex(&yaml).unwrap().as_str(), "^[a-zA-Z]+$");
+    }
+
+    #[test]
+    fn as_regex_err() {
+        // invalid regex string
+        let yaml = yaml_str!("^\\d{3-\\d{2}-\\d{4}$");
+        assert!(as_regex(&yaml).is_err());
+
+        // non-string type
+        let yaml = Yaml::Integer(123);
+        assert!(as_regex(&yaml).is_err());
+    }
+}
