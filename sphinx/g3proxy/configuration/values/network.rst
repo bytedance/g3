@@ -298,7 +298,7 @@ It consists of the following fields:
 
   **default**: not set
 
-  .. versionadded:: 1.11.10
+  .. versionadded:: 1.11.9
 
 * backlog
 

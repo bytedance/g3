@@ -239,6 +239,16 @@ It consists of the following fields:
 
   .. versionadded:: 0.3.9
 
+* keepalive
+
+  **optional**, **type**: :ref:`tcp keepalive <conf_value_tcp_keepalive>`
+
+  Set the keep-alive config for the listing tcp socket.
+
+  **default**: not set
+
+  .. versionadded:: 0.3.9
+
 * backlog
 
   **optional**, **type**: unsigned int
