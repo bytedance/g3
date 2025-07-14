@@ -11,7 +11,7 @@
 %define build_profile release-lto
 
 Name:           g3tiles
-Version:        0.3.8
+Version:        0.3.9
 Release:        1%{?dist}
 Summary:        Generic reverse proxy for G3 Project
 
@@ -58,5 +58,5 @@ install -m 644 -D %{name}/service/g3tiles@.service %{buildroot}/lib/systemd/syst
 
 
 %changelog
-* Fri Apr 11 2025 G3tiles Maintainers <g3tiles-maintainers@devel.machine> - 0.3.8-1
+* Mon Jul 14 2025 G3tiles Maintainers <g3tiles-maintainers@devel.machine> - 0.3.9-1
 - New upstream release
