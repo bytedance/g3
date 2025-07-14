@@ -2,6 +2,7 @@
 v1.11.9:
  - Feature: allow to set hop_limit and traffic_class ipv6 socket options
  - Feature: allow to set congestion control algorithm for TCP socket
+ - Feature: allow to set tcp keepalive on tcp listen socket in server
 
 v1.11.8:
  - BUG FIX: fix corrupt data when send small chunked body to ICAP REQMOD service

@@ -1,4 +1,7 @@
 
+v0.4.4:
+ - Feature: allow to set tcp keepalive on tcp listen socket in server
+
 v0.4.3:
  - Feature: restore support for aws-lc
  - Feature: add support for aws-lc-fips

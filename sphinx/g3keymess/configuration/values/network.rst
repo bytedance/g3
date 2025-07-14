@@ -90,6 +90,16 @@ It consists of the following fields:
 
   .. versionadded:: 0.4.2
 
+* keepalive
+
+  **optional**, **type**: :ref:`tcp keepalive <conf_value_tcp_keepalive>`
+
+  Set the keep-alive config for the listing tcp socket.
+
+  **default**: not set
+
+  .. versionadded:: 0.4.4
+
 * backlog
 
   **optional**, **type**: unsigned int
