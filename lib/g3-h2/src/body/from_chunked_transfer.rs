@@ -169,7 +169,7 @@ where
                     }
                     Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
                     Poll::Pending => {
-                        self.active = transfer.is_active();
+                        self.active |= transfer.is_active();
                         Poll::Pending
                     }
                 }
@@ -194,7 +194,7 @@ where
                         ));
                     }
                     Poll::Pending => {
-                        self.active = encode.is_active();
+                        self.active |= encode.is_active();
                         return Poll::Pending;
                     }
                 }

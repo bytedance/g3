@@ -222,7 +222,7 @@ where
                 let mut copy = Pin::new(copy);
                 match copy.as_mut().poll(cx) {
                     Poll::Pending => {
-                        self.active = copy.is_active();
+                        self.active |= copy.is_active();
                         return Poll::Pending;
                     }
                     Poll::Ready(Ok(n)) => {
@@ -265,7 +265,7 @@ where
                 let mut encode = Pin::new(encode);
                 match encode.as_mut().poll(cx) {
                     Poll::Pending => {
-                        self.active = encode.is_active();
+                        self.active |= encode.is_active();
                         Poll::Pending
                     }
                     Poll::Ready(Ok(n)) => {
