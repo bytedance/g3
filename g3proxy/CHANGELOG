@@ -1,4 +1,7 @@
 
+v1.11.10:
+ - Feature: allow to drop the default port part in Host header in http_proxy server
+
 v1.11.9:
  - Feature: allow to set hop_limit and traffic_class ipv6 socket options
  - Feature: allow to set congestion control algorithm for TCP socket

@@ -207,6 +207,22 @@ or ip address with the one in the request method line.
 
 .. note:: we don't require the *Host* header to be present in http headers no matter what have been set for this
 
+drop_default_port_in_host
+-------------------------
+
+**optional**, **type**: bool
+
+Set if the default port in Host header should be dropped before sent to upstream.
+
+The default ports are:
+
+  - HTTP 80
+  - HTTPS 443
+
+**default**: false
+
+.. versionadded:: 1.11.10
+
 body_line_max_length
 --------------------
 

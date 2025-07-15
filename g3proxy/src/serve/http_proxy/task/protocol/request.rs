@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use http::{Method, Version};
+use http::{HeaderValue, Method, Version, header};
 use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
@@ -131,5 +131,15 @@ where
 
         // reader should be sent by default
         Ok((req, true))
+    }
+
+    pub(crate) fn drop_default_port_in_host(&mut self) {
+        if let Some(v) = self.inner.end_to_end_headers.get_mut(header::HOST) {
+            let b = v.inner().as_bytes();
+            if let Some(d) = memchr::memchr(b':', b) {
+                let new_v = HeaderValue::from_bytes(&b[..d]).unwrap();
+                v.set_inner(new_v);
+            }
+        }
     }
 }

@@ -88,6 +88,7 @@ pub(crate) struct HttpProxyServerConfig {
     pub(crate) pipeline_read_idle_timeout: Duration,
     pub(crate) no_early_error_reply: bool,
     pub(crate) allow_custom_host: bool,
+    pub(crate) drop_default_port_in_host: bool,
     pub(crate) body_line_max_len: usize,
     pub(crate) http_forward_upstream_keepalive: HttpKeepAliveConfig,
     pub(crate) http_forward_mark_upstream: bool,
@@ -135,6 +136,7 @@ impl HttpProxyServerConfig {
             pipeline_read_idle_timeout: Duration::from_secs(300),
             no_early_error_reply: false,
             allow_custom_host: true,
+            drop_default_port_in_host: false,
             body_line_max_len: 8192,
             http_forward_upstream_keepalive: Default::default(),
             http_forward_mark_upstream: false,
@@ -358,6 +360,11 @@ impl HttpProxyServerConfig {
             }
             "allow_custom_host" => {
                 self.allow_custom_host = g3_yaml::value::as_bool(v)
+                    .context(format!("invalid bool value for key {k}"))?;
+                Ok(())
+            }
+            "drop_default_port_in_host" => {
+                self.drop_default_port_in_host = g3_yaml::value::as_bool(v)
                     .context(format!("invalid bool value for key {k}"))?;
                 Ok(())
             }
