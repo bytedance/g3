@@ -106,7 +106,6 @@ g3-build-env.workspace = true
 default = ["lua54", "python", "c-ares", "quic", "rustls-ring"]
 lua = ["mlua"]
 luajit = ["lua", "mlua/luajit"]
-lua51 = ["lua", "mlua/lua51"]
 lua53 = ["lua", "mlua/lua53"]
 lua54 = ["lua", "mlua/lua54"]
 python = ["pyo3"]
