@@ -55,6 +55,10 @@ impl HttpHeaderValue {
         self.inner = HeaderValue::from_static(value);
     }
 
+    pub fn set_inner(&mut self, inner: HeaderValue) {
+        self.inner = inner;
+    }
+
     #[inline]
     pub fn inner(&self) -> &HeaderValue {
         &self.inner

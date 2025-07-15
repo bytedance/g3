@@ -45,6 +45,11 @@ impl HttpHeaderMap {
     }
 
     #[inline]
+    pub fn get_mut<K: AsHeaderName>(&mut self, name: K) -> Option<&mut HttpHeaderValue> {
+        self.inner.get_mut(name)
+    }
+
+    #[inline]
     pub fn get_all<K: AsHeaderName>(&self, name: K) -> GetAll<'_, HttpHeaderValue> {
         self.inner.get_all(name)
     }

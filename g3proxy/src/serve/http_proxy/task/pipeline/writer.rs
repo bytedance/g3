@@ -469,8 +469,18 @@ where
         remote_protocol: HttpProxySubProtocol,
     ) -> LoopAction {
         let is_https = match remote_protocol {
-            HttpProxySubProtocol::HttpForward => false,
-            HttpProxySubProtocol::HttpsForward => true,
+            HttpProxySubProtocol::HttpForward => {
+                if self.ctx.server_config.drop_default_port_in_host && req.upstream.port() == 80 {
+                    req.drop_default_port_in_host();
+                }
+                false
+            }
+            HttpProxySubProtocol::HttpsForward => {
+                if self.ctx.server_config.drop_default_port_in_host && req.upstream.port() == 443 {
+                    req.drop_default_port_in_host();
+                }
+                true
+            }
             _ => unreachable!(),
         };
 
