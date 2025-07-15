@@ -212,9 +212,8 @@ pkg install rust
 pkg install pkgconf capnproto
 pkg install gmake # for vendored build of openssl
 pkg install c-ares
-# install lua5.4 or any other versions available on your system, and create a pkgconfig link
+# install lua5.4 or any other versions available on your system
 pkg install lua54
-ln -s /usr/local/libdata/pkgconfig/lua-5.4.pc /usr/local/libdata/pkgconfig/lua5.4.pc
 pkg install python3
 # build, with vendored openssl
 cargo build --features vendored-openssl
@@ -239,9 +238,8 @@ cargo build --features vendored-openssl
 ```shell
 pkgin install pkgconf capnproto
 pkgin install libcares
-# install lua5.4 or any other versions available on your system, and create a pkgconfig link
+# install lua5.4 or any other versions available on your system
 pkgin install lua54
-ln -s /usr/pkg/lib/pkgconfig/lua-5.4.pc /usr/pkg/lib/pkgconfig/lua5.4.pc
 # install python 3.11 or any other versions available on your system, and create links
 pkgin install python311
 ln -s /usr/pkg/bin/python3.11 /usr/pkg/bin/python3
@@ -255,9 +253,8 @@ pkg_add rust
 # install capnproto from source, or export G3_CAPNP_USE_PRECOMPILED=yes when build a tarball
 # install libs
 pkg_add libcares
-# install lua5.4 or any other versions available on your system, and create a pkgconfig link
+# install lua5.4 or any other versions available on your system
 pkg_add lua
-ln -s /usr/local/lib/pkgconfig/lua54.pc /usr/local/lib/pkgconfig/lua5.4.pc
 pkg_add python
 # build, with system LibreSSL
 cargo build
