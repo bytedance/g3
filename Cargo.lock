@@ -1035,7 +1035,7 @@ name = "g3-compat"
 version = "0.2.0"
 dependencies = [
  "libc",
- "rustix 1.0.7",
+ "rustix 1.0.8",
  "windows-sys 0.60.2",
 ]
 
@@ -1088,7 +1088,7 @@ dependencies = [
  "quinn",
  "rand",
  "rustc-hash 2.1.1",
- "rustix 1.0.7",
+ "rustix 1.0.8",
  "serde_json",
  "slog",
  "tokio",
@@ -1354,7 +1354,7 @@ dependencies = [
  "itoa",
  "memchr",
  "once_cell",
- "rustix 1.0.7",
+ "rustix 1.0.8",
  "ryu",
  "serde",
  "serde_json",
@@ -2813,9 +2813,9 @@ dependencies = [
 
 [[package]]
 name = "mlua"
-version = "0.11.0"
+version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22fe7d52e09b3229ee7a6dfc5ba77fa250d8cd3478d3a509cc17934571a7ea0b"
+checksum = "de25fc513588ac1273aa8c6dc0fffee6d32c12f38dc75f5cdc74547121a107ef"
 dependencies = [
  "bstr",
  "either",
@@ -3013,7 +3013,7 @@ dependencies = [
  "concurrent-queue",
  "hermit-abi",
  "pin-project-lite",
- "rustix 1.0.7",
+ "rustix 1.0.8",
  "tracing",
  "windows-sys 0.59.0",
 ]
@@ -3353,15 +3353,15 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "1.0.7"
+version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c71e83d6afe7ff64890ec6b71d6a69bb8a610ab78ce364b3352876bb4c801266"
+checksum = "11181fbabf243db407ef8df94a6ce0b2f9a733bd8be4ad02b4eda9602296cac8"
 dependencies = [
  "bitflags",
  "errno",
  "libc",
  "linux-raw-sys 0.9.4",
- "windows-sys 0.59.0",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
