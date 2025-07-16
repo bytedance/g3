@@ -132,7 +132,7 @@ apt-get install libssl-dev libc-ares-dev
 # install lua5.4 or any other versions available on your system
 apt-get install lua5.4-dev
 apt-get install libpython3-dev
-apt-get install python3-toml python3-requests python3-pycurl python3-semver python3-socks python3-dnspyton
+apt-get install python3-toml python3-requests python3-pycurl python3-semver python3-socks python3-dnspython
 apt-get install python3-maxminddb python3-location
 apt-get install python3-sphinx python3-sphinx-rtd-theme
 apt-get install lsb-release dpkg-dev debhelper

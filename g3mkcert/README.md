@@ -44,13 +44,13 @@ g3mkcert --root --common-name "G3 test ROOT CA" --rsa 2048 --output-cert rootCA.
 server side:
 
 ```shell
-g3mkcert --tls-server --ec256 --common-name "Example Server" --host www.example.net --ca-cert rootCA.crt -ca-key rootCA.key
+g3mkcert --tls-server --ec256 --common-name "Example Server" --host www.example.net --ca-cert rootCA.crt --ca-key rootCA.key
 ```
 
 client side:
 
 ```shell
-g3mkcert --tls-client --ec256 --common-name "Example Client" --host www.example.net --ca-cert rootCA.crt -ca-key rootCA.key
+g3mkcert --tls-client --ec256 --common-name "Example Client" --host www.example.net --ca-cert rootCA.crt --ca-key rootCA.key
 ```
 
 ### Generate TLCP certificates
@@ -58,15 +58,15 @@ g3mkcert --tls-client --ec256 --common-name "Example Client" --host www.example.
 server side:
 
 ```shell
-g3mkcert --tlcp-server-sign --sm2 --common-name "Example Server Sign" --host www.example.net --ca-cert rootCA.crt -ca-key rootCA.key
-g3mkcert --tlcp-server-enc --sm2 --common-name "Example Server Enc" --host www.example.net --ca-cert rootCA.crt -ca-key rootCA.key
+g3mkcert --tlcp-server-sign --sm2 --common-name "Example Server Sign" --host www.example.net --ca-cert rootCA.crt --ca-key rootCA.key
+g3mkcert --tlcp-server-enc --sm2 --common-name "Example Server Enc" --host www.example.net --ca-cert rootCA.crt --ca-key rootCA.key
 ```
 
 client side:
 
 ```shell
-g3mkcert --tlcp-client-sign --sm2 --common-name "Example Client Sign" --host www.example.net --ca-cert rootCA.crt -ca-key rootCA.key
-g3mkcert --tlcp-client-enc --sm2 --common-name "Example Client Enc" --host www.example.net --ca-cert rootCA.crt -ca-key rootCA.key
+g3mkcert --tlcp-client-sign --sm2 --common-name "Example Client Sign" --host www.example.net --ca-cert rootCA.crt --ca-key rootCA.key
+g3mkcert --tlcp-client-enc --sm2 --common-name "Example Client Enc" --host www.example.net --ca-cert rootCA.crt --ca-key rootCA.key
 ```
 
 ### Generate a mimic certificate
