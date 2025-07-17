@@ -140,6 +140,11 @@ impl ProxyProtocolV1Reader {
                         .read(&mut self.data_buf[offset..offset + len])
                         .await?;
                     assert_eq!(nr, len);
+
+                    if !self.data_buf.starts_with(&COMMON_DATA) {
+                        return Err(ProxyProtocolReadError::InvalidMagicHeader);
+                    }
+
                     return Ok(offset + nr);
                 }
                 None => {
