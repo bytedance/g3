@@ -129,7 +129,7 @@ impl ProxyProtocolV1Reader {
                         .await?;
                     assert_eq!(nr, len);
 
-                    if !self.data_buf.starts_with(&COMMON_DATA) {
+                    if !self.data_buf.starts_with(COMMON_DATA) {
                         return Err(ProxyProtocolReadError::InvalidMagicHeader);
                     }
 
@@ -162,6 +162,8 @@ impl ProxyProtocolV1Reader {
 mod tests {
     use super::*;
     use g3_types::net::{ProxyProtocolEncoder, ProxyProtocolVersion};
+    use tokio::io::AsyncWriteExt;
+    use tokio::net::{TcpListener, TcpStream};
 
     async fn run_t(client: SocketAddr, server: SocketAddr) {
         let mut encoder = ProxyProtocolEncoder::new(ProxyProtocolVersion::V1);
@@ -187,5 +189,24 @@ mod tests {
         let server = SocketAddr::from_str("[2001:db8::11]:443").unwrap();
 
         run_t(client, server).await;
+    }
+
+    #[tokio::test]
+    async fn t_invalid_header() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        tokio::spawn(async move {
+            let stream = TcpStream::connect(addr);
+            let mut client = stream.await.unwrap();
+            client.write_all(b"PR\r\n").await.unwrap();
+        });
+
+        let (mut server, _) = listener.accept().await.unwrap();
+        let mut reader = ProxyProtocolV1Reader::new(Duration::from_secs(1));
+
+        let result = reader.read_proxy_protocol_v1_for_tcp(&mut server).await;
+
+        assert!(result.is_err_and(|e| matches!(e, ProxyProtocolReadError::InvalidMagicHeader)));
     }
 }
