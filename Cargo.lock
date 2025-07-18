@@ -1752,6 +1752,7 @@ dependencies = [
  "hickory-proto",
  "http",
  "indicatif",
+ "integer-encoding",
  "itoa",
  "openssl-probe",
  "quinn",
@@ -2572,6 +2573,12 @@ checksum = "e05c02b5e89bff3b946cedeca278abc628fe811e604f027c45a8aa3cf793d0eb"
 dependencies = [
  "libc",
 ]
+
+[[package]]
+name = "integer-encoding"
+version = "4.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0d762194228a2f1c11063e46e32e5acb96e66e906382b9eb5441f2e0504bbd5a"
 
 [[package]]
 name = "io-uring"

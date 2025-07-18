@@ -11,7 +11,7 @@ use futures_util::FutureExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::time::Instant;
 
-use g3_io_ext::{LimitedReader, LimitedWriter};
+use g3_io_ext::{LimitedReadExt, LimitedReader, LimitedWriter};
 
 use super::{ThriftConnection, ThriftHistogramRecorder, ThriftRuntimeStats, ThriftTcpArgs};
 use crate::ProcArgs;
@@ -21,6 +21,10 @@ pub(super) struct ThriftTcpTaskContext {
     args: Arc<ThriftTcpArgs>,
     proc_args: Arc<ProcArgs>,
 
+    send_buffer: Vec<u8>,
+    send_header_size: usize,
+
+    sequence_number: i32,
     saved_connection: Option<ThriftConnection>,
     reuse_conn_count: u64,
 
@@ -42,11 +46,15 @@ impl ThriftTcpTaskContext {
         runtime_stats: &Arc<ThriftRuntimeStats>,
         histogram_recorder: ThriftHistogramRecorder,
     ) -> anyhow::Result<Self> {
-        // TODO
+        let send_buffer = Vec::new();
+        let send_header_size = 0;
 
         Ok(ThriftTcpTaskContext {
             args: args.clone(),
             proc_args: proc_args.clone(),
+            sequence_number: 0,
+            send_buffer,
+            send_header_size,
             saved_connection: None,
             reuse_conn_count: 0,
             runtime_stats: runtime_stats.clone(),
@@ -101,12 +109,36 @@ impl ThriftTcpTaskContext {
         self.saved_connection = Some(c);
     }
 
+    fn update_sequence_number(&mut self) -> anyhow::Result<i32> {
+        let mut id = self.sequence_number.wrapping_add(1);
+        if id == 0 {
+            id = 1;
+        }
+        self.sequence_number = id;
+
+        self.send_buffer.resize(self.send_header_size, 0);
+        self.args
+            .global
+            .request_builder
+            .build(id, &mut self.send_buffer)?;
+
+        Ok(id)
+    }
+
     async fn run_with_connection(
         &mut self,
         _time_started: Instant,
-        _connection: &mut ThriftConnection,
-    ) -> anyhow::Result<bool> {
-        todo!()
+        connection: &mut ThriftConnection,
+        _seq_id: i32,
+    ) -> anyhow::Result<()> {
+        connection.writer.write_all(&self.send_buffer).await?;
+
+        let mut recv_buffer = vec![0; 1024];
+        let nr = connection.reader.read_all_once(&mut recv_buffer).await?;
+
+        println!("{nr} bytes received");
+
+        Ok(())
     }
 }
 
@@ -127,7 +159,8 @@ impl BenchTaskContext for ThriftTcpTaskContext {
     }
 
     async fn run(&mut self, _task_id: usize, time_started: Instant) -> Result<(), BenchError> {
-        // TODO increase sequence id
+        // make the seq id rolling for the task instead of the connection
+        let seq_id = self.update_sequence_number().map_err(BenchError::Fatal)?;
 
         let mut connection = self
             .fetch_connection()
@@ -136,16 +169,14 @@ impl BenchTaskContext for ThriftTcpTaskContext {
             .map_err(BenchError::Fatal)?;
 
         match self
-            .run_with_connection(time_started, &mut connection)
+            .run_with_connection(time_started, &mut connection, seq_id)
             .await
         {
-            Ok(keep_alive) => {
+            Ok(_) => {
                 let total_time = time_started.elapsed();
                 self.histogram_recorder.record_total_time(total_time);
 
-                if keep_alive {
-                    self.save_connection(connection);
-                } else {
+                if self.args.no_keepalive {
                     // make sure the tls ticket will be reused
                     match tokio::time::timeout(Duration::from_secs(4), connection.writer.shutdown())
                         .await
@@ -154,6 +185,8 @@ impl BenchTaskContext for ThriftTcpTaskContext {
                         Ok(Err(_e)) => {}
                         Err(_) => {}
                     }
+                } else {
+                    self.save_connection(connection);
                 }
                 Ok(())
             }

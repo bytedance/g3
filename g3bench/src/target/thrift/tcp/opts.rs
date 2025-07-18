@@ -15,6 +15,7 @@ use g3_types::net::UpstreamAddr;
 
 use crate::module::socket::{AppendSocketArgs, SocketArgs};
 use crate::opts::ProcArgs;
+use crate::target::thrift::{AppendThriftArgs, ThriftGlobalArgs};
 
 const ARG_TARGET: &str = "target";
 const ARG_CONNECT_TIMEOUT: &str = "connect-timeout";
@@ -22,6 +23,7 @@ const ARG_TIMEOUT: &str = "timeout";
 const ARG_NO_KEEPALIVE: &str = "no-keepalive";
 
 pub(super) struct ThriftTcpArgs {
+    pub(super) global: ThriftGlobalArgs,
     target: UpstreamAddr,
     pub(super) timeout: Duration,
     pub(super) connect_timeout: Duration,
@@ -33,8 +35,9 @@ pub(super) struct ThriftTcpArgs {
 }
 
 impl ThriftTcpArgs {
-    fn new(target: UpstreamAddr) -> Self {
+    fn new(global_args: ThriftGlobalArgs, target: UpstreamAddr) -> Self {
         ThriftTcpArgs {
+            global: global_args,
             target,
             timeout: Duration::from_secs(5),
             connect_timeout: Duration::from_secs(10),
@@ -100,6 +103,7 @@ pub(super) fn add_tcp_args(app: Command) -> Command {
             .long(ARG_NO_KEEPALIVE),
     )
     .append_socket_args()
+    .append_thrift_args()
 }
 
 pub(super) fn parse_tcp_args(args: &ArgMatches) -> anyhow::Result<ThriftTcpArgs> {
@@ -109,7 +113,10 @@ pub(super) fn parse_tcp_args(args: &ArgMatches) -> anyhow::Result<ThriftTcpArgs>
         return Err(anyhow!("no target set"));
     };
 
-    let mut t_args = ThriftTcpArgs::new(target);
+    let global_args =
+        ThriftGlobalArgs::parse_args(args).context("failed to parse global thrift args")?;
+
+    let mut t_args = ThriftTcpArgs::new(global_args, target);
 
     if let Some(timeout) = g3_clap::humanize::get_duration(args, ARG_CONNECT_TIMEOUT)? {
         t_args.connect_timeout = timeout;

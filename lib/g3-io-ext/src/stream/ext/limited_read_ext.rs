@@ -6,6 +6,7 @@
 use tokio::io::AsyncRead;
 
 use super::read_all_now::ReadAllNow;
+use super::read_all_once::ReadAllOnce;
 
 pub trait LimitedReadExt: AsyncRead {
     fn read_all_now<'a>(&'a mut self, buf: &'a mut [u8]) -> ReadAllNow<'a, Self>
@@ -13,6 +14,13 @@ pub trait LimitedReadExt: AsyncRead {
         Self: Unpin,
     {
         ReadAllNow::new(self, buf)
+    }
+
+    fn read_all_once<'a>(&'a mut self, buf: &'a mut [u8]) -> ReadAllOnce<'a, Self>
+    where
+        Self: Unpin,
+    {
+        ReadAllOnce::new(self, buf)
     }
 }
 
