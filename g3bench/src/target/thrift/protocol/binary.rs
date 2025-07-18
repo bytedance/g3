@@ -8,36 +8,26 @@ use anyhow::anyhow;
 pub(crate) struct BinaryRequestBuilder {
     name: String,
     name_len_bytes: [u8; 4],
-    framed: bool,
     payload: Vec<u8>,
 }
 
 impl BinaryRequestBuilder {
-    pub(crate) fn new_call(name: &str, payload: Vec<u8>, framed: bool) -> anyhow::Result<Self> {
-        if name.len() > i32::MAX as usize {
+    pub(crate) fn new_call(name: &str, payload: Vec<u8>) -> anyhow::Result<Self> {
+        let Ok(name_len) = i32::try_from(name.len()) else {
             return Err(anyhow!("too long method name"));
-        }
-        let name_len = name.len() as i32;
+        };
         let name_len_bytes = name_len.to_be_bytes();
-
-        let len = 4 + 4 + name.len() + 4 + payload.len();
-        if framed {
-            if len > 1638400 {
-                return Err(anyhow!("too large length {len} for framed transport"));
-            }
-        }
 
         Ok(BinaryRequestBuilder {
             name: name.to_string(),
             name_len_bytes,
-            framed,
             payload,
         })
     }
 
-    pub(super) fn build(&self, seq_id: i32, buf: &mut Vec<u8>) -> anyhow::Result<()> {
-        let len = 4 + self.name_len_bytes.len() + self.name.len() + 4 + self.payload.len();
-        if self.framed {
+    pub(super) fn build(&self, seq_id: i32, framed: bool, buf: &mut Vec<u8>) -> anyhow::Result<()> {
+        if framed {
+            let len = 4 + self.name_len_bytes.len() + self.name.len() + 4 + self.payload.len();
             if len > 1638400 {
                 return Err(anyhow!("too large length {len} for framed transport"));
             }

@@ -22,7 +22,6 @@ pub(super) struct ThriftTcpTaskContext {
     proc_args: Arc<ProcArgs>,
 
     send_buffer: Vec<u8>,
-    send_header_size: usize,
 
     sequence_number: i32,
     saved_connection: Option<ThriftConnection>,
@@ -46,15 +45,11 @@ impl ThriftTcpTaskContext {
         runtime_stats: &Arc<ThriftRuntimeStats>,
         histogram_recorder: ThriftHistogramRecorder,
     ) -> anyhow::Result<Self> {
-        let send_buffer = Vec::new();
-        let send_header_size = 0;
-
         Ok(ThriftTcpTaskContext {
             args: args.clone(),
             proc_args: proc_args.clone(),
             sequence_number: 0,
-            send_buffer,
-            send_header_size,
+            send_buffer: Vec::new(),
             saved_connection: None,
             reuse_conn_count: 0,
             runtime_stats: runtime_stats.clone(),
@@ -116,11 +111,26 @@ impl ThriftTcpTaskContext {
         }
         self.sequence_number = id;
 
-        self.send_buffer.resize(self.send_header_size, 0);
-        self.args
-            .global
-            .request_builder
-            .build(id, &mut self.send_buffer)?;
+        self.send_buffer.clear();
+        if let Some(header_builder) = &self.args.header_builder {
+            let offsets = header_builder.build(
+                self.args.global.request_builder.protocol(),
+                id,
+                &mut self.send_buffer,
+            )?;
+
+            self.args
+                .global
+                .request_builder
+                .build(id, self.args.framed, &mut self.send_buffer)?;
+
+            header_builder.update_length(offsets, &mut self.send_buffer)?;
+        } else {
+            self.args
+                .global
+                .request_builder
+                .build(id, self.args.framed, &mut self.send_buffer)?;
+        }
 
         Ok(id)
     }

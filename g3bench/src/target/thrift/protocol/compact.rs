@@ -9,29 +9,26 @@ use integer_encoding::VarInt;
 pub(crate) struct CompactRequestBuilder {
     name: String,
     name_len_bytes: Vec<u8>,
-    framed: bool,
     payload: Vec<u8>,
 }
 
 impl CompactRequestBuilder {
-    pub(crate) fn new_call(name: &str, payload: Vec<u8>, framed: bool) -> anyhow::Result<Self> {
-        if name.len() > i32::MAX as usize {
+    pub(crate) fn new_call(name: &str, payload: Vec<u8>) -> anyhow::Result<Self> {
+        let Ok(name_len) = i32::try_from(name.len()) else {
             return Err(anyhow!("too long method name"));
-        }
-        let name_len = name.len() as i32;
+        };
         let name_len_bytes = name_len.encode_var_vec();
 
         Ok(CompactRequestBuilder {
             name: name.to_string(),
             name_len_bytes,
-            framed,
             payload,
         })
     }
 
-    pub(super) fn build(&self, seq_id: i32, buf: &mut Vec<u8>) -> anyhow::Result<()> {
+    pub(super) fn build(&self, seq_id: i32, framed: bool, buf: &mut Vec<u8>) -> anyhow::Result<()> {
         let start_offset = buf.len();
-        if self.framed {
+        if framed {
             buf.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]);
         }
 
@@ -48,7 +45,7 @@ impl CompactRequestBuilder {
 
         buf.extend_from_slice(&self.payload);
 
-        if self.framed {
+        if framed {
             let len = buf.len() - start_offset;
             if len > 1638400 {
                 return Err(anyhow!("too large length {len} for framed transport"));
