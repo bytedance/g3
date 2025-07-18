@@ -11,6 +11,11 @@ use clap::{ArgMatches, Command};
 
 use crate::ProcArgs;
 
+mod opts;
+use opts::{AppendThriftArgs, ThriftGlobalArgs};
+
+mod protocol;
+
 mod tcp;
 
 pub const COMMAND: &str = "thrift";

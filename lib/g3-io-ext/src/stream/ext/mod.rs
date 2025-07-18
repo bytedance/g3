@@ -18,6 +18,7 @@ mod limited_write_ext;
 pub use limited_write_ext::LimitedWriteExt;
 
 mod read_all_now;
+mod read_all_once;
 
 mod limited_read_ext;
 pub use limited_read_ext::LimitedReadExt;
