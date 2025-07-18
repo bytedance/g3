@@ -10,15 +10,17 @@ use super::protocol::{BinaryRequestBuilder, CompactRequestBuilder, ThriftRequest
 
 const ARG_METHOD: &str = "method";
 const ARG_PAYLOAD: &str = "payload";
-const ARG_FRAMED: &str = "framed";
 const ARG_BINARY: &str = "binary";
 const ARG_COMPACT: &str = "compact";
+
+const ARG_GROUP_PROTOCOL: &str = "protocol";
 
 pub(super) trait AppendThriftArgs {
     fn append_thrift_args(self) -> Self;
 }
 
 pub(super) struct ThriftGlobalArgs {
+    pub(super) method: String,
     pub(super) request_builder: ThriftRequestBuilder,
 }
 
@@ -29,21 +31,22 @@ impl ThriftGlobalArgs {
         let payload = hex::decode(encoded)
             .map_err(|e| anyhow!("not valid hex encoded request struct: {e}"))?;
 
-        let framed = args.get_flag(ARG_FRAMED);
-
         let request_builder = if args.get_flag(ARG_BINARY) {
-            let request = BinaryRequestBuilder::new_call(name, payload, framed)
+            let request = BinaryRequestBuilder::new_call(name, payload)
                 .context("failed to build thrift binary transport request")?;
             ThriftRequestBuilder::Binary(request)
         } else if args.get_flag(ARG_COMPACT) {
-            let request = CompactRequestBuilder::new_call(name, payload, framed)
+            let request = CompactRequestBuilder::new_call(name, payload)
                 .context("failed to build thrift compact transport request")?;
             ThriftRequestBuilder::Compact(request)
         } else {
             unreachable!()
         };
 
-        Ok(ThriftGlobalArgs { request_builder })
+        Ok(ThriftGlobalArgs {
+            method: name.to_string(),
+            request_builder,
+        })
     }
 }
 
@@ -62,12 +65,6 @@ impl AppendThriftArgs for Command {
                 .num_args(1),
         )
         .arg(
-            Arg::new(ARG_FRAMED)
-                .help("Use framed transport")
-                .long(ARG_FRAMED)
-                .action(ArgAction::SetTrue),
-        )
-        .arg(
             Arg::new(ARG_BINARY)
                 .help("Use binary protocol")
                 .long(ARG_BINARY)
@@ -82,7 +79,7 @@ impl AppendThriftArgs for Command {
                 .conflicts_with(ARG_BINARY),
         )
         .group(
-            ArgGroup::new("protocol")
+            ArgGroup::new(ARG_GROUP_PROTOCOL)
                 .required(true)
                 .args([ARG_BINARY, ARG_COMPACT]),
         )

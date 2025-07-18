@@ -11,6 +11,8 @@ use clap::{ArgMatches, Command};
 use crate::ProcArgs;
 use crate::target::BenchTarget;
 
+mod header;
+
 mod opts;
 use opts::ThriftTcpArgs;
 
