@@ -9,22 +9,26 @@ use integer_encoding::VarInt;
 pub(crate) struct CompactRequestBuilder {
     name: String,
     name_len_bytes: Vec<u8>,
-    payload: Vec<u8>,
 }
 
 impl CompactRequestBuilder {
-    pub(crate) fn new_call(name: &str, payload: Vec<u8>) -> anyhow::Result<Self> {
+    pub(crate) fn new_call(name: &str) -> anyhow::Result<Self> {
         let name_len = i32::try_from(name.len()).map_err(|_| anyhow!("too long method name"))?;
         let name_len_bytes = name_len.encode_var_vec();
 
         Ok(CompactRequestBuilder {
             name: name.to_string(),
             name_len_bytes,
-            payload,
         })
     }
 
-    pub(super) fn build(&self, seq_id: i32, framed: bool, buf: &mut Vec<u8>) -> anyhow::Result<()> {
+    pub(super) fn build(
+        &self,
+        seq_id: i32,
+        framed: bool,
+        payload: &[u8],
+        buf: &mut Vec<u8>,
+    ) -> anyhow::Result<()> {
         let start_offset = buf.len();
         if framed {
             buf.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]);
@@ -41,7 +45,7 @@ impl CompactRequestBuilder {
         buf.extend_from_slice(&self.name_len_bytes);
         buf.extend_from_slice(self.name.as_bytes());
 
-        buf.extend_from_slice(&self.payload);
+        buf.extend_from_slice(payload);
 
         if framed {
             let len = buf.len() - start_offset;

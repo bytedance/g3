@@ -4,27 +4,26 @@
  */
 
 use std::sync::Arc;
-use std::time::Duration;
 
-use anyhow::{Context, anyhow};
-use futures_util::FutureExt;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use anyhow::anyhow;
 use tokio::time::Instant;
 
-use g3_io_ext::{LimitedReadExt, LimitedReader, LimitedWriter};
-
-use super::{ThriftConnection, ThriftHistogramRecorder, ThriftRuntimeStats, ThriftTcpArgs};
+use super::{
+    MultiplexTransfer, SimplexTransfer, ThriftConnectionPool, ThriftHistogramRecorder,
+    ThriftRuntimeStats, ThriftTcpArgs,
+};
 use crate::ProcArgs;
+use crate::target::thrift::tcp::connection::ThriftTcpResponse;
 use crate::target::{BenchError, BenchTaskContext};
 
 pub(super) struct ThriftTcpTaskContext {
     args: Arc<ThriftTcpArgs>,
     proc_args: Arc<ProcArgs>,
 
-    send_buffer: Vec<u8>,
+    pool: Option<Arc<ThriftConnectionPool>>,
+    multiplex: Option<Arc<MultiplexTransfer>>,
+    simplex: Option<SimplexTransfer>,
 
-    sequence_number: i32,
-    saved_connection: Option<ThriftConnection>,
     reuse_conn_count: u64,
 
     runtime_stats: Arc<ThriftRuntimeStats>,
@@ -44,111 +43,122 @@ impl ThriftTcpTaskContext {
         proc_args: &Arc<ProcArgs>,
         runtime_stats: &Arc<ThriftRuntimeStats>,
         histogram_recorder: ThriftHistogramRecorder,
+        pool: Option<Arc<ThriftConnectionPool>>,
     ) -> anyhow::Result<Self> {
         Ok(ThriftTcpTaskContext {
             args: args.clone(),
             proc_args: proc_args.clone(),
-            sequence_number: 0,
-            send_buffer: Vec::new(),
-            saved_connection: None,
+            pool,
+            multiplex: None,
+            simplex: None,
             reuse_conn_count: 0,
             runtime_stats: runtime_stats.clone(),
             histogram_recorder,
         })
     }
 
-    async fn fetch_connection(&mut self) -> anyhow::Result<ThriftConnection> {
-        if let Some(mut c) = self.saved_connection.take() {
-            let mut buf = [0u8; 4];
-            if c.reader.read(&mut buf).now_or_never().is_none() {
-                // no eof, reuse the old connection
-                self.reuse_conn_count += 1;
-                return Ok(c);
-            }
+    async fn fetch_multiplex_handle(&mut self) -> anyhow::Result<Arc<MultiplexTransfer>> {
+        if let Some(pool) = &self.pool {
+            return pool.fetch_handle().await;
         }
 
-        self.histogram_recorder
-            .record_conn_reuse_count(self.reuse_conn_count);
-        self.reuse_conn_count = 0;
+        if let Some(handle) = &self.multiplex {
+            if !handle.is_closed() {
+                self.reuse_conn_count += 1;
+                return Ok(handle.clone());
+            }
+            self.multiplex = None;
+        }
+
+        if self.reuse_conn_count > 0 {
+            self.histogram_recorder
+                .record_conn_reuse_count(self.reuse_conn_count);
+            self.reuse_conn_count = 0;
+        }
 
         self.runtime_stats.add_conn_attempt();
-        let stream = match tokio::time::timeout(
+        let handle = match tokio::time::timeout(
             self.args.connect_timeout,
-            self.args.new_tcp_connection(&self.proc_args),
+            self.args.new_multiplex_connection(&self.proc_args),
         )
         .await
         {
-            Ok(Ok(s)) => s,
+            Ok(Ok(h)) => Arc::new(h),
             Ok(Err(e)) => return Err(e),
             Err(_) => return Err(anyhow!("timeout to get new connection")),
         };
         self.runtime_stats.add_conn_success();
 
-        let (r, w) = stream.into_split();
-        let r = LimitedReader::local_limited(
-            r,
-            self.proc_args.tcp_sock_speed_limit.shift_millis,
-            self.proc_args.tcp_sock_speed_limit.max_south,
-            self.runtime_stats.clone(),
-        );
-        let w = LimitedWriter::local_limited(
-            w,
-            self.proc_args.tcp_sock_speed_limit.shift_millis,
-            self.proc_args.tcp_sock_speed_limit.max_north,
-            self.runtime_stats.clone(),
-        );
-        Ok(ThriftConnection::new(r, w))
+        self.multiplex = Some(handle.clone());
+        Ok(handle)
     }
 
-    fn save_connection(&mut self, c: ThriftConnection) {
-        self.saved_connection = Some(c);
-    }
-
-    fn update_sequence_number(&mut self) -> anyhow::Result<i32> {
-        let mut id = self.sequence_number.wrapping_add(1);
-        if id == 0 {
-            id = 1;
-        }
-        self.sequence_number = id;
-
-        self.send_buffer.clear();
-        if let Some(header_builder) = &self.args.header_builder {
-            let offsets = header_builder.build(
-                self.args.global.request_builder.protocol(),
-                id,
-                &mut self.send_buffer,
-            )?;
-
-            self.args
-                .global
-                .request_builder
-                .build(id, self.args.framed, &mut self.send_buffer)?;
-
-            header_builder.update_length(offsets, &mut self.send_buffer)?;
-        } else {
-            self.args
-                .global
-                .request_builder
-                .build(id, self.args.framed, &mut self.send_buffer)?;
+    async fn fetch_simplex_connection(&mut self) -> anyhow::Result<SimplexTransfer> {
+        if let Some(mut c) = self.simplex.take() {
+            if !c.is_closed() {
+                self.reuse_conn_count += 1;
+                return Ok(c);
+            }
         }
 
-        Ok(id)
+        if self.reuse_conn_count > 0 {
+            self.histogram_recorder
+                .record_conn_reuse_count(self.reuse_conn_count);
+            self.reuse_conn_count = 0;
+        }
+
+        self.runtime_stats.add_conn_attempt();
+        match tokio::time::timeout(
+            self.args.connect_timeout,
+            self.args.new_simplex_connection(&self.proc_args),
+        )
+        .await
+        {
+            Ok(Ok(c)) => {
+                self.runtime_stats.add_conn_success();
+                Ok(c)
+            }
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err(anyhow!("timeout to get new connection")),
+        }
     }
 
-    async fn run_with_connection(
+    async fn do_run_multiplex(
+        &self,
+        handle: &MultiplexTransfer,
+    ) -> anyhow::Result<ThriftTcpResponse> {
+        match tokio::time::timeout(
+            self.args.timeout,
+            handle.send_request(self.args.global.payload.clone()),
+        )
+        .await
+        {
+            Ok(Ok(rsp)) => Ok(rsp),
+            Ok(Err(id)) => match handle.fetch_error() {
+                Some(e) => Err(anyhow!("{}/{id} error: {e}", handle.local_addr())),
+                None => Err(anyhow!(
+                    "{}/{id}: we get no response but no error reported",
+                    handle.local_addr()
+                )),
+            },
+            Err(_) => Err(anyhow!("{}: request timed out", handle.local_addr())),
+        }
+    }
+
+    async fn do_run_simplex(
         &mut self,
-        _time_started: Instant,
-        connection: &mut ThriftConnection,
-        _seq_id: i32,
-    ) -> anyhow::Result<()> {
-        connection.writer.write_all(&self.send_buffer).await?;
-
-        let mut recv_buffer = vec![0; 1024];
-        let nr = connection.reader.read_all_once(&mut recv_buffer).await?;
-
-        println!("{nr} bytes received");
-
-        Ok(())
+        connection: &mut SimplexTransfer,
+    ) -> anyhow::Result<ThriftTcpResponse> {
+        match tokio::time::timeout(
+            self.args.timeout,
+            connection.send_request(&self.args.global.payload),
+        )
+        .await
+        {
+            Ok(Ok(rsp)) => Ok(rsp),
+            Ok(Err(e)) => Err(anyhow!("{} error: {e}", connection.local_addr())),
+            Err(_) => Err(anyhow!("{}: request timed out", connection.local_addr())),
+        }
     }
 }
 
@@ -169,38 +179,42 @@ impl BenchTaskContext for ThriftTcpTaskContext {
     }
 
     async fn run(&mut self, _task_id: usize, time_started: Instant) -> Result<(), BenchError> {
-        // make the seq id rolling for the task instead of the connection
-        let seq_id = self.update_sequence_number().map_err(BenchError::Fatal)?;
+        if self.args.multiplex {
+            let handle = self
+                .fetch_multiplex_handle()
+                .await
+                .map_err(BenchError::Fatal)?;
 
-        let mut connection = self
-            .fetch_connection()
-            .await
-            .context("connect to upstream failed")
-            .map_err(BenchError::Fatal)?;
+            match self.do_run_multiplex(&handle).await {
+                Ok(_rsp) => {
+                    let total_time = time_started.elapsed();
+                    self.histogram_recorder.record_total_time(total_time);
 
-        match self
-            .run_with_connection(time_started, &mut connection, seq_id)
-            .await
-        {
-            Ok(_) => {
-                let total_time = time_started.elapsed();
-                self.histogram_recorder.record_total_time(total_time);
-
-                if self.args.no_keepalive {
-                    // make sure the tls ticket will be reused
-                    match tokio::time::timeout(Duration::from_secs(4), connection.writer.shutdown())
-                        .await
-                    {
-                        Ok(Ok(_)) => {}
-                        Ok(Err(_e)) => {}
-                        Err(_) => {}
-                    }
-                } else {
-                    self.save_connection(connection);
+                    // TODO check rsp
+                    Ok(())
                 }
-                Ok(())
+                Err(e) => {
+                    self.multiplex = None;
+                    Err(BenchError::Task(e))
+                }
             }
-            Err(e) => Err(BenchError::Task(e)),
+        } else {
+            let mut connection = self
+                .fetch_simplex_connection()
+                .await
+                .map_err(BenchError::Fatal)?;
+
+            match self.do_run_simplex(&mut connection).await {
+                Ok(_rsp) => {
+                    let total_time = time_started.elapsed();
+                    self.simplex = Some(connection);
+                    self.histogram_recorder.record_total_time(total_time);
+
+                    // TODO check rsp
+                    Ok(())
+                }
+                Err(e) => Err(BenchError::Task(e)),
+            }
         }
     }
 }
