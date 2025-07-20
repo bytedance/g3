@@ -13,9 +13,7 @@ pub(crate) struct BinaryRequestBuilder {
 
 impl BinaryRequestBuilder {
     pub(crate) fn new_call(name: &str, payload: Vec<u8>) -> anyhow::Result<Self> {
-        let Ok(name_len) = i32::try_from(name.len()) else {
-            return Err(anyhow!("too long method name"));
-        };
+        let name_len = i32::try_from(name.len()).map_err(|_| anyhow!("too long method name"))?;
         let name_len_bytes = name_len.to_be_bytes();
 
         Ok(BinaryRequestBuilder {
@@ -28,9 +26,7 @@ impl BinaryRequestBuilder {
     pub(super) fn build(&self, seq_id: i32, framed: bool, buf: &mut Vec<u8>) -> anyhow::Result<()> {
         if framed {
             let len = 4 + self.name_len_bytes.len() + self.name.len() + 4 + self.payload.len();
-            if len > 1638400 {
-                return Err(anyhow!("too large length {len} for framed transport"));
-            }
+            let len = u32::try_from(len).map_err(|_| anyhow!("too large frame size {len}"))?;
             buf.extend_from_slice(&len.to_be_bytes());
         }
 

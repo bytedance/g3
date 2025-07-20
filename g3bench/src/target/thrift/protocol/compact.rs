@@ -14,9 +14,7 @@ pub(crate) struct CompactRequestBuilder {
 
 impl CompactRequestBuilder {
     pub(crate) fn new_call(name: &str, payload: Vec<u8>) -> anyhow::Result<Self> {
-        let Ok(name_len) = i32::try_from(name.len()) else {
-            return Err(anyhow!("too long method name"));
-        };
+        let name_len = i32::try_from(name.len()).map_err(|_| anyhow!("too long method name"))?;
         let name_len_bytes = name_len.encode_var_vec();
 
         Ok(CompactRequestBuilder {
@@ -47,11 +45,8 @@ impl CompactRequestBuilder {
 
         if framed {
             let len = buf.len() - start_offset;
-            if len > 1638400 {
-                return Err(anyhow!("too large length {len} for framed transport"));
-            }
-
-            let bytes = (len as i32).to_be_bytes();
+            let len = i32::try_from(len).map_err(|_| anyhow!("too large frame size {len}"))?;
+            let bytes = len.to_be_bytes();
             let dst = &mut buf[start_offset..];
             unsafe {
                 std::ptr::copy_nonoverlapping(bytes.as_ptr(), dst.as_mut_ptr(), 4);
