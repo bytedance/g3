@@ -193,16 +193,19 @@ impl IcapServicePool {
         };
 
         let idle_count = self.idle_conn_count.clone();
+        let min_idle_count = self.config.connection_pool.min_idle_count();
+
         idle_count.fetch_add(1, Ordering::Relaxed);
 
         let idle_timeout = self.config.connection_pool.idle_timeout();
         let pool_sender = self.pool_cmd_sender.clone();
         tokio::spawn(async move {
             eof_poller.into_running(idle_timeout).await;
-            idle_count.fetch_sub(1, Ordering::Relaxed);
-            let _ = pool_sender
-                .send(IcapServicePoolCommand::CreateConnection)
-                .await;
+            if idle_count.fetch_sub(1, Ordering::Relaxed) < min_idle_count {
+                let _ = pool_sender
+                    .send(IcapServicePoolCommand::CreateConnection)
+                    .await;
+            }
         });
     }
 }

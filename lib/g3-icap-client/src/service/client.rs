@@ -73,9 +73,12 @@ impl IcapServiceClient {
 
     pub fn save_connection(&self, conn: IcapClientConnection) {
         if conn.reusable() {
-            let _ = self
-                .cmd_sender
-                .try_send(IcapServiceClientCommand::SaveConnection(conn));
+            let pool_sender = self.cmd_sender.clone();
+            tokio::spawn(async move {
+                let _ = pool_sender
+                    .send_async(IcapServiceClientCommand::SaveConnection(conn))
+                    .await;
+            });
         }
     }
 }
