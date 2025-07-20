@@ -20,10 +20,16 @@ pub(super) enum ThriftRequestBuilder {
 }
 
 impl ThriftRequestBuilder {
-    pub(super) fn build(&self, seq_id: i32, framed: bool, buf: &mut Vec<u8>) -> anyhow::Result<()> {
+    pub(super) fn build(
+        &self,
+        seq_id: i32,
+        framed: bool,
+        payload: &[u8],
+        buf: &mut Vec<u8>,
+    ) -> anyhow::Result<()> {
         match self {
-            ThriftRequestBuilder::Binary(r) => r.build(seq_id, framed, buf),
-            ThriftRequestBuilder::Compact(r) => r.build(seq_id, framed, buf),
+            ThriftRequestBuilder::Binary(r) => r.build(seq_id, framed, payload, buf),
+            ThriftRequestBuilder::Compact(r) => r.build(seq_id, framed, payload, buf),
         }
     }
 

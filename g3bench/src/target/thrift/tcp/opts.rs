@@ -5,20 +5,28 @@
 
 use std::net::SocketAddr;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use clap::{Arg, ArgAction, ArgGroup, ArgMatches, Command, value_parser};
+use tokio::io::AsyncRead;
 use tokio::net::TcpStream;
 
+use g3_io_ext::LimitedReadExt;
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::UpstreamAddr;
 
 use super::header::{HeaderBuilder, KitexTTHeaderBuilder, ThriftTHeaderBuilder};
+use super::{
+    MultiplexTransfer, SimplexTransfer, ThriftTcpRequest, ThriftTcpResponse,
+    ThriftTcpResponseError, ThriftTcpResponseLocalError,
+};
 use crate::module::socket::{AppendSocketArgs, SocketArgs};
 use crate::opts::ProcArgs;
 use crate::target::thrift::{AppendThriftArgs, ThriftGlobalArgs};
 
+const ARG_CONNECTION_POOL: &str = "connection-pool";
 const ARG_TARGET: &str = "target";
 const ARG_FRAMED: &str = "framed";
 const ARG_THRIFT_THEADER: &str = "thrift-theader";
@@ -28,18 +36,19 @@ const ARG_INFO_INT_KV: &str = "info-int-kv";
 const ARG_ACL_TOKEN_KV: &str = "acl-token-kv";
 const ARG_CONNECT_TIMEOUT: &str = "connect-timeout";
 const ARG_TIMEOUT: &str = "timeout";
-const ARG_NO_KEEPALIVE: &str = "no-keepalive";
+const ARG_MULTIPLEX: &str = "multiplex";
 
 const ARG_GROUP_HEADER: &str = "header";
 
 pub(super) struct ThriftTcpArgs {
     pub(super) global: ThriftGlobalArgs,
+    pub(super) pool_size: Option<usize>,
     target: UpstreamAddr,
     pub(super) framed: bool,
     pub(super) header_builder: Option<HeaderBuilder>,
     pub(super) timeout: Duration,
     pub(super) connect_timeout: Duration,
-    pub(super) no_keepalive: bool,
+    pub(super) multiplex: bool,
 
     socket: SocketArgs,
 
@@ -50,12 +59,13 @@ impl ThriftTcpArgs {
     fn new(global_args: ThriftGlobalArgs, target: UpstreamAddr) -> Self {
         ThriftTcpArgs {
             global: global_args,
+            pool_size: None,
             target,
             framed: false,
             header_builder: None,
             timeout: Duration::from_secs(5),
             connect_timeout: Duration::from_secs(10),
-            no_keepalive: false,
+            multiplex: false,
             socket: SocketArgs::default(),
             target_addrs: None,
         }
@@ -81,6 +91,82 @@ impl ThriftTcpArgs {
         let peer = *proc_args.select_peer(addrs);
 
         self.socket.tcp_connect_to(peer).await
+    }
+
+    pub(super) async fn new_multiplex_connection(
+        self: &Arc<Self>,
+        proc_args: &ProcArgs,
+    ) -> anyhow::Result<MultiplexTransfer> {
+        let tcp_stream = self.new_tcp_connection(proc_args).await?;
+        let local_addr = tcp_stream
+            .local_addr()
+            .map_err(|e| anyhow!("failed to get local address: {e:?}"))?;
+
+        let (r, w) = tcp_stream.into_split();
+        Ok(MultiplexTransfer::start(
+            self.clone(),
+            r,
+            w,
+            local_addr,
+            self.timeout,
+        ))
+    }
+
+    pub(super) async fn new_simplex_connection(
+        self: &Arc<Self>,
+        proc_args: &ProcArgs,
+    ) -> anyhow::Result<SimplexTransfer> {
+        let tcp_stream = self.new_tcp_connection(proc_args).await?;
+        let local_addr = tcp_stream
+            .local_addr()
+            .map_err(|e| anyhow!("failed to get local address: {e:?}"))?;
+
+        let (r, w) = tcp_stream.into_split();
+        Ok(SimplexTransfer::new(self.clone(), r, w, local_addr))
+    }
+
+    pub(super) fn build_tcp_request(
+        &self,
+        seq_id: i32,
+        payload: &[u8],
+    ) -> anyhow::Result<ThriftTcpRequest> {
+        let mut buf = Vec::with_capacity(1024);
+
+        if let Some(header_builder) = &self.header_builder {
+            let offsets =
+                header_builder.build(self.global.request_builder.protocol(), seq_id, &mut buf)?;
+
+            self.global
+                .request_builder
+                .build(seq_id, self.framed, payload, &mut buf)?;
+
+            header_builder.update_length(offsets, &mut buf)?;
+        } else {
+            self.global
+                .request_builder
+                .build(seq_id, self.framed, payload, &mut buf)?;
+        }
+
+        Ok(ThriftTcpRequest { seq_id, buf })
+    }
+
+    pub(super) async fn read_tcp_response<R>(
+        &self,
+        reader: &mut R,
+        buf: &mut Vec<u8>,
+    ) -> Result<ThriftTcpResponse, ThriftTcpResponseError>
+    where
+        R: AsyncRead + Unpin,
+    {
+        buf.resize(1024, 0);
+        let nr = reader
+            .read_all_once(buf)
+            .await
+            .map_err(ThriftTcpResponseLocalError::ReadFailed)?;
+
+        println!("{nr} bytes received");
+
+        Ok(ThriftTcpResponse { seq_id: 0 })
     }
 }
 
@@ -156,10 +242,24 @@ pub(super) fn add_tcp_args(app: Command) -> Command {
             .num_args(1),
     )
     .arg(
-        Arg::new(ARG_NO_KEEPALIVE)
-            .help("Disable keepalive")
+        Arg::new(ARG_MULTIPLEX)
+            .help("Use multiplexed transport")
             .action(ArgAction::SetTrue)
-            .long(ARG_NO_KEEPALIVE),
+            .long(ARG_MULTIPLEX)
+            .requires(ARG_GROUP_HEADER),
+    )
+    .arg(
+        Arg::new(ARG_CONNECTION_POOL)
+            .help(
+                "Set the number of pooled underlying thrift connections.\n\
+                        If not set, each concurrency will use it's own thrift connection",
+            )
+            .value_name("POOL SIZE")
+            .long(ARG_CONNECTION_POOL)
+            .short('C')
+            .num_args(1)
+            .value_parser(value_parser!(usize))
+            .requires(ARG_MULTIPLEX),
     )
     .append_socket_args()
     .append_thrift_args()
@@ -237,15 +337,18 @@ pub(super) fn parse_tcp_args(args: &ArgMatches) -> anyhow::Result<ThriftTcpArgs>
         t_args.header_builder = Some(HeaderBuilder::Thrift(builder));
     }
 
+    t_args.multiplex = args.get_flag(ARG_MULTIPLEX);
+    if let Some(c) = args.get_one::<usize>(ARG_CONNECTION_POOL) {
+        if *c > 0 {
+            t_args.pool_size = Some(*c);
+        }
+    }
+
     if let Some(timeout) = g3_clap::humanize::get_duration(args, ARG_CONNECT_TIMEOUT)? {
         t_args.connect_timeout = timeout;
     }
     if let Some(timeout) = g3_clap::humanize::get_duration(args, ARG_TIMEOUT)? {
         t_args.timeout = timeout;
-    }
-
-    if args.get_flag(ARG_NO_KEEPALIVE) {
-        t_args.no_keepalive = true;
     }
 
     t_args

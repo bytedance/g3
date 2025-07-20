@@ -3,6 +3,8 @@
  * Copyright 2025 ByteDance and/or its affiliates.
  */
 
+use std::sync::Arc;
+
 use anyhow::{Context, anyhow};
 use clap::{Arg, ArgAction, ArgGroup, ArgMatches, Command};
 
@@ -21,6 +23,7 @@ pub(super) trait AppendThriftArgs {
 
 pub(super) struct ThriftGlobalArgs {
     pub(super) method: String,
+    pub(super) payload: Arc<[u8]>,
     pub(super) request_builder: ThriftRequestBuilder,
 }
 
@@ -32,11 +35,11 @@ impl ThriftGlobalArgs {
             .map_err(|e| anyhow!("not valid hex encoded request struct: {e}"))?;
 
         let request_builder = if args.get_flag(ARG_BINARY) {
-            let request = BinaryRequestBuilder::new_call(name, payload)
+            let request = BinaryRequestBuilder::new_call(name)
                 .context("failed to build thrift binary transport request")?;
             ThriftRequestBuilder::Binary(request)
         } else if args.get_flag(ARG_COMPACT) {
-            let request = CompactRequestBuilder::new_call(name, payload)
+            let request = CompactRequestBuilder::new_call(name)
                 .context("failed to build thrift compact transport request")?;
             ThriftRequestBuilder::Compact(request)
         } else {
@@ -45,6 +48,7 @@ impl ThriftGlobalArgs {
 
         Ok(ThriftGlobalArgs {
             method: name.to_string(),
+            payload: Arc::from(payload),
             request_builder,
         })
     }

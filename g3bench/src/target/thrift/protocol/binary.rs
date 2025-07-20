@@ -8,24 +8,28 @@ use anyhow::anyhow;
 pub(crate) struct BinaryRequestBuilder {
     name: String,
     name_len_bytes: [u8; 4],
-    payload: Vec<u8>,
 }
 
 impl BinaryRequestBuilder {
-    pub(crate) fn new_call(name: &str, payload: Vec<u8>) -> anyhow::Result<Self> {
+    pub(crate) fn new_call(name: &str) -> anyhow::Result<Self> {
         let name_len = i32::try_from(name.len()).map_err(|_| anyhow!("too long method name"))?;
         let name_len_bytes = name_len.to_be_bytes();
 
         Ok(BinaryRequestBuilder {
             name: name.to_string(),
             name_len_bytes,
-            payload,
         })
     }
 
-    pub(super) fn build(&self, seq_id: i32, framed: bool, buf: &mut Vec<u8>) -> anyhow::Result<()> {
+    pub(super) fn build(
+        &self,
+        seq_id: i32,
+        framed: bool,
+        payload: &[u8],
+        buf: &mut Vec<u8>,
+    ) -> anyhow::Result<()> {
         if framed {
-            let len = 4 + self.name_len_bytes.len() + self.name.len() + 4 + self.payload.len();
+            let len = 4 + self.name_len_bytes.len() + self.name.len() + 4 + payload.len();
             let len = u32::try_from(len).map_err(|_| anyhow!("too large frame size {len}"))?;
             buf.extend_from_slice(&len.to_be_bytes());
         }
@@ -38,7 +42,7 @@ impl BinaryRequestBuilder {
 
         buf.extend_from_slice(&seq_id.to_be_bytes());
 
-        buf.extend_from_slice(&self.payload);
+        buf.extend_from_slice(payload);
 
         Ok(())
     }

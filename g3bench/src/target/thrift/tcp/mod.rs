@@ -19,8 +19,14 @@ use opts::ThriftTcpArgs;
 mod stats;
 use stats::{ThriftHistogram, ThriftHistogramRecorder, ThriftRuntimeStats};
 
+mod pool;
+use pool::ThriftConnectionPool;
+
 mod connection;
-use connection::ThriftConnection;
+use connection::{
+    MultiplexTransfer, SimplexTransfer, ThriftTcpRequest, ThriftTcpResponse,
+    ThriftTcpResponseError, ThriftTcpResponseLocalError,
+};
 
 mod task;
 use task::ThriftTcpTaskContext;
@@ -33,6 +39,7 @@ struct ThriftTcpTarget {
     stats: Arc<ThriftRuntimeStats>,
     histogram: Option<ThriftHistogram>,
     histogram_recorder: ThriftHistogramRecorder,
+    pool: Option<Arc<ThriftConnectionPool>>,
 }
 
 impl BenchTarget<ThriftRuntimeStats, ThriftHistogram, ThriftTcpTaskContext> for ThriftTcpTarget {
@@ -42,6 +49,7 @@ impl BenchTarget<ThriftRuntimeStats, ThriftHistogram, ThriftTcpTaskContext> for 
             &self.proc_args,
             &self.stats,
             self.histogram_recorder.clone(),
+            self.pool.clone(),
         )
     }
 
@@ -65,15 +73,28 @@ pub(super) async fn run(
     let mut args = opts::parse_tcp_args(cmd_args)?;
     args.resolve_target_address(proc_args).await?;
 
+    let args = Arc::new(args);
+
     let stats = Arc::new(ThriftRuntimeStats::default());
     let (histogram, histogram_recorder) = ThriftHistogram::new();
 
+    let pool = args.pool_size.map(|s| {
+        Arc::new(ThriftConnectionPool::new(
+            &args,
+            proc_args,
+            s,
+            &stats,
+            &histogram_recorder,
+        ))
+    });
+
     let target = ThriftTcpTarget {
-        args: Arc::new(args),
+        args,
         proc_args: proc_args.clone(),
         stats,
         histogram: Some(histogram),
         histogram_recorder,
+        pool,
     };
 
     crate::target::run(target, proc_args).await
