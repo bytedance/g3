@@ -47,36 +47,42 @@ mod tests {
     use super::*;
 
     #[test]
-    fn t_duration() {
-        let v = Yaml::String("1h2m".to_string());
+    fn as_duration_ok() {
+        let v = yaml_str!("1h2m");
         assert_eq!(as_duration(&v).unwrap(), Duration::from_secs(3600 + 120));
 
-        let v = Yaml::String("1000".to_string());
+        let v = yaml_str!("1000");
         assert_eq!(as_duration(&v).unwrap(), Duration::from_secs(1000));
-
-        let v = Yaml::String("-1000".to_string());
-        assert!(as_duration(&v).is_err());
-
-        let v = Yaml::String("1.01".to_string());
-        assert!(as_duration(&v).is_err());
-
-        let v = Yaml::String("-1000h".to_string());
-        assert!(as_duration(&v).is_err());
-
-        let v = Yaml::String("1000Ah".to_string());
-        assert!(as_duration(&v).is_err());
 
         let v = Yaml::Integer(1000);
         assert_eq!(as_duration(&v).unwrap(), Duration::from_secs(1000));
-
-        let v = Yaml::Integer(-1000);
-        assert!(as_duration(&v).is_err());
 
         let v = Yaml::Real("1.01".to_string());
         assert_eq!(
             as_duration(&v).unwrap(),
             Duration::try_from_secs_f64(1.01).unwrap()
         );
+    }
+
+    #[test]
+    fn as_duration_err() {
+        let v = yaml_str!("-1000");
+        assert!(as_duration(&v).is_err());
+
+        let v = yaml_str!("1.01");
+        assert!(as_duration(&v).is_err());
+
+        let v = yaml_str!("-1000h");
+        assert!(as_duration(&v).is_err());
+
+        let v = yaml_str!("1000Ah");
+        assert!(as_duration(&v).is_err());
+
+        let v = yaml_str!("abc");
+        assert!(as_duration(&v).is_err());
+
+        let v = Yaml::Integer(-1000);
+        assert!(as_duration(&v).is_err());
 
         let v = Yaml::Array(vec![Yaml::Integer(1)]);
         assert!(as_duration(&v).is_err());
