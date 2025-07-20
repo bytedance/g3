@@ -26,10 +26,12 @@ impl TryFrom<String> for StringValue {
     type Error = anyhow::Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        let Ok(len) = u16::try_from(value.len()) else {
-            return Err(anyhow!("too long string length"));
-        };
-
+        let len = u16::try_from(value.len()).map_err(|_| {
+            anyhow!(
+                "too long Kitex TTHeader string value length {}",
+                value.len()
+            )
+        })?;
         Ok(StringValue {
             len_bytes: len.to_be_bytes(),
             value,
@@ -151,9 +153,8 @@ impl KitexTTHeaderBuilder {
 
         // INFO_KEYVALUE
         buf.push(0x01);
-        let Ok(kv_count) = u16::try_from(self.info_key_values.len()) else {
-            return Err(anyhow!("too many INFO_KEYVALUE headers"));
-        };
+        let kv_count = u16::try_from(self.info_key_values.len())
+            .map_err(|_| anyhow!("too many INFO_KEYVALUE headers"))?;
         let b = kv_count.to_be_bytes();
         buf.push(b[0]);
         buf.push(b[1]);
@@ -168,9 +169,8 @@ impl KitexTTHeaderBuilder {
 
         // INFO_INTKEYVALUE
         buf.push(0x10);
-        let Ok(kv_count) = u16::try_from(self.info_int_key_values.len()) else {
-            return Err(anyhow!("too many INFO_INTKEYVALUE headers"));
-        };
+        let kv_count = u16::try_from(self.info_int_key_values.len())
+            .map_err(|_| anyhow!("too many INFO_INTKEYVALUE headers"))?;
         let b = kv_count.to_be_bytes();
         buf.push(b[0]);
         buf.push(b[1]);
@@ -185,9 +185,8 @@ impl KitexTTHeaderBuilder {
         // ACL_TOKEN_KEYVALUE
         if !self.acl_token_key_values.is_empty() {
             buf.push(0x01);
-            let Ok(kv_count) = u16::try_from(self.acl_token_key_values.len()) else {
-                return Err(anyhow!("too many ACL_TOKEN_KEYVALUE headers"));
-            };
+            let kv_count = u16::try_from(self.acl_token_key_values.len())
+                .map_err(|_| anyhow!("too many ACL_TOKEN_KEYVALUE headers"))?;
             let b = kv_count.to_be_bytes();
             buf.push(b[0]);
             buf.push(b[1]);
@@ -209,6 +208,8 @@ impl KitexTTHeaderBuilder {
             buf.resize(buf.len() + 4 - left_bytes, 0);
             header_size += 1;
         }
+        let header_size = u16::try_from(header_size)
+            .map_err(|_| anyhow!("too large Kitex TTHeader header size {header_size}"))?;
         let b = header_size.to_be_bytes();
         buf[length_offset + 12] = b[0];
         buf[length_offset + 13] = b[1];
@@ -224,11 +225,10 @@ impl KitexTTHeaderBuilder {
         buf: &mut [u8],
     ) -> anyhow::Result<()> {
         let len = buf.len() - offsets.length - 4;
-        let Ok(len) = u32::try_from(len) else {
-            return Err(anyhow!("too value {len} for length"));
-        };
+        let len = u32::try_from(len)
+            .map_err(|_| anyhow!("too large Kitex TTHeader message length {len}"))?;
 
-        let len_bytes = len.to_le_bytes();
+        let len_bytes = len.to_be_bytes();
         let dst = &mut buf[offsets.length..];
         unsafe {
             std::ptr::copy_nonoverlapping(len_bytes.as_ptr(), dst.as_mut_ptr(), 4);
