@@ -29,7 +29,7 @@ mod tests {
     use rmpv::Utf8StringRef;
 
     #[test]
-    fn t_uuid() {
+    fn as_uuid_ok() {
         let slice_v: [u8; 16] = [
             0x70, 0xa7, 0xc2, 0xbb, 0x47, 0x6f, 0x4d, 0x79, 0x8a, 0x38, 0xc7, 0xc6, 0xaf, 0xfb,
             0xfa, 0xf7,
@@ -44,12 +44,20 @@ mod tests {
         let pv = as_uuid(&v).unwrap();
         assert_eq!(pv, tv);
 
-        let v = ValueRef::String(Utf8StringRef::from("70a7c2bb476f4d798a38c7c6affbfaf"));
-        assert!(as_uuid(&v).is_err());
-
         let v = ValueRef::Binary(&slice_v);
         let pv = as_uuid(&v).unwrap();
         assert_eq!(pv, tv);
+    }
+
+    #[test]
+    fn as_uuid_err() {
+        let v = ValueRef::String(Utf8StringRef::from(
+            "70a7c2bb-476f-4d79-8a38-c7c6affbfaf7\u{0}",
+        ));
+        assert!(as_uuid(&v).is_err());
+
+        let v = ValueRef::String(Utf8StringRef::from("70a7c2bb476f4d798a38c7c6affbfaf"));
+        assert!(as_uuid(&v).is_err());
 
         let v = ValueRef::F32(0.0);
         assert!(as_uuid(&v).is_err());

@@ -51,22 +51,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn t_usize() {
-        let v = Yaml::String("1000".to_string());
+    fn as_usize_ok() {
+        let v = yaml_str!("1000");
         assert_eq!(as_usize(&v).unwrap(), 1000);
 
-        let v = Yaml::String("1K".to_string());
+        let v = yaml_str!("1K");
         assert_eq!(as_usize(&v).unwrap(), 1000);
 
-        let v = Yaml::String("1KB".to_string());
+        let v = yaml_str!("1KB");
         assert_eq!(as_usize(&v).unwrap(), 1000);
 
-        let v = Yaml::String("1KiB".to_string());
+        let v = yaml_str!("1KiB");
         assert_eq!(as_usize(&v).unwrap(), 1024);
 
         let v = Yaml::Integer(1024);
         assert_eq!(as_usize(&v).unwrap(), 1024);
+    }
 
+    #[test]
+    fn as_usize_err() {
         let v = Yaml::Integer(-1024);
         assert!(as_usize(&v).is_err());
 
@@ -75,5 +78,47 @@ mod tests {
 
         let v = Yaml::Array(vec![Yaml::Integer(1)]);
         assert!(as_usize(&v).is_err());
+    }
+
+    #[test]
+    fn as_u64_ok() {
+        let v = yaml_str!("2000");
+        assert_eq!(as_u64(&v).unwrap(), 2000);
+
+        let v = Yaml::Integer(2048);
+        assert_eq!(as_u64(&v).unwrap(), 2048);
+    }
+
+    #[test]
+    fn as_u64_err() {
+        let v = Yaml::Integer(-2048);
+        assert!(as_u64(&v).is_err());
+
+        let v = Yaml::Real("2.02".to_string());
+        assert!(as_u64(&v).is_err());
+
+        let v = Yaml::Boolean(true);
+        assert!(as_u64(&v).is_err());
+    }
+
+    #[test]
+    fn as_u32_ok() {
+        let v = yaml_str!("4000");
+        assert_eq!(as_u32(&v).unwrap(), 4000);
+
+        let v = Yaml::Integer(4096);
+        assert_eq!(as_u32(&v).unwrap(), 4096);
+    }
+
+    #[test]
+    fn as_u32_err() {
+        let v = Yaml::Integer(-4096);
+        assert!(as_u32(&v).is_err());
+
+        let v = Yaml::Real("4.04".to_string());
+        assert!(as_u32(&v).is_err());
+
+        let v = Yaml::Null;
+        assert!(as_u32(&v).is_err());
     }
 }

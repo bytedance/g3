@@ -29,14 +29,14 @@ mod tests {
     use rmpv::Utf8StringRef;
 
     #[test]
-    fn utc_tz() {
+    fn as_rfc3339_datetime_ok() {
         let value = ValueRef::String(Utf8StringRef::from("2019-05-23T17:38:00Z"));
         let dt = as_rfc3339_datetime(&value).unwrap();
         assert_eq!(dt.to_rfc3339(), "2019-05-23T17:38:00+00:00");
     }
 
     #[test]
-    fn t_error() {
+    fn as_rfc3339_datetime_err() {
         let value = ValueRef::String(Utf8StringRef::from("2019-05-23 17:38:00"));
         assert!(as_rfc3339_datetime(&value).is_err());
 
