@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
-use clap::{Arg, ArgAction, ArgGroup, ArgMatches, Command};
+use clap::{Arg, ArgAction, ArgGroup, ArgMatches, Command, value_parser};
 
 use super::protocol::{BinaryMessageBuilder, CompactMessageBuilder, ThriftMessageBuilder};
 
@@ -14,6 +14,7 @@ const ARG_METHOD: &str = "method";
 const ARG_PAYLOAD: &str = "payload";
 const ARG_BINARY: &str = "binary";
 const ARG_COMPACT: &str = "compact";
+const ARG_CHECK_MESSAGE_LENGTH: &str = "check-message-length";
 
 const ARG_GROUP_PROTOCOL: &str = "protocol";
 
@@ -25,6 +26,7 @@ pub(super) struct ThriftGlobalArgs {
     pub(super) method: String,
     pub(super) payload: Arc<[u8]>,
     pub(super) request_builder: ThriftMessageBuilder,
+    pub(super) check_message_length: Option<usize>,
 }
 
 impl ThriftGlobalArgs {
@@ -46,10 +48,13 @@ impl ThriftGlobalArgs {
             unreachable!()
         };
 
+        let check_message_length = args.get_one::<usize>(ARG_CHECK_MESSAGE_LENGTH).copied();
+
         Ok(ThriftGlobalArgs {
             method: name.to_string(),
             payload: Arc::from(payload),
             request_builder,
+            check_message_length,
         })
     }
 }
@@ -86,6 +91,13 @@ impl AppendThriftArgs for Command {
             ArgGroup::new(ARG_GROUP_PROTOCOL)
                 .required(true)
                 .args([ARG_BINARY, ARG_COMPACT]),
+        )
+        .arg(
+            Arg::new(ARG_CHECK_MESSAGE_LENGTH)
+                .help("Check the message length in response")
+                .long(ARG_CHECK_MESSAGE_LENGTH)
+                .num_args(1)
+                .value_parser(value_parser!(usize)),
         )
     }
 }

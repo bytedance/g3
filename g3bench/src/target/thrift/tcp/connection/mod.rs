@@ -7,6 +7,8 @@ use std::io;
 
 use thiserror::Error;
 
+use crate::target::thrift::protocol::{ThriftResponseMessage, ThriftResponseMessageParseError};
+
 mod simplex;
 pub(super) use simplex::SimplexTransfer;
 
@@ -23,8 +25,11 @@ pub(super) enum ThriftTcpResponseError {
     ReadFailed(io::Error),
     #[error("no enough data read")]
     NoEnoughDataRead,
+    #[error("invalid message: {0}")]
+    InvalidMessage(#[from] ThriftResponseMessageParseError),
 }
 
 pub(crate) struct ThriftTcpResponse {
     pub(super) seq_id: i32,
+    pub(super) message: ThriftResponseMessage,
 }

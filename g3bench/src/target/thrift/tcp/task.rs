@@ -160,6 +160,32 @@ impl ThriftTcpTaskContext {
             Err(_) => Err(anyhow!("{}: request timed out", connection.local_addr())),
         }
     }
+
+    fn check_response(&self, rsp: ThriftTcpResponse) -> anyhow::Result<()> {
+        if rsp.seq_id != rsp.message.seq_id {
+            return Err(anyhow!(
+                "sequence number in header not match the value in message"
+            ));
+        }
+
+        if rsp.message.method != self.args.global.method {
+            return Err(anyhow!(
+                "unexpected method name {} in response",
+                rsp.message.method
+            ));
+        }
+
+        if let Some(check_message_length) = self.args.global.check_message_length {
+            if check_message_length != rsp.message.encoded_length {
+                return Err(anyhow!(
+                    "unexpected received message length {}",
+                    rsp.message.encoded_length
+                ));
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl BenchTaskContext for ThriftTcpTaskContext {
@@ -186,12 +212,11 @@ impl BenchTaskContext for ThriftTcpTaskContext {
                 .map_err(BenchError::Fatal)?;
 
             match self.do_run_multiplex(&handle).await {
-                Ok(_rsp) => {
+                Ok(rsp) => {
                     let total_time = time_started.elapsed();
                     self.histogram_recorder.record_total_time(total_time);
 
-                    // TODO check rsp
-                    Ok(())
+                    self.check_response(rsp).map_err(BenchError::Task)
                 }
                 Err(e) => {
                     self.multiplex = None;
@@ -205,15 +230,14 @@ impl BenchTaskContext for ThriftTcpTaskContext {
                 .map_err(BenchError::Fatal)?;
 
             match self.do_run_simplex(&mut handle).await {
-                Ok(_rsp) => {
+                Ok(rsp) => {
                     let total_time = time_started.elapsed();
                     if !self.args.no_keepalive {
                         self.simplex = Some(handle);
                     }
                     self.histogram_recorder.record_total_time(total_time);
 
-                    // TODO check rsp
-                    Ok(())
+                    self.check_response(rsp).map_err(BenchError::Task)
                 }
                 Err(e) => Err(BenchError::Task(e)),
             }

@@ -22,7 +22,7 @@ impl CompactMessageBuilder {
         })
     }
 
-    pub(super) fn build_call(
+    pub(crate) fn build_call(
         &self,
         seq_id: i32,
         framed: bool,
