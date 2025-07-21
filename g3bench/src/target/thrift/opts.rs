@@ -8,7 +8,7 @@ use std::sync::Arc;
 use anyhow::{Context, anyhow};
 use clap::{Arg, ArgAction, ArgGroup, ArgMatches, Command};
 
-use super::protocol::{BinaryRequestBuilder, CompactRequestBuilder, ThriftRequestBuilder};
+use super::protocol::{BinaryMessageBuilder, CompactMessageBuilder, ThriftMessageBuilder};
 
 const ARG_METHOD: &str = "method";
 const ARG_PAYLOAD: &str = "payload";
@@ -24,7 +24,7 @@ pub(super) trait AppendThriftArgs {
 pub(super) struct ThriftGlobalArgs {
     pub(super) method: String,
     pub(super) payload: Arc<[u8]>,
-    pub(super) request_builder: ThriftRequestBuilder,
+    pub(super) request_builder: ThriftMessageBuilder,
 }
 
 impl ThriftGlobalArgs {
@@ -35,13 +35,13 @@ impl ThriftGlobalArgs {
             .map_err(|e| anyhow!("not valid hex encoded request struct: {e}"))?;
 
         let request_builder = if args.get_flag(ARG_BINARY) {
-            let request = BinaryRequestBuilder::new_call(name)
+            let request = BinaryMessageBuilder::new_call(name)
                 .context("failed to build thrift binary transport request")?;
-            ThriftRequestBuilder::Binary(request)
+            ThriftMessageBuilder::Binary(request)
         } else if args.get_flag(ARG_COMPACT) {
-            let request = CompactRequestBuilder::new_call(name)
+            let request = CompactMessageBuilder::new_call(name)
                 .context("failed to build thrift compact transport request")?;
-            ThriftRequestBuilder::Compact(request)
+            ThriftMessageBuilder::Compact(request)
         } else {
             unreachable!()
         };

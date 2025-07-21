@@ -6,23 +6,23 @@
 use anyhow::anyhow;
 use integer_encoding::VarInt;
 
-pub(crate) struct CompactRequestBuilder {
+pub(crate) struct CompactMessageBuilder {
     name: String,
     name_len_bytes: Vec<u8>,
 }
 
-impl CompactRequestBuilder {
+impl CompactMessageBuilder {
     pub(crate) fn new_call(name: &str) -> anyhow::Result<Self> {
         let name_len = i32::try_from(name.len()).map_err(|_| anyhow!("too long method name"))?;
         let name_len_bytes = name_len.encode_var_vec();
 
-        Ok(CompactRequestBuilder {
+        Ok(CompactMessageBuilder {
             name: name.to_string(),
             name_len_bytes,
         })
     }
 
-    pub(super) fn build(
+    pub(super) fn build_call(
         &self,
         seq_id: i32,
         framed: bool,

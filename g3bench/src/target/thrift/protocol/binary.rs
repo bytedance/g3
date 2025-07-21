@@ -5,23 +5,23 @@
 
 use anyhow::anyhow;
 
-pub(crate) struct BinaryRequestBuilder {
+pub(crate) struct BinaryMessageBuilder {
     name: String,
     name_len_bytes: [u8; 4],
 }
 
-impl BinaryRequestBuilder {
+impl BinaryMessageBuilder {
     pub(crate) fn new_call(name: &str) -> anyhow::Result<Self> {
         let name_len = i32::try_from(name.len()).map_err(|_| anyhow!("too long method name"))?;
         let name_len_bytes = name_len.to_be_bytes();
 
-        Ok(BinaryRequestBuilder {
+        Ok(BinaryMessageBuilder {
             name: name.to_string(),
             name_len_bytes,
         })
     }
 
-    pub(super) fn build(
+    pub(super) fn build_call(
         &self,
         seq_id: i32,
         framed: bool,

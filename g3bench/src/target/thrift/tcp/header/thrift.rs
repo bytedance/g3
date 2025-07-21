@@ -107,24 +107,8 @@ impl ThriftTHeaderBuilder {
 
         Ok(HeaderBufOffsets {
             length: length_offset,
+            seq_id: length_offset + 8,
         })
-    }
-
-    pub(super) fn update_length(
-        &self,
-        offsets: HeaderBufOffsets,
-        buf: &mut [u8],
-    ) -> anyhow::Result<()> {
-        let len = buf.len() - offsets.length - 4;
-        let len = u32::try_from(len)
-            .map_err(|_| anyhow!("too large Thrift THeader message length {len}"))?;
-
-        let len_bytes = len.to_be_bytes();
-        let dst = &mut buf[offsets.length..];
-        unsafe {
-            std::ptr::copy_nonoverlapping(len_bytes.as_ptr(), dst.as_mut_ptr(), 4);
-        }
-        Ok(())
     }
 }
 
