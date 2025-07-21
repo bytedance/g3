@@ -13,11 +13,6 @@ pub(super) use simplex::SimplexTransfer;
 mod multiplex;
 pub(super) use multiplex::MultiplexTransfer;
 
-pub(super) struct ThriftTcpRequest {
-    pub(super) seq_id: i32,
-    pub(super) buf: Vec<u8>,
-}
-
 #[derive(Debug, Error)]
 pub(super) enum ThriftTcpResponseLocalError {
     #[error("invalid request: {0}")]

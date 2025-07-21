@@ -16,10 +16,15 @@ use rustc_hash::FxHashMap;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::time::{Instant, Sleep};
 
-use super::{
-    ThriftTcpRequest, ThriftTcpResponse, ThriftTcpResponseError, ThriftTcpResponseLocalError,
-};
+use super::{ThriftTcpResponse, ThriftTcpResponseError, ThriftTcpResponseLocalError};
 use crate::target::thrift::tcp::ThriftTcpArgs;
+use crate::target::thrift::tcp::header::HeaderBufOffsets;
+
+struct QueuedRequest {
+    seq_id: i32,
+    payload: Arc<[u8]>,
+    rsp_waker: Waker,
+}
 
 struct ResponseValue {
     data: Option<ThriftTcpResponse>,
@@ -51,8 +56,7 @@ impl ResponseValue {
 struct SharedState {
     args: Arc<ThriftTcpArgs>,
     write_waker: AtomicWaker,
-    next_req_id: AtomicI32,
-    req_queue: ConcurrentQueue<(ThriftTcpRequest, Waker)>,
+    req_queue: ConcurrentQueue<QueuedRequest>,
     rsp_table: Mutex<FxHashMap<i32, ResponseValue>>,
     error: Mutex<Option<Arc<ThriftTcpResponseError>>>,
 }
@@ -62,15 +66,10 @@ impl SharedState {
         SharedState {
             args,
             write_waker: AtomicWaker::new(),
-            next_req_id: AtomicI32::new(0),
             req_queue: ConcurrentQueue::bounded(1024),
             rsp_table: Mutex::new(FxHashMap::default()),
             error: Mutex::new(None),
         }
-    }
-
-    fn next_req_id(&self) -> i32 {
-        self.next_req_id.fetch_add(1, Ordering::Relaxed)
     }
 
     fn set_local_error(&self, e: ThriftTcpResponseLocalError) {
@@ -85,9 +84,9 @@ impl SharedState {
 
     fn clean_pending_req(&self) {
         let mut rsp_table_guard = self.rsp_table.lock().unwrap();
-        while let Ok((r, waker)) = self.req_queue.pop() {
+        while let Ok(r) = self.req_queue.pop() {
             rsp_table_guard.insert(r.seq_id, ResponseValue::empty());
-            waker.wake();
+            r.rsp_waker.wake();
         }
         for v in (*rsp_table_guard).values_mut() {
             if let Some(waker) = v.waker.take() {
@@ -104,13 +103,69 @@ impl SharedState {
 
 struct UnderlyingWriterState {
     shared: Arc<SharedState>,
-    current_offset: usize,
-    current_request: Option<ThriftTcpRequest>,
+
+    send_buf: Vec<u8>,
+    send_buf_write_offset: usize,
+    send_header_size: usize,
+    send_header_buf_offsets: Option<HeaderBufOffsets>,
+
     request_timeout: Duration,
     shutdown_wait: Option<Pin<Box<Sleep>>>,
 }
 
 impl UnderlyingWriterState {
+    fn new(shared: Arc<SharedState>, request_timeout: Duration) -> anyhow::Result<Self> {
+        let mut send_buf = Vec::with_capacity(1024);
+        let mut send_header_buf_offsets = None;
+        if let Some(header_builder) = &shared.args.header_builder {
+            let offsets = header_builder.build(
+                shared.args.global.request_builder.protocol(),
+                0,
+                &mut send_buf,
+            )?;
+            send_header_buf_offsets = Some(offsets);
+        }
+        let send_header_size = send_buf.len();
+        let send_buf_write_offset = send_buf.len();
+
+        Ok(UnderlyingWriterState {
+            shared,
+            send_buf,
+            send_buf_write_offset,
+            send_header_size,
+            send_header_buf_offsets,
+            request_timeout,
+            shutdown_wait: None,
+        })
+    }
+
+    fn build_new_request(&mut self, seq_id: i32, payload: &[u8]) -> anyhow::Result<()> {
+        if let Some(offsets) = &self.send_header_buf_offsets {
+            offsets.update_seq_id(&mut self.send_buf, seq_id)?;
+
+            self.send_buf.resize(self.send_header_size, 0);
+            self.shared.args.global.request_builder.build_call(
+                seq_id,
+                self.shared.args.framed,
+                payload,
+                &mut self.send_buf,
+            )?;
+
+            offsets.update_length(&mut self.send_buf)?;
+        } else {
+            self.send_buf.clear();
+            self.shared.args.global.request_builder.build_call(
+                seq_id,
+                self.shared.args.framed,
+                payload,
+                &mut self.send_buf,
+            )?;
+        }
+
+        self.send_buf_write_offset = 0;
+        Ok(())
+    }
+
     fn poll_write<W>(&mut self, cx: &mut Context<'_>, mut writer: Pin<&mut W>) -> Poll<()>
     where
         W: AsyncWrite + Unpin,
@@ -119,39 +174,40 @@ impl UnderlyingWriterState {
 
         let mut do_flush = false;
         loop {
-            if let Some(req) = self.current_request.take() {
-                let current_buffer = &req.buf;
-                while self.current_offset < current_buffer.len() {
-                    match writer
-                        .as_mut()
-                        .poll_write(cx, &current_buffer[self.current_offset..])
-                    {
-                        Poll::Ready(Ok(n)) => {
-                            self.current_offset += n;
-                            do_flush = true;
-                        }
-                        Poll::Ready(Err(e)) => {
-                            self.shared.req_queue.close();
-                            self.shared
-                                .set_local_error(ThriftTcpResponseLocalError::WriteFailed(e));
-                            self.shared.clean_pending_req();
-                            let _ = writer.as_mut().poll_shutdown(cx);
-                            return Poll::Ready(());
-                        }
-                        Poll::Pending => {
-                            self.current_request = Some(req);
-                            return Poll::Pending;
-                        }
-                    };
-                }
+            while self.send_buf_write_offset < self.send_buf.len() {
+                match writer
+                    .as_mut()
+                    .poll_write(cx, &self.send_buf[self.send_buf_write_offset..])
+                {
+                    Poll::Ready(Ok(n)) => {
+                        self.send_buf_write_offset += n;
+                        do_flush = true;
+                    }
+                    Poll::Ready(Err(e)) => {
+                        self.shared.req_queue.close();
+                        self.shared
+                            .set_local_error(ThriftTcpResponseLocalError::WriteFailed(e));
+                        self.shared.clean_pending_req();
+                        let _ = writer.as_mut().poll_shutdown(cx);
+                        return Poll::Ready(());
+                    }
+                    Poll::Pending => return Poll::Pending,
+                };
             }
 
             match self.shared.req_queue.pop() {
-                Ok((req, waker)) => {
+                Ok(req) => {
+                    if let Err(e) = self.build_new_request(req.seq_id, &req.payload) {
+                        self.shared.req_queue.close();
+                        self.shared
+                            .set_local_error(ThriftTcpResponseLocalError::InvalidRequest(e));
+                        self.shared.clean_pending_req();
+                        let _ = writer.as_mut().poll_shutdown(cx);
+                        return Poll::Ready(());
+                    }
+
                     let mut rsp_table_guard = self.shared.rsp_table.lock().unwrap();
-                    rsp_table_guard.insert(req.seq_id, ResponseValue::new(waker));
-                    self.current_offset = 0;
-                    self.current_request = Some(req);
+                    rsp_table_guard.insert(req.seq_id, ResponseValue::new(req.rsp_waker));
                 }
                 Err(PopError::Empty) => {
                     if do_flush {
@@ -219,26 +275,20 @@ impl Future for SendRequest {
         use std::collections::hash_map::Entry;
 
         if let Some(req_payload) = self.request_payload.take() {
-            let rsp_waker = cx.waker().clone();
-            let id = self.shared.next_req_id();
-            let req = match self.shared.args.build_tcp_request(id, &req_payload) {
-                Ok(req) => req,
-                Err(e) => {
-                    self.shared
-                        .set_local_error(ThriftTcpResponseLocalError::InvalidRequest(e));
-                    return Poll::Ready(Err(id));
-                }
+            let req = QueuedRequest {
+                seq_id: self.rsp_id,
+                payload: req_payload,
+                rsp_waker: cx.waker().clone(),
             };
-            match self.shared.req_queue.push((req, rsp_waker)) {
+            match self.shared.req_queue.push(req) {
                 Ok(_) => {
                     self.shared.write_waker.wake();
-                    self.rsp_id = id;
                     Poll::Pending
                 }
                 Err(PushError::Closed(_)) => Poll::Ready(Err(self.rsp_id)),
-                Err(PushError::Full((_req, waker))) => {
-                    self.request_payload = Some(req_payload);
-                    waker.wake();
+                Err(PushError::Full(req)) => {
+                    self.request_payload = Some(req.payload);
+                    req.rsp_waker.wake();
                     Poll::Pending
                 }
             }
@@ -261,6 +311,7 @@ impl Future for SendRequest {
 
 pub(crate) struct MultiplexTransfer {
     shared: Arc<SharedState>,
+    next_req_id: AtomicI32,
     local_addr: SocketAddr,
 }
 
@@ -283,11 +334,16 @@ impl MultiplexTransfer {
         self.local_addr
     }
 
+    fn next_req_id(&self) -> i32 {
+        let id = self.next_req_id.fetch_add(1, Ordering::Relaxed);
+        if id == 0 { self.next_req_id() } else { id }
+    }
+
     pub(crate) fn send_request(&self, req_payload: Arc<[u8]>) -> SendRequest {
         SendRequest {
             shared: self.shared.clone(),
             request_payload: Some(req_payload),
-            rsp_id: 0,
+            rsp_id: self.next_req_id(),
         }
     }
 
@@ -302,7 +358,7 @@ impl MultiplexTransfer {
         w: W,
         local_addr: SocketAddr,
         request_timeout: Duration,
-    ) -> Self
+    ) -> anyhow::Result<Self>
     where
         R: AsyncRead + Send + Unpin + 'static,
         W: AsyncWrite + Send + Unpin + 'static,
@@ -310,20 +366,12 @@ impl MultiplexTransfer {
         let shared = Arc::new(SharedState::new(args));
         let handle = MultiplexTransfer {
             shared: shared.clone(),
+            next_req_id: AtomicI32::new(0),
             local_addr,
         };
 
-        let underlying_w = UnderlyingWriter {
-            writer: w,
-            state: UnderlyingWriterState {
-                shared: Arc::clone(&shared),
-                current_offset: 0,
-                current_request: None,
-                request_timeout,
-                shutdown_wait: None,
-            },
-        };
-        tokio::spawn(underlying_w);
+        let state = UnderlyingWriterState::new(shared.clone(), request_timeout)?;
+        tokio::spawn(UnderlyingWriter { writer: w, state });
 
         let clean_shared = shared.clone();
         tokio::spawn(async move {
@@ -377,6 +425,6 @@ impl MultiplexTransfer {
             }
         });
 
-        handle
+        Ok(handle)
     }
 }

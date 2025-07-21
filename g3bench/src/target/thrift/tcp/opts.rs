@@ -19,8 +19,8 @@ use g3_types::net::UpstreamAddr;
 
 use super::header::{HeaderBuilder, KitexTTHeaderBuilder, ThriftTHeaderBuilder};
 use super::{
-    MultiplexTransfer, SimplexTransfer, ThriftTcpRequest, ThriftTcpResponse,
-    ThriftTcpResponseError, ThriftTcpResponseLocalError,
+    MultiplexTransfer, SimplexTransfer, ThriftTcpResponse, ThriftTcpResponseError,
+    ThriftTcpResponseLocalError,
 };
 use crate::module::socket::{AppendSocketArgs, SocketArgs};
 use crate::opts::ProcArgs;
@@ -106,13 +106,7 @@ impl ThriftTcpArgs {
             .map_err(|e| anyhow!("failed to get local address: {e:?}"))?;
 
         let (r, w) = tcp_stream.into_split();
-        Ok(MultiplexTransfer::start(
-            self.clone(),
-            r,
-            w,
-            local_addr,
-            self.timeout,
-        ))
+        MultiplexTransfer::start(self.clone(), r, w, local_addr, self.timeout)
     }
 
     pub(super) async fn new_simplex_connection(
@@ -125,32 +119,7 @@ impl ThriftTcpArgs {
             .map_err(|e| anyhow!("failed to get local address: {e:?}"))?;
 
         let (r, w) = tcp_stream.into_split();
-        Ok(SimplexTransfer::new(self.clone(), r, w, local_addr))
-    }
-
-    pub(super) fn build_tcp_request(
-        &self,
-        seq_id: i32,
-        payload: &[u8],
-    ) -> anyhow::Result<ThriftTcpRequest> {
-        let mut buf = Vec::with_capacity(1024);
-
-        if let Some(header_builder) = &self.header_builder {
-            let offsets =
-                header_builder.build(self.global.request_builder.protocol(), seq_id, &mut buf)?;
-
-            self.global
-                .request_builder
-                .build(seq_id, self.framed, payload, &mut buf)?;
-
-            header_builder.update_length(offsets, &mut buf)?;
-        } else {
-            self.global
-                .request_builder
-                .build(seq_id, self.framed, payload, &mut buf)?;
-        }
-
-        Ok(ThriftTcpRequest { seq_id, buf })
+        SimplexTransfer::new(self.clone(), r, w, local_addr)
     }
 
     pub(super) async fn read_tcp_response<R>(
@@ -290,7 +259,7 @@ pub(super) fn parse_tcp_args(args: &ArgMatches) -> anyhow::Result<ThriftTcpArgs>
     t_args.framed = args.get_flag(ARG_FRAMED);
 
     if args.get_flag(ARG_KITEX_TTHEADER) {
-        let mut builder = KitexTTHeaderBuilder::new(t_args.framed, &t_args.global.method)
+        let mut builder = KitexTTHeaderBuilder::new_request(t_args.framed, &t_args.global.method)
             .context("failed to create Kitex TTHEADER builder")?;
 
         if let Some(values) = args.get_many::<String>(ARG_INFO_KV) {

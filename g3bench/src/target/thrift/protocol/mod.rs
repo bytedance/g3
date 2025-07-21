@@ -4,23 +4,23 @@
  */
 
 mod binary;
-pub(super) use binary::BinaryRequestBuilder;
+pub(super) use binary::BinaryMessageBuilder;
 
 mod compact;
-pub(super) use compact::CompactRequestBuilder;
+pub(super) use compact::CompactMessageBuilder;
 
 pub(super) enum ThriftProtocol {
     Binary,
     Compact,
 }
 
-pub(super) enum ThriftRequestBuilder {
-    Binary(BinaryRequestBuilder),
-    Compact(CompactRequestBuilder),
+pub(super) enum ThriftMessageBuilder {
+    Binary(BinaryMessageBuilder),
+    Compact(CompactMessageBuilder),
 }
 
-impl ThriftRequestBuilder {
-    pub(super) fn build(
+impl ThriftMessageBuilder {
+    pub(super) fn build_call(
         &self,
         seq_id: i32,
         framed: bool,
@@ -28,15 +28,15 @@ impl ThriftRequestBuilder {
         buf: &mut Vec<u8>,
     ) -> anyhow::Result<()> {
         match self {
-            ThriftRequestBuilder::Binary(r) => r.build(seq_id, framed, payload, buf),
-            ThriftRequestBuilder::Compact(r) => r.build(seq_id, framed, payload, buf),
+            ThriftMessageBuilder::Binary(r) => r.build_call(seq_id, framed, payload, buf),
+            ThriftMessageBuilder::Compact(r) => r.build_call(seq_id, framed, payload, buf),
         }
     }
 
     pub(super) fn protocol(&self) -> ThriftProtocol {
         match self {
-            ThriftRequestBuilder::Binary(_) => ThriftProtocol::Binary,
-            ThriftRequestBuilder::Compact(_) => ThriftProtocol::Compact,
+            ThriftMessageBuilder::Binary(_) => ThriftProtocol::Binary,
+            ThriftMessageBuilder::Compact(_) => ThriftProtocol::Compact,
         }
     }
 }

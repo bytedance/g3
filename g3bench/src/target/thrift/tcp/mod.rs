@@ -24,8 +24,8 @@ use pool::ThriftConnectionPool;
 
 mod connection;
 use connection::{
-    MultiplexTransfer, SimplexTransfer, ThriftTcpRequest, ThriftTcpResponse,
-    ThriftTcpResponseError, ThriftTcpResponseLocalError,
+    MultiplexTransfer, SimplexTransfer, ThriftTcpResponse, ThriftTcpResponseError,
+    ThriftTcpResponseLocalError,
 };
 
 mod task;
