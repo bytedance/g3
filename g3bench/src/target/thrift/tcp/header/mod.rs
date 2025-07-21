@@ -4,14 +4,16 @@
  */
 
 use anyhow::anyhow;
+use tokio::io::AsyncRead;
 
+use super::ThriftTcpResponseError;
 use crate::target::thrift::protocol::ThriftProtocol;
 
 mod kitex;
-pub(super) use kitex::KitexTTHeaderBuilder;
+pub(super) use kitex::{KitexTTHeaderBuilder, KitexTTHeaderReader};
 
 mod thrift;
-pub(super) use thrift::ThriftTHeaderBuilder;
+pub(super) use thrift::{ThriftTHeaderBuilder, ThriftTHeaderReader};
 
 pub(super) struct HeaderBufOffsets {
     length: usize,
@@ -56,6 +58,39 @@ impl HeaderBuilder {
         match self {
             HeaderBuilder::Thrift(t) => t.build(protocol, seq_id, buf),
             HeaderBuilder::Kitex(t) => t.build(protocol, seq_id, buf),
+        }
+    }
+
+    pub(super) fn response_reader(&self) -> HeaderReader {
+        match self {
+            HeaderBuilder::Thrift(_) => HeaderReader::Thrift(Default::default()),
+            HeaderBuilder::Kitex(_) => HeaderReader::Kitex(Default::default()),
+        }
+    }
+}
+
+pub(super) struct HeaderTransportResponse<'a> {
+    pub(super) seq_id: i32,
+    pub(super) frame_bytes: &'a [u8],
+}
+
+pub(super) enum HeaderReader {
+    Thrift(ThriftTHeaderReader),
+    Kitex(KitexTTHeaderReader),
+}
+
+impl HeaderReader {
+    pub(super) async fn read<'a, R>(
+        &mut self,
+        reader: &mut R,
+        buf: &'a mut Vec<u8>,
+    ) -> Result<HeaderTransportResponse<'a>, ThriftTcpResponseError>
+    where
+        R: AsyncRead + Unpin,
+    {
+        match self {
+            HeaderReader::Thrift(t) => t.read(reader, buf).await,
+            HeaderReader::Kitex(t) => t.read(reader, buf).await,
         }
     }
 }

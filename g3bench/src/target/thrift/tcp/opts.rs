@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use clap::{Arg, ArgAction, ArgGroup, ArgMatches, Command, value_parser};
-use tokio::io::AsyncRead;
+use tokio::io::{AsyncRead, AsyncReadExt};
 use tokio::net::TcpStream;
 
 use g3_io_ext::LimitedReadExt;
@@ -18,10 +18,7 @@ use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::UpstreamAddr;
 
 use super::header::{HeaderBuilder, KitexTTHeaderBuilder, ThriftTHeaderBuilder};
-use super::{
-    MultiplexTransfer, SimplexTransfer, ThriftTcpResponse, ThriftTcpResponseError,
-    ThriftTcpResponseLocalError,
-};
+use super::{MultiplexTransfer, SimplexTransfer, ThriftTcpResponse, ThriftTcpResponseError};
 use crate::module::socket::{AppendSocketArgs, SocketArgs};
 use crate::opts::ProcArgs;
 use crate::target::thrift::{AppendThriftArgs, ThriftGlobalArgs};
@@ -122,6 +119,41 @@ impl ThriftTcpArgs {
         SimplexTransfer::new(self.clone(), r, w, local_addr)
     }
 
+    async fn read_framed_response<R>(
+        &self,
+        reader: &mut R,
+        buf: &mut Vec<u8>,
+    ) -> Result<(), ThriftTcpResponseError>
+    where
+        R: AsyncRead + Unpin,
+    {
+        let start_offset = buf.len();
+        buf.resize(start_offset + 4, 0);
+
+        let nr = reader
+            .read_exact(&mut buf[start_offset..])
+            .await
+            .map_err(ThriftTcpResponseError::ReadFailed)?;
+        if nr != 4 {
+            return Err(ThriftTcpResponseError::NoEnoughDataRead);
+        }
+
+        let l = &buf[start_offset..];
+        let to_read = u32::from_be_bytes([l[0], l[1], l[2], l[3]]) as usize;
+
+        let msg_start = start_offset + 4;
+        buf.resize(msg_start + to_read, 0);
+        let nr = reader
+            .read_exact(&mut buf[msg_start..])
+            .await
+            .map_err(ThriftTcpResponseError::ReadFailed)?;
+        if nr != to_read {
+            return Err(ThriftTcpResponseError::NoEnoughDataRead);
+        }
+
+        Ok(())
+    }
+
     pub(super) async fn read_tcp_response<R>(
         &self,
         reader: &mut R,
@@ -130,15 +162,57 @@ impl ThriftTcpArgs {
     where
         R: AsyncRead + Unpin,
     {
-        buf.resize(1024, 0);
-        let nr = reader
-            .read_all_once(buf)
-            .await
-            .map_err(ThriftTcpResponseLocalError::ReadFailed)?;
+        buf.clear();
+        match &self.header_builder {
+            Some(builder) => {
+                let mut rsp_reader = builder.response_reader();
+                let rsp = rsp_reader.read(reader, buf).await?;
 
-        println!("{nr} bytes received");
+                if self.framed {
+                    let frame = rsp.frame_bytes;
+                    if frame.len() < 4 {
+                        return Err(ThriftTcpResponseError::InvalidRequest(anyhow!(
+                            "no enough data for frame length field"
+                        )));
+                    }
+                    let frame_length =
+                        u32::from_be_bytes([frame[0], frame[1], frame[2], frame[3]]) as usize;
+                    if frame_length + 4 != frame.len() {
+                        return Err(ThriftTcpResponseError::InvalidRequest(anyhow!(
+                            "invalid frame length {frame_length}, the full frame size is {}",
+                            frame.len()
+                        )));
+                    }
+                    self.parse_rsp_message(rsp.seq_id, &frame[4..])
+                } else {
+                    self.parse_rsp_message(rsp.seq_id, rsp.frame_bytes)
+                }
+            }
+            None => {
+                if self.framed {
+                    self.read_framed_response(reader, buf).await?;
+                    self.parse_rsp_message(0, &buf[4..])?;
+                } else {
+                    buf.resize(1024, 0);
+                    let nr = reader
+                        .read_all_once(buf)
+                        .await
+                        .map_err(ThriftTcpResponseError::ReadFailed)?;
+                    self.parse_rsp_message(0, &buf[..nr])?;
+                }
+                Ok(ThriftTcpResponse { seq_id: 0 })
+            }
+        }
+    }
 
-        Ok(ThriftTcpResponse { seq_id: 0 })
+    fn parse_rsp_message(
+        &self,
+        seq_id: i32,
+        _buf: &[u8],
+    ) -> Result<ThriftTcpResponse, ThriftTcpResponseError> {
+        // TODO parse response
+
+        Ok(ThriftTcpResponse { seq_id })
     }
 }
 

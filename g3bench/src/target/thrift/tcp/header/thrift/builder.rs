@@ -3,10 +3,10 @@
  * Copyright 2025 ByteDance and/or its affiliates.
  */
 
-use std::collections::BTreeMap;
-
 use anyhow::{Context, anyhow};
 use integer_encoding::VarInt;
+use std::collections::BTreeMap;
+use std::convert::TryFrom;
 
 use super::HeaderBufOffsets;
 use crate::target::thrift::protocol::ThriftProtocol;
@@ -51,7 +51,7 @@ impl ThriftTHeaderBuilder {
         Ok(())
     }
 
-    pub(super) fn build(
+    pub(crate) fn build(
         &self,
         protocol: ThriftProtocol,
         seq_id: i32,

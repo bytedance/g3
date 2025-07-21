@@ -14,19 +14,15 @@ mod multiplex;
 pub(super) use multiplex::MultiplexTransfer;
 
 #[derive(Debug, Error)]
-pub(super) enum ThriftTcpResponseLocalError {
+pub(super) enum ThriftTcpResponseError {
     #[error("invalid request: {0}")]
     InvalidRequest(anyhow::Error),
     #[error("write failed: {0}")]
     WriteFailed(io::Error),
     #[error("read failed: {0}")]
     ReadFailed(io::Error),
-}
-
-#[derive(Debug, Error)]
-pub(super) enum ThriftTcpResponseError {
-    #[error("local error: {0}")]
-    Local(#[from] ThriftTcpResponseLocalError),
+    #[error("no enough data read")]
+    NoEnoughDataRead,
 }
 
 pub(crate) struct ThriftTcpResponse {

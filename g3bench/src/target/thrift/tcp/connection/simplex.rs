@@ -11,7 +11,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 
 use g3_io_ext::LimitedWriteExt;
 
-use super::{ThriftTcpResponse, ThriftTcpResponseError, ThriftTcpResponseLocalError};
+use super::{ThriftTcpResponse, ThriftTcpResponseError};
 use crate::target::thrift::tcp::ThriftTcpArgs;
 use crate::target::thrift::tcp::header::HeaderBufOffsets;
 
@@ -106,12 +106,12 @@ impl SimplexTransfer {
         req_payload: &[u8],
     ) -> Result<ThriftTcpResponse, ThriftTcpResponseError> {
         self.build_new_request(req_payload)
-            .map_err(ThriftTcpResponseLocalError::InvalidRequest)?;
+            .map_err(ThriftTcpResponseError::InvalidRequest)?;
 
         self.writer
             .write_all_flush(&self.send_buf)
             .await
-            .map_err(ThriftTcpResponseLocalError::WriteFailed)?;
+            .map_err(ThriftTcpResponseError::WriteFailed)?;
 
         self.args
             .read_tcp_response(&mut self.reader, &mut self.read_buf)
