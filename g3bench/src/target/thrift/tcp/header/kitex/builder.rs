@@ -126,7 +126,7 @@ impl KitexTTHeaderBuilder {
         Ok(())
     }
 
-    pub(super) fn build(
+    pub(crate) fn build(
         &self,
         protocol: ThriftProtocol,
         seq_id: i32,

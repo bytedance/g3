@@ -16,7 +16,7 @@ use rustc_hash::FxHashMap;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::time::{Instant, Sleep};
 
-use super::{ThriftTcpResponse, ThriftTcpResponseError, ThriftTcpResponseLocalError};
+use super::{ThriftTcpResponse, ThriftTcpResponseError};
 use crate::target::thrift::tcp::ThriftTcpArgs;
 use crate::target::thrift::tcp::header::HeaderBufOffsets;
 
@@ -72,9 +72,9 @@ impl SharedState {
         }
     }
 
-    fn set_local_error(&self, e: ThriftTcpResponseLocalError) {
+    fn set_local_error(&self, e: ThriftTcpResponseError) {
         let mut req_err_guard = self.error.lock().unwrap();
-        *req_err_guard = Some(Arc::new(ThriftTcpResponseError::Local(e)));
+        *req_err_guard = Some(Arc::new(e));
     }
 
     fn set_rsp_error(&self, e: ThriftTcpResponseError) {
@@ -186,7 +186,7 @@ impl UnderlyingWriterState {
                     Poll::Ready(Err(e)) => {
                         self.shared.req_queue.close();
                         self.shared
-                            .set_local_error(ThriftTcpResponseLocalError::WriteFailed(e));
+                            .set_local_error(ThriftTcpResponseError::WriteFailed(e));
                         self.shared.clean_pending_req();
                         let _ = writer.as_mut().poll_shutdown(cx);
                         return Poll::Ready(());
@@ -200,7 +200,7 @@ impl UnderlyingWriterState {
                     if let Err(e) = self.build_new_request(req.seq_id, &req.payload) {
                         self.shared.req_queue.close();
                         self.shared
-                            .set_local_error(ThriftTcpResponseLocalError::InvalidRequest(e));
+                            .set_local_error(ThriftTcpResponseError::InvalidRequest(e));
                         self.shared.clean_pending_req();
                         let _ = writer.as_mut().poll_shutdown(cx);
                         return Poll::Ready(());
@@ -214,7 +214,7 @@ impl UnderlyingWriterState {
                         if let Err(e) = ready!(writer.as_mut().poll_flush(cx)) {
                             self.shared.req_queue.close();
                             self.shared
-                                .set_local_error(ThriftTcpResponseLocalError::WriteFailed(e));
+                                .set_local_error(ThriftTcpResponseError::WriteFailed(e));
                             self.shared.clean_pending_req();
                             let _ = writer.as_mut().poll_shutdown(cx);
                             return Poll::Ready(());
