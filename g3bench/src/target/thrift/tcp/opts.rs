@@ -37,6 +37,7 @@ const ARG_ACL_TOKEN_KV: &str = "acl-token-kv";
 const ARG_CONNECT_TIMEOUT: &str = "connect-timeout";
 const ARG_TIMEOUT: &str = "timeout";
 const ARG_MULTIPLEX: &str = "multiplex";
+const ARG_NO_KEEPALIVE: &str = "no-keepalive";
 
 const ARG_GROUP_HEADER: &str = "header";
 
@@ -49,6 +50,7 @@ pub(super) struct ThriftTcpArgs {
     pub(super) timeout: Duration,
     pub(super) connect_timeout: Duration,
     pub(super) multiplex: bool,
+    pub(super) no_keepalive: bool,
 
     socket: SocketArgs,
 
@@ -66,6 +68,7 @@ impl ThriftTcpArgs {
             timeout: Duration::from_secs(5),
             connect_timeout: Duration::from_secs(10),
             multiplex: false,
+            no_keepalive: false,
             socket: SocketArgs::default(),
             target_addrs: None,
         }
@@ -261,6 +264,13 @@ pub(super) fn add_tcp_args(app: Command) -> Command {
             .value_parser(value_parser!(usize))
             .requires(ARG_MULTIPLEX),
     )
+    .arg(
+        Arg::new(ARG_NO_KEEPALIVE)
+            .help("Disable keepalive on simplex connections")
+            .action(ArgAction::SetTrue)
+            .long(ARG_NO_KEEPALIVE)
+            .conflicts_with(ARG_MULTIPLEX),
+    )
     .append_socket_args()
     .append_thrift_args()
 }
@@ -343,6 +353,8 @@ pub(super) fn parse_tcp_args(args: &ArgMatches) -> anyhow::Result<ThriftTcpArgs>
             t_args.pool_size = Some(*c);
         }
     }
+
+    t_args.no_keepalive = args.get_flag(ARG_NO_KEEPALIVE);
 
     if let Some(timeout) = g3_clap::humanize::get_duration(args, ARG_CONNECT_TIMEOUT)? {
         t_args.connect_timeout = timeout;

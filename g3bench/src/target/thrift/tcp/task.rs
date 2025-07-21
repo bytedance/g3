@@ -199,15 +199,17 @@ impl BenchTaskContext for ThriftTcpTaskContext {
                 }
             }
         } else {
-            let mut connection = self
+            let mut handle = self
                 .fetch_simplex_connection()
                 .await
                 .map_err(BenchError::Fatal)?;
 
-            match self.do_run_simplex(&mut connection).await {
+            match self.do_run_simplex(&mut handle).await {
                 Ok(_rsp) => {
                     let total_time = time_started.elapsed();
-                    self.simplex = Some(connection);
+                    if !self.args.no_keepalive {
+                        self.simplex = Some(handle);
+                    }
                     self.histogram_recorder.record_total_time(total_time);
 
                     // TODO check rsp
