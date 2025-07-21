@@ -191,16 +191,15 @@ impl ThriftTcpArgs {
             None => {
                 if self.framed {
                     self.read_framed_response(reader, buf).await?;
-                    self.parse_rsp_message(0, &buf[4..])?;
+                    self.parse_rsp_message(0, &buf[4..])
                 } else {
                     buf.resize(1024, 0);
                     let nr = reader
                         .read_all_once(buf)
                         .await
                         .map_err(ThriftTcpResponseError::ReadFailed)?;
-                    self.parse_rsp_message(0, &buf[..nr])?;
+                    self.parse_rsp_message(0, &buf[..nr])
                 }
-                Ok(ThriftTcpResponse { seq_id: 0 })
             }
         }
     }
@@ -208,11 +207,21 @@ impl ThriftTcpArgs {
     fn parse_rsp_message(
         &self,
         seq_id: i32,
-        _buf: &[u8],
+        buf: &[u8],
     ) -> Result<ThriftTcpResponse, ThriftTcpResponseError> {
-        // TODO parse response
-
-        Ok(ThriftTcpResponse { seq_id })
+        let message = self
+            .global
+            .request_builder
+            .response_parser()
+            .parse_buf(buf)?;
+        if seq_id == 0 {
+            Ok(ThriftTcpResponse {
+                seq_id: message.seq_id,
+                message,
+            })
+        } else {
+            Ok(ThriftTcpResponse { seq_id, message })
+        }
     }
 }
 
