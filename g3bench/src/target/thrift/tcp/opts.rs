@@ -30,7 +30,7 @@ const ARG_THRIFT_THEADER: &str = "thrift-theader";
 const ARG_KITEX_TTHEADER: &str = "kitex-ttheader";
 const ARG_INFO_KV: &str = "info-kv";
 const ARG_INFO_INT_KV: &str = "info-int-kv";
-const ARG_ACL_TOKEN_KV: &str = "acl-token-kv";
+const ARG_ACL_TOKEN: &str = "acl-token";
 const ARG_CONNECT_TIMEOUT: &str = "connect-timeout";
 const ARG_TIMEOUT: &str = "timeout";
 const ARG_MULTIPLEX: &str = "multiplex";
@@ -267,11 +267,10 @@ pub(super) fn add_tcp_args(app: Command) -> Command {
             .requires(ARG_KITEX_TTHEADER),
     )
     .arg(
-        Arg::new(ARG_ACL_TOKEN_KV)
+        Arg::new(ARG_ACL_TOKEN)
             .help("Set ACL_TOKEN_KEYVALUE to kitex ttheader")
-            .long(ARG_ACL_TOKEN_KV)
+            .long(ARG_ACL_TOKEN)
             .num_args(1)
-            .action(ArgAction::Append)
             .requires(ARG_KITEX_TTHEADER),
     )
     .arg(
@@ -370,15 +369,10 @@ pub(super) fn parse_tcp_args(args: &ArgMatches) -> anyhow::Result<ThriftTcpArgs>
             }
         }
 
-        if let Some(values) = args.get_many::<String>(ARG_ACL_TOKEN_KV) {
-            for value in values {
-                let Some((k, v)) = value.split_once(':') else {
-                    return Err(anyhow!("invalid ACL_TOKEN_KEYVALUE {value}"));
-                };
-                builder
-                    .add_acl_token_kv(k.trim(), v.trim())
-                    .context(format!("invalid ACL_TOKEN_KEYVALUE {value}"))?;
-            }
+        if let Some(s) = args.get_one::<String>(ARG_ACL_TOKEN) {
+            builder
+                .set_acl_token(s.as_str())
+                .context(format!("invalid ACL TOKEN string {s}"))?;
         }
 
         t_args.header_builder = Some(HeaderBuilder::Kitex(builder));
