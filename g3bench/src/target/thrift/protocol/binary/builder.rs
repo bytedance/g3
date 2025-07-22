@@ -47,3 +47,22 @@ impl BinaryMessageBuilder {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_call() {
+        let builder = BinaryMessageBuilder::new_call("ping").unwrap();
+        let mut buf = Vec::new();
+        builder.build_call(1, true, &[0x00], &mut buf).unwrap();
+        assert_eq!(
+            &buf,
+            &[
+                0x0, 0x0, 0x0, 0x11, 0x80, 0x1, 0x0, 0x1, 0x0, 0x0, 0x0, 0x4, 0x70, 0x69, 0x6e,
+                0x67, 0x0, 0x0, 0x0, 0x1, 0x0
+            ]
+        );
+    }
+}
