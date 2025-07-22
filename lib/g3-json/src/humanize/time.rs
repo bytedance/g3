@@ -46,7 +46,7 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn t_duration() {
+    fn as_duration_ok() {
         let j = json!({"v": "1h2m"});
         assert_eq!(
             as_duration(&j["v"]).unwrap(),
@@ -56,6 +56,18 @@ mod tests {
         let j = json!({"v": "1000"});
         assert_eq!(as_duration(&j["v"]).unwrap(), Duration::from_secs(1000));
 
+        let j = json!({"v": 1000});
+        assert_eq!(as_duration(&j["v"]).unwrap(), Duration::from_secs(1000));
+
+        let j = json!({"v": 1.01});
+        assert_eq!(
+            as_duration(&j["v"]).unwrap(),
+            Duration::try_from_secs_f64(1.01).unwrap()
+        );
+    }
+
+    #[test]
+    fn as_duration_err() {
         let j = json!({"v": "-1000"});
         assert!(as_duration(&j["v"]).is_err());
 
@@ -68,17 +80,14 @@ mod tests {
         let j = json!({"v": "1000Ah"});
         assert!(as_duration(&j["v"]).is_err());
 
-        let j = json!({"v": 1000});
-        assert_eq!(as_duration(&j["v"]).unwrap(), Duration::from_secs(1000));
+        let j = json!({"v": "invalid"});
+        assert!(as_duration(&j["v"]).is_err());
 
         let j = json!({"v": -1000});
         assert!(as_duration(&j["v"]).is_err());
 
-        let j = json!({"v": 1.01});
-        assert_eq!(
-            as_duration(&j["v"]).unwrap(),
-            Duration::try_from_secs_f64(1.01).unwrap()
-        );
+        let j = json!({"v": f64::NAN});
+        assert!(as_duration(&j["v"]).is_err());
 
         let j = json!({"v": ["1"]});
         assert!(as_duration(&j["v"]).is_err());
