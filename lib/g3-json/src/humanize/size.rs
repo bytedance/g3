@@ -47,7 +47,7 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn t_usize() {
+    fn as_usize_ok() {
         let j = json!({"v": "1000"});
         assert_eq!(as_usize(&j["v"]).unwrap(), 1000);
 
@@ -62,7 +62,10 @@ mod tests {
 
         let j = json!({"v": 1024});
         assert_eq!(as_usize(&j["v"]).unwrap(), 1024);
+    }
 
+    #[test]
+    fn as_usize_err() {
         let j = json!({"v": -1024});
         assert!(as_usize(&j["v"]).is_err());
 
@@ -71,5 +74,35 @@ mod tests {
 
         let j = json!({"v": ["1"]});
         assert!(as_usize(&j["v"]).is_err());
+    }
+
+    #[test]
+    fn as_u64_ok() {
+        let j = json!({"v": "1000"});
+        assert_eq!(as_u64(&j["v"]).unwrap(), 1000);
+
+        let j = json!({"v": "1K"});
+        assert_eq!(as_u64(&j["v"]).unwrap(), 1000);
+
+        let j = json!({"v": "1KB"});
+        assert_eq!(as_u64(&j["v"]).unwrap(), 1000);
+
+        let j = json!({"v": "1KiB"});
+        assert_eq!(as_u64(&j["v"]).unwrap(), 1024);
+
+        let j = json!({"v": 1024});
+        assert_eq!(as_u64(&j["v"]).unwrap(), 1024);
+    }
+
+    #[test]
+    fn as_u64_err() {
+        let j = json!({"v": -1024});
+        assert!(as_u64(&j["v"]).is_err());
+
+        let j = json!({"v": 1.01});
+        assert!(as_u64(&j["v"]).is_err());
+
+        let j = json!({"v": ["1"]});
+        assert!(as_u64(&j["v"]).is_err());
     }
 }

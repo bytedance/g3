@@ -52,7 +52,7 @@ mod tests {
     use std::str::FromStr;
 
     #[test]
-    fn t_dst_host() {
+    fn as_dst_host_rule_set_builder_ok() {
         let j = json!({
             "v": {
                 "exact_match": [
@@ -107,5 +107,49 @@ mod tests {
             rule.check(&Host::from_str("127.0.0.1").unwrap()),
             (true, AclAction::ForbidAndLog)
         );
+
+        // case sensitivity of keys
+        let j = json!({
+            "Exact_Match": ["example.com"]
+        });
+        let builder = as_dst_host_rule_set_builder(&j).unwrap();
+        let rule = builder.build();
+
+        assert_eq!(
+            rule.check(&Host::from_str("example.com").unwrap()),
+            (true, AclAction::Permit)
+        );
+    }
+
+    #[test]
+    fn as_dst_host_rule_set_builder_err() {
+        // non-object value type error
+        let j = json!(["invalid", "array"]);
+        assert!(as_dst_host_rule_set_builder(&j).is_err());
+
+        // invalid key in object
+        let j = json!({
+            "valid_key": {
+                "exact_match": ["example.com"]
+            },
+            "invalid_key": "value"
+        });
+        assert!(as_dst_host_rule_set_builder(&j).is_err());
+
+        // multiple invalid keys
+        let j = json!({
+            "invalid1": "value1",
+            "invalid2": "value2"
+        });
+        assert!(as_dst_host_rule_set_builder(&j).is_err());
+
+        // mixed valid and invalid keys
+        let j = json!({
+            "v": {
+                "exact_match": ["example.com"],
+                "invalid_key": "value"
+            }
+        });
+        assert!(as_dst_host_rule_set_builder(&j).is_err());
     }
 }
