@@ -24,7 +24,7 @@ g3bench thrift tcp --target 127.0.0.1:8888 --check-message-length 22 --binary --
 g3bench thrift tcp --target 127.0.0.1:8888 --check-message-length 22 --binary --kitex-ttheader echo ${KITEX_REQUEST}
 
 g3bench thrift tcp --target 127.0.0.1:8888 --check-message-length 22 --binary --kitex-ttheader --info-kv "a:b" echo ${KITEX_REQUEST}
-g3bench thrift tcp --target 127.0.0.1:8888 --check-message-length 22 --binary --kitex-ttheader --acl-token-kv "a:b" echo ${KITEX_REQUEST}
+g3bench thrift tcp --target 127.0.0.1:8888 --check-message-length 22 --binary --kitex-ttheader --acl-token "abcdefg" echo ${KITEX_REQUEST}
 g3bench thrift tcp --target 127.0.0.1:8888 --check-message-length 22 --binary --kitex-ttheader --info-int-kv "4:not-default" echo ${KITEX_REQUEST}
 
 kill -INT $KITEX_PID

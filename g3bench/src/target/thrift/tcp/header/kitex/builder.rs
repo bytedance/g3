@@ -44,7 +44,7 @@ pub(crate) struct KitexTTHeaderBuilder {
     // See https://github.com/cloudwego/kitex/blob/main/pkg/remote/transmeta/metakey.go#L23
     // for all defined int key types
     info_int_key_values: BTreeMap<UInt16Value, StringValue>,
-    acl_token_key_values: BTreeMap<StringValue, StringValue>,
+    acl_token: Option<StringValue>,
 }
 
 impl KitexTTHeaderBuilder {
@@ -52,7 +52,7 @@ impl KitexTTHeaderBuilder {
         let mut builder = KitexTTHeaderBuilder {
             info_key_values: Default::default(),
             info_int_key_values: Default::default(),
-            acl_token_key_values: Default::default(),
+            acl_token: None,
         };
 
         // TRANSPORT_TYPE = 1
@@ -115,14 +115,12 @@ impl KitexTTHeaderBuilder {
         Ok(())
     }
 
-    pub(crate) fn add_acl_token_kv(&mut self, k: &str, v: &str) -> anyhow::Result<()> {
-        if k.is_empty() {
-            return Err(anyhow!("empty key"));
+    pub(crate) fn set_acl_token(&mut self, token: &str) -> anyhow::Result<()> {
+        if token.is_empty() {
+            return Err(anyhow!("empty token"));
         }
-        let k = StringValue::try_from(k.to_string()).context(format!("invalid key: {k}"))?;
-        let v = StringValue::try_from(v.to_string()).context(format!("invalid value: {v}"))?;
-
-        self.acl_token_key_values.insert(k, v);
+        let v = StringValue::try_from(token.to_string())?;
+        self.acl_token = Some(v);
         Ok(())
     }
 
@@ -183,21 +181,10 @@ impl KitexTTHeaderBuilder {
         }
 
         // ACL_TOKEN_KEYVALUE
-        if !self.acl_token_key_values.is_empty() {
-            buf.push(0x01);
-            let kv_count = u16::try_from(self.acl_token_key_values.len())
-                .map_err(|_| anyhow!("too many ACL_TOKEN_KEYVALUE headers"))?;
-            let b = kv_count.to_be_bytes();
-            buf.push(b[0]);
-            buf.push(b[1]);
-            for (k, v) in self.acl_token_key_values.iter() {
-                buf.extend_from_slice(&k.len_bytes);
-                buf.extend_from_slice(k.value.as_bytes());
-                buf.extend_from_slice(&v.len_bytes);
-                if !v.value.is_empty() {
-                    buf.extend_from_slice(v.value.as_bytes());
-                }
-            }
+        if let Some(v) = &self.acl_token {
+            buf.push(0x11);
+            buf.extend_from_slice(&v.len_bytes);
+            buf.extend_from_slice(v.value.as_bytes());
         }
 
         // Update HEADER_SIZE field
