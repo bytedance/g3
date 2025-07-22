@@ -13,7 +13,9 @@ pub(crate) struct CompactMessageBuilder {
 
 impl CompactMessageBuilder {
     pub(crate) fn new_call(name: &str) -> anyhow::Result<Self> {
-        let name_len = i32::try_from(name.len()).map_err(|_| anyhow!("too long method name"))?;
+        // the name length is encoded from an unsigned integer, which is different from
+        // https://github.com/apache/thrift/blob/master/doc/specs/thrift-compact-protocol.md
+        let name_len = u32::try_from(name.len()).map_err(|_| anyhow!("too long method name"))?;
         let name_len_bytes = name_len.encode_var_vec();
 
         Ok(CompactMessageBuilder {
@@ -48,7 +50,7 @@ impl CompactMessageBuilder {
         buf.extend_from_slice(payload);
 
         if framed {
-            let len = buf.len() - start_offset;
+            let len = buf.len() - start_offset - 4;
             let len = i32::try_from(len).map_err(|_| anyhow!("too large frame size {len}"))?;
             let bytes = len.to_be_bytes();
             let dst = &mut buf[start_offset..];
@@ -58,5 +60,23 @@ impl CompactMessageBuilder {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_call() {
+        let builder = CompactMessageBuilder::new_call("ping").unwrap();
+        let mut buf = Vec::new();
+        builder.build_call(-1, true, &[0x00], &mut buf).unwrap();
+        assert_eq!(
+            &buf,
+            &[
+                0x0, 0x0, 0x0, 0x9, 0x82, 0x21, 0x1, 0x4, 0x70, 0x69, 0x6e, 0x67, 0x0
+            ]
+        );
     }
 }
