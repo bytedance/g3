@@ -1,4 +1,8 @@
 
+v0.9.6:
+ - BUG FIX: fix wake in cloudflare keyless multiplex task
+ - Feature: add support for thrift tcp target
+
 v0.9.5:
  - Feature: support DELETE/OPTIONS/TRACE method in h1/h2/h3 target
  - Feature: support to set headers in h1/h2/h3 target
