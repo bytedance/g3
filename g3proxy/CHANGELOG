@@ -1,6 +1,8 @@
 
 v1.11.10:
+ - BUG FIX: fix panic when trying to parse PROXY Protocol V1
  - Feature: allow to drop the default port part in Host header in http_proxy server
+ - Optimization: make less new connections in ICAP connection pool
 
 v1.11.9:
  - Feature: allow to set hop_limit and traffic_class ipv6 socket options
