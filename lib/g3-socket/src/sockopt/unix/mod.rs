@@ -4,6 +4,7 @@
  */
 
 use std::io;
+use std::mem::MaybeUninit;
 use std::os::fd::AsRawFd;
 
 use libc::{c_int, c_void, socklen_t};
@@ -31,6 +32,30 @@ where
             return Err(io::Error::last_os_error());
         }
         Ok(())
+    }
+}
+
+#[cfg(not(target_os = "openbsd"))]
+unsafe fn getsockopt<T>(fd: c_int, level: c_int, name: c_int) -> io::Result<T>
+where
+    T: Copy,
+{
+    let mut value: MaybeUninit<T> = MaybeUninit::zeroed();
+    unsafe {
+        let mut len = size_of::<T>() as socklen_t;
+        let ret = libc::getsockopt(fd, level, name, value.as_mut_ptr().cast(), &mut len);
+        if ret == -1 {
+            return Err(io::Error::last_os_error());
+        }
+        Ok(value.assume_init())
+    }
+}
+
+#[cfg(not(target_os = "openbsd"))]
+pub(crate) fn ipv6_only<T: AsRawFd>(fd: &T) -> io::Result<bool> {
+    unsafe {
+        let value = getsockopt::<c_int>(fd.as_raw_fd(), libc::IPPROTO_IPV6, libc::IPV6_V6ONLY)?;
+        Ok(value != 0)
     }
 }
 

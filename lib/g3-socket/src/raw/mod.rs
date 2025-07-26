@@ -130,7 +130,8 @@ impl RawSocket {
                 if s6.ip().is_unspecified()
                     && (misc_opts.time_to_live.is_some() || misc_opts.type_of_service.is_some())
                 {
-                    let v6only = socket.only_v6()?;
+                    // workaround for https://github.com/rust-lang/socket2/pull/603
+                    let v6only = super::sockopt::ipv6_only(socket)?;
                     if !v6only {
                         if let Some(ttl) = misc_opts.time_to_live {
                             socket.set_ttl_v4(ttl)?;
