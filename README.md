@@ -10,7 +10,7 @@
 ## About
 
 This is the project we used to build enterprise-oriented generic proxy solutions,
-including but not limited to proxy / reverse proxy (WIP) / load balancer (TBD) / nat traversal (TBD).
+including but not limited to proxy / reverse proxy (WIP) / load balancer (TBD) / NAT traversal (WIP).
 
 ## Applications
 
