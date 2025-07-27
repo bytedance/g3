@@ -1,4 +1,7 @@
 
+v1.12.0:
+ - Feature: allow to connect to ICAP server via UNIX domain socket
+
 v1.11.10:
  - BUG FIX: fix panic when trying to parse PROXY Protocol V1
  - Feature: allow to drop the default port part in Host header in http_proxy server

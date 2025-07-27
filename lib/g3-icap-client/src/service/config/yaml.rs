@@ -46,6 +46,13 @@ impl IcapServiceConfig {
                 config.set_tcp_keepalive(keepalive);
                 Ok(())
             }
+            #[cfg(unix)]
+            "use_unix_socket" => {
+                let path = g3_yaml::value::as_absolute_path(v)
+                    .context(format!("invalid absolute path value for key {k}"))?;
+                config.use_unix_socket = Some(path);
+                Ok(())
+            }
             "icap_connection_pool" | "connection_pool" | "pool" => {
                 config.connection_pool = g3_yaml::value::as_connection_pool_config(v)
                     .context(format!("invalid connection pool config value for key {k}"))?;
