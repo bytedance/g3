@@ -225,23 +225,358 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::Number;
+    use serde_json::{Number, json};
 
     #[test]
-    fn t_string() {
-        let v = Value::String("123.0".to_string());
-        let pv = as_string(&v).unwrap();
-        assert_eq!(pv, "123.0");
+    fn as_u8_ok() {
+        // valid string input
+        let v = Value::String("123".to_string());
+        assert_eq!(as_u8(&v).unwrap(), 123);
 
+        // valid number input
         let v = Value::Number(Number::from(123u32));
-        let pv = as_string(&v).unwrap();
-        assert_eq!(pv, "123");
+        assert_eq!(as_u8(&v).unwrap(), 123);
+    }
 
+    #[test]
+    fn as_u8_err() {
+        // out of range
+        let v = Value::Number(Number::from(300u32));
+        assert!(as_u8(&v).is_err());
+
+        // negative
+        let v = Value::Number(Number::from(-1i32));
+        assert!(as_u8(&v).is_err());
+
+        // invalid string
+        let v = Value::String("abc".to_string());
+        assert!(as_u8(&v).is_err());
+
+        // invalid type
+        let v = Value::Bool(true);
+        assert!(as_u8(&v).is_err());
+    }
+
+    #[test]
+    fn as_u16_ok() {
+        // valid string input
+        let v = Value::String("12345".to_string());
+        assert_eq!(as_u16(&v).unwrap(), 12345);
+
+        // valid number input
+        let v = Value::Number(Number::from(12345u32));
+        assert_eq!(as_u16(&v).unwrap(), 12345);
+    }
+
+    #[test]
+    fn as_u16_err() {
+        // out of range
+        let v = Value::Number(Number::from(65536u32));
+        assert!(as_u16(&v).is_err());
+
+        // negative
+        let v = Value::Number(Number::from(-1i32));
+        assert!(as_u16(&v).is_err());
+
+        // invalid string
+        let v = Value::String("abc".to_string());
+        assert!(as_u16(&v).is_err());
+
+        // invalid type
+        let v = Value::Bool(true);
+        assert!(as_u16(&v).is_err());
+    }
+
+    #[test]
+    fn as_i32_ok() {
+        // valid string input
+        let v = Value::String("-123".to_string());
+        assert_eq!(as_i32(&v).unwrap(), -123);
+
+        // valid number input
         let v = Value::Number(Number::from(-123i32));
-        let pv = as_string(&v).unwrap();
-        assert_eq!(pv, "-123");
+        assert_eq!(as_i32(&v).unwrap(), -123);
+    }
 
-        let v = Value::Number(Number::from_f64(123.0).unwrap());
+    #[test]
+    fn as_i32_err() {
+        // out of range
+        let v = Value::Number(Number::from(2147483648u64));
+        assert!(as_i32(&v).is_err());
+
+        // invalid string
+        let v = Value::String("abc".to_string());
+        assert!(as_i32(&v).is_err());
+
+        // invalid type
+        let v = Value::Bool(true);
+        assert!(as_i32(&v).is_err());
+    }
+
+    #[test]
+    fn as_u32_ok() {
+        // valid string input
+        let v = Value::String("123456".to_string());
+        assert_eq!(as_u32(&v).unwrap(), 123456);
+
+        // valid number input
+        let v = Value::Number(Number::from(123456u32));
+        assert_eq!(as_u32(&v).unwrap(), 123456);
+    }
+
+    #[test]
+    fn as_u32_err() {
+        // out of range
+        let v = Value::Number(Number::from(4294967296u64));
+        assert!(as_u32(&v).is_err());
+
+        // negative NonZeroU32
+        let v = Value::Number(Number::from(-123i32));
+        assert!(as_u32(&v).is_err());
+
+        // invalid string
+        let v = Value::String("abc".to_string());
+        assert!(as_u32(&v).is_err());
+
+        // invalid type
+        let v = Value::Bool(true);
+        assert!(as_u32(&v).is_err());
+    }
+
+    #[test]
+    fn as_nonzero_u32_ok() {
+        // valid string input
+        let v = Value::String("123".to_string());
+        assert_eq!(as_nonzero_u32(&v).unwrap(), NonZeroU32::new(123).unwrap());
+
+        // valid number input
+        let v = Value::Number(Number::from(123u32));
+        assert_eq!(as_nonzero_u32(&v).unwrap(), NonZeroU32::new(123).unwrap());
+    }
+
+    #[test]
+    fn as_nonzero_u32_err() {
+        // zero value
+        let v = Value::String("0".to_string());
+        assert!(as_nonzero_u32(&v).is_err());
+
+        let v = Value::Number(Number::from(0u32));
+        assert!(as_nonzero_u32(&v).is_err());
+
+        // out of range
+        let v = Value::Number(Number::from(4294967296u64));
+        assert!(as_nonzero_u32(&v).is_err());
+
+        // negative number
+        let v = Value::Number(Number::from(-123i32));
+        assert!(as_nonzero_u32(&v).is_err());
+
+        // invalid type
+        let v = Value::Bool(true);
+        assert!(as_nonzero_u32(&v).is_err());
+
+        let v = Value::Null;
+        assert!(as_nonzero_u32(&v).is_err());
+    }
+
+    #[test]
+    fn as_usize_ok() {
+        // valid string input
+        let v = Value::String("123".to_string());
+        assert_eq!(as_usize(&v).unwrap(), 123);
+
+        // valid number input
+        let v = Value::Number(Number::from(123u32));
+        assert_eq!(as_usize(&v).unwrap(), 123);
+    }
+
+    #[test]
+    fn as_usize_err() {
+        // negative number
+        let v = Value::Number(Number::from(-123i32));
+        assert!(as_usize(&v).is_err());
+
+        // invalid string
+        let v = Value::String("abc".to_string());
+        assert!(as_usize(&v).is_err());
+
+        // invalid type
+        let v = Value::Bool(true);
+        assert!(as_usize(&v).is_err());
+
+        let v = Value::Null;
+        assert!(as_usize(&v).is_err());
+    }
+
+    #[test]
+    fn as_f64_ok() {
+        // valid string input
+        let v = Value::String("123.45".to_string());
+        assert_eq!(as_f64(&v).unwrap(), 123.45);
+
+        // valid number input
+        let v = Value::Number(Number::from_f64(123.45).unwrap());
+        assert_eq!(as_f64(&v).unwrap(), 123.45);
+    }
+
+    #[test]
+    fn as_f64_err() {
+        // invalid string
+        let v = Value::String("abc".to_string());
+        assert!(as_f64(&v).is_err());
+
+        // invalid type
+        let v = Value::Bool(true);
+        assert!(as_f64(&v).is_err());
+    }
+
+    #[test]
+    fn as_bool_ok() {
+        // string representations
+        assert!(as_bool(&Value::String("on".to_string())).unwrap());
+        assert!(as_bool(&Value::String("true".to_string())).unwrap());
+        assert!(as_bool(&Value::String("1".to_string())).unwrap());
+        assert!(!as_bool(&Value::String("off".to_string())).unwrap());
+        assert!(!as_bool(&Value::String("false".to_string())).unwrap());
+        assert!(!as_bool(&Value::String("0".to_string())).unwrap());
+
+        // boolean values
+        assert!(as_bool(&Value::Bool(true)).unwrap());
+        assert!(!as_bool(&Value::Bool(false)).unwrap());
+
+        // numeric values
+        assert!(as_bool(&Value::Number(Number::from(1))).unwrap());
+        assert!(!as_bool(&Value::Number(Number::from(0))).unwrap());
+        assert!(as_bool(&Value::Number(Number::from(-1))).unwrap());
+    }
+
+    #[test]
+    fn as_bool_err() {
+        // invalid string
+        let v = Value::String("maybe".to_string());
+        assert!(as_bool(&v).is_err());
+
+        // unsupported type
+        let v = Value::Null;
+        assert!(as_bool(&v).is_err());
+    }
+
+    #[test]
+    fn as_bytes_ok() {
+        let mut buffer = [0u8; 4];
+        let v = Value::String("deadbeef".to_string());
+        as_bytes(&v, &mut buffer).unwrap();
+        assert_eq!(buffer, [0xde, 0xad, 0xbe, 0xef]);
+    }
+
+    #[test]
+    fn as_bytes_err() {
+        let mut buffer = [0u8; 4];
+
+        // invalid hex
+        let v = Value::String("xxxx".to_string());
+        assert!(as_bytes(&v, &mut buffer).is_err());
+
+        // wrong length
+        let v = Value::String("dead".to_string());
+        assert!(as_bytes(&v, &mut buffer).is_err());
+
+        // invalid type
+        let v = Value::Number(Number::from(123));
+        assert!(as_bytes(&v, &mut buffer).is_err());
+    }
+
+    #[test]
+    fn as_ascii_ok() {
+        let v = Value::String("hello".to_string());
+        assert_eq!(as_ascii(&v).unwrap(), "hello");
+    }
+
+    #[test]
+    fn as_ascii_err() {
+        // non-ASCII string
+        let v = Value::String("你好".to_string());
+        assert!(as_ascii(&v).is_err());
+    }
+
+    #[test]
+    fn as_string_ok() {
+        // string value
+        let v = Value::String("test".to_string());
+        assert_eq!(as_string(&v).unwrap(), "test");
+
+        let v = Value::String("123.0".to_string());
+        assert_eq!(as_string(&v).unwrap(), "123.0");
+
+        // integer conversion
+        let v = Value::Number(Number::from(123u32));
+        assert_eq!(as_string(&v).unwrap(), "123");
+
+        // negative integer
+        let v = Value::Number(Number::from(-123i32));
+        assert_eq!(as_string(&v).unwrap(), "-123");
+    }
+
+    #[test]
+    fn as_string_err() {
+        // float conversion
+        let v = Value::Number(Number::from_f64(123.45).unwrap());
         assert!(as_string(&v).is_err());
+
+        // invalid type
+        let v = Value::Bool(true);
+        assert!(as_string(&v).is_err());
+    }
+
+    #[test]
+    fn as_list_ok() {
+        // array input
+        let v = Value::Array(vec![
+            Value::Number(Number::from(1)),
+            Value::Number(Number::from(2)),
+            Value::Number(Number::from(3)),
+        ]);
+        assert_eq!(as_list(&v, as_u8).unwrap(), vec![1, 2, 3]);
+
+        // single value input
+        let v = Value::Number(Number::from(42));
+        assert_eq!(as_list(&v, as_u8).unwrap(), vec![42]);
+    }
+
+    #[test]
+    fn as_list_err() {
+        // element conversion failure
+        let v = Value::Array(vec![
+            Value::Number(Number::from(1)),
+            Value::String("invalid".to_string()),
+        ]);
+        assert!(as_list(&v, as_u8).is_err());
+    }
+
+    #[test]
+    fn as_hashmap_ok() {
+        let v = json!({
+            "key1": 1,
+            "key2": 2
+        });
+
+        let result: HashMap<String, u8> = as_hashmap(&v, |k| Ok(k.to_string()), as_u8).unwrap();
+
+        assert_eq!(result.get("key1"), Some(&1));
+        assert_eq!(result.get("key2"), Some(&2));
+    }
+
+    #[test]
+    fn as_hashmap_err() {
+        // non-object input
+        let v = Value::Array(vec![]);
+        assert!(as_hashmap(&v, |k| Ok(k.to_string()), as_u8).is_err());
+
+        // key conversion failure
+        let v = json!({
+            "key1": 1,
+            "key2": "invalid"
+        });
+        assert!(as_hashmap(&v, |k| Ok(k.to_string()), as_u8).is_err());
     }
 }
