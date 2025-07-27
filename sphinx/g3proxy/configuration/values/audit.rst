@@ -26,6 +26,18 @@ For *map* value, the keys are:
   Set the ICAP service url. The scheme should be either 'icap' or 'icaps'.
   A default tls client config will be used if the scheme is 'icaps'.
 
+* use_unix_socket
+
+  **optional**, **type**: :ref:`absolute path <conf_value_absolute_path>`
+
+  Set a UNIX domain socket address to use before try via TCP.
+
+  If the path can't be connected the TCP address in the url will be used as a fallback.
+
+  **default**: not set
+
+  .. versionadded:: 1.12.0
+
 * tls_client
 
   **optional**, **type**: :ref:`rustls client config <conf_value_rustls_client_config>`

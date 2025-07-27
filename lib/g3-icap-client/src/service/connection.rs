@@ -9,20 +9,18 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
-use tokio::io::BufReader;
-use tokio::net::TcpStream;
+use tokio::io::{AsyncRead, AsyncWrite, BufReader};
 use tokio::sync::oneshot;
 use tokio_rustls::TlsConnector;
 
-use g3_io_ext::rustls::{MaybeTlsStreamReadHalf, MaybeTlsStreamWriteHalf};
 use g3_io_ext::{AsyncStream, LimitedBufReadExt};
 use g3_types::net::{Host, RustlsClientConfig};
 
 use super::IcapServiceConfig;
 use crate::IcapServiceOptions;
 
-pub type IcapClientWriter = MaybeTlsStreamWriteHalf<TcpStream>;
-pub type IcapClientReader = BufReader<MaybeTlsStreamReadHalf<TcpStream>>;
+pub type IcapClientWriter = Box<dyn AsyncWrite + Send + Sync + Unpin>;
+pub type IcapClientReader = BufReader<Box<dyn AsyncRead + Send + Sync + Unpin>>;
 
 pub struct IcapClientConnection {
     pub reader: IcapClientReader,
@@ -33,10 +31,14 @@ pub struct IcapClientConnection {
 }
 
 impl IcapClientConnection {
-    fn new(reader: IcapClientReader, writer: IcapClientWriter) -> Self {
+    fn new<R, W>(reader: R, writer: W) -> Self
+    where
+        R: AsyncRead + Send + Sync + Unpin + 'static,
+        W: AsyncWrite + Send + Sync + Unpin + 'static,
+    {
         IcapClientConnection {
-            reader,
-            writer,
+            reader: BufReader::new(Box::new(reader)),
+            writer: Box::new(writer),
             reader_clean: true,
             writer_clean: true,
             reused_connection: false,
@@ -98,6 +100,14 @@ impl IcapConnector {
     }
 
     pub(super) async fn create(&self) -> io::Result<IcapClientConnection> {
+        #[cfg(unix)]
+        if let Some(path) = &self.config.use_unix_socket {
+            if let Ok(socket) = tokio::net::UnixStream::connect(path).await {
+                let (r, w) = socket.into_split();
+                return Ok(IcapClientConnection::new(r, w));
+            }
+        }
+
         let peer = self.select_peer_addr().await?;
         let socket = g3_socket::tcp::new_socket_to(
             peer.ip(),
@@ -118,10 +128,7 @@ impl IcapConnector {
             {
                 Ok(Ok(tls_stream)) => {
                     let (r, w) = tls_stream.into_split();
-                    Ok(IcapClientConnection::new(
-                        BufReader::new(MaybeTlsStreamReadHalf::Tls(r)),
-                        MaybeTlsStreamWriteHalf::Tls(w),
-                    ))
+                    Ok(IcapClientConnection::new(r, w))
                 }
                 Ok(Err(e)) => Err(e),
                 Err(_) => Err(io::Error::new(
@@ -131,10 +138,7 @@ impl IcapConnector {
             }
         } else {
             let (r, w) = stream.into_split();
-            Ok(IcapClientConnection::new(
-                BufReader::new(MaybeTlsStreamReadHalf::Plain(r)),
-                MaybeTlsStreamWriteHalf::Plain(w),
-            ))
+            Ok(IcapClientConnection::new(r, w))
         }
     }
 }

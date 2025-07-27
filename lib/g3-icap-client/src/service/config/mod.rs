@@ -5,6 +5,8 @@
 
 use std::collections::BTreeSet;
 use std::io::Write;
+#[cfg(unix)]
+use std::path::PathBuf;
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -29,8 +31,10 @@ pub struct IcapServiceConfig {
     pub(crate) upstream: UpstreamAddr,
     pub(crate) tls_client: Option<RustlsClientConfigBuilder>,
     pub(crate) tls_name: ServerName<'static>,
-    pub connection_pool: ConnectionPoolConfig,
+    pub(crate) connection_pool: ConnectionPoolConfig,
     pub(crate) tcp_keepalive: TcpKeepAliveConfig,
+    #[cfg(unix)]
+    pub(crate) use_unix_socket: Option<PathBuf>,
     pub(crate) icap_206_enable: bool,
     pub(crate) icap_max_header_size: usize,
     pub(crate) disable_preview: bool,
@@ -70,6 +74,8 @@ impl IcapServiceConfig {
             tls_name,
             connection_pool: ConnectionPoolConfig::default(),
             tcp_keepalive: TcpKeepAliveConfig::default_enabled(),
+            #[cfg(unix)]
+            use_unix_socket: None,
             icap_206_enable: false,
             icap_max_header_size: 8192,
             disable_preview: false,
