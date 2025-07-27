@@ -60,3 +60,113 @@ pub fn as_rate_limit_quota(v: &Value) -> anyhow::Result<RateLimitQuotaConfig> {
         _ => Err(anyhow!("invalid json value type")),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::time::Duration;
+
+    #[test]
+    fn as_rate_limit_quota_ok() {
+        // number input
+        let v = json!(10);
+        assert_eq!(
+            as_rate_limit_quota(&v).unwrap(),
+            RateLimitQuotaConfig::per_second(NonZeroU32::new(10).unwrap())
+        );
+
+        // string input: simple number
+        let v = json!("10");
+        assert_eq!(
+            as_rate_limit_quota(&v).unwrap(),
+            RateLimitQuotaConfig::per_second(NonZeroU32::new(10).unwrap())
+        );
+
+        // string input: with unit
+        let v = json!("10/s");
+        assert_eq!(
+            as_rate_limit_quota(&v).unwrap(),
+            RateLimitQuotaConfig::per_second(NonZeroU32::new(10).unwrap())
+        );
+
+        // object input with rate and max_burst
+        let v = json!({
+            "rate": 10,
+            "max_burst": 30
+        });
+        let mut expected = RateLimitQuotaConfig::per_second(NonZeroU32::new(10).unwrap());
+        expected.allow_burst(NonZeroU32::new(30).unwrap());
+        assert_eq!(as_rate_limit_quota(&v).unwrap(), expected);
+
+        // object input with replenish_interval and max_burst
+        let v = json!({
+            "replenish_interval": "100ms",
+            "max_burst": 30
+        });
+        let mut expected = RateLimitQuotaConfig::with_period(Duration::from_millis(100)).unwrap();
+        expected.allow_burst(NonZeroU32::new(30).unwrap());
+        assert_eq!(as_rate_limit_quota(&v).unwrap(), expected);
+
+        // different string formats
+        let v = json!("10/m");
+        assert_eq!(
+            as_rate_limit_quota(&v).unwrap(),
+            RateLimitQuotaConfig::from_str("10/m").unwrap()
+        );
+
+        let v = json!("10/h");
+        assert_eq!(
+            as_rate_limit_quota(&v).unwrap(),
+            RateLimitQuotaConfig::from_str("10/h").unwrap()
+        );
+    }
+
+    #[test]
+    fn as_rate_limit_quota_err() {
+        // Invalid type: boolean
+        let v = json!(true);
+        assert!(as_rate_limit_quota(&v).is_err());
+
+        // Invalid key in object
+        let v = json!({
+            "invalid_key": 10
+        });
+        assert!(as_rate_limit_quota(&v).is_err());
+
+        // Missing rate/replenish_interval in object
+        let v = json!({
+            "max_burst": 30
+        });
+        assert!(as_rate_limit_quota(&v).is_err());
+
+        // Invalid type for rate field
+        let v = json!({
+            "rate": [],
+            "max_burst": 30
+        });
+        assert!(as_rate_limit_quota(&v).is_err());
+
+        // Invalid type for max_burst field
+        let v = json!({
+            "rate": 10,
+            "max_burst": "invalid"
+        });
+        assert!(as_rate_limit_quota(&v).is_err());
+
+        // Invalid string format
+        let v = json!("10invalid");
+        assert!(as_rate_limit_quota(&v).is_err());
+
+        // Invalid duration format
+        let v = json!({
+            "replenish_interval": "invalid",
+            "max_burst": 30
+        });
+        assert!(as_rate_limit_quota(&v).is_err());
+
+        // Empty object
+        let v = json!({});
+        assert!(as_rate_limit_quota(&v).is_err());
+    }
+}
