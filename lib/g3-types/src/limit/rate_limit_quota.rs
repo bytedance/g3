@@ -35,26 +35,22 @@ impl FromStr for RateLimitQuotaConfig {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let ss: Vec<&str> = s.splitn(2, '/').collect();
-
-        match ss.len() {
-            1 => {
-                let u = NonZeroU32::from_str(ss[0])
-                    .map_err(|e| anyhow!("invalid non-zero u32 string: {e}"))?;
-                Ok(RateLimitQuotaConfig(Quota::per_second(u)))
-            }
-            2 => {
-                let u = NonZeroU32::from_str(ss[0].trim())
+        match s.split_once('/') {
+            Some((v1, v2)) => {
+                let u = NonZeroU32::from_str(v1.trim())
                     .map_err(|_| anyhow!("invalid non-zero u32 string as the first part"))?;
-                let dur = ss[1].trim();
-                match dur.to_ascii_lowercase().chars().next() {
-                    Some('s') => Ok(RateLimitQuotaConfig(Quota::per_second(u))),
-                    Some('m') => Ok(RateLimitQuotaConfig(Quota::per_minute(u))),
-                    Some('h') => Ok(RateLimitQuotaConfig(Quota::per_hour(u))),
+                match v2 {
+                    "s" => Ok(RateLimitQuotaConfig(Quota::per_second(u))),
+                    "m" => Ok(RateLimitQuotaConfig(Quota::per_minute(u))),
+                    "h" => Ok(RateLimitQuotaConfig(Quota::per_hour(u))),
                     _ => Err(anyhow!("invalid unit in second part")),
                 }
             }
-            _ => Err(anyhow!("invalid string value")),
+            None => {
+                let u = NonZeroU32::from_str(s)
+                    .map_err(|e| anyhow!("invalid non-zero u32 string: {e}"))?;
+                Ok(RateLimitQuotaConfig(Quota::per_second(u)))
+            }
         }
     }
 }

@@ -14,12 +14,12 @@ use std::time::Duration;
 use ahash::AHashMap;
 use anyhow::{Context, anyhow};
 use clap::{Arg, ArgAction, ArgMatches, Command, ValueHint, value_parser};
+use governor::Quota;
 
 use g3_runtime::blended::BlendedRuntimeConfig;
 use g3_runtime::unaided::UnaidedRuntimeConfig;
 use g3_statsd_client::{StatsdBackend, StatsdClient, StatsdClientConfig};
 use g3_types::collection::{SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder, WeightedValue};
-use g3_types::limit::RateLimitQuotaConfig;
 use g3_types::metrics::NodeName;
 use g3_types::net::{TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig, UpstreamAddr};
 
@@ -57,7 +57,7 @@ pub struct ProcArgs {
     pub(super) latency: Option<Duration>,
     pub(super) requests: Option<usize>,
     pub(super) time_limit: Option<Duration>,
-    pub(super) rate_limit: Option<RateLimitQuotaConfig>,
+    pub(super) rate_limit: Option<Quota>,
     pub(super) log_error_count: usize,
     pub(super) ignore_fatal_error: bool,
     pub(super) task_unconstrained: bool,
@@ -453,12 +453,7 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
     }
 
     proc_args.time_limit = g3_clap::humanize::get_duration(args, GLOBAL_ARG_TIME_LIMIT)?;
-
-    if let Some(v) = args.get_one::<String>(GLOBAL_ARG_RATE_LIMIT) {
-        let rate_limit =
-            RateLimitQuotaConfig::from_str(v).context("invalid request rate limit value")?;
-        proc_args.rate_limit = Some(rate_limit);
-    }
+    proc_args.rate_limit = g3_clap::limit::get_rate_limit(args, GLOBAL_ARG_RATE_LIMIT)?;
 
     if args.get_flag(GLOBAL_ARG_UNAIDED) {
         proc_args.use_unaided_worker = true;
