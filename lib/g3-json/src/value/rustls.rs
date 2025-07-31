@@ -257,3 +257,249 @@ pub fn as_rustls_server_config_builder(value: &Value) -> anyhow::Result<RustlsSe
         ))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::time::Duration;
+
+    const TEST_CERT1_PEM: &str = include_str!("test_data/test_cert1.pem");
+    const TEST_CERT2_PEM: &str = include_str!("test_data/test_cert2.pem");
+    const TEST_KEY1_PEM: &str = include_str!("test_data/test_key1.pem");
+
+    #[test]
+    fn as_rustls_server_name_ok() {
+        // Valid DNS name
+        let value = json!("example.com");
+        assert_eq!(
+            as_rustls_server_name(&value).unwrap(),
+            ServerName::try_from("example.com").unwrap()
+        );
+
+        // Valid IP address
+        let value = json!("192.168.0.1");
+        assert_eq!(
+            as_rustls_server_name(&value).unwrap(),
+            ServerName::try_from("192.168.0.1").unwrap()
+        );
+    }
+
+    #[test]
+    fn as_rustls_server_name_err() {
+        // Invalid domain
+        let value = json!("invalid domain");
+        assert!(as_rustls_server_name(&value).is_err());
+
+        // Non-string type
+        let value = json!(123);
+        assert!(as_rustls_server_name(&value).is_err());
+    }
+
+    #[test]
+    fn as_rustls_certificates_ok() {
+        // Single PEM string
+        let value = json!(TEST_CERT1_PEM);
+        let certs = as_rustls_certificates(&value).unwrap();
+        assert!(!certs.is_empty());
+
+        // Array of PEM strings
+        let value = json!([TEST_CERT1_PEM, TEST_CERT2_PEM]);
+        let certs = as_rustls_certificates(&value).unwrap();
+        assert_eq!(certs.len(), 2);
+    }
+
+    #[test]
+    fn as_rustls_certificates_err() {
+        // Invalid PEM
+        let value = json!("invalid");
+        assert!(as_rustls_certificates(&value).is_err());
+
+        // Empty array
+        let value = json!([""]);
+        assert!(as_rustls_certificates(&value).is_err());
+
+        // Non-string element in array
+        let value = json!([123]);
+        assert!(as_rustls_certificates(&value).is_err());
+    }
+
+    #[test]
+    fn as_rustls_private_key_ok() {
+        // Valid private key
+        let value = json!(TEST_KEY1_PEM);
+        let key = as_rustls_private_key(&value).unwrap();
+        assert!(matches!(key, PrivateKeyDer::Pkcs8(_)));
+    }
+
+    #[test]
+    fn as_rustls_private_key_err() {
+        // Invalid private key
+        let value = json!("invalid");
+        assert!(as_rustls_private_key(&value).is_err());
+
+        // Non-string type
+        let value = json!(123);
+        assert!(as_rustls_private_key(&value).is_err());
+    }
+
+    #[test]
+    fn as_rustls_certificate_pair_ok() {
+        // Valid certificate pair
+        let value = json!({
+            "certificate": TEST_CERT1_PEM,
+            "private_key": TEST_KEY1_PEM
+        });
+        let pair = as_rustls_certificate_pair(&value).unwrap();
+        let mut builder = RustlsCertificatePairBuilder::default();
+        builder.set_certs(as_certificates_from_single_element(&json!(TEST_CERT1_PEM)).unwrap());
+        builder.set_key(as_rustls_private_key(&json!(TEST_KEY1_PEM)).unwrap());
+        let expected = builder.build().unwrap();
+        assert_eq!(pair.certs_owned(), expected.certs_owned());
+    }
+
+    #[test]
+    fn as_rustls_certificate_pair_err() {
+        // Missing certificate
+        let value = json!({"private_key": TEST_KEY1_PEM});
+        assert!(as_rustls_certificate_pair(&value).is_err());
+
+        // Missing private key
+        let value = json!({"certificate": TEST_CERT1_PEM});
+        assert!(as_rustls_certificate_pair(&value).is_err());
+
+        // Invalid key
+        let value = json!({"invalid_key": "value"});
+        assert!(as_rustls_certificate_pair(&value).is_err());
+
+        // Non-object type
+        let value = json!("invalid");
+        assert!(as_rustls_certificate_pair(&value).is_err());
+    }
+
+    #[test]
+    fn as_rustls_client_config_builder_ok() {
+        // Full config
+        let value = json!({
+            "no_session_cache": true,
+            "disable_sni": true,
+            "max_fragment_size": 1400,
+            "certificate": TEST_CERT1_PEM,
+            "private_key": TEST_KEY1_PEM,
+            "ca_certificate": TEST_CERT1_PEM,
+            "no_default_ca_certificate": true,
+            "use_builtin_ca_certificate": true,
+            "handshake_timeout": "10s"
+        });
+        let builder = as_rustls_client_config_builder(&value).unwrap();
+        let mut expected = RustlsClientConfigBuilder::default();
+        expected.set_no_session_cache();
+        expected.set_disable_sni();
+        expected.set_max_fragment_size(1400);
+        let mut pair_builder = RustlsCertificatePairBuilder::default();
+        pair_builder.set_certs(as_rustls_certificates(&json!(TEST_CERT1_PEM)).unwrap());
+        pair_builder.set_key(as_rustls_private_key(&json!(TEST_KEY1_PEM)).unwrap());
+        expected.set_cert_pair(pair_builder.build().unwrap());
+        expected.set_ca_certificates(as_rustls_certificates(&json!(TEST_CERT1_PEM)).unwrap());
+        expected.set_no_default_ca_certificates();
+        expected.set_use_builtin_ca_certificates();
+        expected.set_negotiation_timeout(Duration::from_secs(10));
+        assert_eq!(builder, expected);
+
+        // Cert_pair config
+        let value = json!({
+            "cert_pair": {
+                "certificate": TEST_CERT1_PEM,
+                "private_key": TEST_KEY1_PEM
+            }
+        });
+        let builder = as_rustls_client_config_builder(&value).unwrap();
+        let mut expected = RustlsClientConfigBuilder::default();
+        let mut pair_builder = RustlsCertificatePairBuilder::default();
+        pair_builder.set_certs(as_rustls_certificates(&json!(TEST_CERT1_PEM)).unwrap());
+        pair_builder.set_key(as_rustls_private_key(&json!(TEST_KEY1_PEM)).unwrap());
+        expected.set_cert_pair(pair_builder.build().unwrap());
+        assert_eq!(builder, expected);
+    }
+
+    #[test]
+    fn as_rustls_client_config_builder_err() {
+        // Duplicate certificate config
+        let value = json!({
+            "cert": TEST_CERT1_PEM,
+            "key": TEST_KEY1_PEM,
+            "cert_pair": {
+                "certificate": TEST_CERT1_PEM,
+                "private_key": TEST_KEY1_PEM
+            }
+        });
+        assert!(as_rustls_client_config_builder(&value).is_err());
+
+        // Invalid key
+        let value = json!({
+            "invalid_key": "value"
+        });
+        assert!(as_rustls_client_config_builder(&value).is_err());
+
+        // Invalid value type
+        let value = json!(123);
+        assert!(as_rustls_client_config_builder(&value).is_err());
+    }
+
+    #[test]
+    fn as_rustls_server_config_builder_ok() {
+        // Full config
+        let value = json!({
+            "cert_pairs": {
+                    "certificate": TEST_CERT1_PEM,
+                    "private_key": TEST_KEY1_PEM
+            },
+            "enable_client_auth": true,
+            "use_session_ticket": false,
+            "no_session_cache": true,
+            "ca_certificate": TEST_CERT1_PEM,
+            "handshake_timeout": "10s"
+        });
+        let builder = as_rustls_server_config_builder(&value).unwrap();
+        let mut expected = RustlsServerConfigBuilder::empty();
+        let mut pair_builder = RustlsCertificatePairBuilder::default();
+        pair_builder.set_certs(as_rustls_certificates(&json!(TEST_CERT1_PEM)).unwrap());
+        pair_builder.set_key(as_rustls_private_key(&json!(TEST_KEY1_PEM)).unwrap());
+        expected.push_cert_pair(pair_builder.build().unwrap());
+        expected.enable_client_auth();
+        expected.set_use_session_ticket(false);
+        expected.set_disable_session_cache(true);
+        expected
+            .set_client_auth_certificates(as_rustls_certificates(&json!(TEST_CERT1_PEM)).unwrap());
+        expected.set_accept_timeout(Duration::from_secs(10));
+        assert_eq!(builder, expected);
+
+        // Certificate/key fields
+        let value = json!({
+            "certificate": TEST_CERT1_PEM,
+            "private_key": TEST_KEY1_PEM,
+            "no_session_ticket": true,
+        });
+        let builder = as_rustls_server_config_builder(&value).unwrap();
+        let mut expected = RustlsServerConfigBuilder::empty();
+        let mut pair_builder = RustlsCertificatePairBuilder::default();
+        pair_builder.set_certs(as_rustls_certificates(&json!(TEST_CERT1_PEM)).unwrap());
+        pair_builder.set_key(as_rustls_private_key(&json!(TEST_KEY1_PEM)).unwrap());
+        expected.push_cert_pair(pair_builder.build().unwrap());
+        expected.set_disable_session_ticket(true);
+        assert_eq!(builder, expected);
+    }
+
+    #[test]
+    fn as_rustls_server_config_builder_err() {
+        // Invalid key
+        let value = json!({
+            "invalid_key": "value"
+        });
+        assert!(as_rustls_server_config_builder(&value).is_err());
+
+        // Invalid value type
+        let value = json!("invalid");
+        assert!(as_rustls_server_config_builder(&value).is_err());
+    }
+}

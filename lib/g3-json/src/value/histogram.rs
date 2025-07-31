@@ -81,3 +81,135 @@ pub fn as_histogram_metrics_config(value: &Value) -> anyhow::Result<HistogramMet
         Ok(HistogramMetricsConfig::with_rotate(rotate))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::time::Duration;
+
+    #[test]
+    fn as_quantile_ok() {
+        // valid string inputs
+        assert_eq!(as_quantile(&json!("0.5")).unwrap().value(), 0.5);
+        assert_eq!(as_quantile(&json!("0.99")).unwrap().value(), 0.99);
+
+        // valid number inputs
+        assert_eq!(as_quantile(&json!(0.5)).unwrap().value(), 0.5);
+        assert_eq!(as_quantile(&json!(0.99)).unwrap().value(), 0.99);
+
+        // boundary values
+        assert_eq!(as_quantile(&json!("0.0")).unwrap().value(), 0.0);
+        assert_eq!(as_quantile(&json!("1.0")).unwrap().value(), 1.0);
+    }
+
+    #[test]
+    fn as_quantile_err() {
+        // invalid types
+        assert!(as_quantile(&json!(true)).is_err());
+        assert!(as_quantile(&json!([])).is_err());
+
+        // invalid strings
+        assert!(as_quantile(&json!("abc")).is_err());
+
+        // out-of-range values
+        assert!(as_quantile(&json!("-0.1")).is_err());
+        assert!(as_quantile(&json!("1.1")).is_err());
+    }
+
+    #[test]
+    fn as_quantile_list_ok() {
+        // comma-separated string
+        let list = as_quantile_list(&json!("0.5, 0.75, 0.99")).unwrap();
+        assert_eq!(list.len(), 3);
+        assert!(list.contains(&Quantile::from_str("0.5").unwrap()));
+        assert!(list.contains(&Quantile::from_str("0.75").unwrap()));
+        assert!(list.contains(&Quantile::from_str("0.99").unwrap()));
+
+        // array format
+        let list = as_quantile_list(&json!([0.5, "0.75", 0.99])).unwrap();
+        assert_eq!(list.len(), 3);
+        assert!(list.contains(&Quantile::from_str("0.5").unwrap()));
+        assert!(list.contains(&Quantile::from_str("0.75").unwrap()));
+        assert!(list.contains(&Quantile::from_str("0.99").unwrap()));
+
+        // mixed types
+        let list = as_quantile_list(&json!([0.5, "0.99"])).unwrap();
+        assert_eq!(list.len(), 2);
+        assert!(list.contains(&Quantile::from_str("0.5").unwrap()));
+        assert!(list.contains(&Quantile::from_str("0.99").unwrap()));
+    }
+
+    #[test]
+    fn as_quantile_list_err() {
+        // invalid string format
+        assert!(as_quantile_list(&json!("0.5;0.75")).is_err());
+
+        // array with invalid elements
+        assert!(as_quantile_list(&json!([0.5, "abc", 0.99])).is_err());
+
+        // invalid type
+        assert!(as_quantile_list(&json!(true)).is_err());
+    }
+
+    #[test]
+    fn as_histogram_metrics_config_ok() {
+        // simplified form (duration only)
+        let config = as_histogram_metrics_config(&json!("10s")).unwrap();
+        assert_eq!(config.rotate_interval(), Duration::from_secs(10));
+
+        // full form with quantiles and rotate
+        let config = as_histogram_metrics_config(&json!({
+            "quantile": [0.5, 0.99],
+            "rotate": "5s"
+        }))
+        .unwrap();
+        let mut expected = HistogramMetricsConfig::default();
+        let mut quantile_list = BTreeSet::new();
+        quantile_list.insert(Quantile::from_str("0.5").unwrap());
+        quantile_list.insert(Quantile::from_str("0.99").unwrap());
+        expected.set_quantile_list(quantile_list);
+        expected.set_rotate_interval(Duration::from_secs(5));
+        assert_eq!(config, expected);
+
+        // full form with quantiles as string
+        let config = as_histogram_metrics_config(&json!({
+            "quantile": "0.5,0.99",
+            "rotate": "5s"
+        }))
+        .unwrap();
+        assert_eq!(config, expected);
+    }
+
+    #[test]
+    fn as_histogram_metrics_config_err() {
+        // invalid keys
+        assert!(
+            as_histogram_metrics_config(&json!({
+                "invalid_key": "value"
+            }))
+            .is_err()
+        );
+
+        // invalid duration format
+        assert!(as_histogram_metrics_config(&json!("invalid")).is_err());
+
+        // invalid quantile format
+        assert!(
+            as_histogram_metrics_config(&json!({
+                "quantile": "invalid",
+                "rotate": "5s"
+            }))
+            .is_err()
+        );
+
+        // invalid rotate duration
+        assert!(
+            as_histogram_metrics_config(&json!({
+                "quantile": [0.5, 0.99],
+                "rotate": "invalid"
+            }))
+            .is_err()
+        );
+    }
+}
