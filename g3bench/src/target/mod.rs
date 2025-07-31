@@ -185,7 +185,7 @@ where
     let rate_limit = proc_args
         .rate_limit
         .as_ref()
-        .map(|c| Arc::new(RateLimiter::direct(c.get_inner())));
+        .map(|q| Arc::new(RateLimiter::direct(*q)));
     for i in 0..proc_args.concurrency.get() {
         let sem = Arc::clone(&sync_sem);
         let barrier = Arc::clone(&sync_barrier);

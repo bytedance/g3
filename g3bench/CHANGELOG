@@ -1,4 +1,7 @@
 
+v0.9.7:
+ - Feature: allow to set more flexible rate limit value
+
 v0.9.6:
  - BUG FIX: fix wake in cloudflare keyless multiplex task
  - Feature: add support for thrift tcp target

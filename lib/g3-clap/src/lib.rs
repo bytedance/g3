@@ -5,5 +5,8 @@
 
 pub mod humanize;
 
+#[cfg(feature = "limit")]
+pub mod limit;
+
 #[cfg(feature = "http")]
 pub mod http;
