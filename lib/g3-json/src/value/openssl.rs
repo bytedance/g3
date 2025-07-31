@@ -321,3 +321,305 @@ pub fn as_to_many_openssl_tls_client_config_builder(
     let builder = OpensslClientConfigBuilder::with_cache_for_many_sites();
     set_openssl_tls_client_config_builder(builder, value)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use g3_types::net::TlsVersion;
+    use serde_json::json;
+    use std::time::Duration;
+
+    const TEST_CERT_PEM1: &str = include_str!("test_data/test_cert1.pem");
+    const TEST_CERT_PEM2: &str = include_str!("test_data/test_cert2.pem");
+    const TEST_KEY_PEM1: &str = include_str!("test_data/test_key1.pem");
+    const TEST_KEY_PEM2: &str = include_str!("test_data/test_key2.pem");
+
+    #[test]
+    fn as_openssl_certificates_ok() {
+        // Single certificate string
+        let value = json!(TEST_CERT_PEM1);
+        let certs = as_openssl_certificates(&value).unwrap();
+        assert!(!certs.is_empty());
+
+        // Array of certificates
+        let value = json!([TEST_CERT_PEM1, TEST_CERT_PEM2]);
+        let certs = as_openssl_certificates(&value).unwrap();
+        assert_eq!(certs.len(), 2);
+    }
+
+    #[test]
+    fn as_openssl_certificates_err() {
+        // Invalid type
+        let value = json!({});
+        assert!(as_openssl_certificates(&value).is_err());
+
+        // Empty certificate string
+        let value = json!("");
+        assert!(as_openssl_certificates(&value).is_err());
+
+        // Invalid PEM format
+        let value = json!("invalid");
+        assert!(as_openssl_certificates(&value).is_err());
+    }
+
+    #[test]
+    fn as_openssl_private_key_ok() {
+        let value = json!(TEST_KEY_PEM1);
+        let key = as_openssl_private_key(&value).unwrap();
+        assert!(key.private_key_to_pem_pkcs8().is_ok());
+    }
+
+    #[test]
+    fn as_openssl_private_key_err() {
+        // Invalid type
+        let value = json!(123);
+        assert!(as_openssl_private_key(&value).is_err());
+
+        // Invalid key format
+        let value = json!("invalid_key");
+        assert!(as_openssl_private_key(&value).is_err());
+    }
+
+    #[test]
+    fn as_openssl_certificate_pair_ok() {
+        let value = json!({
+            "certificate": TEST_CERT_PEM1,
+            "private_key": TEST_KEY_PEM1
+        });
+        let pair = as_openssl_certificate_pair(&value).unwrap();
+        assert!(pair.is_set());
+    }
+
+    #[test]
+    fn as_openssl_certificate_pair_err() {
+        // Missing required fields
+        let value = json!({});
+        assert!(as_openssl_certificate_pair(&value).is_err());
+
+        // Invalid certificate
+        let value = json!({
+            "certificate": "invalid",
+            "private_key": TEST_KEY_PEM1
+        });
+        assert!(as_openssl_certificate_pair(&value).is_err());
+
+        // Invalid private key
+        let value = json!({
+            "certificate": TEST_CERT_PEM1,
+            "private_key": "invalid"
+        });
+        assert!(as_openssl_certificate_pair(&value).is_err());
+
+        // Extra fields
+        let value = json!({
+            "certificate": TEST_CERT_PEM1,
+            "private_key": TEST_KEY_PEM1,
+            "extra": "field"
+        });
+        assert!(as_openssl_certificate_pair(&value).is_err());
+
+        // Invalid value type
+        let value = json!(123);
+        assert!(as_openssl_certificate_pair(&value).is_err());
+    }
+
+    #[test]
+    fn as_openssl_tlcp_certificate_pair_ok() {
+        let value = json!({
+            "sign_certificate": TEST_CERT_PEM1,
+            "enc_certificate": TEST_CERT_PEM2,
+            "sign_private_key": TEST_KEY_PEM1,
+            "enc_private_key": TEST_KEY_PEM2
+        });
+        let pair = as_openssl_tlcp_certificate_pair(&value).unwrap();
+        assert!(pair.check().is_ok());
+    }
+
+    #[test]
+    fn as_openssl_tlcp_certificate_pair_err() {
+        // Missing required fields
+        let value = json!({
+            "sign_certificate": TEST_CERT_PEM1,
+            "enc_certificate": TEST_CERT_PEM2,
+            "sign_private_key": TEST_KEY_PEM1
+        });
+        assert!(as_openssl_tlcp_certificate_pair(&value).is_err());
+
+        // Invalid key
+        let value = json!({
+            "invalid_key": "value"
+        });
+        assert!(as_openssl_tlcp_certificate_pair(&value).is_err());
+
+        // Invalid value type
+        let value = json!(123);
+        assert!(as_openssl_tlcp_certificate_pair(&value).is_err());
+    }
+
+    #[test]
+    fn as_to_one_openssl_tls_client_config_builder_ok() {
+        let value = json!({
+            "protocol": "tls12",
+            "min_tls_version": "tls1.2",
+            "max_tls_version": "tls1.3",
+            "ciphers": ["TLS_AES_128_GCM_SHA256"],
+            "disable_sni": true,
+            "cert_pair": {
+                "certificate": TEST_CERT_PEM1,
+                "private_key": TEST_KEY_PEM1
+            },
+            "ca_certificate": TEST_CERT_PEM2,
+            "no_default_ca_certificate": true,
+            "handshake_timeout": "10s",
+            "no_session_cache": true,
+            "session_cache_lru_max_sites": 100,
+            "session_cache_each_capacity": 10,
+            "supported_groups": "P-256",
+            "use_ocsp_stapling": true,
+            "enable_sct": true,
+            "enable_grease": true,
+            "permute_extensions": true,
+            "insecure": false
+        });
+        let builder = as_to_one_openssl_tls_client_config_builder(&value).unwrap();
+        let mut expected = OpensslClientConfigBuilder::default();
+        expected.set_protocol(OpensslProtocol::Tls12);
+        expected.set_min_tls_version(TlsVersion::TLS1_2);
+        expected.set_max_tls_version(TlsVersion::TLS1_3);
+        expected.set_ciphers(vec!["TLS_AES_128_GCM_SHA256".to_string()]);
+        expected.set_disable_sni();
+        let value = json!({
+            "certificate": TEST_CERT_PEM1,
+            "private_key": TEST_KEY_PEM1
+        });
+        let cert_pair = as_openssl_certificate_pair(&value).unwrap();
+        expected.set_cert_pair(cert_pair);
+        let ca_certs = as_openssl_certificates(&json!(TEST_CERT_PEM2)).unwrap();
+        expected.set_ca_certificates(ca_certs).unwrap();
+        expected.set_no_default_ca_certificates();
+        expected.set_handshake_timeout(Duration::from_secs(10));
+        expected.set_no_session_cache();
+        expected.set_session_cache_sites_count(100);
+        expected.set_session_cache_each_capacity(10);
+        expected.set_supported_groups("P-256".to_string());
+        expected.set_use_ocsp_stapling(true);
+        expected.set_enable_sct(true);
+        expected.set_enable_grease(true);
+        expected.set_permute_extensions(true);
+        expected.set_insecure(false);
+        assert_eq!(builder, expected);
+    }
+
+    #[test]
+    fn as_to_one_openssl_tls_client_config_builder_err() {
+        // Invalid value type for protocol
+        let value = json!({"protocol": 123});
+        assert!(as_to_one_openssl_tls_client_config_builder(&value).is_err());
+
+        // Duplicate certificate config
+        let value = json!({
+            "certificate": TEST_CERT_PEM1,
+            "private_key": TEST_KEY_PEM1,
+            "cert_pair": {
+                "certificate": TEST_CERT_PEM2,
+                "private_key": TEST_KEY_PEM2
+            }
+        });
+        assert!(as_to_one_openssl_tls_client_config_builder(&value).is_err());
+    }
+
+    #[test]
+    fn as_to_many_openssl_tls_client_config_builder_ok() {
+        let value = json!({
+            "protocol": "tls13",
+            "tls_version_min": "tls1.2",
+            "tls_version_max": "tls1.3",
+            "ciphers": "TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256",
+            "disable_sni": false,
+            "cert": TEST_CERT_PEM1,
+            "key": TEST_KEY_PEM1,
+            "tlcp_cert_pair": {
+                "sign_certificate": TEST_CERT_PEM1,
+                "enc_certificate": TEST_CERT_PEM2,
+                "sign_private_key": TEST_KEY_PEM1,
+                "enc_private_key": TEST_KEY_PEM2
+            },
+            "ca_cert": TEST_CERT_PEM2,
+            "no_default_ca_cert": true,
+            "negotiation_timeout": "5s",
+            "disable_session_cache": false,
+            "use_builtin_session_cache": true,
+            "session_cache_lru_max_sites": 50,
+            "session_cache_each_cap": 20,
+            "supported_groups": "X25519:P-384",
+            "use_ocsp_stapling": false,
+            "enable_sct": false,
+            "enable_grease": false,
+            "permute_extensions": false,
+            "insecure": true
+        });
+        let builder = as_to_many_openssl_tls_client_config_builder(&value).unwrap();
+        let mut expected = OpensslClientConfigBuilder::default();
+        expected.set_protocol(OpensslProtocol::Tls13);
+        expected.set_min_tls_version(TlsVersion::TLS1_2);
+        expected.set_max_tls_version(TlsVersion::TLS1_3);
+        expected.set_ciphers(vec![
+            "TLS_AES_256_GCM_SHA384".to_string(),
+            "TLS_CHACHA20_POLY1305_SHA256".to_string(),
+        ]);
+        let cert_pair = as_openssl_certificate_pair(&json!({
+            "certificate": TEST_CERT_PEM1,
+            "private_key": TEST_KEY_PEM1
+        }))
+        .unwrap();
+        expected.set_cert_pair(cert_pair);
+        let tlcp_cert_pair = as_openssl_tlcp_certificate_pair(&json!({
+            "sign_certificate": TEST_CERT_PEM1,
+            "enc_certificate": TEST_CERT_PEM2,
+            "sign_private_key": TEST_KEY_PEM1,
+            "enc_private_key": TEST_KEY_PEM2
+        }))
+        .unwrap();
+        expected.set_tlcp_cert_pair(tlcp_cert_pair);
+        let ca_certs = as_openssl_certificates(&json!(TEST_CERT_PEM2)).unwrap();
+        expected.set_ca_certificates(ca_certs).unwrap();
+        expected.set_no_default_ca_certificates();
+        expected.set_handshake_timeout(Duration::from_secs(5));
+        expected.set_use_builtin_session_cache();
+        expected.set_session_cache_sites_count(50);
+        expected.set_session_cache_each_capacity(20);
+        expected.set_supported_groups("X25519:P-384".to_string());
+        expected.set_use_ocsp_stapling(false);
+        expected.set_enable_sct(false);
+        expected.set_enable_grease(false);
+        expected.set_permute_extensions(false);
+        expected.set_insecure(true);
+        assert_eq!(builder, expected);
+    }
+
+    #[test]
+    fn as_to_many_openssl_tls_client_config_builder_err() {
+        // Invalid ciphers format
+        let value = json!({"ciphers": 123});
+        assert!(as_to_many_openssl_tls_client_config_builder(&value).is_err());
+
+        // Invalid cipher string
+        let value = json!({"ciphers": "invalid_cipher"});
+        assert!(as_to_many_openssl_tls_client_config_builder(&value).is_err());
+
+        // Missing required fields for cache
+        let value = json!({
+            "session_cache_lru_max_sites": 100,
+            "session_cache_each_capacity": 10
+        });
+        assert!(as_to_many_openssl_tls_client_config_builder(&value).is_ok());
+
+        // Invalid key
+        let value = json!({"invalid_key": "value"});
+        assert!(as_to_many_openssl_tls_client_config_builder(&value).is_err());
+
+        // Invalid value type
+        let value = json!(123);
+        assert!(as_to_many_openssl_tls_client_config_builder(&value).is_err());
+    }
+}
