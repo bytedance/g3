@@ -194,7 +194,7 @@ pub fn as_rustls_server_config_builder(value: &Value) -> anyhow::Result<RustlsSe
                             builder.push_cert_pair(pair);
                         }
                     } else {
-                        let pair = as_rustls_certificate_pair(value)
+                        let pair = as_rustls_certificate_pair(v)
                             .context(format!("invalid rustls cert pair value for key {k}"))?;
                         builder.push_cert_pair(pair);
                     }
