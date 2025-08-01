@@ -33,17 +33,13 @@ impl AsyncWaitCtx {
 
     pub fn get_all_fds(&self) -> Result<Vec<RawFd>, ErrorStack> {
         let mut fd_count = 0usize;
-        let r = unsafe {
-            ffi::ASYNC_WAIT_CTX_get_all_fds(self.0, ptr::null_mut(), &mut fd_count as *mut usize)
-        };
+        let r = unsafe { ffi::ASYNC_WAIT_CTX_get_all_fds(self.0, ptr::null_mut(), &mut fd_count) };
         if r != 1 {
             return Err(ErrorStack::get());
         }
 
         let mut fds: Vec<c_int> = vec![0; fd_count];
-        let r = unsafe {
-            ffi::ASYNC_WAIT_CTX_get_all_fds(self.0, fds.as_mut_ptr(), &mut fd_count as *mut usize)
-        };
+        let r = unsafe { ffi::ASYNC_WAIT_CTX_get_all_fds(self.0, fds.as_mut_ptr(), &mut fd_count) };
         if r != 1 {
             return Err(ErrorStack::get());
         }
@@ -58,9 +54,9 @@ impl AsyncWaitCtx {
             ffi::ASYNC_WAIT_CTX_get_changed_fds(
                 self.0,
                 ptr::null_mut(),
-                &mut add_fd_count as *mut usize,
+                &mut add_fd_count,
                 ptr::null_mut(),
-                &mut del_fd_count as *mut usize,
+                &mut del_fd_count,
             )
         };
         if r != 1 {
@@ -73,9 +69,9 @@ impl AsyncWaitCtx {
             ffi::ASYNC_WAIT_CTX_get_changed_fds(
                 self.0,
                 add_fds.as_mut_ptr(),
-                &mut add_fd_count as *mut usize,
+                &mut add_fd_count,
                 del_fds.as_mut_ptr(),
-                &mut del_fd_count as *mut usize,
+                &mut del_fd_count,
             )
         };
         if r != 1 {
@@ -102,7 +98,7 @@ mod ossl3 {
                 ffi::ASYNC_WAIT_CTX_set_callback(
                     self.0,
                     Some(wake),
-                    Arc::as_ptr(waker) as *mut c_void,
+                    Arc::as_ptr(waker).cast::<c_void>().cast_mut(),
                 )
             };
             if r != 1 {
@@ -118,7 +114,7 @@ mod ossl3 {
     }
 
     extern "C" fn wake(arg: *mut c_void) -> c_int {
-        let waker = unsafe { &*(arg as *const AtomicWaker) };
+        let waker = unsafe { arg.cast::<AtomicWaker>().as_mut().unwrap() };
         waker.wake();
         0
     }

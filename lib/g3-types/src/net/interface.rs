@@ -91,7 +91,7 @@ impl FromStr for Interface {
             }
             name[s.len()] = 0;
 
-            let id = unsafe { libc::if_nametoindex(name.as_ptr() as *const _) };
+            let id = unsafe { libc::if_nametoindex(name.as_ptr().cast()) };
             match NonZeroU32::new(id as u32) {
                 Some(id) => Ok(Interface {
                     name,

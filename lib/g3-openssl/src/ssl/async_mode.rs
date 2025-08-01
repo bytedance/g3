@@ -56,7 +56,10 @@ impl SslAsyncModeExt for SslRef {
         }
 
         let r = unsafe {
-            ffi::SSL_set_async_callback_arg(self.as_ptr(), Arc::as_ptr(waker) as *mut c_void)
+            ffi::SSL_set_async_callback_arg(
+                self.as_ptr(),
+                Arc::as_ptr(waker).cast::<c_void>().cast_mut(),
+            )
         };
         if r != 1 {
             Err(ErrorStack::get())
@@ -72,9 +75,9 @@ impl SslAsyncModeExt for SslRef {
             ffi::SSL_get_changed_async_fds(
                 self.as_ptr(),
                 ptr::null_mut(),
-                &mut add_fd_count as *mut usize,
+                &mut add_fd_count,
                 ptr::null_mut(),
-                &mut del_fd_count as *mut usize,
+                &mut del_fd_count,
             )
         };
         if r != 1 {
@@ -87,9 +90,9 @@ impl SslAsyncModeExt for SslRef {
             ffi::SSL_get_changed_async_fds(
                 self.as_ptr(),
                 add_fds.as_mut_ptr(),
-                &mut add_fd_count as *mut usize,
+                &mut add_fd_count,
                 del_fds.as_mut_ptr(),
-                &mut del_fd_count as *mut usize,
+                &mut del_fd_count,
             )
         };
         if r != 1 {
@@ -209,7 +212,7 @@ impl AsyncEnginePoller {
 
 #[cfg(ossl300)]
 extern "C" fn async_engine_wake(_ssl: *mut SSL, arg: *mut c_void) -> c_int {
-    let waker = unsafe { &*(arg as *const AtomicWaker) };
+    let waker = unsafe { arg.cast::<AtomicWaker>().as_ref().unwrap() };
     waker.wake();
     0
 }

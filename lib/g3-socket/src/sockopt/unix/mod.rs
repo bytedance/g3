@@ -3,11 +3,11 @@
  * Copyright 2025 ByteDance and/or its affiliates.
  */
 
-use std::io;
 use std::mem::MaybeUninit;
 use std::os::fd::AsRawFd;
+use std::{io, ptr};
 
-use libc::{c_int, c_void, socklen_t};
+use libc::{c_int, socklen_t};
 
 #[cfg(any(target_os = "linux", target_os = "android"))]
 mod linux;
@@ -26,8 +26,13 @@ where
     T: Copy,
 {
     unsafe {
-        let payload = &value as *const T as *const c_void;
-        let ret = libc::setsockopt(fd, level, name, payload, size_of::<T>() as socklen_t);
+        let ret = libc::setsockopt(
+            fd,
+            level,
+            name,
+            ptr::from_ref(&value).cast(),
+            size_of::<T>() as socklen_t,
+        );
         if ret == -1 {
             return Err(io::Error::last_os_error());
         }

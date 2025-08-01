@@ -34,7 +34,7 @@ impl RecvAncillaryBuffer {
 
         while offset + CMSG_HDR_SIZE <= total_size {
             let buf = &control_buf[offset..];
-            let hdr = unsafe { (buf.as_ptr() as *const libc::cmsghdr).as_ref().unwrap() };
+            let hdr = unsafe { buf.as_ptr().cast::<libc::cmsghdr>().as_ref().unwrap() };
             let msg_len: usize = hdr.cmsg_len as _;
             if msg_len <= CMSG_HDR_SIZE {
                 // empty record
@@ -59,8 +59,10 @@ impl RecvAncillaryBuffer {
                                 "no enough msg data for struct in_pktinfo",
                             ));
                         }
-                        let pktinfo: &libc::in_pktinfo = unsafe {
-                            (payload.as_ptr() as *const libc::in_pktinfo)
+                        let pktinfo = unsafe {
+                            payload
+                                .as_ptr()
+                                .cast::<libc::in_pktinfo>()
                                 .as_ref()
                                 .unwrap()
                         };
@@ -84,8 +86,10 @@ impl RecvAncillaryBuffer {
                                 "no enough msg data for struct in_pktinfo",
                             ));
                         }
-                        let pktinfo: &libc::in_pktinfo = unsafe {
-                            (payload.as_ptr() as *const libc::in_pktinfo)
+                        let pktinfo = unsafe {
+                            payload
+                                .as_ptr()
+                                .cast::<libc::in_pktinfo>()
                                 .as_ref()
                                 .unwrap()
                         };
@@ -106,8 +110,10 @@ impl RecvAncillaryBuffer {
                                 "no enough msg data for struct sockaddr_dl",
                             ));
                         }
-                        let dl_addr: &libc::sockaddr_dl = unsafe {
-                            (payload.as_ptr() as *const libc::sockaddr_dl)
+                        let dl_addr = unsafe {
+                            payload
+                                .as_ptr()
+                                .cast::<libc::sockaddr_dl>()
                                 .as_ref()
                                 .unwrap()
                         };
@@ -125,8 +131,8 @@ impl RecvAncillaryBuffer {
                                 "no enough msg data for struct in_addr",
                             ));
                         }
-                        let ipaddr: &libc::in_addr =
-                            unsafe { (payload.as_ptr() as *const libc::in_addr).as_ref().unwrap() };
+                        let ipaddr =
+                            unsafe { payload.as_ptr().cast::<libc::in_addr>().as_ref().unwrap() };
                         let ip4 = Ipv4Addr::from(u32::from_be(ipaddr.s_addr));
                         data.set_recv_dst_addr(IpAddr::V4(ip4));
                     }
@@ -140,8 +146,10 @@ impl RecvAncillaryBuffer {
                                 "no enough msg data for struct in6_pktinfo",
                             ));
                         }
-                        let pktinfo: &libc::in6_pktinfo = unsafe {
-                            (payload.as_ptr() as *const libc::in6_pktinfo)
+                        let pktinfo = unsafe {
+                            payload
+                                .as_ptr()
+                                .cast::<libc::in6_pktinfo>()
                                 .as_ref()
                                 .unwrap()
                         };
