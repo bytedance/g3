@@ -68,3 +68,15 @@ pub(crate) fn get_incoming_cpu<T: AsRawFd>(fd: &T) -> io::Result<usize> {
         usize::try_from(cpu_id).map_err(|e| io::Error::other(format!("invalid cpu id: {e}")))
     }
 }
+
+pub(crate) fn set_tcp_quick_ack<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<()> {
+    unsafe {
+        super::setsockopt(
+            fd.as_raw_fd(),
+            libc::IPPROTO_TCP,
+            libc::TCP_QUICKACK,
+            enable as c_int,
+        )?;
+        Ok(())
+    }
+}

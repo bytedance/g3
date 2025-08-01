@@ -46,14 +46,14 @@ pub(super) fn set_udp_recv_pktinfo(socket: &Socket, addr: SocketAddr) -> io::Res
                 return Ok(());
             }
 
-            crate::sockopt::set_recv_ip_pktinfo(socket, true)
+            crate::sockopt::set_recv_pktinfo_v4(socket, true)
         }
         IpAddr::V6(v6) => {
             if !v6.is_unspecified() {
                 return Ok(());
             }
 
-            crate::sockopt::set_recv_ipv6_pktinfo(socket, true)
+            crate::sockopt::set_recv_pktinfo_v6(socket, true)
         }
     }
 }
@@ -70,7 +70,7 @@ pub(super) fn set_udp_recv_pktinfo(
                 return Ok(());
             }
 
-            crate::sockopt::set_recv_ip_pktinfo(socket, true)
+            crate::sockopt::set_recv_pktinfo_v4(socket, true)
         }
         IpAddr::V6(v6) => {
             if !v6.is_unspecified() {
@@ -80,13 +80,13 @@ pub(super) fn set_udp_recv_pktinfo(
             match ipv6_only {
                 Some(true) => {}
                 Some(false) => {
-                    crate::sockopt::set_recv_ip_pktinfo(socket, true)?;
+                    crate::sockopt::set_recv_pktinfo_v4(socket, true)?;
                 }
                 None => {
                     // ipv6_only default to true on Windows
                 }
             }
-            crate::sockopt::set_recv_ipv6_pktinfo(socket, true)
+            crate::sockopt::set_recv_pktinfo_v6(socket, true)
         }
     }
 }
