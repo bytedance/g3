@@ -218,7 +218,7 @@ impl UdpSocketExt for UdpSocket {
                             }
                             let control_buf = unsafe {
                                 std::slice::from_raw_parts(
-                                    h.msg_hdr.msg_control as *const u8,
+                                    h.msg_hdr.msg_control.cast(),
                                     h.msg_hdr.msg_controllen as _,
                                 )
                             };
@@ -258,7 +258,7 @@ impl UdpSocketExt for UdpSocket {
                             }
                             let control_buf = unsafe {
                                 std::slice::from_raw_parts(
-                                    h.msg_control as *const u8,
+                                    h.msg_control.cast(),
                                     h.msg_controllen as usize,
                                 )
                             };

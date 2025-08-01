@@ -77,9 +77,9 @@ fn get_wsa_recvmsg_ptr<T: AsRawSocket>(socket: &T) -> io::Result<WinSock::LPFN_W
         WinSock::WSAIoctl(
             socket.as_raw_socket() as _,
             WinSock::SIO_GET_EXTENSION_FUNCTION_POINTER,
-            &guid as *const _ as *const _,
+            ptr::from_ref(&guid).cast(),
             size_of_val(&guid) as u32,
-            &mut wsa_recvmsg_ptr as *mut _ as *mut _,
+            ptr::from_mut(&mut wsa_recvmsg_ptr).cast(),
             size_of_val(&wsa_recvmsg_ptr) as u32,
             &mut len,
             ptr::null_mut(),

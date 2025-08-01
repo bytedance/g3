@@ -3,9 +3,9 @@
  * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use std::io;
 use std::mem::MaybeUninit;
 use std::os::windows::io::AsRawSocket;
+use std::{io, ptr};
 
 use windows_sys::Win32::Networking::WinSock;
 
@@ -14,8 +14,13 @@ where
     T: Copy,
 {
     unsafe {
-        let payload = &value as *const T as *const u8;
-        let ret = WinSock::setsockopt(socket, level, name, payload, size_of::<T>() as i32);
+        let ret = WinSock::setsockopt(
+            socket,
+            level,
+            name,
+            ptr::from_ref(&value).cast(),
+            size_of::<T>() as i32,
+        );
         if ret == WinSock::SOCKET_ERROR {
             return Err(io::Error::last_os_error());
         }

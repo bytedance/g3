@@ -40,7 +40,7 @@ impl RecvAncillaryBuffer {
 
         while offset + CMSG_HDR_SIZE <= total_size {
             let buf = &control_buf[offset..];
-            let hdr = unsafe { (buf.as_ptr() as *const WinSock::CMSGHDR).as_ref().unwrap() };
+            let hdr = unsafe { buf.as_ptr().cast::<WinSock::CMSGHDR>().as_ref().unwrap() };
             if hdr.cmsg_len <= CMSG_HDR_SIZE {
                 // empty record
                 break;
@@ -63,8 +63,10 @@ impl RecvAncillaryBuffer {
                                 "no enough msg data for struct IN_PKTINFO",
                             ));
                         }
-                        let pktinfo: &WinSock::IN_PKTINFO = unsafe {
-                            (payload.as_ptr() as *const WinSock::IN_PKTINFO)
+                        let pktinfo = unsafe {
+                            payload
+                                .as_ptr()
+                                .cast::<WinSock::IN_PKTINFO>()
                                 .as_ref()
                                 .unwrap()
                         };
@@ -84,8 +86,10 @@ impl RecvAncillaryBuffer {
                                 "no enough msg data for struct IN6_PKTINFO",
                             ));
                         }
-                        let pktinfo: &WinSock::IN6_PKTINFO = unsafe {
-                            (payload.as_ptr() as *const WinSock::IN6_PKTINFO)
+                        let pktinfo = unsafe {
+                            payload
+                                .as_ptr()
+                                .cast::<WinSock::IN6_PKTINFO>()
                                 .as_ref()
                                 .unwrap()
                         };

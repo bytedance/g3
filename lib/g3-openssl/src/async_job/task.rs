@@ -4,13 +4,12 @@
  */
 
 use std::cell::UnsafeCell;
-use std::io;
 use std::os::fd::RawFd;
 use std::pin::Pin;
 #[cfg(ossl300)]
 use std::sync::Arc;
 use std::task::{Context, Poll, ready};
-use std::{mem, ptr};
+use std::{io, mem, ptr};
 
 use anyhow::anyhow;
 #[cfg(ossl300)]
@@ -106,7 +105,7 @@ impl<T: AsyncOperation> OpensslAsyncTask<T> {
                     self.wait_ctx.as_ptr(),
                     &mut ret,
                     Some(start_job::<T>),
-                    &mut param as *mut _ as *mut c_void,
+                    ptr::from_mut(&mut param).cast(),
                     size_of::<*mut Action<T>>(),
                 )
             };
@@ -157,7 +156,7 @@ impl<T: AsyncOperation> OpensslAsyncTask<T> {
                     self.wait_ctx.as_ptr(),
                     &mut ret,
                     Some(start_job::<T>),
-                    &mut param as *mut _ as *mut c_void,
+                    ptr::from_mut(&mut param).cast(),
                     size_of::<*mut Action<T>>(),
                 )
             };
@@ -215,8 +214,8 @@ impl<T: AsyncOperation> OpensslAsyncTask<T> {
 }
 
 extern "C" fn start_job<T: AsyncOperation>(arg: *mut c_void) -> c_int {
-    let p = unsafe { *(arg as *mut *mut Action<T>) };
-    let action = unsafe { &mut *p };
+    let action_p = unsafe { arg.cast::<*mut Action<T>>().as_ref().unwrap() };
+    let action = unsafe { action_p.as_mut().unwrap() };
     action.result = action.operation.run();
     0
 }

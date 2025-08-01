@@ -21,7 +21,7 @@ impl<T: HasPrivate> RsaExt for Rsa<T> {
         unsafe {
             let r = ffi::RSA_sign_ASN1_OCTET_STRING(
                 0,
-                from.as_ptr() as *mut c_uchar,
+                from.as_ptr().cast::<c_uchar>().cast_mut(),
                 from.len() as c_uint,
                 to.as_mut_ptr(),
                 &mut len,
