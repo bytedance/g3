@@ -68,7 +68,21 @@ pub(crate) fn set_reuse_unicastport<T: AsRawSocket>(socket: &T, enable: bool) ->
     }
 }
 
-pub(crate) fn set_recv_ip_pktinfo<T: AsRawSocket>(socket: &T, enable: bool) -> io::Result<()> {
+pub(crate) fn set_tos_v4<T: AsRawSocket>(socket: &T, tos: u8) -> io::Result<()> {
+    unsafe {
+        setsockopt(
+            // std::os::windows::raw::SOCKET is u64
+            // windows_sys::Win32::Networking::WinSock::SOCKET is usize
+            socket.as_raw_socket() as _,
+            WinSock::IPPROTO_IP, // not same as IPPROTO_IPV4
+            WinSock::IP_TOS,
+            tos as u32,
+        )?;
+        Ok(())
+    }
+}
+
+pub(crate) fn set_recv_pktinfo_v4<T: AsRawSocket>(socket: &T, enable: bool) -> io::Result<()> {
     unsafe {
         setsockopt(
             // std::os::windows::raw::SOCKET is u64
@@ -82,7 +96,7 @@ pub(crate) fn set_recv_ip_pktinfo<T: AsRawSocket>(socket: &T, enable: bool) -> i
     }
 }
 
-pub(crate) fn set_recv_ipv6_pktinfo<T: AsRawSocket>(socket: &T, enable: bool) -> io::Result<()> {
+pub(crate) fn set_recv_pktinfo_v6<T: AsRawSocket>(socket: &T, enable: bool) -> io::Result<()> {
     unsafe {
         setsockopt(
             // std::os::windows::raw::SOCKET is u64

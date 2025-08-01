@@ -106,14 +106,14 @@ impl ClientConnectionInfo {
         }
     }
 
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(any(target_os = "linux", target_os = "android", target_os = "illumos"))]
     pub fn tcp_sock_try_quick_ack(&self) {
         if let Some(raw_socket) = &self.tcp_raw_socket {
             let _ = raw_socket.trigger_tcp_quick_ack();
         }
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(any(target_os = "linux", target_os = "android", target_os = "illumos")))]
     pub fn tcp_sock_try_quick_ack(&self) {}
 
     #[cfg(any(target_os = "linux", target_os = "android"))]

@@ -62,7 +62,7 @@ impl RawSocket {
                     socket.set_ttl_v4(ttl)?;
                 }
                 if let Some(tos) = misc_opts.type_of_service {
-                    socket.set_tos_v4(tos as u32)?;
+                    crate::sockopt::set_tos_v4(socket, tos)?;
                 }
             }
             AddressFamily::Ipv6 => {
@@ -71,7 +71,7 @@ impl RawSocket {
                 }
                 #[cfg(not(windows))]
                 if let Some(class) = misc_opts.traffic_class {
-                    socket.set_tclass_v6(class as u32)?;
+                    crate::sockopt::set_tclass_v6(socket, class)?;
                 }
             }
         }
@@ -82,7 +82,7 @@ impl RawSocket {
             target_os = "illumos"
         ))]
         if let Some(ca) = misc_opts.congestion_control() {
-            socket.set_tcp_congestion(ca)?;
+            crate::sockopt::set_tcp_congestion(socket, ca)?;
         }
         #[cfg(target_os = "linux")]
         if let Some(mark) = misc_opts.netfilter_mark {
@@ -91,10 +91,10 @@ impl RawSocket {
         Ok(())
     }
 
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(any(target_os = "linux", target_os = "android", target_os = "illumos"))]
     pub fn trigger_tcp_quick_ack(&self) -> io::Result<()> {
         let socket = self.get_inner()?;
-        socket.set_tcp_quickack(true)
+        crate::sockopt::set_tcp_quick_ack(socket, true)
     }
 
     #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -115,7 +115,7 @@ impl RawSocket {
                     socket.set_ttl_v4(ttl)?;
                 }
                 if let Some(tos) = misc_opts.type_of_service {
-                    socket.set_tos_v4(tos as u32)?;
+                    crate::sockopt::set_tos_v4(socket, tos)?;
                 }
             }
             SocketAddr::V6(s6) => {
@@ -124,7 +124,7 @@ impl RawSocket {
                 }
                 #[cfg(not(windows))]
                 if let Some(class) = misc_opts.traffic_class {
-                    socket.set_tclass_v6(class as u32)?;
+                    crate::sockopt::set_tclass_v6(socket, class)?;
                 }
                 #[cfg(not(target_os = "openbsd"))]
                 if s6.ip().is_unspecified()
@@ -137,7 +137,7 @@ impl RawSocket {
                             socket.set_ttl_v4(ttl)?;
                         }
                         if let Some(tos) = misc_opts.type_of_service {
-                            socket.set_tos_v4(tos as u32)?;
+                            crate::sockopt::set_tos_v4(socket, tos)?;
                         }
                     }
                 }

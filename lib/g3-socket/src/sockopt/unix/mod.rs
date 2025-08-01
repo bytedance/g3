@@ -14,12 +14,23 @@ mod linux;
 #[cfg(any(target_os = "linux", target_os = "android"))]
 pub(crate) use linux::{
     get_incoming_cpu, set_bind_address_no_port, set_incoming_cpu, set_ip_transparent_v6,
+    set_tcp_quick_ack,
 };
 
 #[cfg(target_os = "freebsd")]
 mod freebsd;
 #[cfg(target_os = "freebsd")]
 pub(crate) use freebsd::set_tcp_reuseport_lb_numa_current_domain;
+
+#[cfg(target_os = "solaris")]
+mod solaris;
+#[cfg(target_os = "solaris")]
+pub(crate) use solaris::set_tcp_congestion;
+
+#[cfg(target_os = "illumos")]
+mod illumos;
+#[cfg(target_os = "illumos")]
+pub(crate) use illumos::set_tcp_quick_ack;
 
 unsafe fn setsockopt<T>(fd: c_int, level: c_int, name: c_int, value: T) -> io::Result<()>
 where
@@ -64,7 +75,26 @@ pub(crate) fn ipv6_only<T: AsRawFd>(fd: &T) -> io::Result<bool> {
     }
 }
 
-pub(crate) fn set_recv_ipv6_pktinfo<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<()> {
+pub(crate) fn set_tos_v4<T: AsRawFd>(fd: &T, tos: u8) -> io::Result<()> {
+    unsafe {
+        setsockopt(fd.as_raw_fd(), libc::IPPROTO_IP, libc::IP_TOS, tos as c_int)?;
+        Ok(())
+    }
+}
+
+pub(crate) fn set_tclass_v6<T: AsRawFd>(fd: &T, tclass: u8) -> io::Result<()> {
+    unsafe {
+        setsockopt(
+            fd.as_raw_fd(),
+            libc::IPPROTO_IPV6,
+            libc::IPV6_TCLASS,
+            tclass as c_int, // NOTE: -1 is also allowed on solaris and illumos
+        )?;
+        Ok(())
+    }
+}
+
+pub(crate) fn set_recv_pktinfo_v6<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<()> {
     unsafe {
         setsockopt(
             fd.as_raw_fd(),
@@ -82,7 +112,7 @@ pub(crate) fn set_recv_ipv6_pktinfo<T: AsRawFd>(fd: &T, enable: bool) -> io::Res
     target_os = "macos",
     target_os = "illumos"
 ))]
-pub(crate) fn set_recv_ip_pktinfo<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<()> {
+pub(crate) fn set_recv_pktinfo_v4<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<()> {
     unsafe {
         setsockopt(
             fd.as_raw_fd(),
@@ -95,7 +125,7 @@ pub(crate) fn set_recv_ip_pktinfo<T: AsRawFd>(fd: &T, enable: bool) -> io::Resul
 }
 
 #[cfg(any(target_os = "freebsd", target_os = "openbsd", target_os = "dragonfly"))]
-pub(crate) fn set_recv_ip_pktinfo<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<()> {
+pub(crate) fn set_recv_pktinfo_v4<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<()> {
     unsafe {
         setsockopt(
             fd.as_raw_fd(),
@@ -122,7 +152,7 @@ pub(crate) fn set_recv_ip_pktinfo<T: AsRawFd>(fd: &T, enable: bool) -> io::Resul
     target_os = "openbsd",
     target_os = "dragonfly"
 )))]
-pub(crate) fn set_recv_ip_pktinfo<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<()> {
+pub(crate) fn set_recv_pktinfo_v4<T: AsRawFd>(fd: &T, enable: bool) -> io::Result<()> {
     unsafe {
         setsockopt(
             fd.as_raw_fd(),
@@ -130,6 +160,23 @@ pub(crate) fn set_recv_ip_pktinfo<T: AsRawFd>(fd: &T, enable: bool) -> io::Resul
             libc::IP_RECVPKTINFO,
             enable as c_int,
         )?;
+        Ok(())
+    }
+}
+
+#[cfg(any(target_os = "linux", target_os = "freebsd", target_os = "illumos"))]
+pub(crate) fn set_tcp_congestion<T: AsRawFd>(fd: &T, tcp_ca_name: &[u8]) -> io::Result<()> {
+    unsafe {
+        let ret = libc::setsockopt(
+            fd.as_raw_fd(),
+            libc::IPPROTO_TCP,
+            libc::TCP_CONGESTION,
+            tcp_ca_name.as_ptr().cast(),
+            tcp_ca_name.len() as socklen_t,
+        );
+        if ret == -1 {
+            return Err(io::Error::last_os_error());
+        }
         Ok(())
     }
 }
