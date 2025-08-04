@@ -17,7 +17,7 @@ fn check_stomp_data(data: &[u8]) -> Result<Protocol, ProtocolInspectError> {
 }
 
 #[test]
-fn test_check_stomp_client_connect_request_valid_connect() {
+fn check_stomp_client_connect_request_valid_connect() {
     // CONNECT\n\n\0
     let data = b"CONNECT\n\n\0"; // 10 bytes
     let p = check_stomp_data(data).expect("Should be valid STOMP protocol");
@@ -25,7 +25,7 @@ fn test_check_stomp_client_connect_request_valid_connect() {
 }
 
 #[test]
-fn test_check_stomp_client_connect_request_valid_stomp() {
+fn check_stomp_client_connect_request_valid_stomp() {
     // STOMP\naccept-version:1.2\nhost:stomp.github.com\n\n\0
     let data = b"STOMP\naccept-version:1.2\nhost:stomp.github.com\n\n\0"; // 51 bytes
     let p = check_stomp_data(data).expect("Should be valid STOMP protocol");
@@ -33,14 +33,14 @@ fn test_check_stomp_client_connect_request_valid_stomp() {
 }
 
 #[test]
-fn test_check_stomp_client_connect_request_invalid_method_initial() {
+fn check_stomp_client_connect_request_invalid_method_initial() {
     let data = b"IN\n\n\0";
     let e = check_stomp_data(data).expect_err("Should be invalid STOMP protocol");
     assert!(matches!(e, ProtocolInspectError::NeedMoreData(5)));
 }
 
 #[test]
-fn test_check_stomp_client_connect_request_need_more_data_very_short() {
+fn check_stomp_client_connect_request_need_more_data_very_short() {
     let data = b"CO"; // 2 bytes, shorter than MIN_STOMP_CLIENT_HANDSHAKE_LEN
     let ProtocolInspectError::NeedMoreData(needed) = check_stomp_data(data)
         .expect_err("Protocol check with insufficient data should return NeedMoreData error");
@@ -56,28 +56,28 @@ fn test_check_stomp_client_connect_request_need_more_data_very_short() {
 }
 
 #[test]
-fn test_check_stomp_client_connect_request_invalid_c_prefix() {
+fn check_stomp_client_connect_request_invalid_c_prefix() {
     let data = b"CONNEXT_IS_INVALID_AND_LONG";
     let p = check_stomp_data(data).expect("Should return Protocol::Unknown");
     assert_eq!(p, Protocol::Unknown);
 }
 
 #[test]
-fn test_check_stomp_client_connect_request_invalid_s_prefix() {
+fn check_stomp_client_connect_request_invalid_s_prefix() {
     let data = b"STOMX_IS_INVALID_AND_LONG_TOO";
     let p = check_stomp_data(data).expect("Should return Protocol::Unknown");
     assert_eq!(p, Protocol::Unknown);
 }
 
 #[test]
-fn test_check_stomp_connect_method_valid_lf() {
+fn check_stomp_connect_method_valid_lf() {
     let data = b"CONNECT\n\0\0";
     let p = check_stomp_data(data).expect("Should be valid STOMP protocol");
     assert_eq!(p, Protocol::Stomp);
 }
 
 #[test]
-fn test_check_stomp_connect_method_valid_crlf() {
+fn check_stomp_connect_method_valid_crlf() {
     // CONNECT\r\n + padding
     // The actual STOMP logic for "CONNECT\r\n" needs 11 bytes (offset 9 + 2).
     let data = b"CONNECT\r\n\0"; // 10 bytes. This will be NeedMoreData(1)
@@ -91,7 +91,7 @@ fn test_check_stomp_connect_method_valid_crlf() {
 }
 
 #[test]
-fn test_check_stomp_connect_method_invalid_command_suffix() {
+fn check_stomp_connect_method_invalid_command_suffix() {
     let data = b"CONNECX\n\n\0"; // 10 bytes, Invalid STOMP command
     let e = check_stomp_data(data)
         .expect_err("Protocol with invalid command should return Protocol::Unknown");
@@ -99,7 +99,7 @@ fn test_check_stomp_connect_method_invalid_command_suffix() {
 }
 
 #[test]
-fn test_check_stomp_connect_method_invalid_line_ending_after_command() {
+fn check_stomp_connect_method_invalid_line_ending_after_command() {
     // "CONNECTX" where X is not \n or \r
     let data = b"CONNECTX\n\n\0"; // 11 bytes
     let e = check_stomp_data(data)
@@ -108,7 +108,7 @@ fn test_check_stomp_connect_method_invalid_line_ending_after_command() {
 }
 
 #[test]
-fn test_check_stomp_connect_method_invalid_crlf_variant_after_command() {
+fn check_stomp_connect_method_invalid_crlf_variant_after_command() {
     // "CONNECT\rX" where X is not \n
     let data = b"CONNECT\rX\n\0"; // 11 bytes
     let p = check_stomp_data(data).expect("Expected Ok, got Err");
@@ -116,7 +116,7 @@ fn test_check_stomp_connect_method_invalid_crlf_variant_after_command() {
 }
 
 #[test]
-fn test_check_stomp_connect_method_need_more_data_for_initial_check_lf_style() {
+fn check_stomp_connect_method_need_more_data_for_initial_check_lf_style() {
     // Test "CONNECT\n" like prefixes that are too short for MIN_STOMP_CLIENT_HANDSHAKE_LEN (10 bytes)
     let data = b"CONNECT\n"; // 8 bytes
     let e = check_stomp_data(data)
@@ -130,7 +130,7 @@ fn test_check_stomp_connect_method_need_more_data_for_initial_check_lf_style() {
 }
 
 #[test]
-fn test_check_stomp_connect_method_need_more_data_after_method_crlf() {
+fn check_stomp_connect_method_need_more_data_after_method_crlf() {
     // For "CONNECT\r\n", offset is 9. MINIMUM_LEN_AFTER_METHOD is 2. Needs 11 bytes.
     let data = b"CONNECT\r\nA"; // 10 bytes
     let e = check_stomp_data(data)
@@ -139,42 +139,42 @@ fn test_check_stomp_connect_method_need_more_data_after_method_crlf() {
 }
 
 #[test]
-fn test_check_stomp_stomp_method_valid_lf() {
+fn check_stomp_stomp_method_valid_lf() {
     let data = b"STOMP\naccept-version:1.2\nhost:x\n\n\0";
     let p = check_stomp_data(data).expect("Should be valid STOMP protocol");
     assert_eq!(p, Protocol::Stomp);
 }
 
 #[test]
-fn test_check_stomp_stomp_method_valid_crlf() {
+fn check_stomp_stomp_method_valid_crlf() {
     let data = b"STOMP\r\naccept-version:1.2\nhost:x\n\n\0";
     let p = check_stomp_data(data).expect("Should be valid STOMP protocol");
     assert_eq!(p, Protocol::Stomp);
 }
 
 #[test]
-fn test_check_stomp_stomp_method_invalid_command_suffix() {
+fn check_stomp_stomp_method_invalid_command_suffix() {
     let data = b"STOMX\naccept-version:1.2\nhost:x\n\n\0";
     let p = check_stomp_data(data).expect("Should return Protocol::Unknown");
     assert_eq!(p, Protocol::Unknown);
 }
 
 #[test]
-fn test_check_stomp_stomp_method_invalid_line_ending_after_command() {
+fn check_stomp_stomp_method_invalid_line_ending_after_command() {
     let data = b"STOMPXaccept-version:1.2\nhost:x\n\n\0";
     let p = check_stomp_data(data).expect("Should return Protocol::Unknown");
     assert_eq!(p, Protocol::Unknown);
 }
 
 #[test]
-fn test_check_stomp_stomp_method_invalid_crlf_variant_after_command() {
+fn check_stomp_stomp_method_invalid_crlf_variant_after_command() {
     let data = b"STOMP\rXaccept-version:1.2\nhost:x\n\n\0";
     let p = check_stomp_data(data).expect("Should return Protocol::Unknown");
     assert_eq!(p, Protocol::Unknown);
 }
 
 #[test]
-fn test_check_stomp_stomp_method_need_more_data_after_method_lf() {
+fn check_stomp_stomp_method_need_more_data_after_method_lf() {
     // For "STOMP\n", offset is 6. MINIMUM_LEN_AFTER_METHOD is 26. Needs 32 bytes.
     // Input "STOMP\n" + "A"*25 (total 6+25 = 31 bytes).
     // Outer check (MIN_STOMP_CLIENT_HANDSHAKE_LEN=10) passes. Inner needs 32. NeedMoreData(1).
@@ -187,7 +187,7 @@ fn test_check_stomp_stomp_method_need_more_data_after_method_lf() {
 }
 
 #[test]
-fn test_check_stomp_stomp_method_need_more_data_after_method_crlf() {
+fn check_stomp_stomp_method_need_more_data_after_method_crlf() {
     // For "STOMP\r\n", offset is 7. MINIMUM_LEN_AFTER_METHOD is 26. Needs 33 bytes.
     // Input "STOMP\r\n" + "A"*25 (total 7+25 = 32 bytes).
     // Outer check passes. Inner needs 33. NeedMoreData(1).
@@ -200,14 +200,14 @@ fn test_check_stomp_stomp_method_need_more_data_after_method_crlf() {
 }
 
 #[test]
-fn test_check_stomp_client_connect_request_empty_data() {
+fn check_stomp_client_connect_request_empty_data() {
     let data = b"";
     let e = check_stomp_data(data).expect_err("Expected NeedMoreData, got Ok");
     assert!(matches!(e, ProtocolInspectError::NeedMoreData(_)));
 }
 
 #[test]
-fn test_check_stomp_client_connect_request_just_enough_for_connect_no_null_termination_check() {
+fn check_stomp_client_connect_request_just_enough_for_connect_no_null_termination_check() {
     // "CONNECT\n\nX" is 10 bytes. This should be Ok(Some(Protocol::Stomp))
     // as the TODO in stomp.rs mentions "check header and ending '\0'" is not yet implemented.
     // The current logic only checks the command and initial line endings.
@@ -217,7 +217,7 @@ fn test_check_stomp_client_connect_request_just_enough_for_connect_no_null_termi
 }
 
 #[test]
-fn test_check_stomp_client_connect_request_just_enough_for_stomp_no_null_termination_check() {
+fn check_stomp_client_connect_request_just_enough_for_stomp_no_null_termination_check() {
     // "STOMP\n" + "A"*26 (enough for headers as per MINIMUM_LEN_AFTER_METHOD)
     // Total 6 + 26 = 32 bytes.
     // This should be Ok(Some(Protocol::Stomp))
