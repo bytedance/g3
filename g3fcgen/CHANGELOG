@@ -2,6 +2,7 @@
 v0.8.4:
  - Feature: restore support for aws-lc
  - Feature: add support for aws-lc-fips
+ - Compatibility: bump MSRV to 1.86.0
  - Deprecated: the following config options are deprecated:
      - emit_duration in statsd config, use emit_interval instead
 
@@ -57,7 +58,7 @@ v0.4.1:
  - BUG FIX: init openssl properly
 
 v0.4.0:
- - Feature: use openssl instead if rcgen, and rename to g3fcgen
+ - Feature: use openssl instead of rcgen, and rename to g3fcgen
 
 v0.3.0:
  - Feature: use rcgen backend instead of squid, and rename to g3rcgen
