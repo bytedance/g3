@@ -267,7 +267,8 @@ impl HttpProxyClientResponse {
             TcpConnectError::NoAddressConnected => {
                 HttpProxyClientResponse::from_standard(StatusCode::BAD_GATEWAY, version, close)
             }
-            TcpConnectError::ForbiddenAddressFamily | TcpConnectError::ForbiddenRemoteAddress => {
+            TcpConnectError::ForbiddenAddressFamily(_)
+            | TcpConnectError::ForbiddenRemoteAddress(_) => {
                 HttpProxyClientResponse::from_standard(StatusCode::FORBIDDEN, version, close)
             }
             TcpConnectError::ProxyProtocolEncodeError(_) => HttpProxyClientResponse::from_standard(

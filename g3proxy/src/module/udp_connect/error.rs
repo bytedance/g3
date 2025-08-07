@@ -4,6 +4,7 @@
  */
 
 use std::io;
+use std::net::SocketAddr;
 
 use thiserror::Error;
 
@@ -17,8 +18,8 @@ pub(crate) enum UdpConnectError {
     MethodUnavailable,
     #[error("escaper is not usable: {0:?}")]
     EscaperNotUsable(anyhow::Error),
-    #[error("forbidden remote address")]
-    ForbiddenRemoteAddress,
+    #[error("forbidden remote address {0}")]
+    ForbiddenRemoteAddress(SocketAddr),
     #[error("resolve failed: {0}")]
     ResolveFailed(#[from] ResolveError),
     #[error("setup socket failed: {0:?}")]
@@ -32,7 +33,7 @@ impl From<UdpConnectError> for ServerTaskError {
                 ServerTaskError::ForbiddenByRule(ServerTaskForbiddenError::MethodUnavailable)
             }
             UdpConnectError::EscaperNotUsable(e) => ServerTaskError::EscaperNotUsable(e),
-            UdpConnectError::ForbiddenRemoteAddress => {
+            UdpConnectError::ForbiddenRemoteAddress(_) => {
                 ServerTaskError::ForbiddenByRule(ServerTaskForbiddenError::IpBlocked)
             }
             UdpConnectError::ResolveFailed(e) => ServerTaskError::from(e),
