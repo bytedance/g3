@@ -44,9 +44,19 @@ impl ProtocolInspectState {
         self.exclude_other(MaybeProtocol::Rtsp);
 
         // check ssh version
-        match &data[4..6] {
-            b"1." => {
-                if data[6] < b'0' || data[6] > b'9' {
+        let mut offset = 7;
+        let protocol = match &data[4..6] {
+            b"1." => match data[6] {
+                b'9' => {
+                    if data[7] == b'9' {
+                        offset = 8;
+                        Protocol::Ssh
+                    } else {
+                        Protocol::SshLegacy
+                    }
+                }
+                b'0'..=b'8' => Protocol::SshLegacy,
+                _ => {
                     self.exclude_current();
                     return Ok(None);
                 }
@@ -56,14 +66,15 @@ impl ProtocolInspectState {
                     self.exclude_current();
                     return Ok(None);
                 }
+                Protocol::Ssh
             }
             _ => {
                 self.exclude_current();
                 return Ok(None);
             }
-        }
+        };
 
-        if data[7] != b'-' {
+        if data[offset] != b'-' {
             self.exclude_current();
             return Ok(None);
         }
@@ -77,12 +88,15 @@ impl ProtocolInspectState {
                 Ok(None)
             };
         }
-        if data[data_len - 2] != b'\r' {
-            self.exclude_current();
-            return Ok(None);
+        if data[7] != b'9' {
+            // no '\r' for SSH-1.99-
+            if data[data_len - 2] != b'\r' {
+                self.exclude_current();
+                return Ok(None);
+            }
         }
 
-        Ok(None)
+        Ok(Some(protocol))
     }
 
     pub(crate) fn check_ssh_server_protocol_version_exchange(
@@ -121,7 +135,7 @@ impl ProtocolInspectState {
             b"1." => match data[6] {
                 b'9' => {
                     if data[7] == b'9' {
-                        offset = 9;
+                        offset = 8;
                         Protocol::Ssh
                     } else {
                         Protocol::SshLegacy
