@@ -39,6 +39,7 @@ pub(crate) struct DirectTcpConnectConfig<'a> {
 impl DirectFixedEscaper {
     fn handle_tcp_target_ip_acl_action(
         &self,
+        peer_ip: IpAddr,
         action: AclAction,
         task_notes: &ServerTaskNotes,
     ) -> Result<(), TcpConnectError> {
@@ -59,7 +60,7 @@ impl DirectFixedEscaper {
             if let Some(user_ctx) = task_notes.user_ctx() {
                 user_ctx.add_ip_blocked();
             }
-            Err(TcpConnectError::ForbiddenRemoteAddress)
+            Err(TcpConnectError::ForbiddenRemoteAddress(peer_ip))
         } else {
             Ok(())
         }
@@ -75,18 +76,18 @@ impl DirectFixedEscaper {
         match peer_ip {
             IpAddr::V4(_) => {
                 if self.config.no_ipv4 {
-                    return Err(TcpConnectError::ForbiddenAddressFamily);
+                    return Err(TcpConnectError::ForbiddenAddressFamily(peer_ip));
                 }
             }
             IpAddr::V6(_) => {
                 if self.config.no_ipv6 {
-                    return Err(TcpConnectError::ForbiddenAddressFamily);
+                    return Err(TcpConnectError::ForbiddenAddressFamily(peer_ip));
                 }
             }
         }
 
         let (_, action) = self.egress_net_filter.check(peer_ip);
-        self.handle_tcp_target_ip_acl_action(action, task_notes)?;
+        self.handle_tcp_target_ip_acl_action(peer_ip, action, task_notes)?;
 
         if bind.is_none() {
             bind = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes.egress_path());

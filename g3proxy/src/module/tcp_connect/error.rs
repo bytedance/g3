@@ -4,6 +4,7 @@
  */
 
 use std::io;
+use std::net::IpAddr;
 
 use thiserror::Error;
 
@@ -31,10 +32,10 @@ pub(crate) enum TcpConnectError {
     TimeoutByRule,
     #[error("no address connected")]
     NoAddressConnected,
-    #[error("forbidden address family")]
-    ForbiddenAddressFamily,
-    #[error("forbidden remote address")]
-    ForbiddenRemoteAddress,
+    #[error("forbidden address family of {0}")]
+    ForbiddenAddressFamily(IpAddr),
+    #[error("forbidden remote address {0}")]
+    ForbiddenRemoteAddress(IpAddr),
     #[error("proxy protocol encode error: {0}")]
     ProxyProtocolEncodeError(#[from] ProxyProtocolEncodeError),
     #[error("proxy protocol write failed: {0:?}")]
@@ -73,8 +74,8 @@ impl TcpConnectError {
             TcpConnectError::ConnectFailed(_) => "ConnectFailed",
             TcpConnectError::TimeoutByRule => "TimeoutByRule",
             TcpConnectError::NoAddressConnected => "NoAddressConnected",
-            TcpConnectError::ForbiddenAddressFamily => "ForbiddenAddressFamily",
-            TcpConnectError::ForbiddenRemoteAddress => "ForbiddenRemoteAddress",
+            TcpConnectError::ForbiddenAddressFamily(_) => "ForbiddenAddressFamily",
+            TcpConnectError::ForbiddenRemoteAddress(_) => "ForbiddenRemoteAddress",
             TcpConnectError::ProxyProtocolEncodeError(_) => "ProxyProtocolEncodeError",
             TcpConnectError::ProxyProtocolWriteFailed(_) => "ProxyProtocolWriteFailed",
             TcpConnectError::NegotiationReadFailed(_) => "NegotiationReadFailed",
@@ -108,7 +109,8 @@ impl From<TcpConnectError> for ServerTaskError {
                 ServerTaskError::UpstreamNotConnected(ConnectError::TimedOut)
             }
             TcpConnectError::NoAddressConnected => ServerTaskError::UpstreamNotAvailable,
-            TcpConnectError::ForbiddenAddressFamily | TcpConnectError::ForbiddenRemoteAddress => {
+            TcpConnectError::ForbiddenAddressFamily(_)
+            | TcpConnectError::ForbiddenRemoteAddress(_) => {
                 ServerTaskError::ForbiddenByRule(ServerTaskForbiddenError::IpBlocked)
             }
             TcpConnectError::ProxyProtocolEncodeError(_) => {
@@ -167,8 +169,8 @@ impl From<&TcpConnectError> for Socks5Reply {
     fn from(e: &TcpConnectError) -> Self {
         match e {
             TcpConnectError::MethodUnavailable
-            | TcpConnectError::ForbiddenAddressFamily
-            | TcpConnectError::ForbiddenRemoteAddress => Socks5Reply::ForbiddenByRule,
+            | TcpConnectError::ForbiddenAddressFamily(_)
+            | TcpConnectError::ForbiddenRemoteAddress(_) => Socks5Reply::ForbiddenByRule,
             TcpConnectError::ConnectFailed(e) => match e {
                 ConnectError::ConnectionRefused | ConnectError::ConnectionReset => {
                     Socks5Reply::ConnectionRefused

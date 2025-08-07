@@ -3,6 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use tokio::net::UdpSocket;
@@ -25,6 +26,7 @@ use crate::serve::ServerTaskNotes;
 impl DirectFloatEscaper {
     fn handle_udp_target_ip_acl_action(
         &self,
+        peer_addr: SocketAddr,
         action: AclAction,
         task_notes: &ServerTaskNotes,
     ) -> Result<(), UdpConnectError> {
@@ -45,7 +47,7 @@ impl DirectFloatEscaper {
             if let Some(user_ctx) = task_notes.user_ctx() {
                 user_ctx.add_ip_blocked();
             }
-            Err(UdpConnectError::ForbiddenRemoteAddress)
+            Err(UdpConnectError::ForbiddenRemoteAddress(peer_addr))
         } else {
             Ok(())
         }
@@ -68,7 +70,7 @@ impl DirectFloatEscaper {
         udp_notes.next = Some(peer_addr);
 
         let (_, action) = self.egress_net_filter.check(peer_addr.ip());
-        self.handle_udp_target_ip_acl_action(action, task_notes)?;
+        self.handle_udp_target_ip_acl_action(peer_addr, action, task_notes)?;
 
         let family = AddressFamily::from(&peer_addr);
         let bind = self
