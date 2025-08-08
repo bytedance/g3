@@ -379,9 +379,9 @@ dependencies = [
 
 [[package]]
 name = "bssl-cmake-sys"
-version = "0.1.2507010"
+version = "0.1.2508070"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "072edfd3f0dfaf8f66aeb5816788e1c67a0ee8a540ce779fb63047f5ba61a95c"
+checksum = "75147e3d13531a999a84076da1c437cbdd16d1cb91783e4bf80a373fa885ccb9"
 dependencies = [
  "bindgen 0.72.0",
  "cc",
@@ -406,9 +406,9 @@ checksum = "46c5e41b57b8bba42a04676d81cb89e9ee8e859a1a66f80a5a72e1cb76b34d43"
 
 [[package]]
 name = "bytemuck"
-version = "1.23.1"
+version = "1.23.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5c76a5792e44e4abe34d3abf15636779261d45a7450612059293d1d2cfc63422"
+checksum = "3995eaeebcdf32f91f980d360f78732ddc061097ab4e39991ae7a6ace9194677"
 
 [[package]]
 name = "byteorder"
@@ -542,9 +542,9 @@ dependencies = [
 
 [[package]]
 name = "cfg-expr"
-version = "0.20.1"
+version = "0.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d0390889d58f934f01cd49736275b4c2da15bcfc328c78ff2349907e6cabf22"
+checksum = "c8d458d63f0f0f482c8da9b7c8b76c21bd885a02056cc94c6404d861ca2b8206"
 dependencies = [
  "smallvec",
  "target-lexicon",
@@ -609,9 +609,9 @@ dependencies = [
 
 [[package]]
 name = "clap_complete"
-version = "4.5.55"
+version = "4.5.56"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a5abde44486daf70c5be8b8f8f1b66c49f86236edf6fa2abadb4d961c4c6229a"
+checksum = "67e4efcbb5da11a92e8a609233aa1e8a7d91e38de0be865f016d14700d45a7fd"
 dependencies = [
  "clap",
 ]
@@ -2270,9 +2270,9 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.15.4"
+version = "0.15.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5971ac85611da7067dbfcabef3c70ebb5606018acd9e2a3903a0da507521e0d5"
+checksum = "9229cfe53dfd69f0609a49f65461bd93001ea1ef889cd5529dd176593f5338a1"
 dependencies = [
  "allocator-api2",
  "equivalent",
@@ -3909,9 +3909,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.17.3"
+version = "0.17.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "175ba498c422071d061c93b978fbb88322a4708c3f2bc08f01f83b6a6818e743"
+checksum = "3b44b22dea1bcc762e394b9d8e1d9da0e1ff8afe64014d1b3876c6ac1f18609f"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -3924,9 +3924,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl-sys"
-version = "0.17.3"
+version = "0.17.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f603100e6c7dc71c30b8b0b26a1fcf41eb99266bfda72ee04a9c359288b18f5d"
+checksum = "48ad630a03dbecf8dfd3911edccebdd21e9ecb0f0eb9ab0cbcc9ec98033a0a19"
 dependencies = [
  "aws-lc-fips-sys",
  "aws-lc-sys",
