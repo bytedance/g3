@@ -17,6 +17,7 @@ pub(crate) enum SslErrorAction {
     Accept,
     Connect,
     Read,
+    Peek,
     Write,
     Shutdown,
 }
@@ -27,6 +28,7 @@ impl SslErrorAction {
             SslErrorAction::Accept => "accept",
             SslErrorAction::Connect => "connect",
             SslErrorAction::Read => "read",
+            SslErrorAction::Peek => "peek",
             SslErrorAction::Write => "write",
             SslErrorAction::Shutdown => "shutdown",
         }

@@ -3,6 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::future::poll_fn;
 use std::io;
 use std::pin::Pin;
 #[cfg(feature = "async-job")]
@@ -112,6 +113,52 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslStream<S> {
                 },
             }
         }
+    }
+
+    pub fn poll_peek(
+        &mut self,
+        cx: &mut Context<'_>,
+        buf: &mut ReadBuf<'_>,
+    ) -> Poll<io::Result<usize>> {
+        self.set_cx(cx);
+
+        loop {
+            match self.inner.ssl_peek_uninit(unsafe { buf.unfilled_mut() }) {
+                Ok(n) => {
+                    unsafe { buf.assume_init(n) };
+                    buf.advance(n);
+                    return Poll::Ready(Ok(n));
+                }
+                Err(e) => match e.code() {
+                    ErrorCode::ZERO_RETURN => return Poll::Ready(Ok(0)),
+                    ErrorCode::WANT_READ => {
+                        if e.io_error().is_none() {
+                            continue;
+                        } else {
+                            return Poll::Pending;
+                        }
+                    }
+                    ErrorCode::WANT_WRITE => return Poll::Pending,
+                    #[cfg(feature = "async-job")]
+                    ErrorCode::WANT_ASYNC => ready!(self.poll_async_engine(cx))?,
+                    #[cfg(feature = "async-job")]
+                    ErrorCode::WANT_ASYNC_JOB => {
+                        cx.waker().wake_by_ref();
+                        return Poll::Pending;
+                    }
+                    _ => {
+                        return Poll::Ready(Err(e
+                            .into_io_error()
+                            .unwrap_or_else(|e| e.build_io_error(SslErrorAction::Peek))));
+                    }
+                },
+            }
+        }
+    }
+
+    pub async fn peek(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let mut read_buf = ReadBuf::new(buf);
+        poll_fn(|cx| self.poll_peek(cx, &mut read_buf)).await
     }
 
     fn poll_write_unpin(&mut self, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
