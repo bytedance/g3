@@ -164,19 +164,18 @@ impl FrameConsume for HandshakeCoalescer {
                 self.unfilled_offset = self.buf.len();
             }
 
-            if self.expected_length == 0 {
-                if let Some(header) = HandshakeHeader::try_parse(&self.buf[..self.unfilled_offset])
-                {
-                    if header.msg_length > self.max_message_size {
-                        // use the same size limit as TLS record
-                        return Err(FrameParseError::MalformedFrame(
-                            "too large message length for TLS handshake",
-                        ));
-                    }
-                    self.expected_length = header.msg_length as usize + HandshakeHeader::SIZE;
-                    self.header = Some(header);
-                    self.buf.resize(self.expected_length, 0);
+            if self.expected_length == 0
+                && let Some(header) = HandshakeHeader::try_parse(&self.buf[..self.unfilled_offset])
+            {
+                if header.msg_length > self.max_message_size {
+                    // use the same size limit as TLS record
+                    return Err(FrameParseError::MalformedFrame(
+                        "too large message length for TLS handshake",
+                    ));
                 }
+                self.expected_length = header.msg_length as usize + HandshakeHeader::SIZE;
+                self.header = Some(header);
+                self.buf.resize(self.expected_length, 0);
             }
 
             Ok(())

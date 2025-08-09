@@ -263,6 +263,7 @@ where
     ) {
         let (handle, cpu_affinity) = self.get_rt_handle(listen_in_worker);
         handle.spawn(async move {
+            #[allow(clippy::collapsible_if)]
             if follow_cpu_affinity {
                 #[cfg(target_os = "linux")]
                 {

@@ -164,10 +164,10 @@ pub fn as_rustls_client_config_builder(value: &Value) -> anyhow::Result<RustlsCl
             }
         }
 
-        if let Ok(cert_pair) = cert_pair_builder.build() {
-            if builder.set_cert_pair(cert_pair).is_some() {
-                return Err(anyhow!("found duplicate client certificate config"));
-            }
+        if let Ok(cert_pair) = cert_pair_builder.build()
+            && builder.set_cert_pair(cert_pair).is_some()
+        {
+            return Err(anyhow!("found duplicate client certificate config"));
         }
 
         builder.check()?;

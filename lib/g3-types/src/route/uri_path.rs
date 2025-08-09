@@ -36,10 +36,10 @@ impl<T> UriPathMatch<T> {
     }
 
     pub fn get(&self, path: &str) -> Option<&T> {
-        if let Some(trie) = &self.prefix {
-            if let Some(v) = trie.get(path) {
-                return Some(v);
-            }
+        if let Some(trie) = &self.prefix
+            && let Some(v) = trie.get(path)
+        {
+            return Some(v);
         }
 
         self.default.as_ref()
