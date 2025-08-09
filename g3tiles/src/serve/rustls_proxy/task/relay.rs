@@ -75,20 +75,20 @@ impl RustlsRelayTask {
         S: AsyncRead + AsyncWrite + Unpin,
     {
         self.pre_start();
-        if let Err(e) = self.run(tls_stream).await {
-            if let Some(log_ctx) = self.get_log_context() {
-                log_ctx.log(e);
-            }
+        if let Err(e) = self.run(tls_stream).await
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log(e);
         }
     }
 
     fn pre_start(&mut self) {
         self._alive_guard = Some(self.ctx.server_stats.add_task());
 
-        if self.ctx.server_config.flush_task_log_on_created {
-            if let Some(log_ctx) = self.get_log_context() {
-                log_ctx.log_created();
-            }
+        if self.ctx.server_config.flush_task_log_on_created
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log_created();
         }
     }
 
@@ -126,10 +126,10 @@ impl RustlsRelayTask {
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
-        if self.ctx.server_config.flush_task_log_on_connected {
-            if let Some(log_ctx) = self.get_log_context() {
-                log_ctx.log_connected();
-            }
+        if self.ctx.server_config.flush_task_log_on_connected
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log_connected();
         }
 
         self.task_notes.mark_relaying();
