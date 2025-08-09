@@ -1345,7 +1345,7 @@ dependencies = [
 
 [[package]]
 name = "g3-journal"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "flume",
