@@ -116,11 +116,11 @@ impl LiteralArgument {
     }
 
     fn check(left: &[u8]) -> Result<Option<Self>, CommandLineError> {
-        if left.ends_with(b"}") {
-            if let Some(p) = memchr::memrchr(b'{', left) {
-                let arg = Self::parse_size(&left[p + 1..left.len() - 1])?;
-                return Ok(Some(arg));
-            }
+        if left.ends_with(b"}")
+            && let Some(p) = memchr::memrchr(b'{', left)
+        {
+            let arg = Self::parse_size(&left[p + 1..left.len() - 1])?;
+            return Ok(Some(arg));
         }
         Ok(None)
     }
