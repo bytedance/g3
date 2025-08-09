@@ -74,10 +74,10 @@ impl LocalController {
         let (sender, receiver) = oneshot::channel();
 
         let abort_channel = mutex.lock().unwrap().take();
-        if let Some(quit_sender) = abort_channel {
-            if quit_sender.send(sender).is_ok() {
-                let _ = receiver.await;
-            }
+        if let Some(quit_sender) = abort_channel
+            && quit_sender.send(sender).is_ok()
+        {
+            let _ = receiver.await;
         }
     }
 

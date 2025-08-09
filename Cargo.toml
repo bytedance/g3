@@ -201,7 +201,7 @@ g3-cert-agent = { version = "0.3", path = "lib/g3-cert-agent" }
 g3-clap = { version = "0.2", path = "lib/g3-clap" }
 g3-compat = { version = "0.2", path = "lib/g3-compat" }
 g3-ctl = { version = "0.2", path = "lib/g3-ctl" }
-g3-daemon = { version = "0.3", path = "lib/g3-daemon" }
+g3-daemon = { version = "0.4", path = "lib/g3-daemon" }
 g3-datetime = { version = "0.2", path = "lib/g3-datetime" }
 g3-dpi = { version = "0.2", path = "lib/g3-dpi" }
 g3-fluentd = { version = "0.2", path = "lib/g3-fluentd" }

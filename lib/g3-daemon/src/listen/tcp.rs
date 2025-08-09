@@ -224,16 +224,15 @@ where
             return;
         }
         #[cfg(target_os = "linux")]
-        if self.follow_incoming_cpu {
-            if let Some(cpu_id) = cc_info.tcp_sock_incoming_cpu() {
-                if let Some(rt) = crate::runtime::worker::select_handle_by_cpu_id(cpu_id) {
-                    cc_info.set_worker_id(Some(rt.id));
-                    rt.handle.spawn(async move {
-                        server.run_tcp_task(stream, cc_info).await;
-                    });
-                    return;
-                }
-            }
+        if self.follow_incoming_cpu
+            && let Some(cpu_id) = cc_info.tcp_sock_incoming_cpu()
+            && let Some(rt) = crate::runtime::worker::select_handle_by_cpu_id(cpu_id)
+        {
+            cc_info.set_worker_id(Some(rt.id));
+            rt.handle.spawn(async move {
+                server.run_tcp_task(stream, cc_info).await;
+            });
+            return;
         }
         if let Some(rt) = crate::runtime::worker::select_handle() {
             cc_info.set_worker_id(Some(rt.id));
@@ -248,11 +247,9 @@ where
     }
 
     fn get_rt_handle(&mut self, listen_in_worker: bool) -> (Handle, Option<CpuAffinity>) {
-        if listen_in_worker {
-            if let Some(rt) = crate::runtime::worker::select_listen_handle() {
-                self.worker_id = Some(rt.id);
-                return (rt.handle, rt.cpu_affinity);
-            }
+        if listen_in_worker && let Some(rt) = crate::runtime::worker::select_listen_handle() {
+            self.worker_id = Some(rt.id);
+            return (rt.handle, rt.cpu_affinity);
         }
         (Handle::current(), None)
     }
@@ -272,17 +269,16 @@ where
                     self.follow_incoming_cpu = true;
                 }
 
-                if let Some(cpu_affinity) = cpu_affinity {
-                    if let Err(e) =
+                if let Some(cpu_affinity) = cpu_affinity
+                    && let Err(e) =
                         g3_socket::tcp::try_listen_on_local_cpu(&listener, &cpu_affinity)
-                    {
-                        warn!(
-                            "SRT[{}_v{}#{}] failed to set cpu affinity for listen socket: {e}",
-                            self.server.name(),
-                            self.server_version,
-                            self.instance_id
-                        );
-                    }
+                {
+                    warn!(
+                        "SRT[{}_v{}#{}] failed to set cpu affinity for listen socket: {e}",
+                        self.server.name(),
+                        self.server_version,
+                        self.instance_id
+                    );
                 }
             }
             // make sure the listen socket associated with the correct reactor
