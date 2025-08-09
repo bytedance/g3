@@ -113,16 +113,16 @@ impl RouteClientEscaper {
     }
 
     fn select_next(&self, ip: IpAddr) -> ArcEscaper {
-        if !self.exact_match_ipaddr.is_empty() {
-            if let Some(escaper) = self.exact_match_ipaddr.get(&ip) {
-                return Arc::clone(escaper);
-            }
+        if !self.exact_match_ipaddr.is_empty()
+            && let Some(escaper) = self.exact_match_ipaddr.get(&ip)
+        {
+            return Arc::clone(escaper);
         }
 
-        if !self.subnet_match_ipaddr.is_empty() {
-            if let Some((_, escaper)) = self.subnet_match_ipaddr.longest_match(ip) {
-                return Arc::clone(escaper);
-            }
+        if !self.subnet_match_ipaddr.is_empty()
+            && let Some((_, escaper)) = self.subnet_match_ipaddr.longest_match(ip)
+        {
+            return Arc::clone(escaper);
         }
 
         Arc::clone(&self.default_next)

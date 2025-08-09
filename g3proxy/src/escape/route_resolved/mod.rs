@@ -134,10 +134,10 @@ impl RouteResolvedEscaper {
     }
 
     fn select_next_by_ip(&self, ip: IpAddr) -> ArcEscaper {
-        if !self.lpm_table.is_empty() {
-            if let Some((_net, escaper)) = self.lpm_table.longest_match(ip) {
-                return Arc::clone(escaper);
-            }
+        if !self.lpm_table.is_empty()
+            && let Some((_net, escaper)) = self.lpm_table.longest_match(ip)
+        {
+            return Arc::clone(escaper);
         }
 
         Arc::clone(&self.default_next)

@@ -175,37 +175,35 @@ impl ProxySocks5sEscaper {
         let mut returned_err = TcpConnectError::NoAddressConnected;
 
         loop {
-            if spawn_new_connection {
-                if let Some(ip) = ips.pop() {
-                    let (sock, bind) = self.prepare_connect_socket(ip)?;
-                    let peer = SocketAddr::new(ip, peer_port);
-                    running_connection += 1;
-                    spawn_new_connection = false;
-                    tcp_notes.tries += 1;
-                    let stats = self.stats.clone();
-                    c_set.spawn(async move {
-                        stats.tcp.connect.add_attempted();
-                        match tokio::time::timeout(each_timeout, sock.connect(peer)).await {
-                            Ok(Ok(stream)) => {
-                                stats.tcp.connect.add_success();
-                                (Ok(stream), peer, bind)
-                            }
-                            Ok(Err(e)) => {
-                                stats.tcp.connect.add_error();
-                                (
-                                    Err(TcpConnectError::ConnectFailed(ConnectError::from(e))),
-                                    peer,
-                                    bind,
-                                )
-                            }
-                            Err(_) => {
-                                stats.tcp.connect.add_timeout();
-                                (Err(TcpConnectError::TimeoutByRule), peer, bind)
-                            }
+            if spawn_new_connection && let Some(ip) = ips.pop() {
+                let (sock, bind) = self.prepare_connect_socket(ip)?;
+                let peer = SocketAddr::new(ip, peer_port);
+                running_connection += 1;
+                spawn_new_connection = false;
+                tcp_notes.tries += 1;
+                let stats = self.stats.clone();
+                c_set.spawn(async move {
+                    stats.tcp.connect.add_attempted();
+                    match tokio::time::timeout(each_timeout, sock.connect(peer)).await {
+                        Ok(Ok(stream)) => {
+                            stats.tcp.connect.add_success();
+                            (Ok(stream), peer, bind)
                         }
-                    });
-                    connect_interval.reset();
-                }
+                        Ok(Err(e)) => {
+                            stats.tcp.connect.add_error();
+                            (
+                                Err(TcpConnectError::ConnectFailed(ConnectError::from(e))),
+                                peer,
+                                bind,
+                            )
+                        }
+                        Err(_) => {
+                            stats.tcp.connect.add_timeout();
+                            (Err(TcpConnectError::TimeoutByRule), peer, bind)
+                        }
+                    }
+                });
+                connect_interval.reset();
             }
 
             if running_connection > 0 {

@@ -413,11 +413,10 @@ where
                         Ok(e) => {
                             // upstream connection error
                             server_graceful_shutdown(h2c_connection).await;
-                            if let Some(e) = e.get_io() {
-                                if e.kind() == std::io::ErrorKind::NotConnected {
+                            if let Some(e) = e.get_io()
+                                && e.kind() == std::io::ErrorKind::NotConnected {
                                     return Err(H2InterceptionError::UpstreamConnectionDisconnected);
                                 }
-                            }
                             Err(H2InterceptionError::UpstreamConnectionClosed(e))
                         }
                         Err(_) => {
@@ -448,11 +447,10 @@ where
                             let _ = ping_quit_sender.send(());
                             // h2c_connection.poll_closed() has already been called in accept()
 
-                            if let Some(e) = e.get_io() {
-                                if e.kind() == std::io::ErrorKind::NotConnected {
+                            if let Some(e) = e.get_io()
+                                && e.kind() == std::io::ErrorKind::NotConnected {
                                     return Ok(());
                                 }
-                            }
                             return Err(H2InterceptionError::ClientConnectionClosed(e));
                         }
                         None => {

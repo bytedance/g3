@@ -124,15 +124,15 @@ impl SocksProxyNegotiationTask {
         CDR: AsyncRead + Send + Sync + Unpin + 'static,
         CDW: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        if let Some(user_group) = &self.user_group {
-            if !user_group.allow_anonymous(self.ctx.client_addr()) {
-                // socks4(a) doesn't support auth
-                self.ctx.server_stats.forbidden.add_auth_failed();
-                return Err(ServerTaskError::InvalidClientProtocol(
-                    "socks4 does not support auth",
-                ));
-            };
-        }
+        if let Some(user_group) = &self.user_group
+            && !user_group.allow_anonymous(self.ctx.client_addr())
+        {
+            // socks4(a) doesn't support auth
+            self.ctx.server_stats.forbidden.add_auth_failed();
+            return Err(ServerTaskError::InvalidClientProtocol(
+                "socks4 does not support auth",
+            ));
+        };
 
         let req = v4a::SocksV4aRequest::recv(&mut clt_r).await?;
 

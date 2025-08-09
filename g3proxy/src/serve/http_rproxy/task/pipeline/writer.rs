@@ -204,13 +204,12 @@ where
                                     // close the connection if no host config found
                                     self.req_count.invalid += 1;
 
-                                    if !self.ctx.server_config.no_early_error_reply {
-                                        if let Some(stream_w) = &mut self.stream_writer {
-                                            let rsp = HttpProxyClientResponse::bad_request(
-                                                req.inner.version,
-                                            );
-                                            let _ = rsp.reply_err_to_request(stream_w).await;
-                                        }
+                                    if !self.ctx.server_config.no_early_error_reply
+                                        && let Some(stream_w) = &mut self.stream_writer
+                                    {
+                                        let rsp =
+                                            HttpProxyClientResponse::bad_request(req.inner.version);
+                                        let _ = rsp.reply_err_to_request(stream_w).await;
                                     }
 
                                     self.notify_reader_to_close();
@@ -230,10 +229,10 @@ where
                 Some(Err(rsp)) => {
                     // the response will always be `Connection: Close`
                     self.req_count.invalid += 1;
-                    if !self.ctx.server_config.no_early_error_reply {
-                        if let Some(stream_w) = &mut self.stream_writer {
-                            let _ = rsp.reply_err_to_request(stream_w).await;
-                        }
+                    if !self.ctx.server_config.no_early_error_reply
+                        && let Some(stream_w) = &mut self.stream_writer
+                    {
+                        let _ = rsp.reply_err_to_request(stream_w).await;
                     }
 
                     self.notify_reader_to_close();

@@ -132,10 +132,10 @@ impl TlsInterceptionContext {
             return None;
         }
 
-        if let Some(id) = worker_id {
-            if let Some(d) = self.stream_dumper.get(id) {
-                return Some(d);
-            }
+        if let Some(id) = worker_id
+            && let Some(d) = self.stream_dumper.get(id)
+        {
+            return Some(d);
         }
 
         fastrand::choice(self.stream_dumper.iter())

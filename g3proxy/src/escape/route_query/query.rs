@@ -152,33 +152,28 @@ impl QueryRuntime {
         use rmpv::ValueRef;
 
         let mut buf = &self.read_buffer[..len];
-        if let Ok(ValueRef::Map(map)) = rmpv::decode::read_value_ref(&mut buf) {
-            if let Ok((id, nodes, mut ttl)) = Self::parse_rsp(map) {
-                if let Some(req) = self.id_key_map.remove(&id) {
-                    if ttl == 0 {
-                        ttl = self.config.protective_cache_ttl;
-                    } else if ttl > self.config.maximum_cache_ttl {
-                        ttl = self.config.maximum_cache_ttl;
-                    }
+        if let Ok(ValueRef::Map(map)) = rmpv::decode::read_value_ref(&mut buf)
+            && let Ok((id, nodes, mut ttl)) = Self::parse_rsp(map)
+            && let Some(req) = self.id_key_map.remove(&id)
+        {
+            if ttl == 0 {
+                ttl = self.config.protective_cache_ttl;
+            } else if ttl > self.config.maximum_cache_ttl {
+                ttl = self.config.maximum_cache_ttl;
+            }
 
-                    let mut builder = SelectiveVecBuilder::new();
-                    for node in nodes {
-                        builder.insert(node);
-                    }
-                    let result = builder
-                        .build()
-                        .map(|nodes| {
-                            EffectiveCacheData::new(nodes, ttl, self.config.cache_vanish_wait)
-                        })
-                        .unwrap_or_else(|| {
-                            EffectiveCacheData::empty(ttl, self.config.cache_vanish_wait)
-                        });
+            let mut builder = SelectiveVecBuilder::new();
+            for node in nodes {
+                builder.insert(node);
+            }
+            let result = builder
+                .build()
+                .map(|nodes| EffectiveCacheData::new(nodes, ttl, self.config.cache_vanish_wait))
+                .unwrap_or_else(|| EffectiveCacheData::empty(ttl, self.config.cache_vanish_wait));
 
-                    self.key_id_map.remove(&req);
-                    self.query_handle.send_rsp_data(req, result, false);
-                }
-            };
-        }
+            self.key_id_map.remove(&req);
+            self.query_handle.send_rsp_data(req, result, false);
+        };
     }
 
     fn handle_query_failed(&mut self, req: Arc<CacheQueryKey>, expired: bool) {

@@ -347,10 +347,10 @@ impl HttpProxyConnectTask {
             });
         }
 
-        if self.ctx.server_config.flush_task_log_on_created {
-            if let Some(log_ctx) = self.get_log_context() {
-                log_ctx.log_created();
-            }
+        if self.ctx.server_config.flush_task_log_on_created
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log_created();
         }
 
         self.started = true;
@@ -424,10 +424,10 @@ impl HttpProxyConnectTask {
         UR: AsyncRead + Send + Sync + Unpin + 'static,
         UW: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        if self.ctx.server_config.flush_task_log_on_connected {
-            if let Some(log_ctx) = self.get_log_context() {
-                log_ctx.log_connected();
-            }
+        if self.ctx.server_config.flush_task_log_on_connected
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log_connected();
         }
 
         self.task_notes.stage = ServerTaskStage::Replying;

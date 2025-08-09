@@ -47,10 +47,10 @@ impl IdleCheck for ServerIdleChecker {
     }
 
     fn check_force_quit(&self) -> Option<IdleForceQuitReason> {
-        if let Some(user) = &self.user {
-            if user.is_blocked() {
-                return Some(IdleForceQuitReason::UserBlocked);
-            }
+        if let Some(user) = &self.user
+            && user.is_blocked()
+        {
+            return Some(IdleForceQuitReason::UserBlocked);
         }
 
         if self.server_quit_policy.force_quit() {

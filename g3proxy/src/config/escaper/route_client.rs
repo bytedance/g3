@@ -131,10 +131,10 @@ impl RouteClientEscaperConfig {
         if escaper.is_empty() {
             return Err(anyhow!("no next escaper set"));
         }
-        if !all_ipaddr.is_empty() {
-            if let Some(_old) = self.exact_match_ipaddr.insert(escaper.clone(), all_ipaddr) {
-                return Err(anyhow!("found multiple entries for next escaper {escaper}"));
-            }
+        if !all_ipaddr.is_empty()
+            && let Some(_old) = self.exact_match_ipaddr.insert(escaper.clone(), all_ipaddr)
+        {
+            return Err(anyhow!("found multiple entries for next escaper {escaper}"));
         }
         Ok(())
     }
@@ -164,13 +164,12 @@ impl RouteClientEscaperConfig {
         if escaper.is_empty() {
             return Err(anyhow!("no next escaper set"));
         }
-        if !all_subnets.is_empty() {
-            if let Some(_old) = self
+        if !all_subnets.is_empty()
+            && let Some(_old) = self
                 .subnet_match_ipaddr
                 .insert(escaper.clone(), all_subnets)
-            {
-                return Err(anyhow!("found multiple entries for next escaper {escaper}"));
-            }
+        {
+            return Err(anyhow!("found multiple entries for next escaper {escaper}"));
         }
         Ok(())
     }

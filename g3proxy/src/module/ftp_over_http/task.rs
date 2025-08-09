@@ -47,16 +47,15 @@ impl FtpOverHttpTaskNotes {
             }
         }
 
-        if let Some(v) = req.end_to_end_headers.get(http::header::AUTHORIZATION) {
-            if let Ok(HttpAuth::Basic(HttpBasicAuth {
+        if let Some(v) = req.end_to_end_headers.get(http::header::AUTHORIZATION)
+            && let Ok(HttpAuth::Basic(HttpBasicAuth {
                 username: u,
                 password: p,
                 ..
             })) = HttpAuth::try_from(v)
-            {
-                username = Some(u);
-                password = Some(p);
-            }
+        {
+            username = Some(u);
+            password = Some(p);
         }
 
         FtpOverHttpTaskNotes {

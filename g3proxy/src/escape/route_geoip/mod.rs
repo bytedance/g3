@@ -181,46 +181,42 @@ impl RouteGeoIpEscaper {
     }
 
     fn select_next_by_ip_location(&self, location: &IpLocation) -> Option<ArcEscaper> {
-        if !self.asn_table.is_empty() {
-            if let Some(asn) = location.network_asn() {
-                if let Some(escaper) = self.asn_table.get(&asn) {
-                    return Some(Arc::clone(escaper));
-                }
-            }
+        if !self.asn_table.is_empty()
+            && let Some(asn) = location.network_asn()
+            && let Some(escaper) = self.asn_table.get(&asn)
+        {
+            return Some(Arc::clone(escaper));
         }
 
-        if let Some(country) = location.country() {
-            if self.country_bitset.contains(country as usize) {
-                if let Some(escaper) = self.country_table.get(&(country as u16)) {
-                    return Some(Arc::clone(escaper));
-                }
-            }
+        if let Some(country) = location.country()
+            && self.country_bitset.contains(country as usize)
+            && let Some(escaper) = self.country_table.get(&(country as u16))
+        {
+            return Some(Arc::clone(escaper));
         }
 
-        if let Some(continent) = location.continent() {
-            if self.continent_bitset.contains(continent as usize) {
-                if let Some(escaper) = self.continent_table.get(&(continent as u8)) {
-                    return Some(Arc::clone(escaper));
-                }
-            }
+        if let Some(continent) = location.continent()
+            && self.continent_bitset.contains(continent as usize)
+            && let Some(escaper) = self.continent_table.get(&(continent as u8))
+        {
+            return Some(Arc::clone(escaper));
         }
 
         None
     }
 
     async fn select_next_by_ip(&self, ip: IpAddr) -> ArcEscaper {
-        if !self.lpm_table.is_empty() {
-            if let Some((_net, escaper)) = self.lpm_table.longest_match(ip) {
-                return Arc::clone(escaper);
-            }
+        if !self.lpm_table.is_empty()
+            && let Some((_net, escaper)) = self.lpm_table.longest_match(ip)
+        {
+            return Arc::clone(escaper);
         }
 
-        if self.check_ip_location {
-            if let Some(location) = self.ip_locate_handle.fetch(ip).await {
-                if let Some(escaper) = self.select_next_by_ip_location(&location) {
-                    return escaper;
-                }
-            }
+        if self.check_ip_location
+            && let Some(location) = self.ip_locate_handle.fetch(ip).await
+            && let Some(escaper) = self.select_next_by_ip_location(&location)
+        {
+            return escaper;
         }
 
         Arc::clone(&self.default_next)
