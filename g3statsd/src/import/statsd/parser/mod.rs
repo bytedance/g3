@@ -67,11 +67,11 @@ impl Iterator for StatsdRecordVisitor<'_> {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            if let Some(mut line_iter) = self.line_value_iter.take() {
-                if let Some(r) = line_iter.next() {
-                    self.line_value_iter = Some(line_iter);
-                    return Some(r);
-                }
+            if let Some(mut line_iter) = self.line_value_iter.take()
+                && let Some(r) = line_iter.next()
+            {
+                self.line_value_iter = Some(line_iter);
+                return Some(r);
             }
 
             let line = self.next_line()?;
