@@ -1326,7 +1326,7 @@ dependencies = [
 
 [[package]]
 name = "g3-ip-locate"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "g3-geoip-types",
@@ -1334,7 +1334,6 @@ dependencies = [
  "g3-socket",
  "g3-types",
  "g3-yaml",
- "ip_network",
  "ip_network_table",
  "log",
  "rmpv",

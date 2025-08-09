@@ -55,11 +55,11 @@ impl IpLocationCacheRuntime {
             let net = location.network_addr();
             let location = Arc::new(location);
 
-            if let Some(ip) = ip {
-                if let Some(vec) = self.doing.remove(&ip) {
-                    for req in vec.into_iter() {
-                        let _ = req.notifier.send(location.clone());
-                    }
+            if let Some(ip) = ip
+                && let Some(vec) = self.doing.remove(&ip)
+            {
+                for req in vec.into_iter() {
+                    let _ = req.notifier.send(location.clone());
                 }
             }
 
@@ -73,11 +73,11 @@ impl IpLocationCacheRuntime {
             );
         } else if let Some(ip) = ip {
             // if no new value found, just use the old expired value
-            if let Some((_net, v)) = self.cache.longest_match(ip) {
-                if let Some(vec) = self.doing.remove(&ip) {
-                    for req in vec.into_iter() {
-                        let _ = req.notifier.send(v.location.clone());
-                    }
+            if let Some((_net, v)) = self.cache.longest_match(ip)
+                && let Some(vec) = self.doing.remove(&ip)
+            {
+                for req in vec.into_iter() {
+                    let _ = req.notifier.send(v.location.clone());
                 }
             }
         }
@@ -91,11 +91,11 @@ impl IpLocationCacheRuntime {
     }
 
     fn handle_req(&mut self, req: CacheQueryRequest) {
-        if let Some((_net, v)) = self.cache.longest_match(req.ip) {
-            if v.valid_before >= Instant::now() {
-                let _ = req.notifier.send(v.location.clone());
-                return;
-            }
+        if let Some((_net, v)) = self.cache.longest_match(req.ip)
+            && v.valid_before >= Instant::now()
+        {
+            let _ = req.notifier.send(v.location.clone());
+            return;
         }
 
         match self.doing.entry(req.ip) {
