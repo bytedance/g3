@@ -162,14 +162,14 @@ impl<'a> MetricFormatter<'a> {
                 append_tags = true;
             }
 
-            if let Some(common_tags) = self.common_tags {
-                if common_tags.len() > 0 {
-                    if append_tags {
-                        buf.push(b',');
-                    }
-                    buf.extend_from_slice(common_tags.as_bytes());
-                    append_tags = true;
+            if let Some(common_tags) = self.common_tags
+                && common_tags.len() > 0
+            {
+                if append_tags {
+                    buf.push(b',');
                 }
+                buf.extend_from_slice(common_tags.as_bytes());
+                append_tags = true;
             }
 
             if self.local_tags.len() > 0 {
