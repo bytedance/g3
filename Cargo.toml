@@ -223,7 +223,7 @@ g3-macros = { version = "0.1", path = "lib/g3-macros" }
 g3-msgpack = { version = "0.4", path = "lib/g3-msgpack" }
 g3-openssl = { version = "0.4", path = "lib/g3-openssl" }
 g3-redis-client = { version = "0.3", path = "lib/g3-redis-client" }
-g3-resolver = { version = "0.8", path = "lib/g3-resolver" }
+g3-resolver = { version = "0.9", path = "lib/g3-resolver" }
 g3-runtime = { version = "0.4", path = "lib/g3-runtime" }
 g3-slog-types = { version = "0.2", path = "lib/g3-slog-types" }
 g3-smtp-proto = { version = "0.2", path = "lib/g3-smtp-proto" }
