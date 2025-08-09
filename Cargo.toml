@@ -228,7 +228,7 @@ g3-runtime = { version = "0.5", path = "lib/g3-runtime" }
 g3-slog-types = { version = "0.3", path = "lib/g3-slog-types" }
 g3-smtp-proto = { version = "0.3", path = "lib/g3-smtp-proto" }
 g3-socket = { version = "0.6", path = "lib/g3-socket" }
-g3-socks = { version = "0.3", path = "lib/g3-socks" }
+g3-socks = { version = "0.4", path = "lib/g3-socks" }
 g3-statsd-client = { version = "0.2", path = "lib/g3-statsd-client" }
 g3-std-ext = { version = "0.1", path = "lib/g3-std-ext" }
 g3-stdlog = { version = "0.2", path = "lib/g3-stdlog" }
