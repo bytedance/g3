@@ -60,10 +60,10 @@ impl KeylessForwardTask {
     {
         self.pre_start();
 
-        if let Err(e) = self.run(clt_r, clt_w).await {
-            if let Some(log_ctx) = self.get_log_context() {
-                log_ctx.log(e);
-            }
+        if let Err(e) = self.run(clt_r, clt_w).await
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log(e);
         }
     }
 

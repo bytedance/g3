@@ -524,11 +524,11 @@ impl User {
     }
 
     fn skip_log(&self, forbid_stats: &Arc<UserForbiddenStats>) -> bool {
-        if let Some(limit) = &self.log_rate_limit {
-            if limit.check().is_err() {
-                forbid_stats.add_log_skipped();
-                return true;
-            }
+        if let Some(limit) = &self.log_rate_limit
+            && limit.check().is_err()
+        {
+            forbid_stats.add_log_skipped();
+            return true;
         }
         false
     }
@@ -538,19 +538,18 @@ impl User {
         reused_connection: bool,
         forbid_stats: &Arc<UserForbiddenStats>,
     ) -> Result<(), ()> {
-        if !reused_connection {
-            if let Some(limit) = &self.tcp_conn_rate_limit {
-                if limit.check().is_err() {
-                    forbid_stats.add_rate_limited();
-                    return Err(());
-                }
-            }
+        if !reused_connection
+            && let Some(limit) = &self.tcp_conn_rate_limit
+            && limit.check().is_err()
+        {
+            forbid_stats.add_rate_limited();
+            return Err(());
         }
-        if let Some(limit) = &self.request_rate_limit {
-            if limit.check().is_err() {
-                forbid_stats.add_rate_limited();
-                return Err(());
-            }
+        if let Some(limit) = &self.request_rate_limit
+            && limit.check().is_err()
+        {
+            forbid_stats.add_rate_limited();
+            return Err(());
         }
         Ok(())
     }

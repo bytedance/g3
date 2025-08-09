@@ -144,12 +144,11 @@ impl DirectFixedEscaper {
             0 => BindAddr::None,
             1 => BindAddr::Ip(vec[0]),
             n => {
-                if self.config.enable_path_selection {
-                    if let Some(path_selection) = path_selection {
-                        if let Some(i) = path_selection.select_by_index(n) {
-                            return BindAddr::Ip(vec[i]);
-                        }
-                    }
+                if self.config.enable_path_selection
+                    && let Some(path_selection) = path_selection
+                    && let Some(i) = path_selection.select_by_index(n)
+                {
+                    return BindAddr::Ip(vec[i]);
                 }
 
                 fastrand::choice(vec).map(|ip| BindAddr::Ip(*ip)).unwrap()
@@ -175,22 +174,17 @@ impl DirectFixedEscaper {
         strategy: ResolveStrategy,
         task_notes: &ServerTaskNotes,
     ) -> Result<HappyEyeballsResolveJob, ResolveError> {
-        if let Some(user_ctx) = task_notes.user_ctx() {
-            if let Some(redirect) = user_ctx.user().resolve_redirection() {
-                if let Some(v) = redirect.query_value(&domain) {
-                    return HappyEyeballsResolveJob::new_redirected(
-                        strategy,
-                        &self.resolver_handle,
-                        v,
-                    );
-                }
-            }
+        if let Some(user_ctx) = task_notes.user_ctx()
+            && let Some(redirect) = user_ctx.user().resolve_redirection()
+            && let Some(v) = redirect.query_value(&domain)
+        {
+            return HappyEyeballsResolveJob::new_redirected(strategy, &self.resolver_handle, v);
         }
 
-        if let Some(redirect) = &self.resolve_redirection {
-            if let Some(v) = redirect.query_value(&domain) {
-                return HappyEyeballsResolveJob::new_redirected(strategy, &self.resolver_handle, v);
-            }
+        if let Some(redirect) = &self.resolve_redirection
+            && let Some(v) = redirect.query_value(&domain)
+        {
+            return HappyEyeballsResolveJob::new_redirected(strategy, &self.resolver_handle, v);
         }
 
         HappyEyeballsResolveJob::new_dyn(strategy, &self.resolver_handle, domain)
@@ -231,24 +225,23 @@ impl DirectFixedEscaper {
         match ups.host() {
             Host::Ip(ip) => Ok(SocketAddr::new(*ip, ups.port())),
             Host::Domain(domain) => {
-                if let Some(user_ctx) = task_notes.user_ctx() {
-                    if let Some(redirect) = user_ctx.user().resolve_redirection() {
-                        if let Some(v) = redirect.query_first(domain, resolve_strategy.query) {
-                            return self
-                                .redirect_get_best(v, resolve_strategy)
-                                .await
-                                .map(|ip| SocketAddr::new(ip, ups.port()));
-                        }
-                    }
+                if let Some(user_ctx) = task_notes.user_ctx()
+                    && let Some(redirect) = user_ctx.user().resolve_redirection()
+                    && let Some(v) = redirect.query_first(domain, resolve_strategy.query)
+                {
+                    return self
+                        .redirect_get_best(v, resolve_strategy)
+                        .await
+                        .map(|ip| SocketAddr::new(ip, ups.port()));
                 }
 
-                if let Some(redirect) = &self.resolve_redirection {
-                    if let Some(v) = redirect.query_first(domain, resolve_strategy.query) {
-                        return self
-                            .redirect_get_best(v, resolve_strategy)
-                            .await
-                            .map(|ip| SocketAddr::new(ip, ups.port()));
-                    }
+                if let Some(redirect) = &self.resolve_redirection
+                    && let Some(v) = redirect.query_first(domain, resolve_strategy.query)
+                {
+                    return self
+                        .redirect_get_best(v, resolve_strategy)
+                        .await
+                        .map(|ip| SocketAddr::new(ip, ups.port()));
                 }
 
                 let ip = self.resolve_best(domain.clone(), resolve_strategy).await?;

@@ -394,10 +394,10 @@ pub(super) fn parse_tcp_args(args: &ArgMatches) -> anyhow::Result<ThriftTcpArgs>
     }
 
     t_args.multiplex = args.get_flag(ARG_MULTIPLEX);
-    if let Some(c) = args.get_one::<usize>(ARG_CONNECTION_POOL) {
-        if *c > 0 {
-            t_args.pool_size = Some(*c);
-        }
+    if let Some(c) = args.get_one::<usize>(ARG_CONNECTION_POOL)
+        && *c > 0
+    {
+        t_args.pool_size = Some(*c);
     }
 
     t_args.no_keepalive = args.get_flag(ARG_NO_KEEPALIVE);

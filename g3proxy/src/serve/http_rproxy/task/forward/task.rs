@@ -243,10 +243,10 @@ impl<'a> HttpRProxyForwardTask<'a> {
             });
         }
 
-        if self.ctx.server_config.flush_task_log_on_created {
-            if let Some(log_ctx) = self.get_log_context() {
-                log_ctx.log_created();
-            }
+        if self.ctx.server_config.flush_task_log_on_created
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log_created();
         }
 
         self.started = true;
@@ -513,10 +513,10 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 user_ctx.foreach_req_stats(|s| s.req_reuse.add_http_forward(self.is_https));
             }
 
-            if self.ctx.server_config.flush_task_log_on_connected {
-                if let Some(log_ctx) = self.get_log_context() {
-                    log_ctx.log_connected();
-                }
+            if self.ctx.server_config.flush_task_log_on_connected
+                && let Some(log_ctx) = self.get_log_context()
+            {
+                log_ctx.log_connected();
             }
 
             connection
@@ -607,10 +607,10 @@ impl<'a> HttpRProxyForwardTask<'a> {
                 self.task_notes.stage = ServerTaskStage::Connected;
                 fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
 
-                if self.ctx.server_config.flush_task_log_on_connected {
-                    if let Some(log_ctx) = self.get_log_context() {
-                        log_ctx.log_connected();
-                    }
+                if self.ctx.server_config.flush_task_log_on_connected
+                    && let Some(log_ctx) = self.get_log_context()
+                {
+                    log_ctx.log_connected();
                 }
 
                 connection
@@ -671,17 +671,17 @@ impl<'a> HttpRProxyForwardTask<'a> {
         CDR: AsyncRead + Unpin,
         CDW: AsyncWrite + Unpin,
     {
-        if self.http_notes.reused_connection {
-            if let Some(r) = ups_c.1.fill_wait_data().now_or_never() {
-                self.http_notes.retry_new_connection = true;
-                return match r {
-                    Ok(true) => Err(ServerTaskError::UpstreamAppError(anyhow!(
-                        "unexpected data found when polling IDLE connection"
-                    ))),
-                    Ok(false) => Err(ServerTaskError::ClosedByUpstream),
-                    Err(e) => Err(ServerTaskError::UpstreamReadFailed(e)),
-                };
-            }
+        if self.http_notes.reused_connection
+            && let Some(r) = ups_c.1.fill_wait_data().now_or_never()
+        {
+            self.http_notes.retry_new_connection = true;
+            return match r {
+                Ok(true) => Err(ServerTaskError::UpstreamAppError(anyhow!(
+                    "unexpected data found when polling IDLE connection"
+                ))),
+                Ok(false) => Err(ServerTaskError::ClosedByUpstream),
+                Err(e) => Err(ServerTaskError::UpstreamReadFailed(e)),
+            };
         }
 
         match self.req.body_type() {
@@ -1017,11 +1017,10 @@ impl<'a> HttpRProxyForwardTask<'a> {
                         clt_to_ups.reset_active();
                     }
 
-                    if let Some(user_ctx) = self.task_notes.user_ctx() {
-                        if user_ctx.user().is_blocked() {
+                    if let Some(user_ctx) = self.task_notes.user_ctx()
+                        && user_ctx.user().is_blocked() {
                             return Err(ServerTaskError::CanceledAsUserBlocked);
                         }
-                    }
 
                     if self.ctx.server_quit_policy.force_quit() {
                         return Err(ServerTaskError::CanceledAsServerQuit)
@@ -1227,14 +1226,13 @@ impl<'a> HttpRProxyForwardTask<'a> {
                         ups_to_clt.reset_active();
                     }
 
-                    if let Some(user_ctx) = self.task_notes.user_ctx() {
-                        if user_ctx.user().is_blocked() {
+                    if let Some(user_ctx) = self.task_notes.user_ctx()
+                        && user_ctx.user().is_blocked() {
                             if ups_to_clt.copied_size() < header_len {
                                 let _ = ups_to_clt.write_flush().await; // flush rsp header to client
                             }
                             return Err(ServerTaskError::CanceledAsUserBlocked);
                         }
-                    }
 
                     if self.ctx.server_quit_policy.force_quit() {
                         if ups_to_clt.copied_size() < header_len {

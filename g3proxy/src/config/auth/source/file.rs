@@ -25,10 +25,10 @@ pub(crate) struct UserDynamicFileSource {
 impl UserDynamicFileSource {
     fn new(path: PathBuf) -> Self {
         let mut format = ConfigFileFormat::Yaml;
-        if let Some(extension) = path.extension() {
-            if let Some(s) = extension.to_str() {
-                format = ConfigFileFormat::from_str(s).unwrap_or(format);
-            }
+        if let Some(extension) = path.extension()
+            && let Some(s) = extension.to_str()
+        {
+            format = ConfigFileFormat::from_str(s).unwrap_or(format);
         }
 
         UserDynamicFileSource { path, format }

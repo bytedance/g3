@@ -68,13 +68,13 @@ impl AggregateHandle {
     pub(super) fn add_metric(&self, record: MetricRecord, worker_id: Option<usize>) {
         match record.r#type {
             MetricType::Counter => {
-                if let Some(id) = worker_id {
-                    if let Some(sender) = self.worker.get(id) {
-                        if sender.send(Command::Add(record)).is_err() {
-                            // TODO add stats
-                        }
-                        return;
+                if let Some(id) = worker_id
+                    && let Some(sender) = self.worker.get(id)
+                {
+                    if sender.send(Command::Add(record)).is_err() {
+                        // TODO add stats
                     }
+                    return;
                 }
             }
             MetricType::Gauge => {}

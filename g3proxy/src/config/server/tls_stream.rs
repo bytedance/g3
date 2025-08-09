@@ -263,10 +263,11 @@ impl TlsStreamServerConfig {
         if self.task_idle_check_duration > IDLE_CHECK_MAXIMUM_DURATION {
             self.task_idle_check_duration = IDLE_CHECK_MAXIMUM_DURATION;
         }
-        if self.client_tls_config.is_some() && self.upstream_tls_name.is_none() {
-            if let Some(upstream) = self.upstream.first() {
-                self.upstream_tls_name = Some(upstream.inner().host().to_owned());
-            }
+        if self.client_tls_config.is_some()
+            && self.upstream_tls_name.is_none()
+            && let Some(upstream) = self.upstream.first()
+        {
+            self.upstream_tls_name = Some(upstream.inner().host().to_owned());
         }
 
         Ok(())

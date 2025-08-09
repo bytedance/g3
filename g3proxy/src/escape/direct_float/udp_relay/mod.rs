@@ -41,22 +41,20 @@ impl DirectFloatEscaper {
             self.config.resolve_strategy,
         );
 
-        if !self.config.no_ipv4 {
-            if let Ok((bind, r, w)) =
+        if !self.config.no_ipv4
+            && let Ok((bind, r, w)) =
                 self.get_relay_socket(AddressFamily::Ipv4, task_conf, task_notes, &wrapper_stats)
-            {
-                recv.enable_v4(r, bind);
-                send.enable_v4(w, bind);
-            }
+        {
+            recv.enable_v4(r, bind);
+            send.enable_v4(w, bind);
         }
 
-        if !self.config.no_ipv6 {
-            if let Ok((bind, r, w)) =
+        if !self.config.no_ipv6
+            && let Ok((bind, r, w)) =
                 self.get_relay_socket(AddressFamily::Ipv6, task_conf, task_notes, &wrapper_stats)
-            {
-                recv.enable_v6(r, bind);
-                send.enable_v6(w, bind);
-            }
+        {
+            recv.enable_v6(r, bind);
+            send.enable_v6(w, bind);
         }
 
         if !send.usable() {

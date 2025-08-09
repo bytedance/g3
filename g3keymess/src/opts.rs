@@ -149,11 +149,11 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
         ))]
         if let Some(s) = group_name.strip_prefix("core") {
             let mut cpu = CpuAffinity::default();
-            if let Ok(id) = usize::from_str(s) {
-                if cpu.add_id(id).is_ok() {
-                    info!("will try to bind to cpu core {id}");
-                    proc_args.core_affinity = Some(cpu);
-                }
+            if let Ok(id) = usize::from_str(s)
+                && cpu.add_id(id).is_ok()
+            {
+                info!("will try to bind to cpu core {id}");
+                proc_args.core_affinity = Some(cpu);
             }
         }
     }

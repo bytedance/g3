@@ -137,12 +137,12 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         if let Some(user) = &self.client_username {
             crate::serialize::add_client_username(data, user);
         }
-        if let Some(ext) = extensions {
-            if let Some(p) = ext.get::<Protocol>() {
-                data.put_slice(b"X-HTTP-Upgrade: ");
-                data.put_slice(p.as_str().as_bytes());
-                data.put_slice(b"\r\n");
-            }
+        if let Some(ext) = extensions
+            && let Some(p) = ext.get::<Protocol>()
+        {
+            data.put_slice(b"X-HTTP-Upgrade: ");
+            data.put_slice(p.as_str().as_bytes());
+            data.put_slice(b"\r\n");
         }
     }
 

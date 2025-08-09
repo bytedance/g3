@@ -23,10 +23,10 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     };
 
-    if let Some(cpu_affinity) = &proc_args.core_affinity {
-        if let Err(e) = cpu_affinity.apply_to_local_thread() {
-            warn!("failed to apply cpu affinity: {e}");
-        }
+    if let Some(cpu_affinity) = &proc_args.core_affinity
+        && let Err(e) = cpu_affinity.apply_to_local_thread()
+    {
+        warn!("failed to apply cpu affinity: {e}");
     }
 
     // set up process logger early, only proc args is used inside

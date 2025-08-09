@@ -116,10 +116,10 @@ impl RouteUpstreamEscaper {
         if let Some(escaper) = self.exact_match.check_ip(ip) {
             return escaper.clone();
         }
-        if let Some(subnet_match) = &self.subnet_match {
-            if let Some(escaper) = subnet_match.check_ip(ip) {
-                return escaper.clone();
-            }
+        if let Some(subnet_match) = &self.subnet_match
+            && let Some(escaper) = subnet_match.check_ip(ip)
+        {
+            return escaper.clone();
         }
         self.default_next.clone()
     }
@@ -128,20 +128,20 @@ impl RouteUpstreamEscaper {
         if let Some(escaper) = self.exact_match.check_domain(host) {
             return escaper.clone();
         }
-        if let Some(child_match) = &self.child_match {
-            if let Some(escaper) = child_match.check_domain(host) {
-                return escaper.clone();
-            }
+        if let Some(child_match) = &self.child_match
+            && let Some(escaper) = child_match.check_domain(host)
+        {
+            return escaper.clone();
         }
-        if let Some(suffix_match) = &self.suffix_match {
-            if let Some(escaper) = suffix_match.check_domain(host) {
-                return escaper.clone();
-            }
+        if let Some(suffix_match) = &self.suffix_match
+            && let Some(escaper) = suffix_match.check_domain(host)
+        {
+            return escaper.clone();
         }
-        if let Some(regex_match) = &self.regex_match {
-            if let Some(escaper) = regex_match.check_domain(host) {
-                return escaper.clone();
-            }
+        if let Some(regex_match) = &self.regex_match
+            && let Some(escaper) = regex_match.check_domain(host)
+        {
+            return escaper.clone();
         }
         self.default_next.clone()
     }

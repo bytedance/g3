@@ -106,16 +106,14 @@ impl IcapServicePool {
                     if let Ok(options) = req
                         .get_options(&mut conn, config.icap_max_header_size)
                         .await
-                    {
-                        if pool_sender
+                        && pool_sender
                             .send(IcapServicePoolCommand::UpdateOptions(options))
                             .await
                             .is_ok()
-                        {
-                            let _ = pool_sender
-                                .send(IcapServicePoolCommand::SaveConnection(conn))
-                                .await;
-                        }
+                    {
+                        let _ = pool_sender
+                            .send(IcapServicePoolCommand::SaveConnection(conn))
+                            .await;
                     }
                 }
             });

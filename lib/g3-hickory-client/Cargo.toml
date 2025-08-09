@@ -1,13 +1,14 @@
 [package]
 name = "g3-hickory-client"
-version = "0.2.0"
+version = "0.3.0"
 license.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hickory-proto = { workspace  = true, features = ["tokio"] }
+hickory-proto = { workspace = true, features = ["tokio"] }
 futures-util.workspace = true
 http.workspace = true
 h2.workspace = true

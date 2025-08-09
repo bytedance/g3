@@ -1,8 +1,9 @@
 [package]
 name = "g3-imap-proto"
-version = "0.2.0"
+version = "0.3.0"
 license.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 thiserror.workspace = true

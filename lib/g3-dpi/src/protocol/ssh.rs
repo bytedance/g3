@@ -60,7 +60,7 @@ impl ProtocolInspectState {
                     self.exclude_current();
                     return Ok(None);
                 }
-            }
+            },
             b"2." => {
                 if data[6] != b'0' {
                     self.exclude_current();

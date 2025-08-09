@@ -112,10 +112,10 @@ impl FromStr for Host {
         match s.as_bytes()[0] {
             b'[' => {
                 let pos_last = s.len() - 1;
-                if s.as_bytes()[pos_last] == b']' {
-                    if let Ok(ip6) = Ipv6Addr::from_str(&s[1..pos_last]) {
-                        return Ok(Host::from_maybe_mapped_ip6(ip6));
-                    }
+                if s.as_bytes()[pos_last] == b']'
+                    && let Ok(ip6) = Ipv6Addr::from_str(&s[1..pos_last])
+                {
+                    return Ok(Host::from_maybe_mapped_ip6(ip6));
                 }
                 return Err(anyhow!("invalid ipv6 ip in squared brackets"));
             }

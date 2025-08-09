@@ -235,10 +235,10 @@ pub(super) fn parse_cloudflare_args(args: &ArgMatches) -> anyhow::Result<Keyless
 
     let mut cf_args = KeylessCloudflareArgs::new(global_args, target, no_tls);
 
-    if let Some(c) = args.get_one::<usize>(ARG_CONNECTION_POOL) {
-        if *c > 0 {
-            cf_args.pool_size = Some(*c);
-        }
+    if let Some(c) = args.get_one::<usize>(ARG_CONNECTION_POOL)
+        && *c > 0
+    {
+        cf_args.pool_size = Some(*c);
     }
 
     if let Some(timeout) = g3_clap::humanize::get_duration(args, ARG_CONNECT_TIMEOUT)? {

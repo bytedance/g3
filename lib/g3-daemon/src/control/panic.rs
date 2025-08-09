@@ -65,11 +65,9 @@ pub fn set_hook(args: &DaemonArgs) {
 fn do_panic_quit(monitored: bool) {
     use rustix::process::Signal;
 
-    if monitored {
-        if let Some(pid) = rustix::process::getppid() {
-            let _ = rustix::process::kill_process(pid, Signal::HUP);
-            return;
-        }
+    if monitored && let Some(pid) = rustix::process::getppid() {
+        let _ = rustix::process::kill_process(pid, Signal::HUP);
+        return;
     }
     crate::control::quit::trigger_force_shutdown();
 }

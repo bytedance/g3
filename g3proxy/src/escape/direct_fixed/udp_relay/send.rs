@@ -198,10 +198,10 @@ where
 
     fn check_egress_ip(&mut self, to_addr: SocketAddr) -> Result<(), UdpRelayRemoteError> {
         let to_ip = to_addr.ip();
-        if let Some(last_ip) = self.checked_egress_ip {
-            if last_ip == to_ip {
-                return Ok(());
-            }
+        if let Some(last_ip) = self.checked_egress_ip
+            && last_ip == to_ip
+        {
+            return Ok(());
         }
         let (_, action) = self.egress_net_filter.check(to_ip);
         self.handle_udp_target_ip_acl_action(action, to_addr)?;

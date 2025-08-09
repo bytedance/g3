@@ -98,11 +98,11 @@ impl RustlsHost {
     }
 
     pub(super) fn check_rate_limit(&self) -> Result<(), ()> {
-        if let Some(limit) = &self.request_rate_limit {
-            if limit.check().is_err() {
-                // TODO add stats
-                return Err(());
-            }
+        if let Some(limit) = &self.request_rate_limit
+            && limit.check().is_err()
+        {
+            // TODO add stats
+            return Err(());
         }
         Ok(())
     }

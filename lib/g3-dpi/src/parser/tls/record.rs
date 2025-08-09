@@ -139,11 +139,11 @@ impl<'a> Record<'a> {
         }
         let fragment = &self.fragment[self.consume_offset..];
 
-        if coalescer.is_empty() {
-            if let Some(msg) = HandshakeMessage::try_parse_fragment(fragment) {
-                self.consume_offset += msg.encoded_len();
-                return Ok(Some(msg));
-            }
+        if coalescer.is_empty()
+            && let Some(msg) = HandshakeMessage::try_parse_fragment(fragment)
+        {
+            self.consume_offset += msg.encoded_len();
+            return Ok(Some(msg));
         }
 
         self.consume_offset += coalescer.coalesce_fragment(fragment)?;

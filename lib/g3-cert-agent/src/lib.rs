@@ -83,17 +83,17 @@ impl CacheQueryKey {
             ValueRef::Integer(request_key_id::USAGE.into()),
             ValueRef::Integer((self.index.usage as u8).into()),
         ));
-        if let Some(cert) = &self.mimic_cert {
-            if let Ok(der) = cert.to_der() {
-                map.push((
-                    ValueRef::Integer(request_key_id::CERT.into()),
-                    ValueRef::Binary(&der),
-                ));
-                let mut buf = Vec::with_capacity(320 + der.len());
-                rmpv::encode::write_value_ref(&mut buf, &ValueRef::Map(map))?;
-                return Ok(buf);
-            };
-        }
+        if let Some(cert) = &self.mimic_cert
+            && let Ok(der) = cert.to_der()
+        {
+            map.push((
+                ValueRef::Integer(request_key_id::CERT.into()),
+                ValueRef::Binary(&der),
+            ));
+            let mut buf = Vec::with_capacity(320 + der.len());
+            rmpv::encode::write_value_ref(&mut buf, &ValueRef::Map(map))?;
+            return Ok(buf);
+        };
         let mut buf = Vec::with_capacity(320);
         rmpv::encode::write_value_ref(&mut buf, &ValueRef::Map(map))?;
         Ok(buf)

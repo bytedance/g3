@@ -126,10 +126,10 @@ impl SocksProxyUdpConnectTask {
             user_ctx.req_stats().req_alive.add_socks_udp_connect();
         }
 
-        if self.ctx.server_config.flush_task_log_on_created {
-            if let Some(log_ctx) = self.get_log_context() {
-                log_ctx.log_created();
-            }
+        if self.ctx.server_config.flush_task_log_on_created
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log_created();
         }
 
         self.started = true;
@@ -412,11 +412,10 @@ impl SocksProxyUdpConnectTask {
                         r_to_c.reset_active();
                     }
 
-                    if let Some(user_ctx) = self.task_notes.user_ctx() {
-                        if user_ctx.user().is_blocked() {
+                    if let Some(user_ctx) = self.task_notes.user_ctx()
+                        && user_ctx.user().is_blocked() {
                             return Err(ServerTaskError::CanceledAsUserBlocked);
                         }
-                    }
 
                     if self.ctx.server_quit_policy.force_quit() {
                         return Err(ServerTaskError::CanceledAsServerQuit)
@@ -462,10 +461,10 @@ impl SocksProxyUdpConnectTask {
             limit_config.max_north_bytes,
             wrapper_stats.clone(),
         );
-        if let Some(user_ctx) = self.task_notes.user_ctx() {
-            if let Some(limiter) = user_ctx.user().udp_all_upload_speed_limit() {
-                clt_r.add_global_limiter(limiter.clone());
-            }
+        if let Some(user_ctx) = self.task_notes.user_ctx()
+            && let Some(limiter) = user_ctx.user().udp_all_upload_speed_limit()
+        {
+            clt_r.add_global_limiter(limiter.clone());
         }
         let mut clt_w_stats = wrapper_stats;
 
@@ -535,10 +534,10 @@ impl SocksProxyUdpConnectTask {
             limit_config.max_south_bytes,
             clt_w_stats,
         );
-        if let Some(user_ctx) = self.task_notes.user_ctx() {
-            if let Some(limiter) = user_ctx.user().udp_all_download_speed_limit() {
-                clt_w.add_global_limiter(limiter.clone());
-            }
+        if let Some(user_ctx) = self.task_notes.user_ctx()
+            && let Some(limiter) = user_ctx.user().udp_all_download_speed_limit()
+        {
+            clt_w.add_global_limiter(limiter.clone());
         }
 
         self.task_notes.stage = ServerTaskStage::Connecting;
@@ -558,10 +557,10 @@ impl SocksProxyUdpConnectTask {
             .await?;
         self.task_notes.stage = ServerTaskStage::Connected;
 
-        if self.ctx.server_config.flush_task_log_on_connected {
-            if let Some(log_ctx) = self.get_log_context() {
-                log_ctx.log_connected();
-            }
+        if self.ctx.server_config.flush_task_log_on_connected
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log_connected();
         }
 
         poll_fn(|cx| ups_w.poll_send_packet(cx, &buf[buf_off..buf_nr])).await?;

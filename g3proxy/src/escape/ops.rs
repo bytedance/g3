@@ -152,10 +152,10 @@ pub(crate) async fn update_dependency_to_auditor(auditor: &NodeName, status: &st
     let mut names = Vec::<NodeName>::new();
 
     registry::foreach(|name, escaper| {
-        if let Some(dep_auditor) = escaper._auditor() {
-            if dep_auditor.eq(auditor) {
-                names.push(name.clone());
-            }
+        if let Some(dep_auditor) = escaper._auditor()
+            && dep_auditor.eq(auditor)
+        {
+            names.push(name.clone());
         }
     });
 

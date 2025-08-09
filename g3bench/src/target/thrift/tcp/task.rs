@@ -94,11 +94,11 @@ impl ThriftTcpTaskContext {
     }
 
     async fn fetch_simplex_connection(&mut self) -> anyhow::Result<SimplexTransfer> {
-        if let Some(mut c) = self.simplex.take() {
-            if !c.is_closed() {
-                self.reuse_conn_count += 1;
-                return Ok(c);
-            }
+        if let Some(mut c) = self.simplex.take()
+            && !c.is_closed()
+        {
+            self.reuse_conn_count += 1;
+            return Ok(c);
         }
 
         if self.reuse_conn_count > 0 {
@@ -175,13 +175,13 @@ impl ThriftTcpTaskContext {
             ));
         }
 
-        if let Some(check_message_length) = self.args.global.check_message_length {
-            if check_message_length != rsp.message.encoded_length {
-                return Err(anyhow!(
-                    "unexpected received message length {}",
-                    rsp.message.encoded_length
-                ));
-            }
+        if let Some(check_message_length) = self.args.global.check_message_length
+            && check_message_length != rsp.message.encoded_length
+        {
+            return Err(anyhow!(
+                "unexpected received message length {}",
+                rsp.message.encoded_length
+            ));
         }
 
         Ok(())

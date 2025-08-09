@@ -279,18 +279,17 @@ impl UserGroup {
         let user_config = crate::config::auth::source::cache::parse_json(&doc)?;
 
         // we should avoid corrupt write at process exit
-        if !self.config.dynamic_cache.as_os_str().is_empty() {
-            if let Some(Err(e)) = crate::control::run_protected_io(tokio::fs::write(
+        if !self.config.dynamic_cache.as_os_str().is_empty()
+            && let Some(Err(e)) = crate::control::run_protected_io(tokio::fs::write(
                 &self.config.dynamic_cache,
                 contents,
             ))
             .await
-            {
-                warn!(
-                    "failed to cache dynamic users to file {} ({e:?}), this may lead to auth error during restart",
-                    self.config.dynamic_cache.display()
-                );
-            }
+        {
+            warn!(
+                "failed to cache dynamic users to file {} ({e:?}), this may lead to auth error during restart",
+                self.config.dynamic_cache.display()
+            );
         }
 
         source::publish_dynamic_users(self.config.as_ref(), user_config, &self.dynamic_users)

@@ -263,10 +263,10 @@ impl<'a> HttpProxyForwardTask<'a> {
             });
         }
 
-        if self.ctx.server_config.flush_task_log_on_created {
-            if let Some(log_ctx) = self.get_log_context() {
-                log_ctx.log_created();
-            }
+        if self.ctx.server_config.flush_task_log_on_created
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log_created();
         }
 
         self.started = true;
@@ -629,10 +629,10 @@ impl<'a> HttpProxyForwardTask<'a> {
                 user_ctx.foreach_req_stats(|s| s.req_reuse.add_http_forward(self.is_https));
             }
 
-            if self.ctx.server_config.flush_task_log_on_connected {
-                if let Some(log_ctx) = self.get_log_context() {
-                    log_ctx.log_connected();
-                }
+            if self.ctx.server_config.flush_task_log_on_connected
+                && let Some(log_ctx) = self.get_log_context()
+            {
+                log_ctx.log_connected();
             }
 
             connection.0.prepare_new(&self.task_notes, &self.upstream);
@@ -721,10 +721,10 @@ impl<'a> HttpProxyForwardTask<'a> {
                 self.task_notes.stage = ServerTaskStage::Connected;
                 fwd_ctx.fetch_tcp_notes(&mut self.tcp_notes);
 
-                if self.ctx.server_config.flush_task_log_on_connected {
-                    if let Some(log_ctx) = self.get_log_context() {
-                        log_ctx.log_connected();
-                    }
+                if self.ctx.server_config.flush_task_log_on_connected
+                    && let Some(log_ctx) = self.get_log_context()
+                {
+                    log_ctx.log_connected();
                 }
 
                 connection.0.prepare_new(&self.task_notes, &self.upstream);
@@ -793,62 +793,54 @@ impl<'a> HttpProxyForwardTask<'a> {
         CDR: AsyncRead + Send + Unpin,
         CDW: AsyncWrite + Send + Unpin,
     {
-        if self.http_notes.reused_connection {
-            if let Some(r) = ups_c.1.fill_wait_data().now_or_never() {
-                self.http_notes.retry_new_connection = true;
-                return match r {
-                    Ok(true) => Err(ServerTaskError::UpstreamAppError(anyhow!(
-                        "unexpected data found when polling IDLE connection"
-                    ))),
-                    Ok(false) => Err(ServerTaskError::ClosedByUpstream),
-                    Err(e) => Err(ServerTaskError::UpstreamReadFailed(e)),
-                };
-            }
+        if self.http_notes.reused_connection
+            && let Some(r) = ups_c.1.fill_wait_data().now_or_never()
+        {
+            self.http_notes.retry_new_connection = true;
+            return match r {
+                Ok(true) => Err(ServerTaskError::UpstreamAppError(anyhow!(
+                    "unexpected data found when polling IDLE connection"
+                ))),
+                Ok(false) => Err(ServerTaskError::ClosedByUpstream),
+                Err(e) => Err(ServerTaskError::UpstreamReadFailed(e)),
+            };
         }
 
-        if audit_task {
-            if let Some(audit_handle) = self.audit_ctx.handle() {
-                if let Some(reqmod) = audit_handle.icap_reqmod_client() {
-                    match reqmod
-                        .h1_adapter(
-                            self.ctx.server_config.tcp_copy,
-                            self.ctx.server_config.body_line_max_len,
-                            true,
-                            self.ctx.idle_checker(&self.task_notes),
-                        )
-                        .await
-                    {
-                        Ok(mut adapter) => {
-                            let mut adaptation_state = ReqmodAdaptationRunState::new(
-                                self.task_notes.task_created_instant(),
-                            );
-                            adapter.set_client_addr(self.ctx.client_addr());
-                            if let Some(name) = self.task_notes.raw_user_name() {
-                                adapter.set_client_username(name.clone());
-                            }
-                            let r = self
-                                .run_with_adaptation(
-                                    clt_r,
-                                    clt_w,
-                                    ups_c,
-                                    adapter,
-                                    &mut adaptation_state,
-                                )
-                                .await;
-                            if let Some(dur) = adaptation_state.dur_ups_send_header {
-                                self.http_notes.dur_req_send_hdr = dur;
-                            }
-                            if let Some(dur) = adaptation_state.dur_ups_send_all {
-                                self.http_notes.dur_req_send_all = dur;
-                            }
-                            return r;
-                        }
-                        Err(e) => {
-                            self.http_notes.retry_new_connection = true;
-                            if !reqmod.bypass() {
-                                return Err(ServerTaskError::InternalAdapterError(e));
-                            }
-                        }
+        if audit_task
+            && let Some(audit_handle) = self.audit_ctx.handle()
+            && let Some(reqmod) = audit_handle.icap_reqmod_client()
+        {
+            match reqmod
+                .h1_adapter(
+                    self.ctx.server_config.tcp_copy,
+                    self.ctx.server_config.body_line_max_len,
+                    true,
+                    self.ctx.idle_checker(&self.task_notes),
+                )
+                .await
+            {
+                Ok(mut adapter) => {
+                    let mut adaptation_state =
+                        ReqmodAdaptationRunState::new(self.task_notes.task_created_instant());
+                    adapter.set_client_addr(self.ctx.client_addr());
+                    if let Some(name) = self.task_notes.raw_user_name() {
+                        adapter.set_client_username(name.clone());
+                    }
+                    let r = self
+                        .run_with_adaptation(clt_r, clt_w, ups_c, adapter, &mut adaptation_state)
+                        .await;
+                    if let Some(dur) = adaptation_state.dur_ups_send_header {
+                        self.http_notes.dur_req_send_hdr = dur;
+                    }
+                    if let Some(dur) = adaptation_state.dur_ups_send_all {
+                        self.http_notes.dur_req_send_all = dur;
+                    }
+                    return r;
+                }
+                Err(e) => {
+                    self.http_notes.retry_new_connection = true;
+                    if !reqmod.bypass() {
+                        return Err(ServerTaskError::InternalAdapterError(e));
                     }
                 }
             }
@@ -1402,11 +1394,10 @@ impl<'a> HttpProxyForwardTask<'a> {
                         clt_to_ups.reset_active();
                     }
 
-                    if let Some(user_ctx) = self.task_notes.user_ctx() {
-                        if user_ctx.user().is_blocked() {
+                    if let Some(user_ctx) = self.task_notes.user_ctx()
+                        && user_ctx.user().is_blocked() {
                             return Err(ServerTaskError::CanceledAsUserBlocked);
                         }
-                    }
 
                     if self.ctx.server_quit_policy.force_quit() {
                         return Err(ServerTaskError::CanceledAsServerQuit)
@@ -1526,52 +1517,49 @@ impl<'a> HttpProxyForwardTask<'a> {
         self.http_notes.rsp_status = 0;
         self.update_response_header(rsp_header);
 
-        if audit_task {
-            if let Some(audit_handle) = self.audit_ctx.handle() {
-                if let Some(respmod) = audit_handle.icap_respmod_client() {
-                    match respmod
-                        .h1_adapter(
-                            self.ctx.server_config.tcp_copy,
-                            self.ctx.server_config.body_line_max_len,
-                            self.ctx.idle_checker(&self.task_notes),
+        if audit_task
+            && let Some(audit_handle) = self.audit_ctx.handle()
+            && let Some(respmod) = audit_handle.icap_respmod_client()
+        {
+            match respmod
+                .h1_adapter(
+                    self.ctx.server_config.tcp_copy,
+                    self.ctx.server_config.body_line_max_len,
+                    self.ctx.idle_checker(&self.task_notes),
+                )
+                .await
+            {
+                Ok(mut adapter) => {
+                    let mut adaptation_state = RespmodAdaptationRunState::new(
+                        self.task_notes.task_created_instant(),
+                        self.http_notes.dur_rsp_recv_hdr,
+                    );
+                    adapter.set_client_addr(self.ctx.client_addr());
+                    if let Some(name) = self.task_notes.raw_user_name() {
+                        adapter.set_client_username(name.clone());
+                    }
+                    adapter.set_respond_shared_headers(adaptation_respond_shared_headers);
+                    let r = self
+                        .send_response_with_adaptation(
+                            clt_w,
+                            ups_r,
+                            rsp_header,
+                            adapter,
+                            &mut adaptation_state,
                         )
-                        .await
-                    {
-                        Ok(mut adapter) => {
-                            let mut adaptation_state = RespmodAdaptationRunState::new(
-                                self.task_notes.task_created_instant(),
-                                self.http_notes.dur_rsp_recv_hdr,
-                            );
-                            adapter.set_client_addr(self.ctx.client_addr());
-                            if let Some(name) = self.task_notes.raw_user_name() {
-                                adapter.set_client_username(name.clone());
-                            }
-                            adapter.set_respond_shared_headers(adaptation_respond_shared_headers);
-                            let r = self
-                                .send_response_with_adaptation(
-                                    clt_w,
-                                    ups_r,
-                                    rsp_header,
-                                    adapter,
-                                    &mut adaptation_state,
-                                )
-                                .await;
-                            if !adaptation_state.clt_write_finished
-                                || !adaptation_state.ups_read_finished
-                            {
-                                self.should_close = true;
-                            }
-                            if let Some(dur) = adaptation_state.dur_ups_recv_all {
-                                self.http_notes.dur_rsp_recv_all = dur;
-                            }
-                            self.send_error_response = !adaptation_state.clt_write_started;
-                            return r;
-                        }
-                        Err(e) => {
-                            if !respmod.bypass() {
-                                return Err(ServerTaskError::InternalAdapterError(e));
-                            }
-                        }
+                        .await;
+                    if !adaptation_state.clt_write_finished || !adaptation_state.ups_read_finished {
+                        self.should_close = true;
+                    }
+                    if let Some(dur) = adaptation_state.dur_ups_recv_all {
+                        self.http_notes.dur_rsp_recv_all = dur;
+                    }
+                    self.send_error_response = !adaptation_state.clt_write_started;
+                    return r;
+                }
+                Err(e) => {
+                    if !respmod.bypass() {
+                        return Err(ServerTaskError::InternalAdapterError(e));
                     }
                 }
             }
@@ -1726,14 +1714,13 @@ impl<'a> HttpProxyForwardTask<'a> {
                         ups_to_clt.reset_active();
                     }
 
-                    if let Some(user_ctx) = self.task_notes.user_ctx() {
-                        if user_ctx.user().is_blocked() {
+                    if let Some(user_ctx) = self.task_notes.user_ctx()
+                        && user_ctx.user().is_blocked() {
                             if ups_to_clt.copied_size() < header_len {
                                 let _ = ups_to_clt.write_flush().await; // flush rsp header to client
                             }
                             return Err(ServerTaskError::CanceledAsUserBlocked);
                         }
-                    }
 
                     if self.ctx.server_quit_policy.force_quit() {
                         if ups_to_clt.copied_size() < header_len {

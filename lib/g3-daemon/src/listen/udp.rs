@@ -162,11 +162,9 @@ where
     }
 
     fn get_rt_handle(&mut self, listen_in_worker: bool) -> Handle {
-        if listen_in_worker {
-            if let Some(rt) = crate::runtime::worker::select_listen_handle() {
-                self.worker_id = Some(rt.id);
-                return rt.handle;
-            }
+        if listen_in_worker && let Some(rt) = crate::runtime::worker::select_listen_handle() {
+            self.worker_id = Some(rt.id);
+            return rt.handle;
         }
         Handle::current()
     }

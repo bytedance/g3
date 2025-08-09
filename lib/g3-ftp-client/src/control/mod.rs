@@ -249,12 +249,12 @@ where
             530 => Err(FtpCommandError::NotLoggedIn),
             550 => Ok(None),
             250 => {
-                if let Some(lines) = reply.lines() {
-                    if lines.len() == 3 {
-                        let line = &lines[1];
-                        if let Ok(ff) = FtpFileFacts::parse_line(line.as_str()) {
-                            return Ok(Some(ff));
-                        }
+                if let Some(lines) = reply.lines()
+                    && lines.len() == 3
+                {
+                    let line = &lines[1];
+                    if let Ok(ff) = FtpFileFacts::parse_line(line.as_str()) {
+                        return Ok(Some(ff));
                     }
                 }
 

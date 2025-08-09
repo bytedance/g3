@@ -293,18 +293,18 @@ impl Response {
 }
 
 fn check_literal_size(left: &[u8]) -> Result<Option<u64>, ResponseLineError> {
-    if left.ends_with(b"}") {
-        if let Some(p) = memchr::memrchr(b'{', left) {
-            let size_s = &left[p + 1..left.len() - 1];
-            let (size, offset) = u64::from_radix_10_checked(size_s);
-            if offset != size_s.len() {
-                return Err(ResponseLineError::InvalidLiteralSize);
-            }
-            return match size {
-                Some(size) => Ok(Some(size)),
-                None => Err(ResponseLineError::InvalidLiteralSize),
-            };
+    if left.ends_with(b"}")
+        && let Some(p) = memchr::memrchr(b'{', left)
+    {
+        let size_s = &left[p + 1..left.len() - 1];
+        let (size, offset) = u64::from_radix_10_checked(size_s);
+        if offset != size_s.len() {
+            return Err(ResponseLineError::InvalidLiteralSize);
         }
+        return match size {
+            Some(size) => Ok(Some(size)),
+            None => Err(ResponseLineError::InvalidLiteralSize),
+        };
     }
     Ok(None)
 }

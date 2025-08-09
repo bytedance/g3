@@ -465,11 +465,11 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
         proc_args.main_runtime.set_thread_number((*n).get());
         proc_args.worker_runtime.set_thread_number_total(*n);
     }
-    if let Some(stack_size) = g3_clap::humanize::get_usize(args, GLOBAL_ARG_THREAD_STACK_SIZE)? {
-        if stack_size > 0 {
-            proc_args.main_runtime.set_thread_stack_size(stack_size);
-            proc_args.worker_runtime.set_thread_stack_size(stack_size);
-        }
+    if let Some(stack_size) = g3_clap::humanize::get_usize(args, GLOBAL_ARG_THREAD_STACK_SIZE)?
+        && stack_size > 0
+    {
+        proc_args.main_runtime.set_thread_stack_size(stack_size);
+        proc_args.worker_runtime.set_thread_stack_size(stack_size);
     }
     #[cfg(feature = "openssl-async-job")]
     if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_OPENSSL_ASYNC_JOB_INIT_SIZE) {

@@ -30,10 +30,10 @@ pub(crate) struct TaskLogForHttpForward<'a> {
 
 impl TaskLogForHttpForward<'_> {
     pub(crate) fn log_created(&self) {
-        if let Some(user_ctx) = self.task_notes.user_ctx() {
-            if user_ctx.skip_log() {
-                return;
-            }
+        if let Some(user_ctx) = self.task_notes.user_ctx()
+            && user_ctx.skip_log()
+        {
+            return;
         }
 
         slog_info!(self.logger, "";
@@ -55,10 +55,10 @@ impl TaskLogForHttpForward<'_> {
     }
 
     pub(crate) fn log_connected(&self) {
-        if let Some(user_ctx) = self.task_notes.user_ctx() {
-            if user_ctx.skip_log() {
-                return;
-            }
+        if let Some(user_ctx) = self.task_notes.user_ctx()
+            && user_ctx.skip_log()
+        {
+            return;
         }
 
         slog_info!(self.logger, "";
@@ -89,10 +89,10 @@ impl TaskLogForHttpForward<'_> {
     }
 
     pub(crate) fn log_periodic(&self) {
-        if let Some(user_ctx) = self.task_notes.user_ctx() {
-            if user_ctx.skip_log() {
-                return;
-            }
+        if let Some(user_ctx) = self.task_notes.user_ctx()
+            && user_ctx.skip_log()
+        {
+            return;
         }
 
         slog_info!(self.logger, "";
@@ -134,10 +134,10 @@ impl TaskLogForHttpForward<'_> {
     }
 
     pub(crate) fn log(&self, e: &ServerTaskError) {
-        if let Some(user_ctx) = self.task_notes.user_ctx() {
-            if user_ctx.skip_log() {
-                return;
-            }
+        if let Some(user_ctx) = self.task_notes.user_ctx()
+            && user_ctx.skip_log()
+        {
+            return;
         }
 
         slog_info!(self.logger, "{}", e;

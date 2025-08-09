@@ -32,18 +32,18 @@ fn as_certificates_from_single_element(
     lookup_dir: Option<&Path>,
 ) -> anyhow::Result<Vec<CertificateDer<'static>>> {
     let mut certs = Vec::new();
-    if let Yaml::String(s) = value {
-        if s.trim_start().starts_with("--") {
-            for (i, r) in CertificateDer::pem_slice_iter(s.as_bytes()).enumerate() {
-                let cert = r.map_err(|e| anyhow!("invalid certificate #{i}: {e:?}"))?;
-                certs.push(cert);
-            }
-            return if certs.is_empty() {
-                Err(anyhow!("no valid certificate found"))
-            } else {
-                Ok(certs)
-            };
+    if let Yaml::String(s) = value
+        && s.trim_start().starts_with("--")
+    {
+        for (i, r) in CertificateDer::pem_slice_iter(s.as_bytes()).enumerate() {
+            let cert = r.map_err(|e| anyhow!("invalid certificate #{i}: {e:?}"))?;
+            certs.push(cert);
         }
+        return if certs.is_empty() {
+            Err(anyhow!("no valid certificate found"))
+        } else {
+            Ok(certs)
+        };
     }
 
     let (file, path) = crate::value::as_file(value, lookup_dir).context("invalid file")?;
@@ -79,11 +79,11 @@ pub fn as_rustls_private_key(
     value: &Yaml,
     lookup_dir: Option<&Path>,
 ) -> anyhow::Result<PrivateKeyDer<'static>> {
-    if let Yaml::String(s) = value {
-        if s.trim_start().starts_with("--") {
-            return PrivateKeyDer::from_pem_slice(s.as_bytes())
-                .map_err(|e| anyhow!("invalid private key string: {e:?}"));
-        }
+    if let Yaml::String(s) = value
+        && s.trim_start().starts_with("--")
+    {
+        return PrivateKeyDer::from_pem_slice(s.as_bytes())
+            .map_err(|e| anyhow!("invalid private key string: {e:?}"));
     }
 
     let (file, path) = crate::value::as_file(value, lookup_dir).context("invalid file")?;
@@ -200,10 +200,10 @@ pub fn as_rustls_client_config_builder(
             _ => Err(anyhow!("invalid key {k}")),
         })?;
 
-        if let Ok(cert_pair) = cert_pair_builder.build() {
-            if builder.set_cert_pair(cert_pair).is_some() {
-                return Err(anyhow!("found duplicate client certificate config"));
-            }
+        if let Ok(cert_pair) = cert_pair_builder.build()
+            && builder.set_cert_pair(cert_pair).is_some()
+        {
+            return Err(anyhow!("found duplicate client certificate config"));
         }
 
         builder.check()?;

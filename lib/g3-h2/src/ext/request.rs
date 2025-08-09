@@ -39,12 +39,12 @@ impl<T> RequestExt for Request<T> {
             buf.put_slice(value.as_bytes());
             buf.put_slice(b"\r\n");
         }
-        if !self.headers().contains_key(http::header::HOST) {
-            if let Some(host) = uri.host() {
-                buf.put_slice(b"Host: ");
-                buf.put_slice(host.as_bytes());
-                buf.put_slice(b"\r\n");
-            }
+        if !self.headers().contains_key(http::header::HOST)
+            && let Some(host) = uri.host()
+        {
+            buf.put_slice(b"Host: ");
+            buf.put_slice(host.as_bytes());
+            buf.put_slice(b"\r\n");
         }
         buf.put_slice(b"\r\n");
         buf
@@ -67,11 +67,11 @@ impl<T> RequestExt for Request<T> {
             if parts.headers.contains_key(http::header::HOST) {
                 headers.insert(http::header::HOST, host.clone());
             }
-            if uri_parts.authority.is_none() {
-                if let Ok(authority) = Authority::from_maybe_shared(host.clone()) {
-                    //update the authority field
-                    uri_parts.authority = Some(authority);
-                }
+            if uri_parts.authority.is_none()
+                && let Ok(authority) = Authority::from_maybe_shared(host.clone())
+            {
+                //update the authority field
+                uri_parts.authority = Some(authority);
             }
         }
         if let Ok(new_uri) = Uri::from_parts(uri_parts) {

@@ -1,4 +1,7 @@
 
+v0.4.0:
+ - Compatibility: bump MSRV to 1.88.0
+
 v0.3.0:
  - Compatibility: bump MSRV to 1.86.0
  - Deprecated: the following config options are deprecated:

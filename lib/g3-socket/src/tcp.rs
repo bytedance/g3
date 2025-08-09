@@ -47,10 +47,10 @@ pub fn new_std_listener(config: &TcpListenConfig) -> io::Result<std::net::TcpLis
         socket.bind_device(Some(iface.c_bytes()))?;
     }
 
-    if let Some(keepalive_config) = config.keepalive() {
-        if let Some(setting) = enable_tcp_keepalive(keepalive_config) {
-            socket.set_tcp_keepalive(&setting)?;
-        }
+    if let Some(keepalive_config) = config.keepalive()
+        && let Some(setting) = enable_tcp_keepalive(keepalive_config)
+    {
+        socket.set_tcp_keepalive(&setting)?;
     }
 
     #[cfg(any(target_os = "macos", target_os = "illumos", target_os = "solaris"))]

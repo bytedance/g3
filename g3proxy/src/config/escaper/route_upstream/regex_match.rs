@@ -190,18 +190,18 @@ pub(crate) struct RegexMatch<T> {
 impl<T> RegexMatch<T> {
     pub(crate) fn check_domain(&self, domain: &str) -> Option<&T> {
         let key: String = g3_types::resolve::reverse_idna_domain(domain);
-        if let Some(sub_trie) = self.parent_match.get_ancestor(&key) {
-            if let Some(rules) = sub_trie.value() {
-                let suffix_len = sub_trie.prefix().as_bytes().len();
-                let prefix = if domain.len() > suffix_len {
-                    domain.split_at(domain.len() - suffix_len).0
-                } else {
-                    ""
-                };
-                for (regex, value) in rules {
-                    if regex.is_match(prefix) {
-                        return Some(value);
-                    }
+        if let Some(sub_trie) = self.parent_match.get_ancestor(&key)
+            && let Some(rules) = sub_trie.value()
+        {
+            let suffix_len = sub_trie.prefix().as_bytes().len();
+            let prefix = if domain.len() > suffix_len {
+                domain.split_at(domain.len() - suffix_len).0
+            } else {
+                ""
+            };
+            for (regex, value) in rules {
+                if regex.is_match(prefix) {
+                    return Some(value);
                 }
             }
         }

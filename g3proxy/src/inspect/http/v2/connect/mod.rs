@@ -116,12 +116,12 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
         match self.do_run(clt_req, &mut clt_send_rsp, h2s).await {
             Ok(d) => Ok(d),
             Err(e) => {
-                if self.send_error_response {
-                    if let Some(rsp) = e.build_reply() {
-                        let rsp_status = rsp.status().as_u16();
-                        if clt_send_rsp.send_response(rsp, true).is_ok() {
-                            self.http_notes.rsp_status = rsp_status;
-                        }
+                if self.send_error_response
+                    && let Some(rsp) = e.build_reply()
+                {
+                    let rsp_status = rsp.status().as_u16();
+                    if clt_send_rsp.send_response(rsp, true).is_ok() {
+                        self.http_notes.rsp_status = rsp_status;
                     }
                 }
                 Err(e)

@@ -73,11 +73,11 @@ where
     async fn recv_line(&mut self, line: &str) {
         self.active = true;
 
-        if self.buf_cap - self.buf_len < line.len() {
-            if let Err(e) = self.send_buf().await {
-                self.io_error = Some(e);
-                return;
-            }
+        if self.buf_cap - self.buf_len < line.len()
+            && let Err(e) = self.send_buf().await
+        {
+            self.io_error = Some(e);
+            return;
         }
 
         self.buf.extend_from_slice(line.as_bytes());

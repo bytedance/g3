@@ -90,24 +90,24 @@ impl Frontend {
     fn fetch(&self, ip: IpAddr) -> Option<IpLocation> {
         let mut builder = IpLocationBuilder::default();
 
-        if let Some(db) = g3_geoip_db::store::load_country() {
-            if let Some((net, v)) = db.longest_match(ip) {
-                builder.set_network(net);
-                builder.set_country(v.country);
-                builder.set_continent(v.continent);
-            }
+        if let Some(db) = g3_geoip_db::store::load_country()
+            && let Some((net, v)) = db.longest_match(ip)
+        {
+            builder.set_network(net);
+            builder.set_country(v.country);
+            builder.set_continent(v.continent);
         }
 
-        if let Some(asn_db) = g3_geoip_db::store::load_asn() {
-            if let Some((net, v)) = asn_db.longest_match(ip) {
-                builder.set_network(net);
-                builder.set_as_number(v.number);
-                if let Some(name) = v.isp_name() {
-                    builder.set_isp_name(name.to_string());
-                }
-                if let Some(domain) = v.isp_domain() {
-                    builder.set_isp_domain(domain.to_string());
-                }
+        if let Some(asn_db) = g3_geoip_db::store::load_asn()
+            && let Some((net, v)) = asn_db.longest_match(ip)
+        {
+            builder.set_network(net);
+            builder.set_as_number(v.number);
+            if let Some(name) = v.isp_name() {
+                builder.set_isp_name(name.to_string());
+            }
+            if let Some(domain) = v.isp_domain() {
+                builder.set_isp_domain(domain.to_string());
             }
         }
 

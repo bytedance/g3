@@ -139,12 +139,11 @@ where
                         self.stream_reader = Some(reader);
                         if let Some(response) =
                             HttpProxyClientResponse::from_request_error(&e, version)
+                            && self.task_queue.send(Err(response)).await.is_err()
                         {
-                            if self.task_queue.send(Err(response)).await.is_err() {
-                                trace!(
-                                    "write end has closed for previous request while sending error response"
-                                );
-                            }
+                            trace!(
+                                "write end has closed for previous request while sending error response"
+                            );
                         }
                         trace!("Error handling client {}: {e:?}", self.ctx.client_addr());
                         // TODO handle error, negotiation failed, may be attack

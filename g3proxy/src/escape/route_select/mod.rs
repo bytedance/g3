@@ -115,14 +115,14 @@ impl RouteSelectEscaper {
         task_notes: &ServerTaskNotes,
         upstream: &UpstreamAddr,
     ) -> anyhow::Result<ArcEscaper> {
-        if let Some(path_selection) = task_notes.egress_path() {
-            if let Some(id) = path_selection.select_matched_id(self.name().as_str()) {
-                return self
-                    .all_nodes
-                    .get(id)
-                    .cloned()
-                    .ok_or_else(|| anyhow!("no next escaper {id} found in local cache"));
-            }
+        if let Some(path_selection) = task_notes.egress_path()
+            && let Some(id) = path_selection.select_matched_id(self.name().as_str())
+        {
+            return self
+                .all_nodes
+                .get(id)
+                .cloned()
+                .ok_or_else(|| anyhow!("no next escaper {id} found in local cache"));
         }
 
         let v = self.select_consistent(

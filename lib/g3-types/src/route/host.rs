@@ -61,17 +61,17 @@ impl<T> HostMatch<T> {
     pub fn get(&self, host: &Host) -> Option<&T> {
         match host {
             Host::Ip(ip) => {
-                if let Some(ht) = &self.exact_ip {
-                    if let Some(v) = ht.get(ip) {
-                        return Some(v);
-                    }
+                if let Some(ht) = &self.exact_ip
+                    && let Some(v) = ht.get(ip)
+                {
+                    return Some(v);
                 }
             }
             Host::Domain(domain) => {
-                if let Some(ht) = &self.exact_domain {
-                    if let Some(v) = ht.get(domain) {
-                        return Some(v);
-                    }
+                if let Some(ht) = &self.exact_domain
+                    && let Some(v) = ht.get(domain)
+                {
+                    return Some(v);
                 }
 
                 if let Some(trie) = &self.child_domain {
@@ -233,10 +233,10 @@ where
             dst.child_domain = Some(dst_trie);
         }
 
-        if let Some(default) = &self.default {
-            if let Some(dv) = values.get(default.name()) {
-                dst.default = Some(dv.clone());
-            }
+        if let Some(default) = &self.default
+            && let Some(dv) = values.get(default.name())
+        {
+            dst.default = Some(dv.clone());
         }
 
         dst

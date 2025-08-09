@@ -101,11 +101,11 @@ impl IcapConnector {
 
     pub(super) async fn create(&self) -> io::Result<IcapClientConnection> {
         #[cfg(unix)]
-        if let Some(path) = &self.config.use_unix_socket {
-            if let Ok(socket) = tokio::net::UnixStream::connect(path).await {
-                let (r, w) = socket.into_split();
-                return Ok(IcapClientConnection::new(r, w));
-            }
+        if let Some(path) = &self.config.use_unix_socket
+            && let Ok(socket) = tokio::net::UnixStream::connect(path).await
+        {
+            let (r, w) = socket.into_split();
+            return Ok(IcapClientConnection::new(r, w));
         }
 
         let peer = self.select_peer_addr().await?;
