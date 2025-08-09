@@ -51,11 +51,11 @@ impl H2ConnectionUnlocked {
     }
 
     async fn fetch_stream(&mut self) -> anyhow::Result<SendRequest<Bytes>> {
-        if let Some(h2s) = self.h2s.clone() {
-            if let Ok(send_req) = h2s.ready().await {
-                self.reuse_conn_count += 1;
-                return Ok(send_req);
-            }
+        if let Some(h2s) = self.h2s.clone()
+            && let Ok(send_req) = h2s.ready().await
+        {
+            self.reuse_conn_count += 1;
+            return Ok(send_req);
         }
 
         self.histogram_recorder

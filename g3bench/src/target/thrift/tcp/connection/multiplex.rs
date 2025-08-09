@@ -210,15 +210,13 @@ impl UnderlyingWriterState {
                     rsp_table_guard.insert(req.seq_id, ResponseValue::new(req.rsp_waker));
                 }
                 Err(PopError::Empty) => {
-                    if do_flush {
-                        if let Err(e) = ready!(writer.as_mut().poll_flush(cx)) {
-                            self.shared.req_queue.close();
-                            self.shared
-                                .set_local_error(ThriftTcpResponseError::WriteFailed(e));
-                            self.shared.clean_pending_req();
-                            let _ = writer.as_mut().poll_shutdown(cx);
-                            return Poll::Ready(());
-                        }
+                    if do_flush && let Err(e) = ready!(writer.as_mut().poll_flush(cx)) {
+                        self.shared.req_queue.close();
+                        self.shared
+                            .set_local_error(ThriftTcpResponseError::WriteFailed(e));
+                        self.shared.clean_pending_req();
+                        let _ = writer.as_mut().poll_shutdown(cx);
+                        return Poll::Ready(());
                     }
                     return Poll::Pending;
                 }

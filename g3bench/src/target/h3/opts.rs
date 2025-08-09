@@ -250,10 +250,10 @@ pub(super) fn parse_h3_args(args: &ArgMatches) -> anyhow::Result<BenchH3Args> {
     let common = HttpClientArgs::parse_http_args(args)?;
     let mut h3_args = BenchH3Args::new(common)?;
 
-    if let Some(c) = args.get_one::<usize>(HTTP_ARG_CONNECTION_POOL) {
-        if *c > 0 {
-            h3_args.pool_size = Some(*c);
-        }
+    if let Some(c) = args.get_one::<usize>(HTTP_ARG_CONNECTION_POOL)
+        && *c > 0
+    {
+        h3_args.pool_size = Some(*c);
     }
 
     if let Some(v) = args.get_one::<String>(HTTP_ARG_PROXY) {

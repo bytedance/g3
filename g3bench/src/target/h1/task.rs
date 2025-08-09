@@ -149,14 +149,14 @@ impl HttpTaskContext {
 
         let recv_hdr_time = time_started.elapsed();
         self.histogram_recorder.record_recv_hdr_time(recv_hdr_time);
-        if let Some(ok_status) = self.args.common.ok_status {
-            if rsp.code != ok_status.as_u16() {
-                return Err(anyhow!(
-                    "Got rsp code {} while {} is expected",
-                    rsp.code,
-                    ok_status.as_u16()
-                ));
-            }
+        if let Some(ok_status) = self.args.common.ok_status
+            && rsp.code != ok_status.as_u16()
+        {
+            return Err(anyhow!(
+                "Got rsp code {} while {} is expected",
+                rsp.code,
+                ok_status.as_u16()
+            ));
         }
 
         // recv body
