@@ -146,13 +146,13 @@ impl ResolverRuntime {
                     self.trash_v4.remove(&record.domain);
                 }
                 let record = Arc::new(record);
-                if let Some(mut vec) = self.doing_v4.remove(&record.domain) {
-                    if let Some(sender) = vec.pop() {
-                        let _ = sender.send((Arc::clone(&record), ResolvedRecordSource::Query));
-                        self.stats.query_a.add_query_cached_n(vec.len());
-                        for sender in vec.into_iter() {
-                            let _ = sender.send((Arc::clone(&record), ResolvedRecordSource::Cache));
-                        }
+                if let Some(mut vec) = self.doing_v4.remove(&record.domain)
+                    && let Some(sender) = vec.pop()
+                {
+                    let _ = sender.send((Arc::clone(&record), ResolvedRecordSource::Query));
+                    self.stats.query_a.add_query_cached_n(vec.len());
+                    for sender in vec.into_iter() {
+                        let _ = sender.send((Arc::clone(&record), ResolvedRecordSource::Cache));
                     }
                 }
                 if let Some(expire_at) = record.expire {
@@ -175,13 +175,13 @@ impl ResolverRuntime {
                     self.trash_v6.remove(&record.domain);
                 }
                 let record = Arc::new(record);
-                if let Some(mut vec) = self.doing_v6.remove(&record.domain) {
-                    if let Some(sender) = vec.pop() {
-                        let _ = sender.send((Arc::clone(&record), ResolvedRecordSource::Query));
-                        self.stats.query_aaaa.add_query_cached_n(vec.len());
-                        for sender in vec.into_iter() {
-                            let _ = sender.send((Arc::clone(&record), ResolvedRecordSource::Cache));
-                        }
+                if let Some(mut vec) = self.doing_v6.remove(&record.domain)
+                    && let Some(sender) = vec.pop()
+                {
+                    let _ = sender.send((Arc::clone(&record), ResolvedRecordSource::Query));
+                    self.stats.query_aaaa.add_query_cached_n(vec.len());
+                    for sender in vec.into_iter() {
+                        let _ = sender.send((Arc::clone(&record), ResolvedRecordSource::Cache));
                     }
                 }
                 if let Some(expire_at) = record.expire {
@@ -193,30 +193,30 @@ impl ResolverRuntime {
 
     fn handle_expired_v4(&mut self, domain: &str) {
         trace!("clean expired v4 for domain {domain}");
-        if let Some(r) = self.cache_v4.remove(domain) {
-            if let Some(vanish_at) = r.inner.vanish {
-                self.trash_v4.insert(
-                    r.inner.domain.clone(),
-                    TrashedRecord {
-                        inner: r.inner,
-                        vanish_at,
-                    },
-                );
-            }
+        if let Some(r) = self.cache_v4.remove(domain)
+            && let Some(vanish_at) = r.inner.vanish
+        {
+            self.trash_v4.insert(
+                r.inner.domain.clone(),
+                TrashedRecord {
+                    inner: r.inner,
+                    vanish_at,
+                },
+            );
         }
     }
     fn handle_expired_v6(&mut self, domain: &str) {
         trace!("clean expired v6 for domain {domain}");
-        if let Some(r) = self.cache_v6.remove(domain) {
-            if let Some(vanish_at) = r.inner.vanish {
-                self.trash_v6.insert(
-                    r.inner.domain.clone(),
-                    TrashedRecord {
-                        inner: r.inner,
-                        vanish_at,
-                    },
-                );
-            }
+        if let Some(r) = self.cache_v6.remove(domain)
+            && let Some(vanish_at) = r.inner.vanish
+        {
+            self.trash_v6.insert(
+                r.inner.domain.clone(),
+                TrashedRecord {
+                    inner: r.inner,
+                    vanish_at,
+                },
+            );
         }
     }
 

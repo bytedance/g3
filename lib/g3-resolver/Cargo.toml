@@ -1,8 +1,9 @@
 [package]
 name = "g3-resolver"
-version = "0.8.0"
+version = "0.9.0"
 license.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -10,7 +11,7 @@ edition.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
 tokio = { workspace = true, features = ["rt", "sync", "time", "macros"] }
-tokio-util = { workspace = true, features = ["time"]}
+tokio-util = { workspace = true, features = ["time"] }
 log.workspace = true
 indexmap.workspace = true
 ahash.workspace = true
@@ -18,7 +19,7 @@ c-ares = { workspace = true, optional = true, features = ["build-cmake"] }
 c-ares-resolver = { workspace = true, optional = true }
 c-ares-sys = { workspace = true, optional = true } # for DEP_ version check
 hickory-client = { workspace = true, optional = true }
-hickory-proto = { workspace  = true, optional = true, features = ["tokio"] }
+hickory-proto = { workspace = true, optional = true, features = ["tokio"] }
 rustls = { workspace = true, optional = true }
 rustls-pki-types = { workspace = true, optional = true }
 flume = { workspace = true, optional = true, features = ["async"] }
