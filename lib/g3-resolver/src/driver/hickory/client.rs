@@ -208,10 +208,10 @@ impl HickoryClientJob {
                 Err(e) => {
                     self.state.add_failed();
                     self.try_failed -= 1;
-                    if self.try_failed > 0 {
-                        if let Ok(client) = self.config.build_async_client().await {
-                            return self.run(client, req).await;
-                        }
+                    if self.try_failed > 0
+                        && let Ok(client) = self.config.build_async_client().await
+                    {
+                        return self.run(client, req).await;
                     }
                     return ResolvedRecord::failed(req.domain, self.config.negative_ttl, e.into());
                 }

@@ -48,21 +48,21 @@ impl<T> AlpnMatch<T> {
 
     pub fn get(&self, protocol: &str) -> Option<&T> {
         if let Some(p) = memchr::memchr(b'/', protocol.as_bytes()) {
-            if let Some(ht) = &self.full_match {
-                if let Some(v) = ht.get(protocol) {
-                    return Some(v);
-                }
-            }
-
-            if let Some(ht) = &self.main_match {
-                if let Some(v) = ht.get(&protocol[0..p]) {
-                    return Some(v);
-                }
-            }
-        } else if let Some(ht) = &self.main_match {
-            if let Some(v) = ht.get(protocol) {
+            if let Some(ht) = &self.full_match
+                && let Some(v) = ht.get(protocol)
+            {
                 return Some(v);
             }
+
+            if let Some(ht) = &self.main_match
+                && let Some(v) = ht.get(&protocol[0..p])
+            {
+                return Some(v);
+            }
+        } else if let Some(ht) = &self.main_match
+            && let Some(v) = ht.get(protocol)
+        {
+            return Some(v);
         }
 
         self.default.as_ref()
@@ -136,10 +136,10 @@ impl<T: PartialEq> AlpnMatch<T> {
             }
         }
 
-        if let Some(v) = &self.default {
-            if v.eq(value) {
-                return true;
-            }
+        if let Some(v) = &self.default
+            && v.eq(value)
+        {
+            return true;
         }
 
         false

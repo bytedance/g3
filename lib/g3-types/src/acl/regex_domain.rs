@@ -79,17 +79,17 @@ impl<Action: ActionContract> AclRegexDomainRule<Action> {
     pub fn check(&self, domain: &str) -> (bool, Action) {
         if !self.prefix_match_trie.is_empty() {
             let s = reverse_idna_domain(domain);
-            if let Some(sub_trie) = self.prefix_match_trie.get_ancestor(&s) {
-                if let Some(regex_map) = sub_trie.value() {
-                    let suffix_len = sub_trie.prefix().as_bytes().len();
-                    let prefix = if domain.len() > suffix_len {
-                        domain.split_at(domain.len() - suffix_len).0
-                    } else {
-                        ""
-                    };
-                    if let Some(action) = regex_map.check(prefix) {
-                        return (true, action);
-                    }
+            if let Some(sub_trie) = self.prefix_match_trie.get_ancestor(&s)
+                && let Some(regex_map) = sub_trie.value()
+            {
+                let suffix_len = sub_trie.prefix().as_bytes().len();
+                let prefix = if domain.len() > suffix_len {
+                    domain.split_at(domain.len() - suffix_len).0
+                } else {
+                    ""
+                };
+                if let Some(action) = regex_map.check(prefix) {
+                    return (true, action);
                 }
             }
         }
