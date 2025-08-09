@@ -235,11 +235,10 @@ impl UnaidedRuntimeConfig {
                 .spawn(move || {
                     trace!("started worker thread #{i}");
 
-                    if let Some(set) = cpu_set {
-                        if let Err(e) = set.apply_to_local_thread() {
+                    if let Some(set) = cpu_set
+                        && let Err(e) = set.apply_to_local_thread() {
                             warn!("failed to set sched affinity for worker thread {i}: {e}");
                         }
-                    }
 
                     let mut builder = tokio::runtime::Builder::new_current_thread();
                     builder.enable_all();
