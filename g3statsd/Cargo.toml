@@ -3,7 +3,7 @@ name = "g3statsd"
 version = "0.1.0"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.86.0"
+rust-version = "1.88.0"
 description = "G3 StatsD"
 
 [dependencies]

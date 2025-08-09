@@ -125,10 +125,10 @@ impl InfluxdbV3ExporterConfig {
         if self.database.is_empty() {
             return Err(anyhow!("database is not set"));
         }
-        if self.token.is_empty() {
-            if let Ok(token) = std::env::var(AUTH_TOKEN_ENV_VAR) {
-                self.token = token;
-            }
+        if self.token.is_empty()
+            && let Ok(token) = std::env::var(AUTH_TOKEN_ENV_VAR)
+        {
+            self.token = token;
         }
         self.http_export.check(self.name.clone())?;
         Ok(())
