@@ -226,7 +226,7 @@ g3-redis-client = { version = "0.3", path = "lib/g3-redis-client" }
 g3-resolver = { version = "0.9", path = "lib/g3-resolver" }
 g3-runtime = { version = "0.5", path = "lib/g3-runtime" }
 g3-slog-types = { version = "0.3", path = "lib/g3-slog-types" }
-g3-smtp-proto = { version = "0.2", path = "lib/g3-smtp-proto" }
+g3-smtp-proto = { version = "0.3", path = "lib/g3-smtp-proto" }
 g3-socket = { version = "0.5", path = "lib/g3-socket" }
 g3-socks = { version = "0.3", path = "lib/g3-socks" }
 g3-statsd-client = { version = "0.2", path = "lib/g3-statsd-client" }
