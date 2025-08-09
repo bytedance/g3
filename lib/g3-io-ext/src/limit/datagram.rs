@@ -201,10 +201,10 @@ impl DatagramLimiter {
                 limiter.inner.release_packets(checked - packets);
             }
 
-            if let Some(checked) = limiter.checked_bytes.take() {
-                if checked > size {
-                    limiter.inner.release_bytes(checked - size);
-                }
+            if let Some(checked) = limiter.checked_bytes.take()
+                && checked > size
+            {
+                limiter.inner.release_bytes(checked - size);
             }
         }
     }
