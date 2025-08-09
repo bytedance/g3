@@ -88,10 +88,10 @@ pub struct ResolveRedirection {
 
 impl ResolveRedirection {
     pub fn query_value(&self, domain: &str) -> Option<ResolveRedirectionValue> {
-        if !self.ht.is_empty() {
-            if let Some(v) = self.ht.get(domain) {
-                return Some(v.clone());
-            }
+        if !self.ht.is_empty()
+            && let Some(v) = self.ht.get(domain)
+        {
+            return Some(v.clone());
         }
 
         if self.match_trie {
@@ -108,41 +108,41 @@ impl ResolveRedirection {
     }
 
     pub fn query_first(&self, domain: &str, strategy: QueryStrategy) -> Option<Host> {
-        if !self.ht.is_empty() {
-            if let Some(v) = self.ht.get(domain) {
-                match v {
-                    ResolveRedirectionValue::Domain(alias) => {
-                        return Some(Host::Domain(alias.clone()));
-                    }
-                    ResolveRedirectionValue::Ip((ip4, ip6)) => match strategy {
-                        QueryStrategy::Ipv4Only => {
-                            if !ip4.is_empty() {
-                                return Some(Host::Ip(ip4[0]));
-                            }
-                        }
-                        QueryStrategy::Ipv6Only => {
-                            if !ip6.is_empty() {
-                                return Some(Host::Ip(ip6[0]));
-                            }
-                        }
-                        QueryStrategy::Ipv4First => {
-                            if !ip4.is_empty() {
-                                return Some(Host::Ip(ip4[0]));
-                            }
-                            if !ip6.is_empty() {
-                                return Some(Host::Ip(ip6[0]));
-                            }
-                        }
-                        QueryStrategy::Ipv6First => {
-                            if !ip6.is_empty() {
-                                return Some(Host::Ip(ip6[0]));
-                            }
-                            if !ip4.is_empty() {
-                                return Some(Host::Ip(ip4[0]));
-                            }
-                        }
-                    },
+        if !self.ht.is_empty()
+            && let Some(v) = self.ht.get(domain)
+        {
+            match v {
+                ResolveRedirectionValue::Domain(alias) => {
+                    return Some(Host::Domain(alias.clone()));
                 }
+                ResolveRedirectionValue::Ip((ip4, ip6)) => match strategy {
+                    QueryStrategy::Ipv4Only => {
+                        if !ip4.is_empty() {
+                            return Some(Host::Ip(ip4[0]));
+                        }
+                    }
+                    QueryStrategy::Ipv6Only => {
+                        if !ip6.is_empty() {
+                            return Some(Host::Ip(ip6[0]));
+                        }
+                    }
+                    QueryStrategy::Ipv4First => {
+                        if !ip4.is_empty() {
+                            return Some(Host::Ip(ip4[0]));
+                        }
+                        if !ip6.is_empty() {
+                            return Some(Host::Ip(ip6[0]));
+                        }
+                    }
+                    QueryStrategy::Ipv6First => {
+                        if !ip6.is_empty() {
+                            return Some(Host::Ip(ip6[0]));
+                        }
+                        if !ip4.is_empty() {
+                            return Some(Host::Ip(ip4[0]));
+                        }
+                    }
+                },
             }
         }
 

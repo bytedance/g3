@@ -24,16 +24,16 @@ fn as_certificates_from_single_element(
 ) -> anyhow::Result<Vec<X509>> {
     const MAX_FILE_SIZE: usize = 4_000_000; // 4MB
 
-    if let Yaml::String(s) = value {
-        if s.trim_start().starts_with("--") {
-            let certs = X509::stack_from_pem(s.as_bytes())
-                .map_err(|e| anyhow!("invalid certificate string: {e}"))?;
-            return if certs.is_empty() {
-                Err(anyhow!("no valid certificate found"))
-            } else {
-                Ok(certs)
-            };
-        }
+    if let Yaml::String(s) = value
+        && s.trim_start().starts_with("--")
+    {
+        let certs = X509::stack_from_pem(s.as_bytes())
+            .map_err(|e| anyhow!("invalid certificate string: {e}"))?;
+        return if certs.is_empty() {
+            Err(anyhow!("no valid certificate found"))
+        } else {
+            Ok(certs)
+        };
     }
 
     let (file, path) = crate::value::as_file(value, lookup_dir).context("invalid file")?;
@@ -76,11 +76,11 @@ pub fn as_openssl_private_key(
 ) -> anyhow::Result<PKey<Private>> {
     const MAX_FILE_SIZE: usize = 256_000; // 256KB
 
-    if let Yaml::String(s) = value {
-        if s.trim_start().starts_with("--") {
-            return PKey::private_key_from_pem(s.as_bytes())
-                .map_err(|e| anyhow!("invalid private key string: {e}"));
-        }
+    if let Yaml::String(s) = value
+        && s.trim_start().starts_with("--")
+    {
+        return PKey::private_key_from_pem(s.as_bytes())
+            .map_err(|e| anyhow!("invalid private key string: {e}"));
     }
 
     let (file, path) = crate::value::as_file(value, lookup_dir).context("invalid file")?;
