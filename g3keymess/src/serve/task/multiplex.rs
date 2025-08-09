@@ -187,10 +187,10 @@ impl KeylessTask {
         key: PKey<Private>,
         msg_sender: &mpsc::Sender<WrappedKeylessResponse>,
     ) {
-        if let Some(sem) = self.ctx.concurrency_limit.clone() {
-            if let Ok(permit) = sem.acquire_owned().await {
-                req.server_sem_permit = Some(permit);
-            }
+        if let Some(sem) = self.ctx.concurrency_limit.clone()
+            && let Ok(permit) = sem.acquire_owned().await
+        {
+            req.server_sem_permit = Some(permit);
         }
 
         let dispatched_req = DispatchedKeylessRequest {

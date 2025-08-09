@@ -223,15 +223,15 @@ async fn load_add_key(path: &Path) {
 
 async fn load_key<T: AsRef<Path>>(path: T) -> anyhow::Result<Option<PKey<Private>>> {
     let path = path.as_ref();
-    if let Some(ext) = path.extension() {
-        if ext.eq_ignore_ascii_case("key") {
-            let content = tokio::fs::read_to_string(path)
-                .await
-                .map_err(|e| anyhow!("failed to read content of file {}: {e}", path.display()))?;
-            let key = PKey::private_key_from_pem(content.as_bytes())
-                .map_err(|e| anyhow!("invalid private key pem file {}: {e}", path.display()))?;
-            return Ok(Some(key));
-        }
+    if let Some(ext) = path.extension()
+        && ext.eq_ignore_ascii_case("key")
+    {
+        let content = tokio::fs::read_to_string(path)
+            .await
+            .map_err(|e| anyhow!("failed to read content of file {}: {e}", path.display()))?;
+        let key = PKey::private_key_from_pem(content.as_bytes())
+            .map_err(|e| anyhow!("invalid private key pem file {}: {e}", path.display()))?;
+        return Ok(Some(key));
     }
     Ok(None)
 }
