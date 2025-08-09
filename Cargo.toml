@@ -197,7 +197,7 @@ pyo3 = { version = "0.25", default-features = false, features = ["auto-initializ
 cfg-if = "1.0"
 #
 g3-build-env = { version = "0.2", path = "lib/g3-build-env" }
-g3-cert-agent = { version = "0.2", path = "lib/g3-cert-agent" }
+g3-cert-agent = { version = "0.3", path = "lib/g3-cert-agent" }
 g3-clap = { version = "0.2", path = "lib/g3-clap" }
 g3-compat = { version = "0.2", path = "lib/g3-compat" }
 g3-ctl = { version = "0.2", path = "lib/g3-ctl" }

@@ -1005,7 +1005,7 @@ dependencies = [
 
 [[package]]
 name = "g3-cert-agent"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "g3-io-ext",
