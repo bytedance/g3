@@ -1768,7 +1768,7 @@ dependencies = [
 
 [[package]]
 name = "g3fcgen"
-version = "0.8.3"
+version = "0.8.4"
 dependencies = [
  "anyhow",
  "clap",
