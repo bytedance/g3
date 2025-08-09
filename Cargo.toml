@@ -238,7 +238,7 @@ g3-tls-ticket = { version = "0.3", path = "lib/g3-tls-ticket" }
 g3-types = { version = "0.7", path = "lib/g3-types" }
 g3-udpdump = { version = "0.3", path = "lib/g3-udpdump" }
 g3-xcrypt = { version = "0.3", path = "lib/g3-xcrypt" }
-g3-yaml = { version = "0.6", path = "lib/g3-yaml" }
+g3-yaml = { version = "0.7", path = "lib/g3-yaml" }
 
 [profile.release-lto]
 inherits = "release"
