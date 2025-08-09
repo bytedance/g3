@@ -270,11 +270,11 @@ impl KeylessRequest {
     }
 
     pub(crate) fn find_key(&self) -> Result<PKey<Private>, KeylessErrorResponse> {
-        if !self.ski.is_empty() {
-            if let Some(k) = crate::store::get_by_ski(&self.ski) {
-                self.check_payload_for_key_size(k.size())?;
-                return Ok(k);
-            }
+        if !self.ski.is_empty()
+            && let Some(k) = crate::store::get_by_ski(&self.ski)
+        {
+            self.check_payload_for_key_size(k.size())?;
+            return Ok(k);
         }
         Err(KeylessErrorResponse::new(self.id).key_not_found())
     }
