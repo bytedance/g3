@@ -1421,7 +1421,7 @@ dependencies = [
 
 [[package]]
 name = "g3-redis-client"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "anyhow",
  "g3-socket",
