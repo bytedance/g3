@@ -47,10 +47,10 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         let http_req =
             HttpAdaptedRequest::parse(&mut self.icap_connection.reader, http_header_size, true)
                 .await?;
-        if let Some(len) = http_req.content_length {
-            if len != self.literal_size {
-                return Err(ImapAdaptationError::MessageSizeNotMatch);
-            }
+        if let Some(len) = http_req.content_length
+            && len != self.literal_size
+        {
+            return Err(ImapAdaptationError::MessageSizeNotMatch);
         }
         // TODO check request content type?
 
