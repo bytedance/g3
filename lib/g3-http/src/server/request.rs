@@ -193,10 +193,10 @@ impl HttpProxyClientRequest {
 
     pub fn set_host(&mut self, host: &UpstreamAddr) {
         let mut new_v = unsafe { HttpHeaderValue::from_string_unchecked(host.to_string()) };
-        if let Some(old_v) = self.end_to_end_headers.remove(header::HOST) {
-            if let Some(name) = old_v.original_name() {
-                new_v.set_original_name(name);
-            }
+        if let Some(old_v) = self.end_to_end_headers.remove(header::HOST)
+            && let Some(name) = old_v.original_name()
+        {
+            new_v.set_original_name(name);
         }
         self.end_to_end_headers.insert(header::HOST, new_v);
         self.host = Some(host.clone());
