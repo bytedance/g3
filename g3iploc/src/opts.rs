@@ -102,19 +102,19 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
             .set(group_name.to_string())
             .map_err(|_| anyhow!("daemon group has already been set"))?;
 
-        if let Some(s) = group_name.strip_prefix("port") {
-            if let Ok(port) = u16::from_str(s) {
-                proc_args
-                    .listen
-                    .set_socket_address(SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), port));
-            }
+        if let Some(s) = group_name.strip_prefix("port")
+            && let Ok(port) = u16::from_str(s)
+        {
+            proc_args
+                .listen
+                .set_socket_address(SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), port));
         }
     }
 
-    if let Ok(s) = env::var("UDP_LISTEN_ADDR") {
-        if let Ok(addr) = SocketAddr::from_str(&s) {
-            proc_args.listen.set_socket_address(addr);
-        }
+    if let Ok(s) = env::var("UDP_LISTEN_ADDR")
+        && let Ok(addr) = SocketAddr::from_str(&s)
+    {
+        proc_args.listen.set_socket_address(addr);
     }
 
     Ok(Some(proc_args))
