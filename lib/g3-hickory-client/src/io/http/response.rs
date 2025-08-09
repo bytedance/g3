@@ -20,13 +20,13 @@ impl HttpDnsResponse {
     pub fn new(rsp: Response<()>) -> Result<Self, ProtoError> {
         let headers = rsp.headers();
 
-        if let Some(ct) = headers.get(header::CONTENT_TYPE) {
-            if ct.as_bytes() != super::MIME_APPLICATION_DNS.as_bytes() {
-                return Err(ProtoError::from(format!(
-                    "unsupported ContentType, should be {}",
-                    super::MIME_APPLICATION_DNS
-                )));
-            }
+        if let Some(ct) = headers.get(header::CONTENT_TYPE)
+            && ct.as_bytes() != super::MIME_APPLICATION_DNS.as_bytes()
+        {
+            return Err(ProtoError::from(format!(
+                "unsupported ContentType, should be {}",
+                super::MIME_APPLICATION_DNS
+            )));
         }
 
         let content_length = if let Some(cl) = headers.get(header::CONTENT_LENGTH) {
@@ -58,25 +58,25 @@ impl HttpDnsResponse {
     }
 
     pub fn body_end(&self) -> bool {
-        if let Some(content_length) = self.content_length {
-            if self.body.len() >= content_length {
-                return true;
-            }
+        if let Some(content_length) = self.content_length
+            && self.body.len() >= content_length
+        {
+            return true;
         }
         false
     }
 
     pub fn into_dns_response(self) -> Result<DnsResponse, ProtoError> {
         // assert the length
-        if let Some(content_length) = self.content_length {
-            if self.body.len() != content_length {
-                // TODO: make explicit error type
-                return Err(ProtoError::from(format!(
-                    "expected byte length: {}, got: {}",
-                    content_length,
-                    self.body.len()
-                )));
-            }
+        if let Some(content_length) = self.content_length
+            && self.body.len() != content_length
+        {
+            // TODO: make explicit error type
+            return Err(ProtoError::from(format!(
+                "expected byte length: {}, got: {}",
+                content_length,
+                self.body.len()
+            )));
         }
 
         // Was it a successful request?
