@@ -118,41 +118,41 @@ impl ThreadedUdpIoStats {
     }
 
     pub fn add_in_packet(&self, tid: Option<usize>) {
-        if let Some(tid) = tid {
-            if let Some(s) = self.p.get(tid) {
-                s.add_in_packet();
-                return;
-            }
+        if let Some(tid) = tid
+            && let Some(s) = self.p.get(tid)
+        {
+            s.add_in_packet();
+            return;
         }
         self.a.add_in_packet();
     }
 
     pub fn add_in_bytes(&self, tid: Option<usize>, size: u64) {
-        if let Some(tid) = tid {
-            if let Some(s) = self.p.get(tid) {
-                s.add_in_bytes(size);
-                return;
-            }
+        if let Some(tid) = tid
+            && let Some(s) = self.p.get(tid)
+        {
+            s.add_in_bytes(size);
+            return;
         }
         self.a.add_in_bytes(size);
     }
 
     pub fn add_out_packet(&self, tid: Option<usize>) {
-        if let Some(tid) = tid {
-            if let Some(s) = self.p.get(tid) {
-                s.add_out_packet();
-                return;
-            }
+        if let Some(tid) = tid
+            && let Some(s) = self.p.get(tid)
+        {
+            s.add_out_packet();
+            return;
         }
         self.a.add_out_packet();
     }
 
     pub fn add_out_bytes(&self, tid: Option<usize>, size: u64) {
-        if let Some(tid) = tid {
-            if let Some(s) = self.p.get(tid) {
-                s.add_out_bytes(size);
-                return;
-            }
+        if let Some(tid) = tid
+            && let Some(s) = self.p.get(tid)
+        {
+            s.add_out_bytes(size);
+            return;
         }
         self.a.add_out_bytes(size);
     }
