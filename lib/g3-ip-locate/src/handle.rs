@@ -98,12 +98,11 @@ impl IpLocationQueryHandle {
         data: IpLocationCacheResponse,
         expired: bool,
     ) {
-        if let Some(ip) = ip {
-            if let Some(timeout_key) = self.doing_cache.remove(&ip) {
-                if !expired {
-                    self.doing_timeout_queue.remove(&timeout_key);
-                }
-            }
+        if let Some(ip) = ip
+            && let Some(timeout_key) = self.doing_cache.remove(&ip)
+            && !expired
+        {
+            self.doing_timeout_queue.remove(&timeout_key);
         }
         let _ = self.rsp_sender.send((ip, data));
     }
