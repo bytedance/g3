@@ -212,7 +212,7 @@ g3-h2 = { version = "0.3", path = "lib/g3-h2" }
 g3-hickory-client = { version = "0.3", path = "lib/g3-hickory-client" }
 g3-histogram = { version = "0.2", path = "lib/g3-histogram" }
 g3-http = { version = "0.5", path = "lib/g3-http" }
-g3-icap-client = { version = "0.3", path = "lib/g3-icap-client" }
+g3-icap-client = { version = "0.4", path = "lib/g3-icap-client" }
 g3-imap-proto = { version = "0.2", path = "lib/g3-imap-proto" }
 g3-io-ext = { version = "0.8", path = "lib/g3-io-ext" }
 g3-io-sys = { version = "0.1", path = "lib/g3-io-sys" }

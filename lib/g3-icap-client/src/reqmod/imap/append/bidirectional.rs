@@ -128,10 +128,10 @@ impl<I: IdleCheck> BidirectionalRecvHttpRequest<'_, I> {
     {
         let http_req =
             HttpAdaptedRequest::parse(self.icap_reader, self.http_header_size, true).await?;
-        if let Some(len) = http_req.content_length {
-            if len != self.imap_message_size {
-                return Err(ImapAdaptationError::MessageSizeNotMatch);
-            }
+        if let Some(len) = http_req.content_length
+            && len != self.imap_message_size
+        {
+            return Err(ImapAdaptationError::MessageSizeNotMatch);
         }
         // TODO check request content type?
 
