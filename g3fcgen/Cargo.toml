@@ -3,7 +3,7 @@ name = "g3fcgen"
 version = "0.8.4"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.86.0"
+rust-version = "1.88.0"
 description = "G3 fake certificate generator"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
