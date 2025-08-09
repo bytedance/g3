@@ -10,7 +10,7 @@ edition.workspace = true
 anyhow.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
-mlua = { workspace = true, optional = true }
+mlua = { workspace = true, features = ["send"], optional = true }
 
 [features]
 default = ["lua54"]
