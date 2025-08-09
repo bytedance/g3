@@ -1,9 +1,9 @@
 [package]
 name = "g3proxy"
-version = "1.12.0"
+version = "1.13.0"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.88.0"
+rust-version.workspace = true
 description = "G3 generic proxy"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

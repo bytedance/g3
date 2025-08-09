@@ -1,3 +1,7 @@
+
+v0.2.0:
+ - Compatibility: bump MSRV to 1.88.0
+
 v0.1.1:
  - Feature: allow to set hop_limit and traffic_class ipv6 socket options
 

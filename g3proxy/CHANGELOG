@@ -1,4 +1,7 @@
 
+v1.13.0:
+ - Compatibility: bump MSRV to 1.88.0
+
 v1.12.0:
  - Feature: allow to connect to ICAP server via UNIX domain socket
  - Feature: log peer ip when forbidden before connect in escaper

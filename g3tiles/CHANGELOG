@@ -1,4 +1,7 @@
 
+v0.4.0:
+ - Compatibility: bump MSRV to 1.88.0
+
 v0.3.9:
  - Feature: restore support for aws-lc
  - Feature: add support for aws-lc-fips

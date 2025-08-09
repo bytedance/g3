@@ -1768,7 +1768,7 @@ dependencies = [
 
 [[package]]
 name = "g3fcgen"
-version = "0.8.4"
+version = "0.9.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1791,7 +1791,7 @@ dependencies = [
 
 [[package]]
 name = "g3iploc"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -1811,7 +1811,7 @@ dependencies = [
 
 [[package]]
 name = "g3keymess"
-version = "0.4.3"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "arc-swap",
@@ -1890,7 +1890,7 @@ dependencies = [
 
 [[package]]
 name = "g3proxy"
-version = "1.12.0"
+version = "1.13.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -2032,7 +2032,7 @@ dependencies = [
 
 [[package]]
 name = "g3statsd"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "ahash",
  "anyhow",
@@ -2090,7 +2090,7 @@ dependencies = [
 
 [[package]]
 name = "g3tiles"
-version = "0.3.9"
+version = "0.4.0"
 dependencies = [
  "ahash",
  "anyhow",

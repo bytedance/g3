@@ -1,9 +1,9 @@
 [package]
 name = "g3iploc"
-version = "0.3.0"
+version = "0.4.0"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.88.0"
+rust-version.workspace = true
 description = "G3 IP locate service"
 
 [dependencies]

@@ -1,9 +1,9 @@
 [package]
 name = "g3statsd"
-version = "0.1.0"
+version = "0.2.0"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.88.0"
+rust-version.workspace = true
 description = "G3 StatsD"
 
 [dependencies]
