@@ -263,10 +263,10 @@ impl BenchH2Args {
             stats.target_ssl_session.add_reused();
         }
 
-        if let Some(alpn) = tls_stream.ssl().selected_alpn_protocol() {
-            if AlpnProtocol::from_selected(alpn) != Some(AlpnProtocol::Http2) {
-                return Err(anyhow!("invalid returned alpn protocol: {:?}", alpn));
-            }
+        if let Some(alpn) = tls_stream.ssl().selected_alpn_protocol()
+            && AlpnProtocol::from_selected(alpn) != Some(AlpnProtocol::Http2)
+        {
+            return Err(anyhow!("invalid returned alpn protocol: {:?}", alpn));
         }
         Ok(tls_stream)
     }
@@ -333,10 +333,10 @@ pub(super) fn parse_h2_args(args: &ArgMatches) -> anyhow::Result<BenchH2Args> {
     let common = HttpClientArgs::parse_http_args(args)?;
     let mut h2_args = BenchH2Args::new(common)?;
 
-    if let Some(c) = args.get_one::<usize>(HTTP_ARG_CONNECTION_POOL) {
-        if *c > 0 {
-            h2_args.pool_size = Some(*c);
-        }
+    if let Some(c) = args.get_one::<usize>(HTTP_ARG_CONNECTION_POOL)
+        && *c > 0
+    {
+        h2_args.pool_size = Some(*c);
     }
 
     if let Some(v) = args.get_one::<String>(HTTP_ARG_PROXY) {

@@ -151,14 +151,12 @@ impl UnderlyingWriterState {
                     self.current_request = Some(req);
                 }
                 Err(PopError::Empty) => {
-                    if do_flush {
-                        if let Err(e) = ready!(writer.as_mut().poll_flush(cx)) {
-                            self.shared.req_queue.close();
-                            self.shared.set_req_error(e);
-                            self.shared.clean_pending_req();
-                            let _ = writer.as_mut().poll_shutdown(cx);
-                            return Poll::Ready(());
-                        }
+                    if do_flush && let Err(e) = ready!(writer.as_mut().poll_flush(cx)) {
+                        self.shared.req_queue.close();
+                        self.shared.set_req_error(e);
+                        self.shared.clean_pending_req();
+                        let _ = writer.as_mut().poll_shutdown(cx);
+                        return Poll::Ready(());
                     }
                     return Poll::Pending;
                 }

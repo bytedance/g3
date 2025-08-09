@@ -71,11 +71,11 @@ impl H2TaskContext {
             return pool.fetch_stream().await;
         }
 
-        if let Some(h2s) = self.h2s.clone() {
-            if let Ok(ups_send_req) = h2s.ready().await {
-                self.reuse_conn_count += 1;
-                return Ok(ups_send_req);
-            }
+        if let Some(h2s) = self.h2s.clone()
+            && let Ok(ups_send_req) = h2s.ready().await
+        {
+            self.reuse_conn_count += 1;
+            return Ok(ups_send_req);
         }
 
         if self.reuse_conn_count > 0 {
@@ -130,14 +130,14 @@ impl H2TaskContext {
         let (rsp, mut rsp_recv_body) = rsp.into_parts();
         let recv_hdr_time = time_started.elapsed();
         self.histogram_recorder.record_recv_hdr_time(recv_hdr_time);
-        if let Some(ok_status) = self.args.common.ok_status {
-            if rsp.status != ok_status {
-                return Err(anyhow!(
-                    "Got rsp code {} while {} is expected",
-                    rsp.status.as_u16(),
-                    ok_status.as_u16()
-                ));
-            }
+        if let Some(ok_status) = self.args.common.ok_status
+            && rsp.status != ok_status
+        {
+            return Err(anyhow!(
+                "Got rsp code {} while {} is expected",
+                rsp.status.as_u16(),
+                ok_status.as_u16()
+            ));
         }
 
         // recv body
