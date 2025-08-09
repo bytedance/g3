@@ -77,32 +77,32 @@ where
             ));
         };
 
-        if cmd.parsed == ParsedCommand::Append {
-            if let Some(client) = self.ctx.audit_handle.icap_reqmod_client() {
-                match client
-                    .imap_message_adaptor(
-                        self.ctx.server_config.limited_copy_config(),
-                        self.ctx.idle_checker(),
-                        literal_size,
-                    )
-                    .await
-                {
-                    Ok(adapter) => {
-                        return self
-                            .relay_append_literal_with_adaptation(
-                                literal_size,
-                                clt_r,
-                                clt_w,
-                                ups_w,
-                                relay_buf,
-                                adapter,
-                            )
-                            .await;
-                    }
-                    Err(e) => {
-                        if !client.bypass() {
-                            return Err(ServerTaskError::InternalAdapterError(e));
-                        }
+        if cmd.parsed == ParsedCommand::Append
+            && let Some(client) = self.ctx.audit_handle.icap_reqmod_client()
+        {
+            match client
+                .imap_message_adaptor(
+                    self.ctx.server_config.limited_copy_config(),
+                    self.ctx.idle_checker(),
+                    literal_size,
+                )
+                .await
+            {
+                Ok(adapter) => {
+                    return self
+                        .relay_append_literal_with_adaptation(
+                            literal_size,
+                            clt_r,
+                            clt_w,
+                            ups_w,
+                            relay_buf,
+                            adapter,
+                        )
+                        .await;
+                }
+                Err(e) => {
+                    if !client.bypass() {
+                        return Err(ServerTaskError::InternalAdapterError(e));
                     }
                 }
             }
@@ -216,13 +216,12 @@ where
                         body.save_connection().await;
                     }
                 }
-                if let Some(cmd) = self.cmd_pipeline.ongoing_command() {
-                    if BadResponse::reply_append_blocked(clt_w, &cmd.tag)
+                if let Some(cmd) = self.cmd_pipeline.ongoing_command()
+                    && BadResponse::reply_append_blocked(clt_w, &cmd.tag)
                         .await
                         .is_ok()
-                    {
-                        let _ = ByeResponse::reply_blocked(clt_w).await;
-                    }
+                {
+                    let _ = ByeResponse::reply_blocked(clt_w).await;
                 }
                 Err(ServerTaskError::InternalAdapterError(anyhow!(
                     "blocked by icap server: {} - {}",

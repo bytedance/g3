@@ -78,10 +78,9 @@ where
                 .splitn(3, |c| c.is_ascii_whitespace())
                 .filter(|s| !s.is_empty())
                 .nth(1)
+                && pseudonym.eq(this_pseudonym.as_bytes())
             {
-                if pseudonym.eq(this_pseudonym.as_bytes()) {
-                    return Err(HttpRequestParseError::LoopDetected);
-                }
+                return Err(HttpRequestParseError::LoopDetected);
             }
         }
         // append VIA

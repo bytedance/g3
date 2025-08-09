@@ -213,10 +213,10 @@ where
                 Some(Err(rsp)) => {
                     // the response will always be `Connection: Close`
                     self.req_count.invalid += 1;
-                    if !self.ctx.server_config.no_early_error_reply {
-                        if let Some(stream_w) = &mut self.stream_writer {
-                            let _ = rsp.reply_err_to_request(stream_w).await;
-                        }
+                    if !self.ctx.server_config.no_early_error_reply
+                        && let Some(stream_w) = &mut self.stream_writer
+                    {
+                        let _ = rsp.reply_err_to_request(stream_w).await;
                     }
 
                     self.notify_reader_to_close();
@@ -239,10 +239,10 @@ where
     ) -> Option<EgressPathSelection> {
         if let Some(header) = &self.ctx.server_config.egress_path_selection_header {
             // check and remove the custom header
-            if let Some(value) = headers.remove(header) {
-                if let Ok(egress) = EgressPathSelection::from_str(value.to_str()) {
-                    return Some(egress);
-                }
+            if let Some(value) = headers.remove(header)
+                && let Ok(egress) = EgressPathSelection::from_str(value.to_str())
+            {
+                return Some(egress);
             }
         }
         None

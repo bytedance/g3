@@ -255,23 +255,23 @@ impl UserSites {
     pub(super) fn fetch_site(&self, ups: &UpstreamAddr) -> Option<Arc<UserSite>> {
         match ups.host() {
             Host::Ip(ip) => {
-                if let Some(ht) = &self.exact_match_ipaddr {
-                    if let Some(r) = ht.get(ip) {
-                        return Some(r.clone());
-                    }
+                if let Some(ht) = &self.exact_match_ipaddr
+                    && let Some(r) = ht.get(ip)
+                {
+                    return Some(r.clone());
                 }
 
-                if let Some(tb) = &self.subnet_match_ipaddr {
-                    if let Some((_n, r)) = tb.longest_match(*ip) {
-                        return Some(r.clone());
-                    }
+                if let Some(tb) = &self.subnet_match_ipaddr
+                    && let Some((_n, r)) = tb.longest_match(*ip)
+                {
+                    return Some(r.clone());
                 }
             }
             Host::Domain(domain) => {
-                if let Some(ht) = &self.exact_match_domain {
-                    if let Some(r) = ht.get(domain) {
-                        return Some(r.clone());
-                    }
+                if let Some(ht) = &self.exact_match_domain
+                    && let Some(r) = ht.get(domain)
+                {
+                    return Some(r.clone());
                 }
 
                 if let Some(trie) = &self.child_match_domain {

@@ -79,17 +79,16 @@ impl<'a> HttpRProxyUntrustedTask<'a> {
 
             self.reply_auth_error(clt_w).await;
 
-            if !self.should_close {
-                if let Some(limit_config) = &self.ctx.server_config.untrusted_read_limit {
-                    br.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
-                    let buffer_stats =
-                        UntrustedCltReadWrapperStats::new_obj(&self.ctx.server_stats);
-                    br.reset_buffer_stats(buffer_stats);
+            if !self.should_close
+                && let Some(limit_config) = &self.ctx.server_config.untrusted_read_limit
+            {
+                br.reset_local_limit(limit_config.shift_millis, limit_config.max_north);
+                let buffer_stats = UntrustedCltReadWrapperStats::new_obj(&self.ctx.server_stats);
+                br.reset_buffer_stats(buffer_stats);
 
-                    self.pre_start();
-                    if self.drain_body(br).await.is_err() {
-                        self.should_close = true;
-                    }
+                self.pre_start();
+                if self.drain_body(br).await.is_err() {
+                    self.should_close = true;
                 }
             }
         } else {

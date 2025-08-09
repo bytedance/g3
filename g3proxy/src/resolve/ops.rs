@@ -114,10 +114,10 @@ async fn update_dependency_to_resolver_unlocked(target: &NodeName, status: &str)
     let mut names = Vec::<NodeName>::new();
 
     registry::foreach(|name, resolver| {
-        if let Some(set) = resolver._dependent_resolver() {
-            if set.contains(target) {
-                names.push(name.clone())
-            }
+        if let Some(set) = resolver._dependent_resolver()
+            && set.contains(target)
+        {
+            names.push(name.clone())
         }
     });
 

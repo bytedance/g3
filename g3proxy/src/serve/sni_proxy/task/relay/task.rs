@@ -97,10 +97,10 @@ impl TcpStreamTask {
     fn pre_start(&mut self) {
         self._alive_guard = Some(self.ctx.server_stats.add_task());
 
-        if self.ctx.server_config.flush_task_log_on_created {
-            if let Some(log_ctx) = self.get_log_context() {
-                log_ctx.log_created();
-            }
+        if self.ctx.server_config.flush_task_log_on_created
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log_created();
         }
     }
 
@@ -160,10 +160,10 @@ impl TcpStreamTask {
         UR: AsyncRead + Send + Sync + Unpin + 'static,
         UW: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        if self.ctx.server_config.flush_task_log_on_connected {
-            if let Some(log_ctx) = self.get_log_context() {
-                log_ctx.log_connected();
-            }
+        if self.ctx.server_config.flush_task_log_on_connected
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log_connected();
         }
         self.task_notes.mark_relaying();
         self.relay(clt_r, clt_r_buf, clt_w, ups_r, ups_w).await

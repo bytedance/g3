@@ -97,10 +97,10 @@ impl RouteMappingEscaper {
     }
 
     fn select_next(&self, path_selection: Option<&EgressPathSelection>) -> ArcEscaper {
-        if let Some(path_selection) = path_selection {
-            if let Some(i) = path_selection.select_by_index(self.next_nodes.len()) {
-                return self.next_nodes[i].clone();
-            }
+        if let Some(path_selection) = path_selection
+            && let Some(i) = path_selection.select_by_index(self.next_nodes.len())
+        {
+            return self.next_nodes[i].clone();
         }
         self.random_next()
     }

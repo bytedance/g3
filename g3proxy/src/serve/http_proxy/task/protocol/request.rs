@@ -96,12 +96,11 @@ where
             req.uri.get_upstream_and_protocol()?
         };
 
-        if !config.allow_custom_host {
-            if let Some(host) = &req.host {
-                if !host.host_eq(&upstream) {
-                    return Err(HttpRequestParseError::UnmatchedHostAndAuthority);
-                }
-            }
+        if !config.allow_custom_host
+            && let Some(host) = &req.host
+            && !host.host_eq(&upstream)
+        {
+            return Err(HttpRequestParseError::UnmatchedHostAndAuthority);
         }
 
         let req = HttpProxyRequest {

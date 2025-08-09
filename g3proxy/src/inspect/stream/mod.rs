@@ -117,11 +117,10 @@ pub(crate) trait StreamTransitTask {
                     if clt_to_ups.is_idle() && ups_to_clt.is_idle() {
                         idle_count += n;
 
-                        if let Some(user) = self.user() {
-                            if user.is_blocked() {
+                        if let Some(user) = self.user()
+                            && user.is_blocked() {
                                 return Err(ServerTaskError::CanceledAsUserBlocked);
                             }
-                        }
 
                         if idle_count >= max_idle_count {
                             return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
@@ -133,11 +132,10 @@ pub(crate) trait StreamTransitTask {
                         ups_to_clt.reset_active();
                     }
 
-                    if let Some(user) = self.user() {
-                        if user.is_blocked() {
+                    if let Some(user) = self.user()
+                        && user.is_blocked() {
                             return Err(ServerTaskError::CanceledAsUserBlocked);
                         }
-                    }
 
                     if self.quit_policy().force_quit() {
                         return Err(ServerTaskError::CanceledAsServerQuit)
@@ -178,11 +176,10 @@ pub(crate) trait StreamTransitTask {
                     if clt_to_ups.is_idle() {
                         idle_count += n;
 
-                        if let Some(user) = self.user() {
-                            if user.is_blocked() {
+                        if let Some(user) = self.user()
+                            && user.is_blocked() {
                                 return Err(ServerTaskError::CanceledAsUserBlocked);
                             }
-                        }
 
                         if idle_count >= max_idle_count {
                             return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
@@ -193,11 +190,10 @@ pub(crate) trait StreamTransitTask {
                         clt_to_ups.reset_active();
                     }
 
-                    if let Some(user) = self.user() {
-                        if user.is_blocked() {
+                    if let Some(user) = self.user()
+                        && user.is_blocked() {
                             return Err(ServerTaskError::CanceledAsUserBlocked);
                         }
-                    }
 
                     if self.quit_policy().force_quit() {
                         return Err(ServerTaskError::CanceledAsServerQuit)
@@ -238,11 +234,10 @@ pub(crate) trait StreamTransitTask {
                     if ups_to_clt.is_idle() {
                         idle_count += n;
 
-                        if let Some(user) = self.user() {
-                            if user.is_blocked() {
+                        if let Some(user) = self.user()
+                            && user.is_blocked() {
                                 return Err(ServerTaskError::CanceledAsUserBlocked);
                             }
-                        }
 
                         if idle_count >= max_idle_count {
                             return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
@@ -253,11 +248,10 @@ pub(crate) trait StreamTransitTask {
                         ups_to_clt.reset_active();
                     }
 
-                    if let Some(user) = self.user() {
-                        if user.is_blocked() {
+                    if let Some(user) = self.user()
+                        && user.is_blocked() {
                             return Err(ServerTaskError::CanceledAsUserBlocked);
                         }
-                    }
 
                     if self.quit_policy().force_quit() {
                         return Err(ServerTaskError::CanceledAsServerQuit)
@@ -398,13 +392,13 @@ where
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
-        if let Some(user_ctx) = &self.task_notes.user_ctx {
-            if user_ctx.user.audit().prohibit_unknown_protocol {
-                user_ctx.forbidden_stats.add_proto_banned();
-                return Err(ServerTaskError::ForbiddenByRule(
-                    ServerTaskForbiddenError::ProtoBanned,
-                ));
-            }
+        if let Some(user_ctx) = &self.task_notes.user_ctx
+            && user_ctx.user.audit().prohibit_unknown_protocol
+        {
+            user_ctx.forbidden_stats.add_proto_banned();
+            return Err(ServerTaskError::ForbiddenByRule(
+                ServerTaskForbiddenError::ProtoBanned,
+            ));
         }
 
         let task = UnknownStreamTransitTask {
@@ -427,13 +421,13 @@ where
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
-        if let Some(user_ctx) = &self.task_notes.user_ctx {
-            if user_ctx.user.audit().prohibit_timeout_protocol {
-                user_ctx.forbidden_stats.add_proto_banned();
-                return Err(ServerTaskError::ForbiddenByRule(
-                    ServerTaskForbiddenError::ProtoBanned,
-                ));
-            }
+        if let Some(user_ctx) = &self.task_notes.user_ctx
+            && user_ctx.user.audit().prohibit_timeout_protocol
+        {
+            user_ctx.forbidden_stats.add_proto_banned();
+            return Err(ServerTaskError::ForbiddenByRule(
+                ServerTaskForbiddenError::ProtoBanned,
+            ));
         }
 
         let task = UnknownStreamTransitTask {
