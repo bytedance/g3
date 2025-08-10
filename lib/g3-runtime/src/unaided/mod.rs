@@ -150,7 +150,11 @@ impl UnaidedRuntimeConfig {
 
     pub fn check(&mut self) -> anyhow::Result<()> {
         let threads_per_rt = self.thread_number_per_rt.get();
-        if self.thread_number_total.get() % threads_per_rt != 0 {
+        if !self
+            .thread_number_total
+            .get()
+            .is_multiple_of(threads_per_rt)
+        {
             return Err(anyhow!(
                 "total thread number {} is not dividable by per-runtime thread number {}",
                 self.thread_number_total,
