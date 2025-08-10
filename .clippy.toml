@@ -1,5 +1,3 @@
-msrv = "1.88.0"
-
 # for result_large_err
 # https://doc.rust-lang.org/clippy/lint_configuration.html#large-error-threshold
 large-error-threshold = 256
