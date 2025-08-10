@@ -8,6 +8,9 @@ DEB_VERSION ?= $(shell dpkg-parsechangelog -SVersion)
 %:
 	dh $@
 
+override_dh_clean:
+	dh_clean -Xvendor
+
 override_dh_auto_clean:
 	cargo clean --frozen --offline
 
