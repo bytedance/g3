@@ -4,7 +4,6 @@ v1.13.0:
 
 v1.12.0:
  - Feature: allow to connect to ICAP server via UNIX domain socket
- - Feature: log peer ip when forbidden before connect in escaper
 
 v1.11.10:
  - BUG FIX: fix panic when trying to parse PROXY Protocol V1
