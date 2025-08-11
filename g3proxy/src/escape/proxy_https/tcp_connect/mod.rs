@@ -28,13 +28,13 @@ impl ProxyHttpsEscaper {
         let bind_ip = match peer_ip {
             IpAddr::V4(_) => {
                 if self.config.no_ipv4 {
-                    return Err(TcpConnectError::ForbiddenAddressFamily(peer_ip));
+                    return Err(TcpConnectError::ForbiddenAddressFamily);
                 }
                 self.config.bind_v4.map(IpAddr::V4)
             }
             IpAddr::V6(_) => {
                 if self.config.no_ipv6 {
-                    return Err(TcpConnectError::ForbiddenAddressFamily(peer_ip));
+                    return Err(TcpConnectError::ForbiddenAddressFamily);
                 }
                 self.config.bind_v6.map(IpAddr::V6)
             }

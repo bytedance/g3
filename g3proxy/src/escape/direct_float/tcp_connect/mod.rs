@@ -32,7 +32,6 @@ use crate::serve::ServerTaskNotes;
 impl DirectFloatEscaper {
     fn handle_tcp_target_ip_acl_action(
         &self,
-        peer_ip: IpAddr,
         action: AclAction,
         task_notes: &ServerTaskNotes,
     ) -> Result<(), TcpConnectError> {
@@ -53,7 +52,7 @@ impl DirectFloatEscaper {
             if let Some(user_ctx) = task_notes.user_ctx() {
                 user_ctx.add_ip_blocked();
             }
-            Err(TcpConnectError::ForbiddenRemoteAddress(peer_ip))
+            Err(TcpConnectError::ForbiddenRemoteAddress)
         } else {
             Ok(())
         }
@@ -69,18 +68,18 @@ impl DirectFloatEscaper {
         match peer_ip {
             IpAddr::V4(_) => {
                 if self.config.no_ipv4 {
-                    return Err(TcpConnectError::ForbiddenAddressFamily(peer_ip));
+                    return Err(TcpConnectError::ForbiddenAddressFamily);
                 }
             }
             IpAddr::V6(_) => {
                 if self.config.no_ipv6 {
-                    return Err(TcpConnectError::ForbiddenAddressFamily(peer_ip));
+                    return Err(TcpConnectError::ForbiddenAddressFamily);
                 }
             }
         }
 
         let (_, action) = self.egress_net_filter.check(peer_ip);
-        self.handle_tcp_target_ip_acl_action(peer_ip, action, task_notes)?;
+        self.handle_tcp_target_ip_acl_action(action, task_notes)?;
 
         let bind = if let Some(ip) = bind.ip() {
             self.select_bind_again(ip, task_notes)
