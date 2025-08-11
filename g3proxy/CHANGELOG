@@ -1,4 +1,7 @@
 
+v1.12.1:
+ - BUG FIX: fix deb build of tarball
+
 v1.12.0:
  - Feature: allow to connect to ICAP server via UNIX domain socket
 
