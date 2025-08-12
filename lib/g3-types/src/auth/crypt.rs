@@ -152,4 +152,102 @@ mod tests {
 
         assert!(p.verify("IQ5ZhanWaop2cw").unwrap());
     }
+
+    #[test]
+    fn new_invalid_salt_length() {
+        assert!(FastHashedPassPhrase::new("aabbcc").is_err());
+        assert!(FastHashedPassPhrase::new("aabbccddeeff").is_err());
+    }
+
+    #[test]
+    fn new_invalid_hex() {
+        assert!(FastHashedPassPhrase::new("invalid_hex").is_err());
+    }
+
+    #[test]
+    fn push_md5_invalid() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        assert!(p.push_md5("invalid_hex").is_err());
+        assert!(p.push_md5("aabbcc").is_err());
+    }
+
+    #[test]
+    fn push_sha1_invalid() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        assert!(p.push_sha1("invalid_hex").is_err());
+        assert!(p.push_sha1("aabbcc").is_err());
+    }
+
+    #[test]
+    fn push_blake3_invalid() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        assert!(p.push_blake3("invalid_hex").is_err());
+    }
+
+    #[test]
+    fn verify_wrong_password() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        p.push_md5("28cb2d22a1148a2c4c43d2c8eab0a202").unwrap();
+        p.push_sha1("0b39e984b59251425245e81241aebf7dbe197cc3")
+            .unwrap();
+
+        assert!(!p.verify("wrong_password").unwrap());
+    }
+
+    #[test]
+    fn verify_empty_password() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        p.push_md5("28cb2d22a1148a2c4c43d2c8eab0a202").unwrap();
+        p.push_sha1("0b39e984b59251425245e81241aebf7dbe197cc3")
+            .unwrap();
+
+        assert!(!p.verify("").unwrap());
+    }
+
+    #[test]
+    fn verify_partial_failure() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        p.push_md5("28cb2d22a1148a2c4c43d2c8eab0a202").unwrap();
+        p.push_sha1("0000000000000000000000000000000000000000")
+            .unwrap();
+
+        assert!(!p.verify("IQ5ZhanWaop2cw").unwrap());
+    }
+
+    #[test]
+    fn check_config_empty() {
+        let p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        assert!(p.check_config().is_err());
+    }
+
+    #[test]
+    fn single_md5() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        p.push_md5("28cb2d22a1148a2c4c43d2c8eab0a202").unwrap();
+        assert!(p.verify("IQ5ZhanWaop2cw").unwrap());
+    }
+
+    #[test]
+    fn single_sha1() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        p.push_sha1("0b39e984b59251425245e81241aebf7dbe197cc3")
+            .unwrap();
+        assert!(p.verify("IQ5ZhanWaop2cw").unwrap());
+    }
+
+    #[test]
+    fn single_blake3() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        p.push_blake3("2a59640338dbfcdea9d600257ad61efae47a7b93d4815ddef128a6e6f2687d2c")
+            .unwrap();
+        assert!(p.verify("IQ5ZhanWaop2cw").unwrap());
+    }
+
+    #[test]
+    fn multiple_verify_calls() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        p.push_md5("28cb2d22a1148a2c4c43d2c8eab0a202").unwrap();
+        assert!(p.verify("IQ5ZhanWaop2cw").unwrap());
+        assert!(p.verify("IQ5ZhanWaop2cw").unwrap());
+    }
 }

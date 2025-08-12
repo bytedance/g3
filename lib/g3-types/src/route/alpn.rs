@@ -205,3 +205,144 @@ impl<T> AlpnMatch<Arc<T>> {
         Ok(dst)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_empty() {
+        // Default construction and empty state
+        let alpn: AlpnMatch<i32> = AlpnMatch::default();
+        assert!(alpn.is_empty());
+        assert!(alpn.protocols().is_empty());
+        assert!(alpn.get_default().is_none());
+        assert!(alpn.get("http").is_none());
+    }
+
+    #[test]
+    fn add_protocol_full_match() {
+        // Adding a full protocol (with /)
+        let mut alpn = AlpnMatch::default();
+        assert_eq!(alpn.add_protocol("http/1.1".to_string(), 1), None);
+        assert_eq!(alpn.protocols().len(), 1);
+        assert!(alpn.protocols().contains("http/1.1"));
+        assert_eq!(alpn.get("http/1.1"), Some(&1));
+        assert_eq!(alpn.get("http"), None);
+        assert!(!alpn.is_empty());
+    }
+
+    #[test]
+    fn add_protocol_main_match() {
+        // Adding a main protocol (no /)
+        let mut alpn = AlpnMatch::default();
+        assert_eq!(alpn.add_protocol("http".to_string(), 2), None);
+        assert_eq!(alpn.protocols().len(), 1);
+        assert!(alpn.protocols().contains("http"));
+        assert_eq!(alpn.get("http"), Some(&2));
+        assert_eq!(alpn.get("http/1.1"), Some(&2));
+        assert!(!alpn.is_empty());
+    }
+
+    #[test]
+    fn add_protocol_replace() {
+        // Replacing existing protocol values
+        let mut alpn = AlpnMatch::default();
+        assert_eq!(alpn.add_protocol("http/1.1".to_string(), 1), None);
+        assert_eq!(alpn.add_protocol("http/1.1".to_string(), 3), Some(1));
+        assert_eq!(alpn.get("http/1.1"), Some(&3));
+    }
+
+    #[test]
+    fn set_default() {
+        // Setting and replacing default value
+        let mut alpn = AlpnMatch::default();
+        assert_eq!(alpn.set_default(0), None);
+        assert_eq!(alpn.get_default(), Some(&0));
+        assert_eq!(alpn.get("unknown"), Some(&0));
+        assert_eq!(alpn.set_default(5), Some(0));
+        assert_eq!(alpn.get_default(), Some(&5));
+        assert!(!alpn.is_empty());
+    }
+
+    #[test]
+    fn get_precedence() {
+        // Precedence: full match > main match > default
+        let mut alpn = AlpnMatch::default();
+        alpn.add_protocol("http/1.1".to_string(), 1);
+        alpn.add_protocol("http".to_string(), 2);
+        alpn.set_default(0);
+        assert_eq!(alpn.get("http/1.1"), Some(&1)); // Full match
+        assert_eq!(alpn.get("http/2"), Some(&2)); // Main match
+        assert_eq!(alpn.get("unknown"), Some(&0)); // Default
+    }
+
+    #[test]
+    fn contains_value() {
+        // Contains_value with PartialEq
+        let mut alpn = AlpnMatch::default();
+        alpn.add_protocol("http/1.1".to_string(), 1);
+        alpn.add_protocol("http".to_string(), 2);
+        alpn.set_default(0);
+        assert!(alpn.contains_value(&1));
+        assert!(alpn.contains_value(&2));
+        assert!(alpn.contains_value(&0));
+        assert!(!alpn.contains_value(&3));
+    }
+
+    #[test]
+    fn build() {
+        // Build method transforming values
+        let mut alpn = AlpnMatch::default();
+        alpn.add_protocol("http/1.1".to_string(), 1);
+        alpn.add_protocol("http".to_string(), 2);
+        alpn.set_default(0);
+        let transformed = alpn.build(|x| x.to_string());
+        assert_eq!(transformed.get("http/1.1"), Some(&"1".to_string()));
+        assert_eq!(transformed.get("http/2"), Some(&"2".to_string()));
+        assert_eq!(transformed.get("unknown"), Some(&"0".to_string()));
+        assert_eq!(transformed.protocols(), alpn.protocols());
+    }
+
+    #[test]
+    fn try_build_arc_success() {
+        // Try_build_arc with successful transformation
+        let mut alpn = AlpnMatch::default();
+        let v1 = Arc::new(1);
+        let v2 = Arc::new(2);
+        let v0 = Arc::new(0);
+        alpn.add_protocol("http/1.1".to_string(), Arc::clone(&v1));
+        alpn.add_protocol("http".to_string(), Arc::clone(&v2));
+        alpn.set_default(Arc::clone(&v0));
+        let transformed = alpn.try_build_arc(|x| Ok::<_, ()>(x.to_string())).unwrap();
+        assert_eq!(
+            transformed.get("http/1.1"),
+            Some(&Arc::new("1".to_string()))
+        );
+        assert_eq!(transformed.get("http/2"), Some(&Arc::new("2".to_string())));
+        assert_eq!(transformed.get("unknown"), Some(&Arc::new("0".to_string())));
+        assert_eq!(transformed.protocols(), alpn.protocols());
+    }
+
+    #[test]
+    fn try_build_arc_reuse() {
+        // Try_build_arc reuses Arc values for identical pointers
+        let mut alpn = AlpnMatch::default();
+        let v1 = Arc::new(1);
+        alpn.add_protocol("http/1.1".to_string(), Arc::clone(&v1));
+        alpn.add_protocol("http/2".to_string(), Arc::clone(&v1)); // Same Arc
+        let transformed = alpn.try_build_arc(|x| Ok::<_, ()>(x.to_string())).unwrap();
+        let val1 = transformed.get("http/1.1").unwrap();
+        let val2 = transformed.get("http/2").unwrap();
+        assert!(Arc::ptr_eq(val1, val2)); // Same Arc due to caching
+    }
+
+    #[test]
+    fn try_build_arc_error() {
+        // Try_build_arc with error case
+        let mut alpn = AlpnMatch::default();
+        alpn.add_protocol("http/1.1".to_string(), Arc::new(1));
+        let result = alpn.try_build_arc(|_| Err::<String, _>(()));
+        assert!(result.is_err());
+    }
+}
