@@ -30,7 +30,7 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     container:
-      image: debian:sid
+      image: debian:trixie
       env:
         CARGO_TERM_COLOR: always
         CROSS_FEATURES: --no-default-features --features vendored-openssl,rustls-ring,quic,vendored-c-ares
