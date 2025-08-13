@@ -38,3 +38,59 @@ impl Drop for ConnectionPoolAliveConnectionGuard {
         self.stats.alive_connection.fetch_sub(1, Ordering::Relaxed);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::thread;
+
+    #[test]
+    fn initial_state() {
+        let stats = ConnectionPoolStats::default();
+        assert_eq!(stats.alive_count(), 0);
+    }
+
+    #[test]
+    fn single_connection_flow() {
+        let stats = Arc::new(ConnectionPoolStats::default());
+        assert_eq!(stats.alive_count(), 0);
+
+        let guard = stats.add_connection();
+        assert_eq!(stats.alive_count(), 1);
+
+        drop(guard);
+        assert_eq!(stats.alive_count(), 0);
+    }
+
+    #[test]
+    fn concurrent_connections() {
+        let stats = Arc::new(ConnectionPoolStats::default());
+        let mut guards = Vec::new();
+
+        for _ in 0..10 {
+            guards.push(stats.add_connection());
+        }
+        assert_eq!(stats.alive_count(), 10);
+
+        let handles: Vec<_> = guards
+            .into_iter()
+            .map(|guard| thread::spawn(move || drop(guard)))
+            .collect();
+
+        for handle in handles {
+            handle.join().unwrap();
+        }
+        assert_eq!(stats.alive_count(), 0);
+    }
+
+    #[test]
+    fn alive_count_conversion() {
+        let stats = ConnectionPoolStats::default();
+
+        stats.alive_connection.store(42, Ordering::Relaxed);
+        assert_eq!(stats.alive_count(), 42);
+
+        stats.alive_connection.store(-1, Ordering::Relaxed);
+        assert_eq!(stats.alive_count(), 0);
+    }
+}
