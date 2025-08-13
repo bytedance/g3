@@ -62,3 +62,89 @@ impl HttpKeepAliveConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_config() {
+        let config = HttpKeepAliveConfig::default();
+        assert!(config.is_enabled());
+        assert_eq!(config.idle_expire(), Duration::from_secs(60));
+    }
+
+    #[test]
+    fn creation_and_access() {
+        let mut config = HttpKeepAliveConfig::new(Duration::from_secs(30));
+        assert!(config.is_enabled());
+        assert_eq!(config.idle_expire(), Duration::from_secs(30));
+
+        config.set_enable(false);
+        assert!(!config.is_enabled());
+        assert_eq!(config.idle_expire(), Duration::ZERO);
+
+        config.set_idle_expire(Duration::from_secs(90));
+        assert_eq!(config.idle_expire(), Duration::ZERO);
+    }
+
+    #[test]
+    fn state_transitions() {
+        let mut config = HttpKeepAliveConfig::default();
+        config.set_enable(false);
+        assert!(!config.is_enabled());
+        assert_eq!(config.idle_expire(), Duration::ZERO);
+
+        config.set_enable(true);
+        assert!(config.is_enabled());
+        assert_eq!(config.idle_expire(), Duration::from_secs(60));
+    }
+
+    #[test]
+    fn adjust_to_combinations() {
+        // Both enabled
+        let config_a = HttpKeepAliveConfig {
+            enabled: true,
+            idle_expire: Duration::from_secs(30),
+        };
+        let config_b = HttpKeepAliveConfig {
+            enabled: true,
+            idle_expire: Duration::from_secs(90),
+        };
+        let adjusted = config_a.adjust_to(config_b);
+        assert!(adjusted.is_enabled());
+        assert_eq!(adjusted.idle_expire, Duration::from_secs(30));
+
+        // First disabled
+        let config_c = HttpKeepAliveConfig {
+            enabled: false,
+            idle_expire: Duration::from_secs(30),
+        };
+        let adjusted = config_c.adjust_to(config_b);
+        assert!(!adjusted.is_enabled());
+        assert_eq!(adjusted.idle_expire, Duration::from_secs(30));
+
+        // Second disabled
+        let adjusted = config_b.adjust_to(config_c);
+        assert!(!adjusted.is_enabled());
+        assert_eq!(adjusted.idle_expire, Duration::from_secs(30));
+
+        // Both disabled
+        let config_d = HttpKeepAliveConfig {
+            enabled: false,
+            idle_expire: Duration::from_secs(90),
+        };
+        let adjusted = config_c.adjust_to(config_d);
+        assert!(!adjusted.is_enabled());
+        assert_eq!(adjusted.idle_expire, Duration::from_secs(30));
+    }
+
+    #[test]
+    fn edge_cases() {
+        let mut config = HttpKeepAliveConfig::new(Duration::ZERO);
+        assert_eq!(config.idle_expire(), Duration::ZERO);
+
+        config.set_idle_expire(Duration::MAX);
+        assert_eq!(config.idle_expire(), Duration::MAX);
+    }
+}
