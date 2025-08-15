@@ -57,7 +57,7 @@ rustc-hash.workspace = true
 fnv.workspace = true
 governor = { workspace = true, features = ["std", "jitter"] }
 rmpv.workspace = true
-flume.workspace = true
+kanal = { workspace = true, features = ["async"] }
 lru.workspace = true
 regex.workspace = true
 mlua = { workspace = true, features = ["send"], optional = true }

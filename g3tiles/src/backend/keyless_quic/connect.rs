@@ -105,7 +105,7 @@ impl KeylessUpstreamConnect for KeylessQuicUpstreamConnector {
 
     async fn new_connection(
         &self,
-        req_receiver: flume::Receiver<KeylessForwardRequest>,
+        req_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
         quit_notifier: broadcast::Receiver<()>,
         idle_timeout: Duration,
     ) -> anyhow::Result<Self::Connection> {

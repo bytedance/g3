@@ -166,6 +166,7 @@ openssl = { package = "variant-ssl", version = "0.17.5" }
 openssl-sys = { package = "variant-ssl-sys", version = "0.17.5" }
 openssl-probe = "0.1"
 #
+kanal = { version = "0.1.1", default-features = false }
 flume = { version = "0.11", default-features = false }
 #
 c-ares = { version = "11.0", default-features = false }

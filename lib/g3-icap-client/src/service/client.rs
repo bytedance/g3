@@ -17,13 +17,13 @@ use crate::options::{IcapOptionsRequest, IcapServiceOptions};
 pub struct IcapServiceClient {
     pub(crate) config: Arc<IcapServiceConfig>,
     pub(crate) partial_request_header: Vec<u8>,
-    cmd_sender: flume::Sender<IcapServiceClientCommand>,
+    cmd_sender: kanal::AsyncSender<IcapServiceClientCommand>,
     conn_creator: Arc<IcapConnector>,
 }
 
 impl IcapServiceClient {
     pub fn new(config: Arc<IcapServiceConfig>) -> anyhow::Result<Self> {
-        let (cmd_sender, cmd_receiver) = flume::unbounded();
+        let (cmd_sender, cmd_receiver) = kanal::unbounded_async();
         let conn_creator = IcapConnector::new(config.clone())?;
         let conn_creator = Arc::new(conn_creator);
         let pool = IcapServicePool::new(config.clone(), cmd_receiver, conn_creator.clone());
@@ -40,7 +40,7 @@ impl IcapServiceClient {
     async fn fetch_from_pool(&self) -> Option<(IcapClientConnection, Arc<IcapServiceOptions>)> {
         let (rsp_sender, rsp_receiver) = oneshot::channel();
         let cmd = IcapServiceClientCommand::FetchConnection(rsp_sender);
-        if self.cmd_sender.send_async(cmd).await.is_ok() {
+        if self.cmd_sender.send(cmd).await.is_ok() {
             rsp_receiver.await.ok()
         } else {
             None
@@ -76,7 +76,7 @@ impl IcapServiceClient {
             let pool_sender = self.cmd_sender.clone();
             tokio::spawn(async move {
                 let _ = pool_sender
-                    .send_async(IcapServiceClientCommand::SaveConnection(conn))
+                    .send(IcapServiceClientCommand::SaveConnection(conn))
                     .await;
             });
         }

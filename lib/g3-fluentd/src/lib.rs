@@ -8,7 +8,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::anyhow;
-use flume::Receiver;
 use log::warn;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
@@ -32,14 +31,14 @@ pub fn new_async_logger(
     fluent_conf: &Arc<FluentdClientConfig>,
     tag_name: String,
 ) -> AsyncLogger<Vec<u8>, FluentdFormatter> {
-    let (sender, receiver) = flume::bounded::<Vec<u8>>(async_conf.channel_capacity);
+    let (sender, receiver) = kanal::bounded::<Vec<u8>>(async_conf.channel_capacity);
 
     let stats = Arc::new(LogStats::default());
 
     for i in 0..async_conf.thread_number {
         let io_thread = AsyncIoThread {
             config: Arc::clone(fluent_conf),
-            receiver: receiver.clone(),
+            receiver: receiver.clone_async(),
             stats: Arc::clone(&stats),
             retry_queue: VecDeque::with_capacity(fluent_conf.retry_queue_len),
         };
@@ -65,7 +64,7 @@ enum FluentdConnection {
 
 struct AsyncIoThread {
     config: Arc<FluentdClientConfig>,
-    receiver: Receiver<Vec<u8>>,
+    receiver: kanal::AsyncReceiver<Vec<u8>>,
     stats: Arc<LogStats>,
     retry_queue: VecDeque<Vec<u8>>,
 }
@@ -112,7 +111,7 @@ impl AsyncIoThread {
         let drop_count = Arc::new(AtomicUsize::new(0));
         let drop_count_i = drop_count.clone();
         match tokio::time::timeout(self.config.connect_delay, async {
-            while let Ok(data) = self.receiver.recv_async().await {
+            while let Ok(data) = self.receiver.recv().await {
                 if self.push_to_retry(data).is_some() {
                     drop_count_i.fetch_add(1, Ordering::Relaxed);
                 }
@@ -157,7 +156,7 @@ impl AsyncIoThread {
 
         loop {
             tokio::select! {
-                r = self.receiver.recv_async() => {
+                r = self.receiver.recv() => {
                     match r {
                         Ok(data) => {
                             match tokio::time::timeout(self.config.write_timeout, connection.write_all(data.as_slice())).await {

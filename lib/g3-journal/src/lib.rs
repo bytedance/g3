@@ -5,8 +5,6 @@
 
 use std::sync::Arc;
 
-use flume::Receiver;
-
 use g3_types::log::{AsyncLogConfig, AsyncLogger, LogStats};
 
 #[macro_use]
@@ -41,7 +39,7 @@ pub fn new_async_logger(
     async_conf: &AsyncLogConfig,
     journal_conf: JournalConfig,
 ) -> AsyncLogger<Vec<u8>, JournalFormatter> {
-    let (sender, receiver) = flume::bounded::<Vec<u8>>(async_conf.channel_capacity);
+    let (sender, receiver) = kanal::bounded::<Vec<u8>>(async_conf.channel_capacity);
 
     let stats = Arc::new(LogStats::default());
 
@@ -62,7 +60,7 @@ pub fn new_async_logger(
 }
 
 struct AsyncIoThread {
-    receiver: Receiver<Vec<u8>>,
+    receiver: kanal::Receiver<Vec<u8>>,
     stats: Arc<LogStats>,
 }
 

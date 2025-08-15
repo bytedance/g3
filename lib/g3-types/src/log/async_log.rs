@@ -5,7 +5,6 @@
 
 use std::sync::Arc;
 
-use flume::{Sender, TrySendError};
 use slog::{Drain, OwnedKVList, Record};
 
 use super::LogStats;
@@ -41,7 +40,7 @@ pub struct AsyncLogger<T, F>
 where
     F: AsyncLogFormatter<T>,
 {
-    sender: Sender<T>,
+    sender: kanal::Sender<T>,
     formatter: F,
     stats: Arc<LogStats>,
 }
@@ -50,7 +49,7 @@ impl<T, F> AsyncLogger<T, F>
 where
     F: AsyncLogFormatter<T>,
 {
-    pub fn new(sender: Sender<T>, formatter: F, stats: Arc<LogStats>) -> Self {
+    pub fn new(sender: kanal::Sender<T>, formatter: F, stats: Arc<LogStats>) -> Self {
         AsyncLogger {
             sender,
             formatter,
@@ -76,9 +75,9 @@ where
         match self.formatter.format_slog(record, logger_values) {
             Ok(v) => {
                 match self.sender.try_send(v) {
-                    Ok(_) => {}
-                    Err(TrySendError::Full(_)) => self.stats.drop.add_channel_overflow(),
-                    Err(TrySendError::Disconnected(_)) => self.stats.drop.add_channel_closed(),
+                    Ok(true) => {}
+                    Ok(false) => self.stats.drop.add_channel_overflow(),
+                    Err(_) => self.stats.drop.add_channel_closed(),
                 }
                 Ok(())
             }

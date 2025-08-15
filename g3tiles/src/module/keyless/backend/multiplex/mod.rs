@@ -46,7 +46,7 @@ pub(crate) struct MultiplexedUpstreamConnection<R, W> {
     duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
     r: R,
     w: W,
-    req_receiver: flume::Receiver<KeylessForwardRequest>,
+    req_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
     quit_notifier: broadcast::Receiver<()>,
     alive_channel_guard: KeylessBackendAliveChannelGuard,
 }
@@ -58,7 +58,7 @@ impl<R, W> MultiplexedUpstreamConnection<R, W> {
         duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
         ups_r: R,
         ups_w: W,
-        req_receiver: flume::Receiver<KeylessForwardRequest>,
+        req_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
         quit_notifier: broadcast::Receiver<()>,
     ) -> Self {
         let alive_channel_guard = stats.inc_alive_channel();

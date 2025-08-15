@@ -85,7 +85,7 @@ impl KeylessUpstreamConnect for KeylessTcpUpstreamConnector {
 
     async fn new_connection(
         &self,
-        req_receiver: flume::Receiver<KeylessForwardRequest>,
+        req_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
         quit_notifier: broadcast::Receiver<()>,
         _idle_timeout: Duration,
     ) -> anyhow::Result<Self::Connection> {
@@ -129,7 +129,7 @@ impl KeylessUpstreamConnect for KeylessTlsUpstreamConnector {
 
     async fn new_connection(
         &self,
-        req_receiver: flume::Receiver<KeylessForwardRequest>,
+        req_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
         quit_notifier: broadcast::Receiver<()>,
         _idle_timeout: Duration,
     ) -> anyhow::Result<Self::Connection> {

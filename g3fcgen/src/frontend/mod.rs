@@ -32,14 +32,14 @@ pub(super) struct Frontend {
     io: UdpDgramIo,
     stats: Arc<FrontendStats>,
     duration_recorder: HistogramRecorder<u64>,
-    rsp_receiver: flume::Receiver<BackendResponse>,
+    rsp_receiver: kanal::AsyncReceiver<BackendResponse>,
 }
 
 impl Frontend {
     pub(super) fn new(
         listen_config: &UdpListenConfig,
         duration_recorder: HistogramRecorder<u64>,
-        rsp_receiver: flume::Receiver<BackendResponse>,
+        rsp_receiver: kanal::AsyncReceiver<BackendResponse>,
     ) -> anyhow::Result<Self> {
         let io = UdpDgramIo::new(listen_config)?;
         Ok(Frontend {
@@ -54,7 +54,10 @@ impl Frontend {
         self.stats.clone()
     }
 
-    pub(super) async fn run(self, req_sender: flume::Sender<BackendRequest>) -> anyhow::Result<()> {
+    pub(super) async fn run(
+        self,
+        req_sender: kanal::AsyncSender<BackendRequest>,
+    ) -> anyhow::Result<()> {
         let mut clt_c = Box::pin(tokio::signal::ctrl_c());
 
         let mut rcv_buf = [0u8; 16384];
@@ -68,7 +71,7 @@ impl Frontend {
                             Ok(user_req) => {
                                 debug!("{} - request received", user_req.host());
                                 let req = BackendRequest {user_req, peer, recv_time};
-                                if let Err(e) = req_sender.send_async(req).await {
+                                if let Err(e) = req_sender.send(req).await {
                                     return Err(anyhow!("failed to send request to backend: {e}"));
                                 }
                             }
@@ -80,7 +83,7 @@ impl Frontend {
                         Err(e) => return Err(anyhow!("frontend recv error: {e:?}")),
                     }
                 }
-                r = self.rsp_receiver.recv_async() => {
+                r = self.rsp_receiver.recv() => {
                     match r {
                         Ok(rsp) => self.handle_rsp(rsp).await,
                         Err(e) => return Err(anyhow!("recv from backend failed: {e}")),
@@ -98,7 +101,7 @@ impl Frontend {
         }
 
         drop(req_sender);
-        while let Ok(rsp) = self.rsp_receiver.recv_async().await {
+        while let Ok(rsp) = self.rsp_receiver.recv().await {
             self.handle_rsp(rsp).await;
         }
 

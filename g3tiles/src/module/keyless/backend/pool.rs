@@ -25,7 +25,7 @@ pub(crate) trait KeylessUpstreamConnect {
     type Connection: KeylessUpstreamConnection;
     async fn new_connection(
         &self,
-        req_receiver: flume::Receiver<KeylessForwardRequest>,
+        req_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
         quit_notifier: broadcast::Receiver<()>,
         idle_timeout: Duration,
     ) -> anyhow::Result<Self::Connection>;
@@ -70,7 +70,7 @@ pub(crate) struct KeylessConnectionPool<C: KeylessUpstreamConnection> {
     connector: ArcKeylessUpstreamConnect<C>,
     stats: Arc<ConnectionPoolStats>,
 
-    keyless_request_receiver: flume::Receiver<KeylessForwardRequest>,
+    keyless_request_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
 
     connection_id: u64,
     connection_close_receiver: mpsc::Receiver<u64>,
@@ -87,7 +87,7 @@ where
     fn new(
         config: ConnectionPoolConfig,
         connector: ArcKeylessUpstreamConnect<C>,
-        keyless_request_receiver: flume::Receiver<KeylessForwardRequest>,
+        keyless_request_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
         graceful_close_wait: Duration,
     ) -> Self {
         let (connection_close_sender, connection_close_receiver) = mpsc::channel(1);
@@ -108,7 +108,7 @@ where
     pub(crate) fn spawn(
         config: ConnectionPoolConfig,
         connector: ArcKeylessUpstreamConnect<C>,
-        keyless_request_receiver: flume::Receiver<KeylessForwardRequest>,
+        keyless_request_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
         graceful_close_wait: Duration,
     ) -> KeylessConnectionPoolHandle {
         let pool = KeylessConnectionPool::new(
