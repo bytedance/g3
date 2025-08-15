@@ -37,3 +37,61 @@ impl BlendedRuntimeConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_by_yaml_kv_ok() {
+        let mut config = BlendedRuntimeConfig::new();
+
+        let yaml = Yaml::Integer(4);
+        assert!(config.parse_by_yaml_kv("thread_number", &yaml).is_ok());
+        assert_eq!(config.thread_number, Some(4));
+
+        let yaml = Yaml::String("worker_thread".to_string());
+        assert!(config.parse_by_yaml_kv("thread_name", &yaml).is_ok());
+        assert_eq!(config.thread_name, Some("worker_thread".to_string()));
+
+        let yaml = Yaml::Integer(2048);
+        assert!(config.parse_by_yaml_kv("thread_stack_size", &yaml).is_ok());
+        assert_eq!(config.thread_stack_size, Some(2048));
+
+        let yaml = Yaml::String("2K".to_string());
+        assert!(config.parse_by_yaml_kv("thread_stack_size", &yaml).is_ok());
+        assert_eq!(config.thread_stack_size, Some(2000));
+
+        let yaml = Yaml::Integer(512);
+        assert!(
+            config
+                .parse_by_yaml_kv("max_io_events_per_tick", &yaml)
+                .is_ok()
+        );
+        assert_eq!(config.max_io_events_per_tick, Some(512));
+    }
+
+    #[test]
+    fn parse_by_yaml_kv_err() {
+        let mut config = BlendedRuntimeConfig::new();
+
+        let yaml = Yaml::Integer(4);
+        assert!(config.parse_by_yaml_kv("invalid_key", &yaml).is_err());
+
+        let yaml = Yaml::String("four".to_string());
+        assert!(config.parse_by_yaml_kv("thread_number", &yaml).is_err());
+
+        let yaml = Yaml::Boolean(true);
+        assert!(config.parse_by_yaml_kv("thread_name", &yaml).is_err());
+
+        let yaml = Yaml::String("invalid_size".to_string());
+        assert!(config.parse_by_yaml_kv("thread_stack_size", &yaml).is_err());
+
+        let yaml = Yaml::String("five".to_string());
+        assert!(
+            config
+                .parse_by_yaml_kv("max_io_events_per_tick", &yaml)
+                .is_err()
+        );
+    }
+}

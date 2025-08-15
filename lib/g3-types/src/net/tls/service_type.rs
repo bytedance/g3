@@ -63,3 +63,68 @@ impl FromStr for TlsServiceType {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn as_str() {
+        assert_eq!(TlsServiceType::Http.as_str(), "http");
+        assert_eq!(TlsServiceType::Smtp.as_str(), "smtp");
+        assert_eq!(TlsServiceType::Imap.as_str(), "imap");
+    }
+
+    #[test]
+    fn display() {
+        assert_eq!(format!("{}", TlsServiceType::Http), "http");
+        assert_eq!(format!("{}", TlsServiceType::Smtp), "smtp");
+        assert_eq!(format!("{}", TlsServiceType::Imap), "imap");
+    }
+
+    #[test]
+    fn try_from_u8_valid() {
+        assert!(matches!(
+            TlsServiceType::try_from(0),
+            Ok(TlsServiceType::Http)
+        ));
+        assert!(matches!(
+            TlsServiceType::try_from(1),
+            Ok(TlsServiceType::Smtp)
+        ));
+        assert!(matches!(
+            TlsServiceType::try_from(2),
+            Ok(TlsServiceType::Imap)
+        ));
+    }
+
+    #[test]
+    fn try_from_u8_invalid() {
+        assert!(TlsServiceType::try_from(3).is_err());
+        assert!(TlsServiceType::try_from(255).is_err());
+    }
+
+    #[test]
+    fn from_str_valid() {
+        assert!(matches!("http".parse(), Ok(TlsServiceType::Http)));
+        assert!(matches!("HTTP".parse(), Ok(TlsServiceType::Http)));
+        assert!(matches!("smtp".parse(), Ok(TlsServiceType::Smtp)));
+        assert!(matches!("SMTP".parse(), Ok(TlsServiceType::Smtp)));
+        assert!(matches!("imap".parse(), Ok(TlsServiceType::Imap)));
+        assert!(matches!("IMAP".parse(), Ok(TlsServiceType::Imap)));
+    }
+
+    #[test]
+    fn from_str_invalid() {
+        assert!("https".parse::<TlsServiceType>().is_err());
+        assert!("ftp".parse::<TlsServiceType>().is_err());
+        assert!("pop3".parse::<TlsServiceType>().is_err());
+        assert!("".parse::<TlsServiceType>().is_err());
+    }
+
+    #[test]
+    fn invalid_service_type_display() {
+        let err = InvalidServiceType;
+        assert_eq!(format!("{}", err), "unsupported tls service type");
+    }
+}

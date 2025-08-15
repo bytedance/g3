@@ -84,3 +84,104 @@ impl CertAgentConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use g3_yaml::value::as_socket_buffer_config;
+    use g3_yaml::yaml_doc;
+    use std::time::Duration;
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn parse_yaml_ok() {
+        // Full hash configuration
+        let yaml = yaml_doc!(
+            r#"
+            cache_request_batch_count: 20
+            cache_request_timeout: 15s
+            cache_vanish_wait: 10m
+            query_peer_addr: 127.0.0.1:5353
+            query_socket_buffer:
+                recv: 64KB
+                send: 32KB
+            query_wait_timeout: 5s
+            protective_cache_ttl: 30
+            maximum_cache_ttl: 3600
+            "#
+        );
+        let config = CertAgentConfig::parse_yaml(&yaml).unwrap();
+        assert_eq!(config.cache_request_batch_count, 20);
+        assert_eq!(config.cache_request_timeout, Duration::from_secs(15));
+        assert_eq!(config.cache_vanish_wait, Duration::from_secs(600));
+        assert_eq!(config.query_peer_addr, "127.0.0.1:5353".parse().unwrap());
+        let expected_buffer =
+            as_socket_buffer_config(&yaml_doc!("recv: 64KB\nsend: 32KB")).unwrap();
+        assert_eq!(config.query_socket_buffer, expected_buffer);
+        assert_eq!(config.query_wait_timeout, Duration::from_secs(5));
+        assert_eq!(config.protective_cache_ttl, 30);
+        assert_eq!(config.maximum_cache_ttl, 3600);
+
+        // Partial configuration with defaults
+        let yaml = yaml_doc!(
+            r#"
+            cache_request_batch_count: 5
+            query_peer_addr: 192.168.1.100:2999
+            "#
+        );
+
+        let config = CertAgentConfig::parse_yaml(&yaml).unwrap();
+        assert_eq!(config.cache_request_batch_count, 5);
+        assert_eq!(
+            config.query_peer_addr,
+            "192.168.1.100:2999".parse().unwrap()
+        );
+        assert_eq!(config.cache_request_timeout, Duration::from_secs(4));
+        assert_eq!(config.protective_cache_ttl, 10);
+
+        // String configuration
+        let yaml = yaml_doc!("192.168.0.1:5353");
+        let config = CertAgentConfig::parse_yaml(&yaml).unwrap();
+        assert_eq!(config.query_peer_addr, "192.168.0.1:5353".parse().unwrap());
+        assert_eq!(config.cache_request_batch_count, 10); // Default
+    }
+
+    #[test]
+    fn parse_yaml_err() {
+        // Invalid key
+        let yaml = yaml_doc!(
+            r#"
+            invalid_key: value
+            "#
+        );
+        assert!(CertAgentConfig::parse_yaml(&yaml).is_err());
+
+        // Type errors
+        let test_cases = vec![
+            ("cache_request_batch_count", "not_a_number"),
+            ("cache_request_timeout", "invalid_time"),
+            ("query_peer_addr", "12345"),   // Invalid address format
+            ("protective_cache_ttl", "-5"), // Negative value
+            ("maximum_cache_ttl", "string_value"),
+        ];
+
+        for (key, value) in test_cases {
+            let yaml_str = format!("{key}: {value}");
+            let yaml = &YamlLoader::load_from_str(&yaml_str).unwrap()[0];
+            assert!(CertAgentConfig::parse_yaml(yaml).is_err());
+        }
+
+        // Invalid socket buffer config
+        let yaml = yaml_doc!(
+            r#"
+            query_socket_buffer: invalid_value
+            "#
+        );
+        assert!(CertAgentConfig::parse_yaml(&yaml).is_err());
+
+        // Invalid YAML types
+        assert!(CertAgentConfig::parse_yaml(&yaml_rust::Yaml::Boolean(true)).is_err());
+        assert!(CertAgentConfig::parse_yaml(&yaml_rust::Yaml::Array(vec![])).is_err());
+        assert!(CertAgentConfig::parse_yaml(&yaml_rust::Yaml::Null).is_err());
+    }
+}

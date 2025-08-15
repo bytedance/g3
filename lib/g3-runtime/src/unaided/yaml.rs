@@ -109,3 +109,160 @@ impl UnaidedRuntimeConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use g3_yaml::yaml_doc;
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn parse_yaml_ok() {
+        // Full config except sched_affinity
+        let yaml = yaml_doc!(
+            r#"
+            thread_number_total: 8
+            thread_number_per_runtime: 2
+            thread_stack_size: "2MB"
+            max_io_events_per_tick: 512
+        "#
+        );
+        let config = UnaidedRuntimeConfig::parse_yaml(&yaml).unwrap();
+        assert_eq!(config.thread_number_total.get(), 8);
+        assert_eq!(config.thread_number_per_rt.get(), 2);
+        assert_eq!(config.thread_stack_size, Some(2 * 1000 * 1000));
+        assert_eq!(config.max_io_events_per_tick, Some(512));
+
+        // Sched_affinity
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "freebsd",
+            target_os = "dragonfly",
+            target_os = "netbsd",
+            windows,
+        ))]
+        {
+            let yaml = yaml_doc!(
+                r#"
+                thread_number_total: 8
+                sched_affinity:
+                    0: "0-3"
+                    1: "4-7"
+            "#
+            );
+            let config = UnaidedRuntimeConfig::parse_yaml(&yaml).unwrap();
+            assert_eq!(config.thread_number_total.get(), 8);
+            assert_eq!(config.sched_affinity.len(), 2);
+
+            let yaml = yaml_doc!(
+                r#"
+                thread_number_total: 4
+                sched_affinity: true
+            "#
+            );
+            let config = UnaidedRuntimeConfig::parse_yaml(&yaml).unwrap();
+            assert_eq!(config.thread_number_total.get(), 4);
+            assert!(!config.sched_affinity.is_empty());
+        }
+
+        // Openssl async job configs
+        #[cfg(feature = "openssl-async-job")]
+        {
+            let yaml = yaml_doc!(
+                r#"
+                thread_number_total: 4
+                openssl_async_job_init_size: 16
+                openssl_async_job_max_size: 64
+            "#
+            );
+            let config = UnaidedRuntimeConfig::parse_yaml(&yaml).unwrap();
+            assert_eq!(config.openssl_async_job_init_size, 16);
+            assert_eq!(config.openssl_async_job_max_size, 64);
+        }
+
+        // Environment variable based sched_affinity
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "freebsd",
+            target_os = "dragonfly",
+            target_os = "netbsd",
+            windows,
+        ))]
+        {
+            unsafe {
+                std::env::set_var("WORKER_0_CPU_LIST", "0,1,2");
+            }
+            let yaml = yaml_doc!(
+                r#"
+                thread_number_total: 4
+                sched_affinity: true
+            "#
+            );
+            let config = UnaidedRuntimeConfig::parse_yaml(&yaml).unwrap();
+            assert!(config.sched_affinity.contains_key(&0));
+            unsafe {
+                std::env::remove_var("WORKER_0_CPU_LIST");
+            }
+        }
+    }
+
+    #[test]
+    fn parse_yaml_err() {
+        // Invalid root type
+        let yaml = YamlLoader::load_from_str("invalid").unwrap();
+        assert!(UnaidedRuntimeConfig::parse_yaml(&yaml[0]).is_err());
+
+        // Unknown key
+        let yaml = yaml_doc!(
+            r#"
+            invalid_key: 10
+        "#
+        );
+        assert!(UnaidedRuntimeConfig::parse_yaml(&yaml).is_err());
+
+        // Invalid value type
+        let yaml = yaml_doc!(
+            r#"
+            thread_number_total: "invalid"
+        "#
+        );
+        assert!(UnaidedRuntimeConfig::parse_yaml(&yaml).is_err());
+
+        // Thread number not divisible
+        let yaml = yaml_doc!(
+            r#"
+            thread_number_total: 5
+            thread_number_per_runtime: 2
+        "#
+        );
+        assert!(UnaidedRuntimeConfig::parse_yaml(&yaml).is_err());
+
+        // Invalid sched_affinity format
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "freebsd",
+            target_os = "dragonfly",
+            target_os = "netbsd",
+            windows,
+        ))]
+        {
+            let yaml = yaml_doc!(
+                r#"
+                sched_affinity: "invalid"
+            "#
+            );
+            assert!(UnaidedRuntimeConfig::parse_yaml(&yaml).is_err());
+        }
+
+        // Invalid thread_stack_size format
+        let yaml = yaml_doc!(
+            r#"
+            thread_stack_size: "invalid"
+        "#
+        );
+        assert!(UnaidedRuntimeConfig::parse_yaml(&yaml).is_err());
+    }
+}
