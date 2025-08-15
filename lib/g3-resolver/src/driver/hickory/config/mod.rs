@@ -146,7 +146,7 @@ impl HickoryDriverConfig {
                 tcp_misc_opts: self.tcp_misc_opts.clone(),
                 udp_misc_opts: self.udp_misc_opts,
             };
-            let (req_sender, req_receiver) = flume::unbounded();
+            let (req_sender, req_receiver) = kanal::unbounded_async();
             driver.push_client(req_sender);
             tokio::spawn(async move {
                 let client = HickoryClient::new(client_config).await.unwrap(); // TODO

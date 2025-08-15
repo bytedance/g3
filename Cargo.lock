@@ -196,9 +196,9 @@ dependencies = [
 
 [[package]]
 name = "async-trait"
-version = "0.1.88"
+version = "0.1.89"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e539d3fca749fcee5236ab05e93a52867dd549cc157c8cb7f99595f3cedffdb5"
+checksum = "9035ad2d096bed7955a320ee7e2230574d28fd3c3a0f186cbea1ff3c7eed5dbb"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -848,18 +848,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "flume"
-version = "0.11.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da0e4dd2a88388a1f4ccc7c9ce104604dab68d9f408dc34cd45823d5a9069095"
-dependencies = [
- "futures-core",
- "futures-sink",
- "nanorand",
- "spin",
-]
-
-[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1126,13 +1114,13 @@ dependencies = [
  "anyhow",
  "chrono",
  "constant_time_eq 0.4.2",
- "flume",
  "g3-compat",
  "g3-openssl",
  "g3-socket",
  "g3-types",
  "g3-yaml",
  "hex",
+ "kanal",
  "log",
  "rmp",
  "rmp-serde",
@@ -1254,7 +1242,6 @@ dependencies = [
  "atoi",
  "base64",
  "bytes",
- "flume",
  "g3-h2",
  "g3-http",
  "g3-io-ext",
@@ -1265,6 +1252,7 @@ dependencies = [
  "h2",
  "http",
  "itoa",
+ "kanal",
  "memchr",
  "rustls-pki-types",
  "thiserror",
@@ -1348,9 +1336,9 @@ name = "g3-journal"
 version = "0.4.0"
 dependencies = [
  "anyhow",
- "flume",
  "g3-types",
  "itoa",
+ "kanal",
  "memchr",
  "once_cell",
  "rustix 1.0.8",
@@ -1444,7 +1432,6 @@ dependencies = [
  "c-ares",
  "c-ares-resolver",
  "c-ares-sys",
- "flume",
  "g3-hickory-client",
  "g3-socket",
  "g3-types",
@@ -1452,6 +1439,7 @@ dependencies = [
  "hickory-client",
  "hickory-proto",
  "indexmap",
+ "kanal",
  "log",
  "rustls",
  "rustls-pki-types",
@@ -1555,10 +1543,10 @@ version = "0.3.0"
 dependencies = [
  "anstyle",
  "chrono",
- "flume",
  "g3-datetime",
  "g3-types",
  "itoa",
+ "kanal",
  "ryu",
  "slog",
 ]
@@ -1569,13 +1557,13 @@ version = "0.8.0"
 dependencies = [
  "anyhow",
  "chrono",
- "flume",
  "g3-compat",
  "g3-datetime",
  "g3-io-sys",
  "g3-types",
  "g3-yaml",
  "itoa",
+ "kanal",
  "log",
  "ryu",
  "serde",
@@ -1630,7 +1618,6 @@ dependencies = [
  "constant_time_eq 0.4.2",
  "crc32fast",
  "fastrand",
- "flume",
  "fnv",
  "foldhash",
  "g3-std-ext",
@@ -1641,6 +1628,7 @@ dependencies = [
  "indexmap",
  "ip_network",
  "ip_network_table",
+ "kanal",
  "libc",
  "log",
  "lru",
@@ -1771,7 +1759,6 @@ version = "0.9.0"
 dependencies = [
  "anyhow",
  "clap",
- "flume",
  "g3-build-env",
  "g3-cert-agent",
  "g3-daemon",
@@ -1782,6 +1769,7 @@ dependencies = [
  "g3-tls-cert",
  "g3-types",
  "g3-yaml",
+ "kanal",
  "log",
  "tokio",
  "variant-ssl",
@@ -1907,7 +1895,6 @@ dependencies = [
  "clap_complete",
  "fastrand",
  "fixedbitset",
- "flume",
  "fnv",
  "foldhash",
  "futures-util",
@@ -1951,6 +1938,7 @@ dependencies = [
  "ip_network",
  "ip_network_table",
  "itoa",
+ "kanal",
  "log",
  "lru",
  "memchr",
@@ -2103,7 +2091,6 @@ dependencies = [
  "chrono",
  "clap",
  "clap_complete",
- "flume",
  "foldhash",
  "futures-util",
  "g3-build-env",
@@ -2123,6 +2110,7 @@ dependencies = [
  "g3tiles-proto",
  "governor",
  "itoa",
+ "kanal",
  "log",
  "openssl-probe",
  "quinn",
@@ -2682,6 +2670,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "kanal"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e3953adf0cd667798b396c2fa13552d6d9b3269d7dd1154c4c416442d1ff574"
+dependencies = [
+ "futures-core",
+ "lock_api",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2835,15 +2833,6 @@ dependencies = [
  "cc",
  "cfg-if",
  "pkg-config",
-]
-
-[[package]]
-name = "nanorand"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a51313c5820b0b02bd422f4b44776fbf47961755c74ce64afc73bfad10226c3"
-dependencies = [
- "getrandom 0.2.16",
 ]
 
 [[package]]
@@ -3571,15 +3560,6 @@ checksum = "233504af464074f9d066d7b5416c5f9b894a5862a6506e306f7b816cdd6f1807"
 dependencies = [
  "libc",
  "windows-sys 0.59.0",
-]
-
-[[package]]
-name = "spin"
-version = "0.9.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
-dependencies = [
- "lock_api",
 ]
 
 [[package]]

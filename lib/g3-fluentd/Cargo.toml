@@ -11,7 +11,7 @@ rust-version.workspace = true
 anyhow.workspace = true
 slog.workspace = true
 chrono = { workspace = true, features = ["clock"] }
-flume = { workspace = true, features = ["async"] }
+kanal = { workspace = true, features = ["async"] }
 rmp.workspace = true
 rmp-serde.workspace = true
 serde.workspace = true

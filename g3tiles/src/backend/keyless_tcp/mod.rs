@@ -35,7 +35,7 @@ pub(crate) struct KeylessTcpBackend {
     peer_addrs: Arc<ArcSwapOption<SelectiveVec<WeightedValue<SocketAddr>>>>,
     discover_handle: Mutex<Option<AbortHandle>>,
     pool_handle: KeylessConnectionPoolHandle,
-    keyless_request_sender: flume::Sender<KeylessForwardRequest>,
+    keyless_request_sender: kanal::AsyncSender<KeylessForwardRequest>,
 }
 
 impl KeylessTcpBackend {
@@ -52,7 +52,7 @@ impl KeylessTcpBackend {
         duration_stats.set_extra_tags(config.extra_metrics_tags.clone());
 
         let (keyless_request_sender, keyless_request_receiver) =
-            flume::bounded(config.request_buffer_size);
+            kanal::bounded_async(config.request_buffer_size);
         let tcp_connector = KeylessTcpUpstreamConnector::new(
             config.clone(),
             stats.clone(),
@@ -194,20 +194,12 @@ impl Backend for KeylessTcpBackend {
 
         let (rsp_sender, rsp_receiver) = oneshot::channel();
         let req = KeylessForwardRequest::new(req, rsp_sender);
-        if let Err(e) = self.keyless_request_sender.try_send(req) {
-            match e {
-                flume::TrySendError::Full(req) => {
-                    self.pool_handle.request_new_connection();
-                    if self.keyless_request_sender.send_async(req).await.is_err() {
-                        self.stats.add_request_drop();
-                        return KeylessResponse::Local(err);
-                    }
-                }
-                flume::TrySendError::Disconnected(_req) => {
-                    self.stats.add_request_drop();
-                    return KeylessResponse::Local(err);
-                }
-            }
+        if self.keyless_request_sender.is_full() {
+            self.pool_handle.request_new_connection();
+        }
+        if self.keyless_request_sender.send(req).await.is_err() {
+            self.stats.add_request_drop();
+            return KeylessResponse::Local(err);
         }
         rsp_receiver.await.unwrap_or(KeylessResponse::Local(err))
     }

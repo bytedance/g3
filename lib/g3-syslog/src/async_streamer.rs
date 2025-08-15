@@ -7,7 +7,6 @@ use std::cell::RefCell;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use flume::{Receiver, Sender, TrySendError};
 use log::warn;
 use slog::{Drain, OwnedKVList, Record};
 
@@ -23,7 +22,7 @@ thread_local! {
 
 pub struct AsyncSyslogStreamer {
     header: SyslogHeader,
-    sender: Sender<String>,
+    sender: kanal::Sender<String>,
     formatter: BoxSyslogFormatter,
     stats: Arc<LogStats>,
 }
@@ -35,7 +34,7 @@ impl AsyncSyslogStreamer {
         formatter: BoxSyslogFormatter,
         backend_builder: &SyslogBackendBuilder,
     ) -> Self {
-        let (sender, receiver) = flume::bounded::<String>(config.channel_capacity);
+        let (sender, receiver) = kanal::bounded::<String>(config.channel_capacity);
 
         let stats = Arc::new(LogStats::default());
 
@@ -85,9 +84,9 @@ impl Drain for AsyncSyslogStreamer {
                 Ok(_) => {
                     let s = unsafe { String::from_utf8_unchecked(buf.clone()) };
                     match self.sender.try_send(s) {
-                        Ok(_) => {}
-                        Err(TrySendError::Full(_)) => self.stats.drop.add_channel_overflow(),
-                        Err(TrySendError::Disconnected(_)) => self.stats.drop.add_channel_closed(),
+                        Ok(true) => {}
+                        Ok(false) => self.stats.drop.add_channel_overflow(),
+                        Err(_) => self.stats.drop.add_channel_closed(),
                     }
 
                     Ok(())
@@ -102,7 +101,7 @@ impl Drain for AsyncSyslogStreamer {
 }
 
 struct AsyncIoThread {
-    receiver: Receiver<String>,
+    receiver: kanal::Receiver<String>,
     backend_builder: SyslogBackendBuilder,
     stats: Arc<LogStats>,
     recv_buf: Vec<String>,
@@ -120,7 +119,7 @@ impl AsyncIoThread {
 
     fn recv_send_all(&mut self) {
         while self.recv_buf.len() < MAX_BATCH_SIZE {
-            let Ok(s) = self.receiver.try_recv() else {
+            let Ok(Some(s)) = self.receiver.try_recv() else {
                 break;
             };
             self.recv_buf.push(s);

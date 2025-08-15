@@ -7,7 +7,6 @@ use std::io::{self, IsTerminal, Write};
 use std::sync::Arc;
 
 use chrono::Local;
-use flume::Receiver;
 use slog::Level;
 
 use g3_types::log::{AsyncLogConfig, AsyncLogger, LogStats};
@@ -40,7 +39,7 @@ pub fn new_async_logger(
     append_code_position: bool,
     use_stdout: bool,
 ) -> AsyncLogger<StdLogValue, StdLogFormatter> {
-    let (sender, receiver) = flume::bounded::<StdLogValue>(async_conf.channel_capacity);
+    let (sender, receiver) = kanal::bounded::<StdLogValue>(async_conf.channel_capacity);
 
     let stats = Arc::new(LogStats::default());
 
@@ -63,7 +62,7 @@ pub fn new_async_logger(
 }
 
 struct AsyncIoThread {
-    receiver: Receiver<StdLogValue>,
+    receiver: kanal::Receiver<StdLogValue>,
     stats: Arc<LogStats>,
 }
 
@@ -100,7 +99,7 @@ impl AsyncIoThread {
             let _ = self.write_plain(&mut buf, v);
             self.write_buf(&mut io, &buf);
 
-            while let Ok(v) = self.receiver.try_recv() {
+            while let Ok(Some(v)) = self.receiver.try_recv() {
                 buf.clear();
                 let _ = self.write_plain(&mut buf, v);
                 self.write_buf(&mut io, &buf);
@@ -132,7 +131,7 @@ impl AsyncIoThread {
             let _ = self.write_console(&mut buf, v);
             self.write_buf(&mut io, &buf);
 
-            while let Ok(v) = self.receiver.try_recv() {
+            while let Ok(Some(v)) = self.receiver.try_recv() {
                 buf.clear();
                 let _ = self.write_console(&mut buf, v);
                 self.write_buf(&mut io, &buf);

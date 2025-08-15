@@ -19,7 +19,7 @@ pub struct HickoryResolver {
     each_timeout: Duration,
     retry_interval: Duration,
     negative_min_ttl: u32,
-    clients: Vec<flume::Sender<(DnsRequest, mpsc::Sender<ResolvedRecord>)>>,
+    clients: Vec<kanal::AsyncSender<(DnsRequest, mpsc::Sender<ResolvedRecord>)>>,
 }
 
 impl ResolveDriver for HickoryResolver {
@@ -85,7 +85,7 @@ impl HickoryResolver {
 
     pub(super) fn push_client(
         &mut self,
-        req_sender: flume::Sender<(DnsRequest, mpsc::Sender<ResolvedRecord>)>,
+        req_sender: kanal::AsyncSender<(DnsRequest, mpsc::Sender<ResolvedRecord>)>,
     ) {
         self.clients.push(req_sender);
     }
@@ -103,7 +103,7 @@ impl HickoryResolver {
             );
         };
         if client
-            .send_async((request.clone(), rsp_sender.clone()))
+            .send((request.clone(), rsp_sender.clone()))
             .await
             .is_err()
         {

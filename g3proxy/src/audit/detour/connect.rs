@@ -82,7 +82,7 @@ impl StreamDetourConnector {
 
     pub(super) async fn run_new_connection(
         &self,
-        req_receiver: flume::Receiver<StreamDetourRequest>,
+        req_receiver: kanal::AsyncReceiver<StreamDetourRequest>,
         idle_timeout: Duration,
     ) {
         let mut connection = match self.new_connection().await {
@@ -104,7 +104,7 @@ impl StreamDetourConnector {
                     debug!("detour connection closed unexpectedly: {e}");
                     return;
                 }
-                r = req_receiver.recv_async() => {
+                r = req_receiver.recv() => {
                     idle_sleep.as_mut().reset(Instant::now() + idle_timeout);
                     match r {
                         Ok(req) => {

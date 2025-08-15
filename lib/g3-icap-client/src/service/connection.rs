@@ -162,13 +162,13 @@ impl IcapConnectionPollRequest {
 
 pub(super) struct IcapConnectionEofPoller {
     conn: IcapClientConnection,
-    req_receiver: flume::Receiver<IcapConnectionPollRequest>,
+    req_receiver: kanal::AsyncReceiver<IcapConnectionPollRequest>,
 }
 
 impl IcapConnectionEofPoller {
     pub(super) fn new(
         conn: IcapClientConnection,
-        req_receiver: &flume::Receiver<IcapConnectionPollRequest>,
+        req_receiver: &kanal::AsyncReceiver<IcapConnectionPollRequest>,
     ) -> Option<Self> {
         if conn.reusable() {
             Some(IcapConnectionEofPoller {
@@ -186,7 +186,7 @@ impl IcapConnectionEofPoller {
         tokio::select! {
             _ = self.conn.reader.fill_wait_data() => {}
             _ = idle_sleep => {}
-            r = self.req_receiver.recv_async() => {
+            r = self.req_receiver.recv() => {
                 if let Ok(req) = r {
                     let IcapConnectionPollRequest {
                         client_sender,

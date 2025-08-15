@@ -65,13 +65,13 @@ impl<SC> StreamDetourContext<'_, SC> {
 
 pub(crate) struct StreamDetourClient {
     config: Arc<AuditStreamDetourConfig>,
-    req_sender: flume::Sender<StreamDetourRequest>,
+    req_sender: kanal::AsyncSender<StreamDetourRequest>,
     pool_handle: StreamDetourPoolHandle,
 }
 
 impl StreamDetourClient {
     pub(super) fn new(config: Arc<AuditStreamDetourConfig>) -> anyhow::Result<Self> {
-        let (req_sender, req_receiver) = flume::unbounded();
+        let (req_sender, req_receiver) = kanal::unbounded_async();
         let connector = StreamDetourConnector::new(config.clone())?;
         let pool_handle =
             StreamDetourPool::spawn(config.connection_pool, req_receiver, Arc::new(connector));
@@ -115,18 +115,11 @@ impl StreamDetourClient {
         let (sender, receiver) = oneshot::channel();
         let req = StreamDetourRequest(sender);
 
-        if let Err(e) = self.req_sender.try_send(req) {
-            match e {
-                flume::TrySendError::Full(req) => {
-                    self.pool_handle.request_new_connection();
-                    if self.req_sender.send_async(req).await.is_err() {
-                        return Err(anyhow!("stream detour client is down"));
-                    }
-                }
-                flume::TrySendError::Disconnected(_req) => {
-                    return Err(anyhow!("stream detour client is down"));
-                }
-            }
+        if self.req_sender.is_full() {
+            self.pool_handle.request_new_connection();
+        }
+        if self.req_sender.send(req).await.is_err() {
+            return Err(anyhow!("stream detour client is down"));
         }
 
         match tokio::time::timeout(self.config.stream_open_timeout, receiver).await {

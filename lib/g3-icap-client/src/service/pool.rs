@@ -33,25 +33,25 @@ pub(super) struct IcapServicePool {
     options: Arc<IcapServiceOptions>,
     connector: Arc<IcapConnector>,
     check_interval: Interval,
-    client_cmd_receiver: flume::Receiver<IcapServiceClientCommand>,
+    client_cmd_receiver: kanal::AsyncReceiver<IcapServiceClientCommand>,
     pool_cmd_sender: mpsc::Sender<IcapServicePoolCommand>,
     pool_cmd_receiver: mpsc::Receiver<IcapServicePoolCommand>,
-    conn_req_sender: flume::Sender<IcapConnectionPollRequest>,
-    conn_req_receiver: flume::Receiver<IcapConnectionPollRequest>,
+    conn_req_sender: kanal::AsyncSender<IcapConnectionPollRequest>,
+    conn_req_receiver: kanal::AsyncReceiver<IcapConnectionPollRequest>,
     idle_conn_count: Arc<AtomicUsize>,
 }
 
 impl IcapServicePool {
     pub(super) fn new(
         config: Arc<IcapServiceConfig>,
-        client_cmd_receiver: flume::Receiver<IcapServiceClientCommand>,
+        client_cmd_receiver: kanal::AsyncReceiver<IcapServiceClientCommand>,
         connector: Arc<IcapConnector>,
     ) -> Self {
         let options = Arc::new(IcapServiceOptions::new_expired(config.method));
         let check_interval = tokio::time::interval(config.connection_pool.check_interval());
         let (pool_cmd_sender, pool_cmd_receiver) = mpsc::channel(POOL_CMD_CHANNEL_SIZE);
         let (conn_req_sender, conn_req_receiver) =
-            flume::bounded(config.connection_pool.max_idle_count());
+            kanal::bounded_async(config.connection_pool.max_idle_count());
         IcapServicePool {
             config,
             options,
@@ -78,7 +78,7 @@ impl IcapServicePool {
                 _ = self.check_interval.tick() => {
                     self.check();
                 }
-                r = self.client_cmd_receiver.recv_async() => {
+                r = self.client_cmd_receiver.recv() => {
                     match r {
                         Ok(cmd) => self.handle_client_cmd(cmd),
                         Err(_) => break,
@@ -137,7 +137,7 @@ impl IcapServicePool {
                     let options = self.options.clone();
                     tokio::spawn(async move {
                         let _ = req_sender
-                            .send_async(IcapConnectionPollRequest::new(sender, options))
+                            .send(IcapConnectionPollRequest::new(sender, options))
                             .await;
                     });
                 } else {

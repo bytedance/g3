@@ -33,7 +33,7 @@ pub(super) struct StreamDetourPool {
     connector: Arc<StreamDetourConnector>,
     stats: Arc<ConnectionPoolStats>,
 
-    client_req_receiver: flume::Receiver<StreamDetourRequest>,
+    client_req_receiver: kanal::AsyncReceiver<StreamDetourRequest>,
 
     connection_id: u64,
     connection_close_receiver: mpsc::Receiver<u64>,
@@ -43,7 +43,7 @@ pub(super) struct StreamDetourPool {
 impl StreamDetourPool {
     fn new(
         config: ConnectionPoolConfig,
-        client_req_receiver: flume::Receiver<StreamDetourRequest>,
+        client_req_receiver: kanal::AsyncReceiver<StreamDetourRequest>,
         connector: Arc<StreamDetourConnector>,
     ) -> Self {
         let (connection_close_sender, connection_close_receiver) = mpsc::channel(1);
@@ -60,7 +60,7 @@ impl StreamDetourPool {
 
     pub(super) fn spawn(
         config: ConnectionPoolConfig,
-        client_cmd_receiver: flume::Receiver<StreamDetourRequest>,
+        client_cmd_receiver: kanal::AsyncReceiver<StreamDetourRequest>,
         connector: Arc<StreamDetourConnector>,
     ) -> StreamDetourPoolHandle {
         let pool = StreamDetourPool::new(config, client_cmd_receiver, connector);

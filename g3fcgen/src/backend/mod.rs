@@ -8,7 +8,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use flume::{Receiver, Sender};
 use log::{debug, error, warn};
 use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
@@ -131,8 +130,8 @@ impl OpensslBackend {
         mut self,
         handle: &Handle,
         id: usize,
-        req_receiver: Receiver<BackendRequest>,
-        rsp_sender: Sender<BackendResponse>,
+        req_receiver: kanal::AsyncReceiver<BackendRequest>,
+        rsp_sender: kanal::AsyncSender<BackendResponse>,
     ) {
         handle.spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(300));
@@ -144,7 +143,7 @@ impl OpensslBackend {
                             warn!("failed to refresh backend: {e:?}");
                         }
                     }
-                    r = req_receiver.recv_async() => {
+                    r = req_receiver.recv() => {
                         let Ok(req) = r else {
                             break
                         };
@@ -154,7 +153,7 @@ impl OpensslBackend {
                         match self.generate(&req.user_req) {
                             Ok(data) => {
                                 debug!("{host} - [#{id}] cert generated");
-                                if let Err(e) = rsp_sender.send_async(req.into_response(data)).await {
+                                if let Err(e) = rsp_sender.send(req.into_response(data)).await {
                                     error!("{host} - [#{id}] failed to send cert to frontend: {e}");
                                     break;
                                 }

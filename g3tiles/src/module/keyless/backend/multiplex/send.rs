@@ -24,7 +24,7 @@ pub(super) struct KeylessUpstreamSendTask {
     max_request_count: usize,
     max_alive_time: Duration,
     stats: Arc<KeylessBackendStats>,
-    req_receiver: flume::Receiver<KeylessForwardRequest>,
+    req_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
     quit_notifier: broadcast::Receiver<()>,
     shared_state: Arc<StreamSharedState>,
     duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
@@ -36,7 +36,7 @@ impl KeylessUpstreamSendTask {
         max_request_count: usize,
         max_alive_time: Duration,
         stats: Arc<KeylessBackendStats>,
-        req_receiver: flume::Receiver<KeylessForwardRequest>,
+        req_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
         quit_notifier: broadcast::Receiver<()>,
         shared_state: Arc<StreamSharedState>,
         duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
@@ -70,7 +70,7 @@ impl KeylessUpstreamSendTask {
             tokio::select! {
                 biased;
 
-                r = self.req_receiver.recv_async() => {
+                r = self.req_receiver.recv() => {
                     idle_sleep.as_mut().reset(Instant::now() + idle_timeout);
                     match r {
                         Ok(req) => {

@@ -46,7 +46,7 @@ lru = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
 base64 = { workspace = true, optional = true }
-flume = { workspace = true, features = ["eventual-fairness"], optional = true }
+kanal = { workspace = true, optional = true, features = ["std-mutex"] }
 slog = { workspace = true, optional = true }
 indexmap = { workspace = true, optional = true }
 brotli = { version = "8.0", optional = true, default-features = false, features = ["std"] }
@@ -66,4 +66,4 @@ openssl = ["dep:openssl", "dep:openssl-sys", "dep:lru", "dep:bytes", "dep:ahash"
 acl-rule = ["resolve", "dep:ahash", "dep:ip_network", "dep:ip_network_table", "dep:regex", "dep:radix_trie"]
 http = ["dep:http", "dep:bytes", "dep:base64"]
 route = ["resolve", "dep:ahash", "dep:radix_trie", "dep:indexmap"]
-async-log = ["dep:flume", "dep:slog"]
+async-log = ["dep:kanal", "dep:slog"]

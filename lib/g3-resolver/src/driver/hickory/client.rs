@@ -78,7 +78,7 @@ impl HickoryClient {
 
     pub(super) async fn run(
         mut self,
-        req_receiver: flume::Receiver<(DnsRequest, mpsc::Sender<ResolvedRecord>)>,
+        req_receiver: kanal::AsyncReceiver<(DnsRequest, mpsc::Sender<ResolvedRecord>)>,
     ) {
         let (client_sender, mut client_receiver) = mpsc::channel(1);
         let mut check_interval = tokio::time::interval(Duration::from_secs(60));
@@ -86,7 +86,7 @@ impl HickoryClient {
             tokio::select! {
                 biased;
 
-                r = req_receiver.recv_async() => {
+                r = req_receiver.recv() => {
                     let Ok((req, rsp_sender)) = r else {
                         break;
                     };

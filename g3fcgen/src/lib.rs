@@ -59,8 +59,8 @@ impl BackendResponse {
 }
 
 pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
-    let (req_sender, req_receiver) = flume::bounded::<BackendRequest>(1024);
-    let (rsp_sender, rsp_receiver) = flume::bounded::<BackendResponse>(1024);
+    let (req_sender, req_receiver) = kanal::bounded_async::<BackendRequest>(1024);
+    let (rsp_sender, rsp_receiver) = kanal::bounded_async::<BackendResponse>(1024);
 
     let backend_config =
         config::get_backend_config().ok_or_else(|| anyhow!("no backend config available"))?;
