@@ -74,3 +74,83 @@ impl fmt::Display for TlsVersion {
         f.write_str(self.as_str())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn as_str() {
+        assert_eq!(TlsVersion::TLS1_0.as_str(), "TLS1.0");
+        assert_eq!(TlsVersion::TLS1_1.as_str(), "TLS1.1");
+        assert_eq!(TlsVersion::TLS1_2.as_str(), "TLS1.2");
+        assert_eq!(TlsVersion::TLS1_3.as_str(), "TLS1.3");
+    }
+
+    #[test]
+    fn from_str_valid() {
+        assert_eq!(TlsVersion::from_str("1.0").unwrap(), TlsVersion::TLS1_0);
+        assert_eq!(TlsVersion::from_str("tls10").unwrap(), TlsVersion::TLS1_0);
+        assert_eq!(TlsVersion::from_str("tls1.0").unwrap(), TlsVersion::TLS1_0);
+        assert_eq!(TlsVersion::from_str("tls1_0").unwrap(), TlsVersion::TLS1_0);
+
+        assert_eq!(TlsVersion::from_str("1.1").unwrap(), TlsVersion::TLS1_1);
+        assert_eq!(TlsVersion::from_str("tls11").unwrap(), TlsVersion::TLS1_1);
+        assert_eq!(TlsVersion::from_str("tls1.1").unwrap(), TlsVersion::TLS1_1);
+        assert_eq!(TlsVersion::from_str("tls1_1").unwrap(), TlsVersion::TLS1_1);
+
+        assert_eq!(TlsVersion::from_str("1.2").unwrap(), TlsVersion::TLS1_2);
+        assert_eq!(TlsVersion::from_str("tls12").unwrap(), TlsVersion::TLS1_2);
+        assert_eq!(TlsVersion::from_str("tls1.2").unwrap(), TlsVersion::TLS1_2);
+        assert_eq!(TlsVersion::from_str("tls1_2").unwrap(), TlsVersion::TLS1_2);
+
+        assert_eq!(TlsVersion::from_str("1.3").unwrap(), TlsVersion::TLS1_3);
+        assert_eq!(TlsVersion::from_str("tls13").unwrap(), TlsVersion::TLS1_3);
+        assert_eq!(TlsVersion::from_str("tls1.3").unwrap(), TlsVersion::TLS1_3);
+        assert_eq!(TlsVersion::from_str("tls1_3").unwrap(), TlsVersion::TLS1_3);
+    }
+
+    #[test]
+    fn from_str_invalid() {
+        assert!(TlsVersion::from_str("").is_err());
+        assert!(TlsVersion::from_str("TLS2.0").is_err());
+        assert!(TlsVersion::from_str("ssl3.0").is_err());
+        assert!(TlsVersion::from_str("tls").is_err());
+        assert!(TlsVersion::from_str("1.4").is_err());
+        assert!(TlsVersion::from_str("tls14").is_err());
+    }
+
+    #[test]
+    fn try_from_f64() {
+        assert_eq!(TlsVersion::try_from(1.0).unwrap(), TlsVersion::TLS1_0);
+        assert_eq!(TlsVersion::try_from(1.1).unwrap(), TlsVersion::TLS1_1);
+        assert_eq!(TlsVersion::try_from(1.2).unwrap(), TlsVersion::TLS1_2);
+        assert_eq!(TlsVersion::try_from(1.3).unwrap(), TlsVersion::TLS1_3);
+
+        assert!(TlsVersion::try_from(0.9).is_err());
+        assert!(TlsVersion::try_from(1.5).is_err());
+        assert!(TlsVersion::try_from(2.0).is_err());
+        assert!(TlsVersion::try_from(-1.0).is_err());
+    }
+
+    #[test]
+    fn display() {
+        assert_eq!(format!("{}", TlsVersion::TLS1_0), "TLS1.0");
+        assert_eq!(format!("{}", TlsVersion::TLS1_1), "TLS1.1");
+        assert_eq!(format!("{}", TlsVersion::TLS1_2), "TLS1.2");
+        assert_eq!(format!("{}", TlsVersion::TLS1_3), "TLS1.3");
+    }
+
+    #[cfg(feature = "openssl")]
+    mod openssl_tests {
+        use super::*;
+
+        #[test]
+        fn into_ssl_version() {
+            assert_eq!(SslVersion::from(TlsVersion::TLS1_0), SslVersion::TLS1);
+            assert_eq!(SslVersion::from(TlsVersion::TLS1_1), SslVersion::TLS1_1);
+            assert_eq!(SslVersion::from(TlsVersion::TLS1_2), SslVersion::TLS1_2);
+            assert_eq!(SslVersion::from(TlsVersion::TLS1_3), SslVersion::TLS1_3);
+        }
+    }
+}

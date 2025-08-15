@@ -73,3 +73,160 @@ impl FromStr for TlsCertUsage {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn as_str() {
+        assert_eq!(TlsCertUsage::TlsServer.as_str(), "tls_server");
+        assert_eq!(
+            TlsCertUsage::TLsServerTongsuo.as_str(),
+            "tls_server_tongsuo"
+        );
+        assert_eq!(
+            TlsCertUsage::TlcpServerSignature.as_str(),
+            "tlcp_server_signature"
+        );
+        assert_eq!(
+            TlsCertUsage::TlcpServerEncryption.as_str(),
+            "tlcp_server_encryption"
+        );
+    }
+
+    #[test]
+    fn display() {
+        assert_eq!(format!("{}", TlsCertUsage::TlsServer), "tls_server");
+        assert_eq!(
+            format!("{}", TlsCertUsage::TLsServerTongsuo),
+            "tls_server_tongsuo"
+        );
+        assert_eq!(
+            format!("{}", TlsCertUsage::TlcpServerSignature),
+            "tlcp_server_signature"
+        );
+        assert_eq!(
+            format!("{}", TlsCertUsage::TlcpServerEncryption),
+            "tlcp_server_encryption"
+        );
+    }
+
+    #[test]
+    fn try_from_valid() {
+        assert!(matches!(
+            TlsCertUsage::try_from(0),
+            Ok(TlsCertUsage::TlsServer)
+        ));
+        assert!(matches!(
+            TlsCertUsage::try_from(1),
+            Ok(TlsCertUsage::TLsServerTongsuo)
+        ));
+        assert!(matches!(
+            TlsCertUsage::try_from(11),
+            Ok(TlsCertUsage::TlcpServerSignature)
+        ));
+        assert!(matches!(
+            TlsCertUsage::try_from(12),
+            Ok(TlsCertUsage::TlcpServerEncryption)
+        ));
+    }
+
+    #[test]
+    fn try_from_invalid() {
+        assert!(TlsCertUsage::try_from(2).is_err());
+        assert!(TlsCertUsage::try_from(10).is_err());
+        assert!(TlsCertUsage::try_from(13).is_err());
+        assert!(TlsCertUsage::try_from(255).is_err());
+    }
+
+    #[test]
+    fn from_str_valid() {
+        // TlsServer variants
+        assert!(matches!(
+            TlsCertUsage::from_str("tls_server"),
+            Ok(TlsCertUsage::TlsServer)
+        ));
+        assert!(matches!(
+            TlsCertUsage::from_str("TLS_SERVER"),
+            Ok(TlsCertUsage::TlsServer)
+        ));
+        assert!(matches!(
+            TlsCertUsage::from_str("tlsserver"),
+            Ok(TlsCertUsage::TlsServer)
+        ));
+
+        // TLsServerTongsuo variants
+        assert!(matches!(
+            TlsCertUsage::from_str("tls_server_tongsuo"),
+            Ok(TlsCertUsage::TLsServerTongsuo)
+        ));
+        assert!(matches!(
+            TlsCertUsage::from_str("TLS_SERVER_TONGSUO"),
+            Ok(TlsCertUsage::TLsServerTongsuo)
+        ));
+        assert!(matches!(
+            TlsCertUsage::from_str("tlsservertongsuo"),
+            Ok(TlsCertUsage::TLsServerTongsuo)
+        ));
+
+        // TlcpServerSignature variants
+        assert!(matches!(
+            TlsCertUsage::from_str("tlcp_server_signature"),
+            Ok(TlsCertUsage::TlcpServerSignature)
+        ));
+        assert!(matches!(
+            TlsCertUsage::from_str("TLCP_SERVER_SIGNATURE"),
+            Ok(TlsCertUsage::TlcpServerSignature)
+        ));
+        assert!(matches!(
+            TlsCertUsage::from_str("tlcp_server_sign"),
+            Ok(TlsCertUsage::TlcpServerSignature)
+        ));
+        assert!(matches!(
+            TlsCertUsage::from_str("tlcpserversignature"),
+            Ok(TlsCertUsage::TlcpServerSignature)
+        ));
+        assert!(matches!(
+            TlsCertUsage::from_str("tlcpserversign"),
+            Ok(TlsCertUsage::TlcpServerSignature)
+        ));
+
+        // TlcpServerEncryption variants
+        assert!(matches!(
+            TlsCertUsage::from_str("tlcp_server_encryption"),
+            Ok(TlsCertUsage::TlcpServerEncryption)
+        ));
+        assert!(matches!(
+            TlsCertUsage::from_str("TLCP_SERVER_ENCRYPTION"),
+            Ok(TlsCertUsage::TlcpServerEncryption)
+        ));
+        assert!(matches!(
+            TlsCertUsage::from_str("tlcp_server_enc"),
+            Ok(TlsCertUsage::TlcpServerEncryption)
+        ));
+        assert!(matches!(
+            TlsCertUsage::from_str("tlcpserverencryption"),
+            Ok(TlsCertUsage::TlcpServerEncryption)
+        ));
+        assert!(matches!(
+            TlsCertUsage::from_str("tlcpserverenc"),
+            Ok(TlsCertUsage::TlcpServerEncryption)
+        ));
+    }
+
+    #[test]
+    fn from_str_invalid() {
+        assert!(TlsCertUsage::from_str("").is_err());
+        assert!(TlsCertUsage::from_str("tls_serv").is_err());
+        assert!(TlsCertUsage::from_str("server").is_err());
+        assert!(TlsCertUsage::from_str("tlcp_sign").is_err());
+        assert!(TlsCertUsage::from_str("invalid_usage").is_err());
+    }
+
+    #[test]
+    fn error_display() {
+        let err = InvalidCertUsage;
+        assert_eq!(format!("{}", err), "unsupported tls certificate usage type");
+    }
+}

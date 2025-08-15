@@ -186,7 +186,207 @@ mod tests {
     use super::*;
 
     #[test]
-    fn filer() {
+    fn protocol_display() {
+        assert_eq!(AlpnProtocol::Http10.as_str(), "http/1.0");
+        assert_eq!(AlpnProtocol::Http11.as_str(), "http/1.1");
+        assert_eq!(AlpnProtocol::Http2.as_str(), "h2");
+        assert_eq!(AlpnProtocol::Http3.as_str(), "h3");
+        assert_eq!(AlpnProtocol::Ftp.as_str(), "ftp");
+        assert_eq!(AlpnProtocol::Smtp.as_str(), "smtp");
+        assert_eq!(AlpnProtocol::Imap.as_str(), "imap");
+        assert_eq!(AlpnProtocol::Pop3.as_str(), "pop3");
+        assert_eq!(AlpnProtocol::Nntp.as_str(), "nntp");
+        assert_eq!(AlpnProtocol::Nnsp.as_str(), "nnsp");
+        assert_eq!(AlpnProtocol::Mqtt.as_str(), "mqtt");
+        assert_eq!(AlpnProtocol::DnsOverTls.as_str(), "dot");
+        assert_eq!(AlpnProtocol::DnsOverQuic.as_str(), "doq");
+    }
+
+    #[test]
+    fn protocol_sequence() {
+        assert_eq!(
+            AlpnProtocol::Http10.wired_identification_sequence(),
+            b"\x08http/1.0"
+        );
+        assert_eq!(
+            AlpnProtocol::Http11.wired_identification_sequence(),
+            b"\x08http/1.1"
+        );
+        assert_eq!(
+            AlpnProtocol::Http2.wired_identification_sequence(),
+            b"\x02h2"
+        );
+        assert_eq!(
+            AlpnProtocol::Http3.wired_identification_sequence(),
+            b"\x02h3"
+        );
+        assert_eq!(
+            AlpnProtocol::Ftp.wired_identification_sequence(),
+            b"\x03ftp"
+        );
+        assert_eq!(
+            AlpnProtocol::Smtp.wired_identification_sequence(),
+            b"\x04smtp"
+        );
+        assert_eq!(
+            AlpnProtocol::Imap.wired_identification_sequence(),
+            b"\x04imap"
+        );
+        assert_eq!(
+            AlpnProtocol::Pop3.wired_identification_sequence(),
+            b"\x04pop3"
+        );
+        assert_eq!(
+            AlpnProtocol::Nntp.wired_identification_sequence(),
+            b"\x04nntp"
+        );
+        assert_eq!(
+            AlpnProtocol::Nnsp.wired_identification_sequence(),
+            b"\x04nnsp"
+        );
+        assert_eq!(
+            AlpnProtocol::Mqtt.wired_identification_sequence(),
+            b"\x04mqtt"
+        );
+        assert_eq!(
+            AlpnProtocol::DnsOverTls.wired_identification_sequence(),
+            b"\x03dot"
+        );
+        assert_eq!(
+            AlpnProtocol::DnsOverQuic.wired_identification_sequence(),
+            b"\x03doq"
+        );
+    }
+
+    #[test]
+    fn protocol_from_bytes() {
+        // Valid protocols
+        assert_eq!(
+            AlpnProtocol::from_selected(b"http/1.0"),
+            Some(AlpnProtocol::Http10)
+        );
+        assert_eq!(
+            AlpnProtocol::from_selected(b"http/1.1"),
+            Some(AlpnProtocol::Http11)
+        );
+        assert_eq!(
+            AlpnProtocol::from_selected(b"h2"),
+            Some(AlpnProtocol::Http2)
+        );
+        assert_eq!(
+            AlpnProtocol::from_selected(b"h3"),
+            Some(AlpnProtocol::Http3)
+        );
+        assert_eq!(AlpnProtocol::from_selected(b"ftp"), Some(AlpnProtocol::Ftp));
+        assert_eq!(
+            AlpnProtocol::from_selected(b"smtp"),
+            Some(AlpnProtocol::Smtp)
+        );
+        assert_eq!(
+            AlpnProtocol::from_selected(b"imap"),
+            Some(AlpnProtocol::Imap)
+        );
+        assert_eq!(
+            AlpnProtocol::from_selected(b"pop3"),
+            Some(AlpnProtocol::Pop3)
+        );
+        assert_eq!(
+            AlpnProtocol::from_selected(b"nntp"),
+            Some(AlpnProtocol::Nntp)
+        );
+        assert_eq!(
+            AlpnProtocol::from_selected(b"nnsp"),
+            Some(AlpnProtocol::Nnsp)
+        );
+        assert_eq!(
+            AlpnProtocol::from_selected(b"mqtt"),
+            Some(AlpnProtocol::Mqtt)
+        );
+        assert_eq!(
+            AlpnProtocol::from_selected(b"dot"),
+            Some(AlpnProtocol::DnsOverTls)
+        );
+        assert_eq!(
+            AlpnProtocol::from_selected(b"doq"),
+            Some(AlpnProtocol::DnsOverQuic)
+        );
+
+        // Invalid protocols
+        assert_eq!(AlpnProtocol::from_selected(b""), None);
+        assert_eq!(AlpnProtocol::from_selected(b"http"), None);
+        assert_eq!(AlpnProtocol::from_selected(b"h4"), None);
+        assert_eq!(AlpnProtocol::from_selected(b"unknown"), None);
+    }
+
+    #[test]
+    fn parse_valid_alpn() {
+        // Single protocol
+        let data = b"\x00\x02\x01a";
+        let alpn = TlsAlpn::from_extension_value(data).unwrap();
+        assert_eq!(alpn.wired_list_sequence(), b"\x01a");
+
+        // Multiple protocols
+        let data = b"\x00\x0C\x02h2\x08http/1.1";
+        let alpn = TlsAlpn::from_extension_value(data).unwrap();
+        assert_eq!(alpn.wired_list_sequence(), b"\x02h2\x08http/1.1");
+
+        // Empty list
+        let data = b"\x00\x00";
+        let alpn = TlsAlpn::from_extension_value(data).unwrap();
+        assert!(alpn.is_empty());
+    }
+
+    #[test]
+    fn parse_error_cases() {
+        // NotEnoughData
+        assert!(matches!(
+            TlsAlpn::from_extension_value(b""),
+            Err(TlsAlpnError::NotEnoughData(0))
+        ));
+        assert!(matches!(
+            TlsAlpn::from_extension_value(b"\x00"),
+            Err(TlsAlpnError::NotEnoughData(1))
+        ));
+
+        // InvalidListLength
+        assert!(matches!(
+            TlsAlpn::from_extension_value(b"\x00\x03ab"),
+            Err(TlsAlpnError::InvalidListLength(3))
+        )); // Actual length=2
+
+        // EmptyProtocolName
+        assert!(matches!(
+            TlsAlpn::from_extension_value(b"\x00\x01\x00"),
+            Err(TlsAlpnError::EmptyProtocolName)
+        ));
+
+        // TruncatedProtocolName
+        assert!(matches!(
+            TlsAlpn::from_extension_value(b"\x00\x02\x02h"),
+            Err(TlsAlpnError::TruncatedProtocolName)
+        ));
+    }
+
+    #[test]
+    fn filter_alpn_list() {
+        let data = b"\x00\x0C\x02h2\x08http/1.1";
+        let alpn = TlsAlpn::from_extension_value(data).unwrap();
+
+        // Filter out h2
+        let filtered = alpn.retain_clone(|p| p != b"h2");
+        assert_eq!(filtered.wired_list_sequence(), b"\x08http/1.1");
+
+        // Filter out both
+        let empty = alpn.retain_clone(|_| false);
+        assert!(empty.is_empty());
+
+        // Keep both
+        let full = alpn.retain_clone(|_| true);
+        assert_eq!(full.wired_list_sequence(), b"\x02h2\x08http/1.1");
+    }
+
+    #[test]
+    fn filter() {
         let v = b"\x00\x0C\x02h2\x08http/1.0";
 
         let alpn = TlsAlpn::from_extension_value(v).unwrap();
