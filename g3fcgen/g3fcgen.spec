@@ -1,13 +1,5 @@
-%if 0%{?rhel} > 7
+
 %undefine _debugsource_packages
-%define pkgconfig_real pkgconf
-%endif
-
-%if 0%{?rhel} == 7
-%global debug_package %{nil}
-%define pkgconfig_real pkgconfig
-%endif
-
 %define build_profile release-lto
 
 Name:           g3fcgen
@@ -19,7 +11,7 @@ License:        Apache-2.0
 URL:            https://github.com/bytedance/g3
 Source0:        %{name}-%{version}.tar.xz
 
-BuildRequires:  gcc, make, %{pkgconfig_real}
+BuildRequires:  gcc, make, pkgconf
 BuildRequires:  openssl-devel
 
 %description

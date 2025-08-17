@@ -1,11 +1,5 @@
-%if 0%{?rhel} > 7
+
 %undefine _debugsource_packages
-%endif
-
-%if 0%{?rhel} == 7
-%global debug_package %{nil}
-%endif
-
 %define build_profile release-lto
 
 Name:           g3mkcert
@@ -16,6 +10,9 @@ Summary:        Tool to make certificates from G3 Project
 License:        Apache-2.0
 URL:            https://github.com/bytedance/g3
 Source0:        %{name}-%{version}.tar.xz
+
+BuildRequires:  gcc, make, pkgconf
+BuildRequires:  openssl-devel
 
 %description
 Tool to make certificates from G3 Project
