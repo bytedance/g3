@@ -1,15 +1,5 @@
-%if 0%{?rhel} > 7
+
 %undefine _debugsource_packages
-%define pkgconfig_real pkgconf
-%define cmake_real cmake
-%endif
-
-%if 0%{?rhel} == 7
-%global debug_package %{nil}
-%define pkgconfig_real pkgconfig
-%define cmake_real cmake3
-%endif
-
 %define build_profile release-lto
 
 Name:           g3proxy
@@ -21,7 +11,7 @@ License:        Apache-2.0
 URL:            https://github.com/bytedance/g3
 Source0:        %{name}-%{version}.tar.xz
 
-BuildRequires:  gcc, make, %{pkgconfig_real}, %{cmake_real}, capnproto
+BuildRequires:  gcc, make, pkgconf, cmake, capnproto
 BuildRequires:  lua-devel, openssl-devel
 BuildRequires:  perl-IPC-Cmd
 Requires:       ca-certificates
