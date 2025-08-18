@@ -1,4 +1,7 @@
 
+v0.8.5:
+ - BUG FIX: fix build of deb package
+
 v0.8.4:
  - Feature: restore support for aws-lc
  - Feature: add support for aws-lc-fips
