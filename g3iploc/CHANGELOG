@@ -1,4 +1,7 @@
 
+v0.3.1:
+ - BUG FIX: fix build of deb package
+
 v0.3.0:
  - Compatibility: bump MSRV to 1.86.0
  - Deprecated: the following config options are deprecated:
