@@ -42,8 +42,11 @@ BUILD_DIR=$(mktemp -d "/tmp/build.${SOURCE_NAME}-${SOURCE_VERSION}.XXX")
 echo "==> Use temp build dir ${BUILD_DIR}"
 
 
-echo "==> cleaning local cargo checkouts"
-cargo cache --autoclean
+if [ -z "${NO_CARGO_CACHE_CLEAN}" ]
+then
+	echo "==> cleaning local cargo checkouts"
+	cargo cache --autoclean
+fi
 
  
 echo "==> adding source code from git"
