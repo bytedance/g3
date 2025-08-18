@@ -7,6 +7,9 @@ parameters:
   package:
     type: string
     default: g3mkcert
+  version:
+    type: string
+    default: 0.0.1
 
 steps:
   - add_ssh_keys:
@@ -14,6 +17,38 @@ steps:
         - "SHA256:7XwPpRkMjp+R8ZsjzPO/X1Zif0+i7duTrYbyhOgb3d0"
 
 jobs:
+  build-source-tar:
+    docker:
+      - image: debian:trixie
+    resource_class: medium
+    steps:
+      - run: apt-get update
+      - run:
+          name: Install tools
+          command: apt-get install -y curl git
+      - rust/install:
+          version: stable
+      - run:
+          name: Install package tools
+          command: |
+            apt-get install -y jq gcc capnproto xz-utils
+            apt-get install -y python3-sphinx python3-sphinx-rtd-theme python3-toml
+      - run:
+          name: Checkout git repo
+          command: |
+            git clone -b << pipeline.git.branch >> << pipeline.project.git_url >> g3
+      - run:
+          name: Build source tarball
+          environment:
+            NO_CARGO_CACHE_CLEAN: yes
+          working_directory: g3
+          command: |
+            ./scripts/release/build_tarball.sh << pipeline.parameters.package >>-v<< pipeline.parameters.version >>
+      - save_cache:
+          name: Cache source tarball
+          key: << pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz
+          paths:
+            - "g3/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz"
   build-deb:
     parameters:
       image:
@@ -30,7 +65,6 @@ jobs:
           command: apt-get install -y curl git
       - rust/install:
           version: stable
-      - checkout
       - run:
           name: Install package tools
           command: apt-get install -y jq lsb-release dpkg-dev debhelper
@@ -39,12 +73,31 @@ jobs:
           environment:
             DEBIAN_FRONTEND: noninteractive
           command: |
-            apt-get install -y pkgconf capnproto cmake
+            apt-get install -y pkgconf cmake capnproto
             apt-get install -y libssl-dev libc-ares-dev
-            apt-get install -y python3-sphinx python3-sphinx-rtd-theme
+            apt-get install -y python3-dev liblua5.4-dev
+      - restore_cache:
+          name: Restore source tarball
+          keys:
+            - << pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz
+      - run:
+          name: Extract source code
+          working_directory: g3
+          command: tar xf << pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz
       - run:
           name: Build package
-          command: ./scripts/build_deb_from_git.sh << pipeline.parameters.package >>
+          environment:
+            G3_CAPNP_USE_PRECOMPILED: yes
+          working_directory: g3/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>
+          command: ./scripts/build_deb_from_tar.sh
+      - run:
+          name: Create output dir
+          working_directory: g3
+          command: |
+            mkdir DEBS
+            mv << pipeline.parameters.package >>_<< pipeline.parameters.version >>-* DEBS
+      - store_artifacts:
+          path: g3/DEBS
   build-rpm:
     parameters:
       image:
@@ -71,10 +124,9 @@ jobs:
                 command: |
                   dnf install -y epel-release
                   dnf config-manager --set-enabled devel
-                  dnf install -y pkgconf capnproto gcc make cmake
+                  dnf install -y pkgconf gcc make cmake capnproto perl-IPC-Cmd
                   dnf install -y openssl-devel c-ares-devel
                   dnf install -y python3-devel lua-devel
-                  dnf install -y python3-sphinx python3-sphinx_rtd_theme
       - when:
           condition:
             matches:
@@ -87,19 +139,29 @@ jobs:
             - run:
                 name: Install dev tools and libs
                 command: |
-                  zypper install -y pkgconf capnproto gcc make cmake
+                  zypper install -y pkgconf gcc make cmake capnproto perl-IPC-Cmd
                   zypper install -y openssl-devel c-ares-devel
                   zypper install -y python3-devel lua-devel
-                  zypper install -y python3-Sphinx python3-sphinx_rtd_theme
-      - checkout
+      - restore_cache:
+          name: Restore source tarball
+          keys:
+            - << pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz
       - run:
           name: Build package
-          command: ./scripts/build_rpm_from_git.sh << pipeline.parameters.package >>
+          environment:
+            G3_CAPNP_USE_PRECOMPILED: yes
+          working_directory: g3
+          command: rpmbuild -ta << pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz
+      - store_artifacts:
+          path: ~/rpmbuild/RPMS
 
 workflows:
-  build-deb:
+  build-package:
     jobs:
+      - build-source-tar
       - build-deb:
+          requires:
+            - build-source-tar
           matrix:
             parameters:
               class:
@@ -111,16 +173,17 @@ workflows:
                 - debian:bullseye
                 - ubuntu:24.04
                 - ubuntu:22.04
-  build-rpm:
-    jobs:
       - build-rpm:
+          requires:
+            - build-source-tar
           matrix:
             parameters:
               class:
                 - large
                 - arm.medium
               image:
-                #- rockylinux/rockylinux:10
+                - rockylinux/rockylinux:10
                 - rockylinux/rockylinux:9
                 - rockylinux/rockylinux:8
                 - opensuse/leap:15.6
+
