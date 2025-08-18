@@ -55,3 +55,64 @@ impl Connection {
         buf.put_slice(b"\r\n");
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn t_connection_as_bytes() {
+        assert_eq!(connection_as_bytes(true), b"Connection: Close\r\n");
+        assert_eq!(connection_as_bytes(false), b"Connection: Keep-Alive\r\n");
+    }
+
+    #[test]
+    fn connection_from_original() {
+        assert!(matches!(
+            Connection::from_original("Connection"),
+            Connection::CamelCase
+        ));
+        assert!(matches!(
+            Connection::from_original("connection"),
+            Connection::LowerCase
+        ));
+        assert!(matches!(
+            Connection::from_original("CONNECTION"),
+            Connection::UpperCase
+        ));
+        assert!(matches!(
+            Connection::from_original("invalid"),
+            Connection::CamelCase
+        ));
+    }
+
+    #[test]
+    fn connection_as_str() {
+        assert_eq!(Connection::CamelCase.as_str(), "Connection");
+        assert_eq!(Connection::LowerCase.as_str(), "connection");
+        assert_eq!(Connection::UpperCase.as_str(), "CONNECTION");
+    }
+
+    #[test]
+    fn connection_write_to_buf() {
+        let mut buf = Vec::new();
+        let headers = [
+            HeaderName::from_static("upgrade"),
+            HeaderName::from_static("content-length"),
+        ];
+
+        // close=true and headers
+        Connection::CamelCase.write_to_buf(true, &headers, &mut buf);
+        assert_eq!(buf, b"Connection: Close, upgrade, content-length\r\n");
+        buf.clear();
+
+        // close=false and no headers
+        Connection::LowerCase.write_to_buf(false, &[], &mut buf);
+        assert_eq!(buf, b"connection: Keep-Alive\r\n");
+        buf.clear();
+
+        // close=false and headers (uppercase variant)
+        Connection::UpperCase.write_to_buf(false, &headers, &mut buf);
+        assert_eq!(buf, b"CONNECTION: Keep-Alive, upgrade, content-length\r\n");
+    }
+}

@@ -7,6 +7,7 @@ use atoi::FromRadix10;
 
 use super::HttpLineParseError;
 
+#[derive(Debug)]
 pub struct HttpStatusLine<'a> {
     pub version: u8,
     pub code: u16,
@@ -56,8 +57,8 @@ mod tests {
 
     #[test]
     fn normal() {
-        let s = HttpStatusLine::parse(b"HTTP/1.1 200 OK\r\n").unwrap();
-        assert_eq!(s.version, 1);
+        let s = HttpStatusLine::parse(b"HTTP/1.0 200 OK\r\n").unwrap();
+        assert_eq!(s.version, 0);
         assert_eq!(s.code, 200);
         assert_eq!(s.reason, "OK");
     }
@@ -72,9 +73,45 @@ mod tests {
 
     #[test]
     fn no_reason_no_sp() {
-        let s = HttpStatusLine::parse(b"HTTP/1.1 200\r\n").unwrap();
-        assert_eq!(s.version, 1);
+        let s = HttpStatusLine::parse(b"HTTP/2.0 200\r\n").unwrap();
+        assert_eq!(s.version, 2);
         assert_eq!(s.code, 200);
         assert_eq!(s.reason, "");
+    }
+
+    #[test]
+    fn not_long_enough() {
+        let e = HttpStatusLine::parse(b"HTTP/1.1").unwrap_err();
+        assert!(matches!(e, HttpLineParseError::NotLongEnough));
+    }
+
+    #[test]
+    fn no_delimiter_found() {
+        let e = HttpStatusLine::parse(b"HTTP/1.1200OK\r\n").unwrap_err();
+        assert!(matches!(e, HttpLineParseError::NoDelimiterFound(' ')));
+    }
+
+    #[test]
+    fn invalid_version() {
+        let e = HttpStatusLine::parse(b"HTTP/3.0 200 OK\r\n").unwrap_err();
+        assert!(matches!(e, HttpLineParseError::InvalidVersion));
+    }
+
+    #[test]
+    fn invalid_status_code() {
+        let e = HttpStatusLine::parse(b"HTTP/1.1 20 OK\r\n").unwrap_err();
+        assert!(matches!(e, HttpLineParseError::InvalidStatusCode));
+    }
+
+    #[test]
+    fn not_long_enough_after_code() {
+        let e = HttpStatusLine::parse(b"HTTP/1.1 200").unwrap_err();
+        assert!(matches!(e, HttpLineParseError::NotLongEnough));
+    }
+
+    #[test]
+    fn invalid_utf8_encoding() {
+        let e = HttpStatusLine::parse(b"HTTP/1.1 200 OK\xFF\xFF\r\n").unwrap_err();
+        assert!(matches!(e, HttpLineParseError::InvalidUtf8Encoding(_)));
     }
 }

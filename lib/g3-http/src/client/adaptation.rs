@@ -14,6 +14,7 @@ use g3_types::net::{HttpHeaderMap, HttpHeaderValue};
 use super::HttpResponseParseError;
 use crate::{HttpHeaderLine, HttpLineParseError, HttpStatusLine};
 
+#[derive(Debug)]
 pub struct HttpAdaptedResponse {
     pub version: Version,
     pub status: StatusCode,
@@ -147,5 +148,175 @@ impl HttpAdaptedResponse {
         value.set_original_name(header.name);
         self.headers.append(name, value);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::BufReader;
+    use tokio_test::io::Builder as MockIoBuilder;
+
+    #[tokio::test]
+    async fn parse_success() {
+        let data = b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\nX-Custom: value\r\n\r\n";
+        let mut reader = BufReader::new(MockIoBuilder::new().read(data).build());
+        let rsp = HttpAdaptedResponse::parse(&mut reader, 1024).await.unwrap();
+
+        assert_eq!(rsp.version, Version::HTTP_11);
+        assert_eq!(rsp.status, StatusCode::OK);
+        assert_eq!(rsp.reason, "OK");
+        assert_eq!(rsp.content_length, Some(5));
+        assert_eq!(rsp.headers.get("x-custom").unwrap().to_str(), "value");
+    }
+
+    #[tokio::test]
+    async fn http_10_version() {
+        let data = b"HTTP/1.0 200 OK\r\n\r\n";
+        let mut reader = BufReader::new(MockIoBuilder::new().read(data).build());
+        let rsp = HttpAdaptedResponse::parse(&mut reader, 1024).await.unwrap();
+
+        assert_eq!(rsp.version, Version::HTTP_10);
+        assert_eq!(rsp.status, StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn http2_version() {
+        let data = b"HTTP/2.0 200 OK\r\n\r\n";
+        let mut reader = BufReader::new(MockIoBuilder::new().read(data).build());
+        let rsp = HttpAdaptedResponse::parse(&mut reader, 1024).await.unwrap();
+
+        assert_eq!(rsp.version, Version::HTTP_2);
+        assert_eq!(rsp.status, StatusCode::OK);
+        assert_eq!(rsp.reason, "OK");
+    }
+
+    #[tokio::test]
+    async fn invalid_status_line() {
+        let data = b"INVALID/1.1 200 OK\r\n\r\n";
+        let mut reader = BufReader::new(MockIoBuilder::new().read(data).build());
+        let err = HttpAdaptedResponse::parse(&mut reader, 1024)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            HttpResponseParseError::InvalidStatusLine(HttpLineParseError::InvalidVersion)
+        ));
+    }
+
+    #[tokio::test]
+    async fn ignore_hop_by_hop_headers() {
+        let data = b"HTTP/1.1 200 OK\r\nConnection: keep-alive\r\nKeep-Alive: timeout=5\r\nContent-Length: 0\r\n\r\n";
+        let mut reader = BufReader::new(MockIoBuilder::new().read(data).build());
+        let rsp = HttpAdaptedResponse::parse(&mut reader, 1024).await.unwrap();
+
+        assert!(rsp.headers.get("connection").is_none());
+        assert!(rsp.headers.get("keep-alive").is_none());
+    }
+
+    #[tokio::test]
+    async fn invalid_status_code() {
+        let data = b"HTTP/1.1 99 Invalid\r\n\r\n";
+        let mut reader = BufReader::new(MockIoBuilder::new().read(data).build());
+        let err = HttpAdaptedResponse::parse(&mut reader, 1024)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            HttpResponseParseError::InvalidStatusLine(HttpLineParseError::InvalidStatusCode)
+        ));
+    }
+
+    #[tokio::test]
+    async fn invalid_header_name() {
+        let data = b"HTTP/1.1 200 OK\r\nInvalid@Header: value\r\n\r\n";
+        let mut reader = BufReader::new(MockIoBuilder::new().read(data).build());
+        let err = HttpAdaptedResponse::parse(&mut reader, 1024)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderName)
+        ));
+    }
+
+    #[tokio::test]
+    async fn invalid_header_value() {
+        let data = b"HTTP/1.1 200 OK\r\nX-Custom: \x00invalid\r\n\r\n";
+        let mut reader = BufReader::new(MockIoBuilder::new().read(data).build());
+        let err = HttpAdaptedResponse::parse(&mut reader, 1024)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(
+            err,
+            HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderValue)
+        ));
+    }
+
+    #[tokio::test]
+    async fn content_length_parsing() {
+        let data = b"HTTP/1.1 200 OK\r\nContent-Length: 123\r\n\r\n";
+        let mut reader = BufReader::new(MockIoBuilder::new().read(data).build());
+        let rsp = HttpAdaptedResponse::parse(&mut reader, 1024).await.unwrap();
+
+        assert_eq!(rsp.content_length, Some(123));
+    }
+
+    #[tokio::test]
+    async fn invalid_content_length() {
+        let data = b"HTTP/1.1 200 OK\r\nContent-Length: invalid\r\n\r\n";
+        let mut reader = BufReader::new(MockIoBuilder::new().read(data).build());
+        let err = HttpAdaptedResponse::parse(&mut reader, 1024)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, HttpResponseParseError::InvalidContentLength));
+    }
+
+    #[tokio::test]
+    async fn remote_closed() {
+        let data = b"";
+        let mut reader = BufReader::new(MockIoBuilder::new().read(data).build());
+        let err = HttpAdaptedResponse::parse(&mut reader, 1024)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, HttpResponseParseError::RemoteClosed));
+
+        let data = b"HTTP/1.1 200 OK\r\n";
+        let mut reader = BufReader::new(MockIoBuilder::new().read(data).build());
+        let err = HttpAdaptedResponse::parse(&mut reader, 1024)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, HttpResponseParseError::RemoteClosed));
+    }
+
+    #[tokio::test]
+    async fn header_too_large() {
+        let large_header = vec![b'A'; 1025];
+        let mut data = b"HTTP/1.1 200 OK\r\n".to_vec();
+        data.extend_from_slice(&large_header);
+        data.extend_from_slice(b"\r\n\r\n");
+
+        let mut reader = BufReader::new(MockIoBuilder::new().read(&data).build());
+        let err = HttpAdaptedResponse::parse(&mut reader, 1024)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(err, HttpResponseParseError::TooLargeHeader(1024)));
+    }
+
+    #[tokio::test]
+    async fn ignore_transfer_encoding() {
+        let data = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n";
+        let mut reader = BufReader::new(MockIoBuilder::new().read(data).build());
+        let rsp = HttpAdaptedResponse::parse(&mut reader, 1024).await.unwrap();
+
+        assert!(!rsp.headers.contains_key("transfer-encoding"));
     }
 }

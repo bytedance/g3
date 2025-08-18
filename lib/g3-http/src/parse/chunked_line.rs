@@ -7,6 +7,7 @@ use atoi::FromRadix16;
 
 use super::HttpLineParseError;
 
+#[derive(Debug)]
 pub struct HttpChunkedLine<'a> {
     pub chunk_size: u64,
     pub extension: Option<&'a str>,
@@ -60,5 +61,29 @@ mod tests {
         let chunk = HttpChunkedLine::parse(b"1; ieof\r\n").unwrap();
         assert_eq!(chunk.chunk_size, 1);
         assert_eq!(chunk.extension, Some("ieof"));
+    }
+
+    #[test]
+    fn empty_input() {
+        let err = HttpChunkedLine::parse(b"").unwrap_err();
+        assert!(matches!(err, HttpLineParseError::InvalidChunkSize));
+    }
+
+    #[test]
+    fn no_suffix() {
+        let err = HttpChunkedLine::parse(b"1").unwrap_err();
+        assert!(matches!(err, HttpLineParseError::NotLongEnough));
+    }
+
+    #[test]
+    fn invalid_suffix() {
+        let err = HttpChunkedLine::parse(b"1X").unwrap_err();
+        assert!(matches!(err, HttpLineParseError::InvalidChunkSize));
+    }
+
+    #[test]
+    fn non_utf8_extension() {
+        let err = HttpChunkedLine::parse(b"1;\xFF").unwrap_err();
+        assert!(matches!(err, HttpLineParseError::InvalidUtf8Encoding(_)));
     }
 }
