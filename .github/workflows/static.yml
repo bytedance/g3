@@ -44,7 +44,7 @@ jobs:
           # - vendored-aws-lc-fips
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
       - name: Install stable toolchain
@@ -75,7 +75,7 @@ jobs:
         if: contains(matrix.feature, 'vendored-boringssl')
         run: choco install nasm ninja
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
       - name: Install rust toolchain

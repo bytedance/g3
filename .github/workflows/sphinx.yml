@@ -24,7 +24,7 @@ jobs:
           - g3keymess
           - g3statsd
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - run: |
           sudo apt-get update
           sudo apt-get install python3-sphinx python3-sphinx-rtd-theme
