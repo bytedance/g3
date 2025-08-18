@@ -1,4 +1,7 @@
 
+v1.12.2:
+ - Compatibility: support to build rpm packages on OpenSUSE
+
 v1.12.1:
  - BUG FIX: fix deb build of tarball
 
