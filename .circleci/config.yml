@@ -11,11 +11,6 @@ parameters:
     type: string
     default: 0.0.1
 
-steps:
-  - add_ssh_keys:
-      fingerprints:
-        - "SHA256:7XwPpRkMjp+R8ZsjzPO/X1Zif0+i7duTrYbyhOgb3d0"
-
 jobs:
   build-source-tar:
     docker:
@@ -86,8 +81,6 @@ jobs:
           command: tar xf << pipeline.parameters.package >>-<< pipeline.parameters.version >>.tar.xz
       - run:
           name: Build package
-          environment:
-            G3_CAPNP_USE_PRECOMPILED: yes
           working_directory: g3/<< pipeline.parameters.package >>-<< pipeline.parameters.version >>
           command: ./scripts/build_deb_from_tar.sh
       - run:
@@ -124,7 +117,7 @@ jobs:
                 command: |
                   dnf install -y epel-release
                   dnf config-manager --set-enabled devel
-                  dnf install -y pkgconf gcc make cmake capnproto perl-IPC-Cmd
+                  dnf install -y pkgconf gcc make cmake
                   dnf install -y openssl-devel c-ares-devel
                   dnf install -y python3-devel lua-devel
       - when:
@@ -139,7 +132,7 @@ jobs:
             - run:
                 name: Install dev tools and libs
                 command: |
-                  zypper install -y pkgconf gcc make cmake capnproto perl-IPC-Cmd
+                  zypper install -y pkgconf gcc make cmake
                   zypper install -y openssl-devel c-ares-devel
                   zypper install -y python3-devel lua-devel
       - restore_cache:
@@ -186,4 +179,3 @@ workflows:
                 - rockylinux/rockylinux:9
                 - rockylinux/rockylinux:8
                 - opensuse/leap:15.6
-
