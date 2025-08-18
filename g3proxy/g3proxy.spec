@@ -11,9 +11,8 @@ License:        Apache-2.0
 URL:            https://github.com/bytedance/g3
 Source0:        %{name}-%{version}.tar.xz
 
-BuildRequires:  gcc, make, pkgconf, cmake, capnproto
+BuildRequires:  gcc, make, pkgconf, cmake
 BuildRequires:  lua-devel, openssl-devel
-BuildRequires:  perl-IPC-Cmd
 Requires:       ca-certificates
 
 %description

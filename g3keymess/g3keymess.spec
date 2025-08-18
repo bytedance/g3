@@ -12,7 +12,7 @@ URL:            https://github.com/bytedance/g3
 Source0:        %{name}-%{version}.tar.xz
 
 BuildRequires:  gcc, make, pkgconf
-BuildRequires:  openssl-devel,
+BuildRequires:  openssl-devel
 
 %description
 Keyless server for G3 Project

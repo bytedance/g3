@@ -2,7 +2,7 @@ Source: g3statsd
 Section: net
 Priority: optional
 Maintainer: G3statsd Maintainers <g3statsd-maintainers@devel.machine>
-Build-Depends: debhelper, pkg-config, libssl-dev
+Build-Depends: debhelper, pkg-config, capnproto, libssl-dev
 Standards-Version: 3.9.8
 Homepage: https://github.com/bytedance/g3
 

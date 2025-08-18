@@ -2,7 +2,7 @@ Source: g3bench
 Section: net
 Priority: optional
 Maintainer: G3bench Maintainers <g3bench-maintainers@devel.machine>
-Build-Depends: debhelper
+Build-Depends: debhelper, libssl-dev
 Standards-Version: 3.9.8
 Homepage: https://github.com/bytedance/g3
 
