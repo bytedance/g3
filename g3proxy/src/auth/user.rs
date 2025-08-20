@@ -192,7 +192,7 @@ impl User {
             None
         };
 
-        let tcp_conn_rate_limit = if let Some(quota) = &config.connection_rate_limit {
+        let connection_rate_limit = if let Some(quota) = &config.connection_rate_limit {
             if let Some(old_limiter) = &self.connection_rate_limit {
                 if let Some(old_quota) = &self.config.connection_rate_limit {
                     if quota.eq(old_quota) {
@@ -304,7 +304,7 @@ impl User {
             is_expired,
             is_blocked,
             request_rate_limit,
-            connection_rate_limit: tcp_conn_rate_limit,
+            connection_rate_limit,
             tcp_all_upload_speed_limit,
             tcp_all_download_speed_limit,
             udp_all_upload_speed_limit,
