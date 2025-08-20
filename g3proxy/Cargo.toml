@@ -55,7 +55,7 @@ bitflags.workspace = true
 fixedbitset.workspace = true
 rustc-hash.workspace = true
 fnv.workspace = true
-governor = { workspace = true, features = ["std", "jitter"] }
+governor = { workspace = true, features = ["std"] }
 rmpv.workspace = true
 kanal = { workspace = true, features = ["async"] }
 lru.workspace = true
