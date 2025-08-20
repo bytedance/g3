@@ -37,7 +37,7 @@ pub(crate) struct User {
     is_expired: AtomicBool,
     is_blocked: Arc<AtomicBool>,
     request_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
-    tcp_conn_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
+    connection_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
     tcp_all_upload_speed_limit: Option<Arc<GlobalStreamLimiter>>,
     tcp_all_download_speed_limit: Option<Arc<GlobalStreamLimiter>>,
     udp_all_upload_speed_limit: Option<Arc<GlobalDatagramLimiter>>,
@@ -93,8 +93,8 @@ impl User {
             .request_rate_limit
             .as_ref()
             .map(|quota| Arc::new(RateLimiter::direct(quota.get_inner())));
-        let tcp_conn_rate_limit = config
-            .tcp_conn_rate_limit
+        let connection_rate_limit = config
+            .connection_rate_limit
             .as_ref()
             .map(|quota| Arc::new(RateLimiter::direct(quota.get_inner())));
         let log_rate_limit = config
@@ -146,7 +146,7 @@ impl User {
             is_expired,
             is_blocked,
             request_rate_limit,
-            tcp_conn_rate_limit,
+            connection_rate_limit,
             tcp_all_upload_speed_limit,
             tcp_all_download_speed_limit,
             udp_all_upload_speed_limit,
@@ -192,9 +192,9 @@ impl User {
             None
         };
 
-        let tcp_conn_rate_limit = if let Some(quota) = &config.tcp_conn_rate_limit {
-            if let Some(old_limiter) = &self.tcp_conn_rate_limit {
-                if let Some(old_quota) = &self.config.tcp_conn_rate_limit {
+        let tcp_conn_rate_limit = if let Some(quota) = &config.connection_rate_limit {
+            if let Some(old_limiter) = &self.connection_rate_limit {
+                if let Some(old_quota) = &self.config.connection_rate_limit {
                     if quota.eq(old_quota) {
                         // always use the old rate limiter when possible
                         Some(Arc::clone(old_limiter))
@@ -304,7 +304,7 @@ impl User {
             is_expired,
             is_blocked,
             request_rate_limit,
-            tcp_conn_rate_limit,
+            connection_rate_limit: tcp_conn_rate_limit,
             tcp_all_upload_speed_limit,
             tcp_all_download_speed_limit,
             udp_all_upload_speed_limit,
@@ -539,7 +539,7 @@ impl User {
         forbid_stats: &Arc<UserForbiddenStats>,
     ) -> Result<(), ()> {
         if !reused_connection
-            && let Some(limit) = &self.tcp_conn_rate_limit
+            && let Some(limit) = &self.connection_rate_limit
             && limit.check().is_err()
         {
             forbid_stats.add_rate_limited();

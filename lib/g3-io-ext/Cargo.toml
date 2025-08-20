@@ -31,7 +31,7 @@ g3-openssl = { workspace = true, optional = true }
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros"] }
 tokio-test.workspace = true
-governor = { workspace = true, features = ["std", "jitter"] }
+governor = { workspace = true, features = ["std"] }
 
 [features]
 default = []

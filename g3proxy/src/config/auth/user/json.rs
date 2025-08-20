@@ -143,9 +143,13 @@ impl UserConfig {
                 Ok(())
             }
             "tcp_conn_rate_limit" | "tcp_conn_limit_quota" => {
+                warn!("deprecated config key {k}, please use 'connection_rate_limit' instead");
+                self.set_json("connection_rate_limit", v)
+            }
+            "connection_rate_limit" => {
                 let quota = g3_json::value::as_rate_limit_quota(v)
                     .context(format!("invalid request quota value for key {k}"))?;
-                self.tcp_conn_rate_limit = Some(quota);
+                self.connection_rate_limit = Some(quota);
                 Ok(())
             }
             "request_rate_limit" | "request_limit_quota" => {

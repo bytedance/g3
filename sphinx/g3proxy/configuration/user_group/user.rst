@@ -325,13 +325,22 @@ This will be overwritten by:
 tcp_conn_rate_limit
 -------------------
 
+**deprecated**, **alias**: tcp_conn_limit_quota
+
+.. versionchanged:: 1.13.0 deprecated, use `connection_rate_limit` instead
+
+connection_rate_limit
+---------------------
+
 **optional**, **type**: :ref:`rate limit quota <conf_value_rate_limit_quota>`
 
 Set rate limit on client side new connections.
 
 The same connection used for different users will be counted for each of them.
 
-**default**: no limit, **alias**: tcp_conn_limit_quota
+**default**: no limit
+
+.. versionadded:: 1.13.0
 
 request_rate_limit
 ------------------
