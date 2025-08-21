@@ -11,9 +11,8 @@ use test::Bencher;
 use std::num::NonZeroU32;
 use std::time::Instant;
 
-use governor::{Quota, RateLimiter, clock::DefaultClock, state::InMemoryState, state::NotKeyed};
-
 use g3_io_ext::LocalStreamLimiter;
+use g3_types::limit::{GlobalRateLimitState, RateLimitQuota, RateLimiter};
 
 fn test_fixed_window(limiter: &mut LocalStreamLimiter, start: &Instant) {
     let ts = start.elapsed().as_millis() as u64;
@@ -25,11 +24,11 @@ fn test_fixed_window_3(limiter: &mut LocalStreamLimiter, start: &Instant) {
     let _ = limiter.check(ts, 3);
 }
 
-fn test_leaky_bucket(limiter: &RateLimiter<NotKeyed, InMemoryState, DefaultClock>) {
+fn test_leaky_bucket(limiter: &RateLimiter<GlobalRateLimitState>) {
     let _ = limiter.check();
 }
 
-fn test_leaky_bucket_3(limiter: &RateLimiter<NotKeyed, InMemoryState, DefaultClock>) {
+fn test_leaky_bucket_3(limiter: &RateLimiter<GlobalRateLimitState>) {
     let _ = limiter.check_n(unsafe { NonZeroU32::new_unchecked(3) });
 }
 
@@ -56,21 +55,25 @@ fn fixed_window_empty(b: &mut Bencher) {
 
 #[bench]
 fn leaky_bucket_ok1(b: &mut Bencher) {
-    let quota = Quota::per_second(unsafe { NonZeroU32::new_unchecked(1024 * 1024 * 1024) });
-    let limiter = RateLimiter::direct(quota);
+    let quota =
+        RateLimitQuota::per_second(unsafe { NonZeroU32::new_unchecked(1024 * 1024 * 1024) })
+            .unwrap();
+    let limiter = RateLimiter::new_global(quota);
     b.iter(|| test_leaky_bucket(&limiter));
 }
 
 #[bench]
 fn leaky_bucket_ok3(b: &mut Bencher) {
-    let quota = Quota::per_second(unsafe { NonZeroU32::new_unchecked(1024 * 1024 * 1024) });
-    let limiter = RateLimiter::direct(quota);
+    let quota =
+        RateLimitQuota::per_second(unsafe { NonZeroU32::new_unchecked(1024 * 1024 * 1024) })
+            .unwrap();
+    let limiter = RateLimiter::new_global(quota);
     b.iter(|| test_leaky_bucket_3(&limiter));
 }
 
 #[bench]
 fn leaky_bucket_empty(b: &mut Bencher) {
-    let quota = Quota::per_second(unsafe { NonZeroU32::new_unchecked(1024) });
-    let limiter = RateLimiter::direct(quota);
+    let quota = RateLimitQuota::per_second(unsafe { NonZeroU32::new_unchecked(1024) }).unwrap();
+    let limiter = RateLimiter::new_global(quota);
     b.iter(|| test_leaky_bucket(&limiter));
 }

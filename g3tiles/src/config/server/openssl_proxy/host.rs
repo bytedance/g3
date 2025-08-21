@@ -3,6 +3,8 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::sync::Arc;
+
 use anyhow::{Context, anyhow};
 use openssl::ex_data::Index;
 use openssl::ssl::{
@@ -12,11 +14,10 @@ use openssl::ssl::{
 use openssl::stack::Stack;
 use openssl::x509::X509;
 use openssl::x509::store::X509StoreBuilder;
-use std::sync::Arc;
 use yaml_rust::Yaml;
 
 use g3_types::collection::NamedValue;
-use g3_types::limit::RateLimitQuotaConfig;
+use g3_types::limit::RateLimitQuota;
 use g3_types::metrics::NodeName;
 use g3_types::net::{
     OpensslCertificatePair, OpensslServerSessionCache, OpensslSessionIdContext, OpensslTicketKey,
@@ -40,7 +41,7 @@ pub(crate) struct OpensslHostConfig {
     no_session_ticket: bool,
     no_session_cache: bool,
     pub(crate) request_alive_max: Option<usize>,
-    pub(crate) request_rate_limit: Option<RateLimitQuotaConfig>,
+    pub(crate) request_rate_limit: Option<RateLimitQuota>,
     pub(crate) tcp_sock_speed_limit: Option<TcpSockSpeedLimitConfig>,
     pub(crate) task_idle_max_count: Option<usize>,
     pub(crate) backends: AlpnMatch<NodeName>,

@@ -13,7 +13,7 @@ use rustls_pki_types::CertificateDer;
 use yaml_rust::Yaml;
 
 use g3_types::collection::NamedValue;
-use g3_types::limit::RateLimitQuotaConfig;
+use g3_types::limit::RateLimitQuota;
 use g3_types::metrics::NodeName;
 use g3_types::net::{
     MultipleCertResolver, OpensslTicketKey, RollingTicketer, RustlsCertificatePair,
@@ -32,7 +32,7 @@ pub(crate) struct RustlsHostConfig {
     no_session_cache: bool,
     pub(crate) accept_timeout: Duration,
     pub(crate) request_alive_max: Option<usize>,
-    pub(crate) request_rate_limit: Option<RateLimitQuotaConfig>,
+    pub(crate) request_rate_limit: Option<RateLimitQuota>,
     pub(crate) tcp_sock_speed_limit: Option<TcpSockSpeedLimitConfig>,
     pub(crate) task_idle_max_count: Option<usize>,
     pub(crate) backends: AlpnMatch<NodeName>,

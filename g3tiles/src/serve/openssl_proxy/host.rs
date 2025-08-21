@@ -6,11 +6,10 @@
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
-use governor::{RateLimiter, clock::DefaultClock, state::InMemoryState, state::NotKeyed};
 use openssl::ssl::SslContext;
 
 use g3_types::collection::NamedValue;
-use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
+use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit, GlobalRateLimitState, RateLimiter};
 use g3_types::metrics::NodeName;
 use g3_types::net::{OpensslTicketKey, RollingTicketer};
 use g3_types::route::AlpnMatch;
@@ -24,7 +23,7 @@ pub(crate) struct OpensslHost {
     #[cfg(feature = "vendored-tongsuo")]
     pub(super) tlcp_context: Option<SslContext>,
     req_alive_sem: Option<GaugeSemaphore>,
-    request_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
+    request_rate_limit: Option<Arc<RateLimiter<GlobalRateLimitState>>>,
     pub(crate) backends: Arc<ArcSwap<AlpnMatch<ArcBackend>>>,
 }
 
@@ -41,8 +40,7 @@ impl OpensslHost {
 
         let request_rate_limit = config
             .request_rate_limit
-            .as_ref()
-            .map(|quota| Arc::new(RateLimiter::direct(quota.get_inner())));
+            .map(|quota| Arc::new(RateLimiter::new_global(quota)));
         let req_alive_sem = config.request_alive_max.map(GaugeSemaphore::new);
 
         Ok(OpensslHost {
@@ -65,20 +63,20 @@ impl OpensslHost {
         #[cfg(feature = "vendored-tongsuo")]
         let tlcp_context = config.build_tlcp_context(tls_ticketer.clone())?;
 
-        let request_rate_limit = if let Some(quota) = &config.request_rate_limit {
+        let request_rate_limit = if let Some(quota) = config.request_rate_limit {
             if let Some(old_limiter) = &self.request_rate_limit {
                 if let Some(old_quota) = &self.config.request_rate_limit {
                     if quota.eq(old_quota) {
                         // always use the old rate limiter when possible
                         Some(Arc::clone(old_limiter))
                     } else {
-                        Some(Arc::new(RateLimiter::direct(quota.get_inner())))
+                        Some(Arc::new(RateLimiter::new_global(quota)))
                     }
                 } else {
                     unreachable!()
                 }
             } else {
-                Some(Arc::new(RateLimiter::direct(quota.get_inner())))
+                Some(Arc::new(RateLimiter::new_global(quota)))
             }
         } else {
             None

@@ -14,12 +14,12 @@ use std::time::Duration;
 use ahash::AHashMap;
 use anyhow::{Context, anyhow};
 use clap::{Arg, ArgAction, ArgMatches, Command, ValueHint, value_parser};
-use governor::Quota;
 
 use g3_runtime::blended::BlendedRuntimeConfig;
 use g3_runtime::unaided::UnaidedRuntimeConfig;
 use g3_statsd_client::{StatsdBackend, StatsdClient, StatsdClientConfig};
 use g3_types::collection::{SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder, WeightedValue};
+use g3_types::limit::RateLimitQuota;
 use g3_types::metrics::NodeName;
 use g3_types::net::{TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig, UpstreamAddr};
 
@@ -57,7 +57,7 @@ pub struct ProcArgs {
     pub(super) latency: Option<Duration>,
     pub(super) requests: Option<usize>,
     pub(super) time_limit: Option<Duration>,
-    pub(super) rate_limit: Option<Quota>,
+    pub(super) rate_limit: Option<RateLimitQuota>,
     pub(super) log_error_count: usize,
     pub(super) ignore_fatal_error: bool,
     pub(super) task_unconstrained: bool,

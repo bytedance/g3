@@ -9,12 +9,12 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use governor::RateLimiter;
 use hdrhistogram::Histogram;
 use tokio::sync::{Barrier, Semaphore, mpsc};
 use tokio::time::{Instant, MissedTickBehavior};
 
 use g3_statsd_client::StatsdClient;
+use g3_types::limit::RateLimiter;
 
 use super::ProcArgs;
 
@@ -184,8 +184,7 @@ where
 
     let rate_limit = proc_args
         .rate_limit
-        .as_ref()
-        .map(|q| Arc::new(RateLimiter::direct(*q)));
+        .map(|q| Arc::new(RateLimiter::new_global(q)));
     for i in 0..proc_args.concurrency.get() {
         let sem = Arc::clone(&sync_sem);
         let barrier = Arc::clone(&sync_barrier);
@@ -222,7 +221,7 @@ where
 
                 if let Some(r) = &rate_limit {
                     while let Err(t) = r.check() {
-                        tokio::time::sleep_until(t.earliest_possible().into()).await;
+                        tokio::time::sleep(t).await;
                     }
                 }
 

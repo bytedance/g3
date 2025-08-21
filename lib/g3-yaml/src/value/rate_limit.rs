@@ -9,32 +9,33 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
-use g3_types::limit::RateLimitQuotaConfig;
+use g3_types::limit::RateLimitQuota;
 
-pub fn as_rate_limit_quota(v: &Yaml) -> anyhow::Result<RateLimitQuotaConfig> {
+pub fn as_rate_limit_quota(v: &Yaml) -> anyhow::Result<RateLimitQuota> {
     match v {
         Yaml::Integer(_) => {
             let count = crate::value::as_nonzero_u32(v)?;
-            Ok(RateLimitQuotaConfig::per_second(count))
+            RateLimitQuota::per_second(count)
         }
-        Yaml::String(s) => RateLimitQuotaConfig::from_str(s),
+        Yaml::String(s) => RateLimitQuota::from_str(s),
         Yaml::Hash(map) => {
-            let mut quota: Option<RateLimitQuotaConfig> = None;
+            let mut quota: Option<RateLimitQuota> = None;
             let mut max_burst: Option<NonZeroU32> = None;
             crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
-                "rate" => match v {
-                    Yaml::Integer(_) | Yaml::String(_) => {
+                "rate" => {
+                    if matches!(v, Yaml::Integer(_) | Yaml::String(_)) {
                         quota = Some(
                             as_rate_limit_quota(v).context(format!("invalid value for key {k}"))?,
                         );
                         Ok(())
+                    } else {
+                        Err(anyhow!("invalid value type for key {k}"))
                     }
-                    _ => Err(anyhow!("invalid value type for key {k}")),
-                },
+                }
                 "replenish_interval" => {
                     let dur = crate::humanize::as_duration(v)
                         .context(format!("invalid humanize duration value for key {k}"))?;
-                    quota = RateLimitQuotaConfig::with_period(dur);
+                    quota = RateLimitQuota::with_period(dur);
                     Ok(())
                 }
                 "max_burst" => {
@@ -69,7 +70,7 @@ mod tests {
     #[test]
     fn as_rate_limit_quota_ok() {
         let ten = NonZeroU32::new(10).unwrap();
-        let exp = RateLimitQuotaConfig::per_second(ten);
+        let exp = RateLimitQuota::per_second(ten).unwrap();
 
         let v = Yaml::Integer(10);
         let quota = as_rate_limit_quota(&v).unwrap();
@@ -85,7 +86,7 @@ mod tests {
 
         let ten = NonZeroU32::new(10).unwrap();
         let thirty = NonZeroU32::new(30).unwrap();
-        let mut exp = RateLimitQuotaConfig::per_second(ten);
+        let mut exp = RateLimitQuota::per_second(ten).unwrap();
         exp.allow_burst(thirty);
 
         let yaml = yaml_doc!(

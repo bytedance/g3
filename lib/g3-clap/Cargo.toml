@@ -11,9 +11,9 @@ anyhow.workspace = true
 clap.workspace = true
 humanize-rs.workspace = true
 http = { workspace = true, optional = true }
-governor = { workspace = true, optional = true }
+g3-types = { workspace = true, optional = true }
 
 [features]
 default = []
 http = ["dep:http"]
-limit = ["dep:governor"]
+limit = ["dep:g3-types"]

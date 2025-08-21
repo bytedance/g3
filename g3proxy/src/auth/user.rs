@@ -12,14 +12,13 @@ use anyhow::Context;
 use arc_swap::ArcSwapOption;
 use chrono::{DateTime, Utc};
 use foldhash::HashMap;
-use governor::{RateLimiter, clock::DefaultClock, state::InMemoryState, state::NotKeyed};
 use tokio::time::Instant;
 
 use g3_io_ext::{GlobalDatagramLimiter, GlobalLimitGroup, GlobalStreamLimiter};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::auth::UserAuthError;
-use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
+use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit, GlobalRateLimitState, RateLimiter};
 use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{HttpHeaderMap, ProxyRequestType, UpstreamAddr};
 use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
@@ -36,8 +35,8 @@ pub(crate) struct User {
     started: Instant,
     is_expired: AtomicBool,
     is_blocked: Arc<AtomicBool>,
-    request_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
-    connection_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
+    request_rate_limit: Option<Arc<RateLimiter<GlobalRateLimitState>>>,
+    connection_rate_limit: Option<Arc<RateLimiter<GlobalRateLimitState>>>,
     tcp_all_upload_speed_limit: Option<Arc<GlobalStreamLimiter>>,
     tcp_all_download_speed_limit: Option<Arc<GlobalStreamLimiter>>,
     udp_all_upload_speed_limit: Option<Arc<GlobalDatagramLimiter>>,
@@ -45,7 +44,7 @@ pub(crate) struct User {
     ingress_net_filter: Option<Arc<AclNetworkRule>>,
     dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
     resolve_redirection: Option<ResolveRedirection>,
-    log_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
+    log_rate_limit: Option<Arc<RateLimiter<GlobalRateLimitState>>>,
     forbid_stats: Arc<Mutex<HashMap<NodeName, Arc<UserForbiddenStats>>>>,
     req_stats: Arc<Mutex<HashMap<NodeName, Arc<UserRequestStats>>>>,
     io_stats: Arc<Mutex<HashMap<NodeName, Arc<UserTrafficStats>>>>,
@@ -91,16 +90,13 @@ impl User {
     ) -> anyhow::Result<Self> {
         let request_rate_limit = config
             .request_rate_limit
-            .as_ref()
-            .map(|quota| Arc::new(RateLimiter::direct(quota.get_inner())));
+            .map(|quota| Arc::new(RateLimiter::new_global(quota)));
         let connection_rate_limit = config
             .connection_rate_limit
-            .as_ref()
-            .map(|quota| Arc::new(RateLimiter::direct(quota.get_inner())));
+            .map(|quota| Arc::new(RateLimiter::new_global(quota)));
         let log_rate_limit = config
             .log_rate_limit
-            .as_ref()
-            .map(|quota| Arc::new(RateLimiter::direct(quota.get_inner())));
+            .map(|quota| Arc::new(RateLimiter::new_global(quota)));
 
         let tcp_all_upload_speed_limit = if let Some(config) = config.tcp_all_upload_speed_limit {
             let limiter = Arc::new(GlobalStreamLimiter::new(GlobalLimitGroup::User, config));
@@ -173,58 +169,58 @@ impl User {
         config: &Arc<UserConfig>,
         datetime_now: &DateTime<Utc>,
     ) -> anyhow::Result<Self> {
-        let request_rate_limit = if let Some(quota) = &config.request_rate_limit {
+        let request_rate_limit = if let Some(quota) = config.request_rate_limit {
             if let Some(old_limiter) = &self.request_rate_limit {
                 if let Some(old_quota) = &self.config.request_rate_limit {
                     if quota.eq(old_quota) {
                         // always use the old rate limiter when possible
                         Some(Arc::clone(old_limiter))
                     } else {
-                        Some(Arc::new(RateLimiter::direct(quota.get_inner())))
+                        Some(Arc::new(RateLimiter::new_global(quota)))
                     }
                 } else {
                     unreachable!()
                 }
             } else {
-                Some(Arc::new(RateLimiter::direct(quota.get_inner())))
+                Some(Arc::new(RateLimiter::new_global(quota)))
             }
         } else {
             None
         };
 
-        let connection_rate_limit = if let Some(quota) = &config.connection_rate_limit {
+        let connection_rate_limit = if let Some(quota) = config.connection_rate_limit {
             if let Some(old_limiter) = &self.connection_rate_limit {
                 if let Some(old_quota) = &self.config.connection_rate_limit {
                     if quota.eq(old_quota) {
                         // always use the old rate limiter when possible
                         Some(Arc::clone(old_limiter))
                     } else {
-                        Some(Arc::new(RateLimiter::direct(quota.get_inner())))
+                        Some(Arc::new(RateLimiter::new_global(quota)))
                     }
                 } else {
                     unreachable!()
                 }
             } else {
-                Some(Arc::new(RateLimiter::direct(quota.get_inner())))
+                Some(Arc::new(RateLimiter::new_global(quota)))
             }
         } else {
             None
         };
 
-        let log_rate_limit = if let Some(quota) = &config.log_rate_limit {
+        let log_rate_limit = if let Some(quota) = config.log_rate_limit {
             if let Some(old_limiter) = &self.log_rate_limit {
                 if let Some(old_quota) = &self.config.log_rate_limit {
                     if quota.eq(old_quota) {
                         // always use the old rate limiter when possible
                         Some(Arc::clone(old_limiter))
                     } else {
-                        Some(Arc::new(RateLimiter::direct(quota.get_inner())))
+                        Some(Arc::new(RateLimiter::new_global(quota)))
                     }
                 } else {
                     unreachable!()
                 }
             } else {
-                Some(Arc::new(RateLimiter::direct(quota.get_inner())))
+                Some(Arc::new(RateLimiter::new_global(quota)))
             }
         } else {
             None

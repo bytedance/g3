@@ -9,33 +9,34 @@ use std::str::FromStr;
 use anyhow::{Context, anyhow};
 use serde_json::Value;
 
-use g3_types::limit::RateLimitQuotaConfig;
+use g3_types::limit::RateLimitQuota;
 
-pub fn as_rate_limit_quota(v: &Value) -> anyhow::Result<RateLimitQuotaConfig> {
+pub fn as_rate_limit_quota(v: &Value) -> anyhow::Result<RateLimitQuota> {
     match v {
         Value::Number(_) => {
             let count = crate::value::as_nonzero_u32(v)?;
-            Ok(RateLimitQuotaConfig::per_second(count))
+            RateLimitQuota::per_second(count)
         }
-        Value::String(s) => RateLimitQuotaConfig::from_str(s),
+        Value::String(s) => RateLimitQuota::from_str(s),
         Value::Object(map) => {
-            let mut quota: Option<RateLimitQuotaConfig> = None;
+            let mut quota: Option<RateLimitQuota> = None;
             let mut max_burst: Option<NonZeroU32> = None;
             for (k, v) in map {
                 match crate::key::normalize(k).as_str() {
-                    "rate" => match v {
-                        Value::Number(_) | Value::String(_) => {
+                    "rate" => {
+                        if matches!(v, Value::Number(_) | Value::String(_)) {
                             quota = Some(
                                 as_rate_limit_quota(v)
                                     .context(format!("invalid value for key {k}"))?,
                             );
+                        } else {
+                            return Err(anyhow!("invalid value type for key {k}"));
                         }
-                        _ => return Err(anyhow!("invalid value type for key {k}")),
-                    },
+                    }
                     "replenish_interval" => {
                         let dur = crate::humanize::as_duration(v)
                             .context(format!("invalid humanize duration value for key {k}"))?;
-                        quota = RateLimitQuotaConfig::with_period(dur);
+                        quota = RateLimitQuota::with_period(dur);
                     }
                     "max_burst" => {
                         max_burst = Some(
@@ -73,21 +74,21 @@ mod tests {
         let v = json!(10);
         assert_eq!(
             as_rate_limit_quota(&v).unwrap(),
-            RateLimitQuotaConfig::per_second(NonZeroU32::new(10).unwrap())
+            RateLimitQuota::per_second(NonZeroU32::new(10).unwrap()).unwrap()
         );
 
         // string input: simple number
         let v = json!("10");
         assert_eq!(
             as_rate_limit_quota(&v).unwrap(),
-            RateLimitQuotaConfig::per_second(NonZeroU32::new(10).unwrap())
+            RateLimitQuota::per_second(NonZeroU32::new(10).unwrap()).unwrap()
         );
 
         // string input: with unit
         let v = json!("10/s");
         assert_eq!(
             as_rate_limit_quota(&v).unwrap(),
-            RateLimitQuotaConfig::per_second(NonZeroU32::new(10).unwrap())
+            RateLimitQuota::per_second(NonZeroU32::new(10).unwrap()).unwrap()
         );
 
         // object input with rate and max_burst
@@ -95,7 +96,7 @@ mod tests {
             "rate": 10,
             "max_burst": 30
         });
-        let mut expected = RateLimitQuotaConfig::per_second(NonZeroU32::new(10).unwrap());
+        let mut expected = RateLimitQuota::per_second(NonZeroU32::new(10).unwrap()).unwrap();
         expected.allow_burst(NonZeroU32::new(30).unwrap());
         assert_eq!(as_rate_limit_quota(&v).unwrap(), expected);
 
@@ -104,7 +105,7 @@ mod tests {
             "replenish_interval": "100ms",
             "max_burst": 30
         });
-        let mut expected = RateLimitQuotaConfig::with_period(Duration::from_millis(100)).unwrap();
+        let mut expected = RateLimitQuota::with_period(Duration::from_millis(100)).unwrap();
         expected.allow_burst(NonZeroU32::new(30).unwrap());
         assert_eq!(as_rate_limit_quota(&v).unwrap(), expected);
 
@@ -112,13 +113,13 @@ mod tests {
         let v = json!("10/m");
         assert_eq!(
             as_rate_limit_quota(&v).unwrap(),
-            RateLimitQuotaConfig::from_str("10/m").unwrap()
+            RateLimitQuota::from_str("10/m").unwrap()
         );
 
         let v = json!("10/h");
         assert_eq!(
             as_rate_limit_quota(&v).unwrap(),
-            RateLimitQuotaConfig::from_str("10/h").unwrap()
+            RateLimitQuota::from_str("10/h").unwrap()
         );
     }
 

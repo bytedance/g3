@@ -6,11 +6,11 @@
 mod gauge_semaphore;
 pub use gauge_semaphore::{GaugeSemaphore, GaugeSemaphoreAcquireError, GaugeSemaphorePermit};
 
-mod rate_limit_quota;
-pub use rate_limit_quota::RateLimitQuotaConfig;
-
 mod stream_speed;
 pub use stream_speed::GlobalStreamSpeedLimitConfig;
 
 mod datagram_speed;
 pub use datagram_speed::GlobalDatagramSpeedLimitConfig;
+
+mod rate;
+pub use rate::*;
