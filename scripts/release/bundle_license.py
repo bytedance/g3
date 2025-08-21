@@ -5,7 +5,6 @@ import json
 import sys
 from pathlib import Path
 
-
 NO_TEXT_LICENSES = ["UNLICENSE"]
 ALIAS_NAME_MAP = {
     "BSL-1.0": ["BOOST"],
@@ -15,7 +14,6 @@ ALIAS_NAME_MAP = {
 NO_TEXT_CRATES = [
     "cadence-with-flush",  # in the root dir repo
     "daemonize",  # in the root dir repo
-    "governor",  # no license text at all
     "h3",  # in the root dir repo
     "h3-quinn",  # in the root dir repo
     "number_prefix",  # not uploaded
@@ -87,10 +85,12 @@ def find_license_file(l: str, d: Path):
 def find_default_license_file(d: Path):
     return find_license_file_with_ext("LICENSE", d)
 
+
 def print_license_not_found():
     print("Comment:")
     print(" no license content found in the crate source code,")
     print(" you should find them in the repository")
+
 
 def print_dual_licenses(name: str, licenses, d: Path):
     # they may have already merged the license file, like https://github.com/BLAKE3-team/BLAKE3

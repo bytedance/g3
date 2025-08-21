@@ -28,7 +28,6 @@ num-traits.workspace = true
 arc-swap.workspace = true
 ahash = { workspace = true, optional = true }
 fastrand = { workspace = true, optional = true }
-governor = { workspace = true, features = ["std"] }
 blake3 = { workspace = true, optional = true }
 hex = { workspace = true, optional = true }
 ip_network = { workspace = true, optional = true }

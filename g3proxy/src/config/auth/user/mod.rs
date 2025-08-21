@@ -16,7 +16,7 @@ use g3_types::acl::{
 };
 use g3_types::acl_set::AclDstHostRuleSetBuilder;
 use g3_types::limit::{
-    GlobalDatagramSpeedLimitConfig, GlobalStreamSpeedLimitConfig, RateLimitQuotaConfig,
+    GlobalDatagramSpeedLimitConfig, GlobalStreamSpeedLimitConfig, RateLimitQuota,
 };
 use g3_types::metrics::NodeName;
 use g3_types::net::{
@@ -47,15 +47,15 @@ pub(crate) struct UserConfig {
     pub(crate) http_upstream_keepalive: HttpKeepAliveConfig,
     pub(crate) http_rsp_hdr_recv_timeout: Option<Duration>,
     pub(crate) request_alive_max: usize,
-    pub(crate) request_rate_limit: Option<RateLimitQuotaConfig>,
-    pub(crate) connection_rate_limit: Option<RateLimitQuotaConfig>,
+    pub(crate) request_rate_limit: Option<RateLimitQuota>,
+    pub(crate) connection_rate_limit: Option<RateLimitQuota>,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
     pub(crate) udp_sock_speed_limit: UdpSockSpeedLimitConfig,
     pub(crate) tcp_all_upload_speed_limit: Option<GlobalStreamSpeedLimitConfig>,
     pub(crate) tcp_all_download_speed_limit: Option<GlobalStreamSpeedLimitConfig>,
     pub(crate) udp_all_upload_speed_limit: Option<GlobalDatagramSpeedLimitConfig>,
     pub(crate) udp_all_download_speed_limit: Option<GlobalDatagramSpeedLimitConfig>,
-    pub(crate) log_rate_limit: Option<RateLimitQuotaConfig>,
+    pub(crate) log_rate_limit: Option<RateLimitQuota>,
     pub(crate) log_uri_max_chars: Option<usize>,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) proxy_request_filter: Option<AclProxyRequestRule>,

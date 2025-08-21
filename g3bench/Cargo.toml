@@ -36,7 +36,6 @@ concurrent-queue = "2.5"
 hex.workspace = true
 itoa.workspace = true
 integer-encoding = "4.0"
-governor = { workspace = true, features = ["std"] }
 hickory-client.workspace = true
 hickory-proto.workspace = true
 g3-runtime.workspace = true
