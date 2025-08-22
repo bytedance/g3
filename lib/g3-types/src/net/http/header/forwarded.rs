@@ -110,3 +110,228 @@ impl FromStr for HttpForwardedHeaderType {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::{Ipv4Addr, Ipv6Addr};
+
+    #[test]
+    fn http_forwarded_header_value_operations() {
+        // constructors
+        let ipv4 = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1));
+        let classic_value = HttpForwardedHeaderValue::new_classic(ipv4);
+        if let HttpForwardedHeaderValue::Classic(ip) = classic_value {
+            assert_eq!(ip, ipv4);
+        } else {
+            panic!("Expected Classic variant");
+        }
+
+        let ipv6 = IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1));
+        let classic_value = HttpForwardedHeaderValue::new_classic(ipv6);
+        if let HttpForwardedHeaderValue::Classic(ip) = classic_value {
+            assert_eq!(ip, ipv6);
+        } else {
+            panic!("Expected Classic variant");
+        }
+
+        let for_addr_v4 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 8080);
+        let by_addr_v4 = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)), 9090);
+        let standard_value = HttpForwardedHeaderValue::new_standard(for_addr_v4, by_addr_v4);
+        if let HttpForwardedHeaderValue::Standard(HttpStandardForwardedHeaderValue {
+            for_addr: f,
+            by_addr: b,
+        }) = standard_value
+        {
+            assert_eq!(f, for_addr_v4);
+            assert_eq!(b, by_addr_v4);
+        } else {
+            panic!("Expected Standard variant");
+        }
+
+        let for_addr_v6 = SocketAddr::new(
+            IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1)),
+            8080,
+        );
+        let by_addr_v6 = SocketAddr::new(
+            IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 2)),
+            9090,
+        );
+        let standard_value = HttpForwardedHeaderValue::new_standard(for_addr_v6, by_addr_v6);
+        if let HttpForwardedHeaderValue::Standard(HttpStandardForwardedHeaderValue {
+            for_addr: f,
+            by_addr: b,
+        }) = standard_value
+        {
+            assert_eq!(f, for_addr_v6);
+            assert_eq!(b, by_addr_v6);
+        } else {
+            panic!("Expected Standard variant");
+        }
+
+        // append_to for all IP combinations
+        let test_cases = vec![
+            (
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 8080),
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)), 9090),
+                "for=192.168.1.1:8080; by=10.0.0.1:9090",
+            ),
+            (
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 8080),
+                SocketAddr::new(
+                    IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1)),
+                    9090,
+                ),
+                "for=192.168.1.1:8080; by=\"[2001:db8::1]:9090\"",
+            ),
+            (
+                SocketAddr::new(
+                    IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1)),
+                    8080,
+                ),
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)), 9090),
+                "for=\"[2001:db8::1]:8080\"; by=10.0.0.1:9090",
+            ),
+            (
+                SocketAddr::new(
+                    IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1)),
+                    8080,
+                ),
+                SocketAddr::new(
+                    IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 2)),
+                    9090,
+                ),
+                "for=\"[2001:db8::1]:8080\"; by=\"[2001:db8::2]:9090\"",
+            ),
+        ];
+
+        for (for_addr, by_addr, expected) in test_cases {
+            let mut map = HttpHeaderMap::default();
+            let standard_value = HttpForwardedHeaderValue::new_standard(for_addr, by_addr);
+            standard_value.append_to(&mut map);
+
+            assert!(map.contains_key("forwarded"));
+            let header_value = map.get("forwarded").unwrap();
+            assert_eq!(header_value.to_str(), expected);
+        }
+
+        let mut map = HttpHeaderMap::default();
+        let classic_value = HttpForwardedHeaderValue::new_classic(ipv4);
+        classic_value.append_to(&mut map);
+
+        assert!(map.contains_key("x-forwarded-for"));
+        let header_value = map.get("x-forwarded-for").unwrap();
+        assert_eq!(header_value.to_str(), "192.168.1.1");
+
+        // build_header_line for all IP combinations
+        let header_line = classic_value.build_header_line();
+        assert_eq!(header_line, "X-Forwarded-For: 192.168.1.1\r\n");
+
+        let test_cases = vec![
+            (
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 8080),
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)), 9090),
+                "Forwarded: for=192.168.1.1:8080; by=10.0.0.1:9090\r\n",
+            ),
+            (
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 8080),
+                SocketAddr::new(
+                    IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1)),
+                    9090,
+                ),
+                "Forwarded: for=192.168.1.1:8080; by=\"[2001:db8::1]:9090\"\r\n",
+            ),
+            (
+                SocketAddr::new(
+                    IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1)),
+                    8080,
+                ),
+                SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 1)), 9090),
+                "Forwarded: for=\"[2001:db8::1]:8080\"; by=10.0.0.1:9090\r\n",
+            ),
+            (
+                SocketAddr::new(
+                    IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1)),
+                    8080,
+                ),
+                SocketAddr::new(
+                    IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 2)),
+                    9090,
+                ),
+                "Forwarded: for=\"[2001:db8::1]:8080\"; by=\"[2001:db8::2]:9090\"\r\n",
+            ),
+        ];
+
+        for (for_addr, by_addr, expected) in test_cases {
+            let standard_value = HttpForwardedHeaderValue::new_standard(for_addr, by_addr);
+            let header_line = standard_value.build_header_line();
+            assert_eq!(header_line, expected);
+        }
+    }
+
+    #[test]
+    fn http_forwarded_header_type_operations() {
+        // valid cases
+        assert_eq!(
+            "none".parse::<HttpForwardedHeaderType>().unwrap(),
+            HttpForwardedHeaderType::Disable
+        );
+        assert_eq!(
+            "disable".parse::<HttpForwardedHeaderType>().unwrap(),
+            HttpForwardedHeaderType::Disable
+        );
+        assert_eq!(
+            "classic".parse::<HttpForwardedHeaderType>().unwrap(),
+            HttpForwardedHeaderType::Classic
+        );
+        assert_eq!(
+            "enable".parse::<HttpForwardedHeaderType>().unwrap(),
+            HttpForwardedHeaderType::Classic
+        );
+        assert_eq!(
+            "standard".parse::<HttpForwardedHeaderType>().unwrap(),
+            HttpForwardedHeaderType::Standard
+        );
+        assert_eq!(
+            "rfc7239".parse::<HttpForwardedHeaderType>().unwrap(),
+            HttpForwardedHeaderType::Standard
+        );
+
+        // case insensitivity
+        assert_eq!(
+            "NONE".parse::<HttpForwardedHeaderType>().unwrap(),
+            HttpForwardedHeaderType::Disable
+        );
+        assert_eq!(
+            "DISABLE".parse::<HttpForwardedHeaderType>().unwrap(),
+            HttpForwardedHeaderType::Disable
+        );
+        assert_eq!(
+            "CLASSIC".parse::<HttpForwardedHeaderType>().unwrap(),
+            HttpForwardedHeaderType::Classic
+        );
+        assert_eq!(
+            "ENABLE".parse::<HttpForwardedHeaderType>().unwrap(),
+            HttpForwardedHeaderType::Classic
+        );
+        assert_eq!(
+            "STANDARD".parse::<HttpForwardedHeaderType>().unwrap(),
+            HttpForwardedHeaderType::Standard
+        );
+        assert_eq!(
+            "RFC7239".parse::<HttpForwardedHeaderType>().unwrap(),
+            HttpForwardedHeaderType::Standard
+        );
+
+        // invalid cases
+        assert!("invalid".parse::<HttpForwardedHeaderType>().is_err());
+        assert!("".parse::<HttpForwardedHeaderType>().is_err());
+        assert!("unknown".parse::<HttpForwardedHeaderType>().is_err());
+
+        // default value
+        assert_eq!(
+            HttpForwardedHeaderType::default(),
+            HttpForwardedHeaderType::Classic
+        );
+    }
+}
