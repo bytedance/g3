@@ -17,7 +17,7 @@ use tokio::sync::{mpsc, oneshot};
 use g3_types::auth::{Password, UserAuthError, Username};
 use g3_types::metrics::{MetricTagMap, NodeName};
 
-use crate::config::auth::UserGroupConfig;
+use crate::config::auth::{UserConfig, UserGroupConfig};
 
 mod ops;
 pub use ops::load_all;
@@ -298,7 +298,7 @@ impl UserGroup {
     pub(crate) async fn publish_dynamic_users(&self, contents: &str) -> anyhow::Result<()> {
         let doc = serde_json::Value::from_str(contents)
             .map_err(|e| anyhow!("the published contents is not valid json: {e}"))?;
-        let user_config = crate::config::auth::source::cache::parse_json(&doc)?;
+        let users = UserConfig::parse_json_many(&doc)?;
 
         // we should avoid corrupt write at process exit
         if !self.config.dynamic_cache.as_os_str().is_empty()
@@ -314,6 +314,6 @@ impl UserGroup {
             );
         }
 
-        source::publish_dynamic_users(self.config.as_ref(), user_config, &self.dynamic_users)
+        source::publish_dynamic_users(self.config.as_ref(), users, &self.dynamic_users)
     }
 }

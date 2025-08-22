@@ -281,4 +281,36 @@ impl UserConfig {
             _ => Err(anyhow!("invalid key {k}")),
         }
     }
+
+    pub(crate) fn parse_yaml_many(docs: &[Yaml]) -> anyhow::Result<Vec<UserConfig>> {
+        let mut users = Vec::new();
+        for (di, doc) in docs.iter().enumerate() {
+            match doc {
+                Yaml::Hash(map) => {
+                    let user = UserConfig::parse_yaml(map, None)
+                        .context(format!("invalid user config value for doc #{di}"))?;
+                    users.push(user);
+                }
+                Yaml::Array(seq) => {
+                    for (i, v) in seq.iter().enumerate() {
+                        match v {
+                            Yaml::Hash(map) => {
+                                let user = UserConfig::parse_yaml(map, None).context(format!(
+                                    "invalid user config value for doc #{di} record #{i}"
+                                ))?;
+                                users.push(user);
+                            }
+                            _ => {
+                                return Err(anyhow!(
+                                    "invalid value type for doc #{di} record #{i}"
+                                ));
+                            }
+                        }
+                    }
+                }
+                _ => return Err(anyhow!("invalid value type for doc #{di}")),
+            }
+        }
+        Ok(users)
+    }
 }
