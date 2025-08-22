@@ -12,14 +12,7 @@ ALIAS_NAME_MAP = {
     "MIT-0": ["MIT0"],
 }
 NO_TEXT_CRATES = [
-    "cadence-with-flush",  # in the root dir repo
     "daemonize",  # in the root dir repo
-    "h3",  # in the root dir repo
-    "h3-quinn",  # in the root dir repo
-    "number_prefix",  # not uploaded
-    "quinn",  # in the root dir repo
-    "quinn-proto",  # in the root dir repo
-    "quinn-udp",  # in the root dir repo
 ]
 
 
