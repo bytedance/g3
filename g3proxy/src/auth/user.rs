@@ -387,7 +387,7 @@ impl User {
         }
     }
 
-    fn check_password(
+    pub(crate) fn check_password(
         &self,
         password: &str,
         forbid_stats: &Arc<UserForbiddenStats>,

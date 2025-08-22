@@ -9,12 +9,13 @@ use std::sync::Arc;
 
 use ahash::AHashMap;
 use anyhow::anyhow;
-use arc_swap::ArcSwap;
+use arc_swap::{ArcSwap, ArcSwapOption};
 use chrono::Utc;
 use log::{info, warn};
 use tokio::sync::{mpsc, oneshot};
 
-use g3_types::metrics::NodeName;
+use g3_types::auth::{Password, UserAuthError, Username};
+use g3_types::metrics::{MetricTagMap, NodeName};
 
 use crate::config::auth::UserGroupConfig;
 
@@ -216,6 +217,27 @@ impl UserGroup {
         self.anonymous_user
             .as_ref()
             .map(|user| (user.clone(), UserType::Anonymous))
+    }
+
+    pub(crate) fn check_user_with_password(
+        &self,
+        username: &Username,
+        password: &Password,
+        server_name: &NodeName,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
+    ) -> Result<UserContext, UserAuthError> {
+        let Some((user, user_type)) = self.get_user(username.as_original()) else {
+            return Err(UserAuthError::NoSuchUser);
+        };
+        let user_ctx = UserContext::new(
+            Some(Arc::from(username.as_original())),
+            user,
+            user_type,
+            server_name,
+            server_extra_tags,
+        );
+        user_ctx.check_password(password.as_original())?;
+        Ok(user_ctx)
     }
 
     pub(crate) fn get_user(&self, username: &str) -> Option<(Arc<User>, UserType)> {
