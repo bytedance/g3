@@ -13,8 +13,7 @@ use log::warn;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 
-use crate::config::auth::UserConfig;
-use crate::config::auth::source::python::UserDynamicPythonSource;
+use crate::config::auth::{UserConfig, UserDynamicPythonSource};
 
 const FN_NAME_FETCH_USERS: &str = "fetch_users";
 const FN_NAME_REPORT_OK: &str = "report_ok";
@@ -112,8 +111,7 @@ fn parse_content(
             source.script_file.display(),
         )
     })?;
-
-    crate::config::auth::source::cache::parse_json(&doc)
+    UserConfig::parse_json_many(&doc)
 }
 
 async fn call_python_fetch(script: PathBuf) -> anyhow::Result<String> {

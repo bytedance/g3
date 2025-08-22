@@ -14,7 +14,7 @@ use yaml_rust::{Yaml, yaml};
 use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
-use super::{UserConfig, UserDynamicSource};
+use crate::config::auth::{UserConfig, UserDynamicSource};
 
 const DEFAULT_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 

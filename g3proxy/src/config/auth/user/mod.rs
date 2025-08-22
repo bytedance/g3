@@ -25,8 +25,16 @@ use g3_types::net::{
 };
 use g3_types::resolve::{ResolveRedirectionBuilder, ResolveStrategy};
 
-use super::{PasswordToken, UserAuditConfig, UserSiteConfig};
 use crate::escape::EgressPathSelection;
+
+mod token;
+use token::PasswordToken;
+
+mod site;
+pub(crate) use site::UserSiteConfig;
+
+mod audit;
+pub(crate) use audit::UserAuditConfig;
 
 mod json;
 mod yaml;

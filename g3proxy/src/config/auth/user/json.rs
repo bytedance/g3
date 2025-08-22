@@ -274,4 +274,24 @@ impl UserConfig {
             _ => Err(anyhow!("invalid key {k}")),
         }
     }
+
+    pub(crate) fn parse_json_many(value: &Value) -> anyhow::Result<Vec<UserConfig>> {
+        let mut users = Vec::new();
+        match value {
+            Value::Array(seq) => {
+                for (i, v) in seq.iter().enumerate() {
+                    match v {
+                        Value::Object(map) => {
+                            let user = UserConfig::parse_json(map)
+                                .context(format!("invalid user config value for record #{i}"))?;
+                            users.push(user);
+                        }
+                        _ => return Err(anyhow!("invalid value type for record #{i}")),
+                    }
+                }
+            }
+            _ => return Err(anyhow!("invalid root value type")),
+        }
+        Ok(users)
+    }
 }

@@ -10,23 +10,14 @@ use yaml_rust::{Yaml, yaml};
 
 use g3_yaml::{HybridParser, YamlDocPosition};
 
-mod token;
-pub(crate) use token::PasswordToken;
-
-mod site;
-pub(crate) use site::UserSiteConfig;
-
-mod audit;
-pub(crate) use audit::UserAuditConfig;
-
 mod user;
-pub(crate) use user::UserConfig;
+pub(crate) use user::{UserAuditConfig, UserConfig, UserSiteConfig};
+
+mod source;
+pub(crate) use source::*;
 
 mod group;
 pub(crate) use group::UserGroupConfig;
-
-pub(crate) mod source;
-pub(crate) use source::UserDynamicSource;
 
 mod registry;
 pub(crate) use registry::{clear, get_all};

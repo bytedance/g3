@@ -10,24 +10,28 @@ use anyhow::anyhow;
 use url::Url;
 use yaml_rust::Yaml;
 
-pub(crate) mod cache;
 pub(crate) mod file;
+use file::UserDynamicFileSource;
 
 #[cfg(feature = "lua")]
 pub(crate) mod lua;
+#[cfg(feature = "lua")]
+pub(crate) use lua::UserDynamicLuaSource;
 
 #[cfg(feature = "python")]
 pub(crate) mod python;
+#[cfg(feature = "python")]
+pub(crate) use python::UserDynamicPythonSource;
 
 const CONFIG_KEY_SOURCE_TYPE: &str = "type";
 
 #[derive(Clone)]
 pub(crate) enum UserDynamicSource {
-    File(Arc<file::UserDynamicFileSource>),
+    File(Arc<UserDynamicFileSource>),
     #[cfg(feature = "lua")]
-    Lua(Arc<lua::UserDynamicLuaSource>),
+    Lua(Arc<UserDynamicLuaSource>),
     #[cfg(feature = "python")]
-    Python(Arc<python::UserDynamicPythonSource>),
+    Python(Arc<UserDynamicPythonSource>),
 }
 
 impl UserDynamicSource {
@@ -38,17 +42,17 @@ impl UserDynamicSource {
 
                 match g3_yaml::key::normalize(source_type).as_str() {
                     "file" => {
-                        let source = file::UserDynamicFileSource::parse_map(map, lookup_dir)?;
+                        let source = UserDynamicFileSource::parse_map(map, lookup_dir)?;
                         Ok(UserDynamicSource::File(Arc::new(source)))
                     }
                     #[cfg(feature = "lua")]
                     "lua" => {
-                        let source = lua::UserDynamicLuaSource::parse_map(map, lookup_dir)?;
+                        let source = UserDynamicLuaSource::parse_map(map, lookup_dir)?;
                         Ok(UserDynamicSource::Lua(Arc::new(source)))
                     }
                     #[cfg(feature = "python")]
                     "python" => {
-                        let source = python::UserDynamicPythonSource::parse_map(map, lookup_dir)?;
+                        let source = UserDynamicPythonSource::parse_map(map, lookup_dir)?;
                         Ok(UserDynamicSource::Python(Arc::new(source)))
                     }
                     _ => Err(anyhow!("unsupported source type {source_type}")),
@@ -60,7 +64,7 @@ impl UserDynamicSource {
                 let scheme = url.scheme();
                 match g3_yaml::key::normalize(scheme).as_str() {
                     "file" => {
-                        let source = file::UserDynamicFileSource::parse_url(&url)?;
+                        let source = UserDynamicFileSource::parse_url(&url)?;
                         Ok(UserDynamicSource::File(Arc::new(source)))
                     }
                     _ => Err(anyhow!("unsupported url scheme: {scheme}")),
