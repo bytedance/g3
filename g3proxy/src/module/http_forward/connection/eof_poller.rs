@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use tokio::io::AsyncWriteExt;
@@ -37,19 +26,15 @@ impl HttpConnectionEofCheck {
         tokio::select! {
             biased;
 
-            _ = conn.1.fill_wait_eof() => {
-                // close early to avoid waiting at other side
+            _ = conn.1.fill_wait_data() => {
+                // close early when EOF or unexpected data, to avoid waiting at other side
                 wait_channel.close();
-                // make sure we correctly shutdown tls connection
-                // FIXME use async drop at escaper side when supported
                 let _ = conn.0.shutdown().await;
             }
             v = &mut wait_channel => {
                 if matches!(v, Ok(true)) {
                     let _ = send_channel.send(conn);
                 } else {
-                    // make sure we correctly shutdown tls connection
-                    // FIXME use async drop at escaper side when supported
                     let _ = conn.0.shutdown().await;
                 }
             }
@@ -80,9 +65,6 @@ impl HttpConnectionEofPoller {
 
     pub(crate) async fn recv_conn(self) -> Option<BoxHttpForwardConnection> {
         self.notify_channel.send(true).ok()?;
-        match self.recv_channel.await {
-            Ok(conn) => Some(conn),
-            Err(_) => None,
-        }
+        self.recv_channel.await.ok()
     }
 }

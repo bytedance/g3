@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -94,26 +83,26 @@ impl FtpRawResponse {
             FtpRawResponse::MultiLine(_, _) => return None,
         };
 
-        if let Some(p_start) = memchr::memchr(b'(', line.as_bytes()) {
-            if let Some(p_end) = memchr::memchr(b')', &line.as_bytes()[p_start..]) {
-                let p_end = p_end + p_start;
+        if let Some(p_start) = memchr::memchr(b'(', line.as_bytes())
+            && let Some(p_end) = memchr::memchr(b')', &line.as_bytes()[p_start..])
+        {
+            let p_end = p_end + p_start;
 
-                let a: Vec<&str> = line[p_start + 1..p_end].split(',').collect();
-                if a.len() != 6 {
-                    return None;
-                }
-
-                let h1 = u8::from_str(a[0]).ok()?;
-                let h2 = u8::from_str(a[1]).ok()?;
-                let h3 = u8::from_str(a[2]).ok()?;
-                let h4 = u8::from_str(a[3]).ok()?;
-                let p1 = u8::from_str(a[4]).ok()?;
-                let p2 = u8::from_str(a[5]).ok()?;
-
-                let ip = IpAddr::V4(Ipv4Addr::new(h1, h2, h3, h4));
-                let port = ((p1 as u16) << 8) + (p2 as u16);
-                return Some(SocketAddr::new(ip, port));
+            let a: Vec<&str> = line[p_start + 1..p_end].split(',').collect();
+            if a.len() != 6 {
+                return None;
             }
+
+            let h1 = u8::from_str(a[0]).ok()?;
+            let h2 = u8::from_str(a[1]).ok()?;
+            let h3 = u8::from_str(a[2]).ok()?;
+            let h4 = u8::from_str(a[3]).ok()?;
+            let p1 = u8::from_str(a[4]).ok()?;
+            let p2 = u8::from_str(a[5]).ok()?;
+
+            let ip = IpAddr::V4(Ipv4Addr::new(h1, h2, h3, h4));
+            let port = ((p1 as u16) << 8) + (p2 as u16);
+            return Some(SocketAddr::new(ip, port));
         }
 
         None
@@ -125,22 +114,22 @@ impl FtpRawResponse {
             FtpRawResponse::MultiLine(_, _) => return None,
         };
 
-        if let Some(p_start) = memchr::memchr(b'(', line.as_bytes()) {
-            if let Some(p_end) = memchr::memchr(b')', &line.as_bytes()[p_start..]) {
-                let p_end = p_end + p_start;
+        if let Some(p_start) = memchr::memchr(b'(', line.as_bytes())
+            && let Some(p_end) = memchr::memchr(b')', &line.as_bytes()[p_start..])
+        {
+            let p_end = p_end + p_start;
 
-                if !line[p_start + 1..p_end].starts_with("|||") {
-                    return None;
-                }
-                if p_end - 1 <= p_start + 4 {
-                    return None;
-                }
-                if line.as_bytes()[p_end - 1] != b'|' {
-                    return None;
-                }
-                let port = u16::from_str(&line[p_start + 4..p_end - 1]).ok()?;
-                return Some(port);
+            if !line[p_start + 1..p_end].starts_with("|||") {
+                return None;
             }
+            if p_end - 1 <= p_start + 4 {
+                return None;
+            }
+            if line.as_bytes()[p_end - 1] != b'|' {
+                return None;
+            }
+            let port = u16::from_str(&line[p_start + 4..p_end - 1]).ok()?;
+            return Some(port);
         }
 
         None
@@ -152,11 +141,11 @@ impl FtpRawResponse {
             FtpRawResponse::MultiLine(_, _) => return None,
         };
 
-        if let Some(p_start) = memchr::memchr(b'(', line.as_bytes()) {
-            if let Some(p_end) = memchr::memchr(b')', &line.as_bytes()[p_start..]) {
-                let identifier = line[p_start + 1..p_end].to_string();
-                return Some(identifier);
-            }
+        if let Some(p_start) = memchr::memchr(b'(', line.as_bytes())
+            && let Some(p_end) = memchr::memchr(b')', &line.as_bytes()[p_start..])
+        {
+            let identifier = line[p_start + 1..p_end].to_string();
+            return Some(identifier);
         }
         // pure-ftpd has removed it's SPSV support in commit
         // https://github.com/jedisct1/pure-ftpd/commit/4828633d9cb42cd77d764e7d1cb3d0c04c5df001

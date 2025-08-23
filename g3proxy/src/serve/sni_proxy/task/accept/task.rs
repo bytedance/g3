@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
@@ -23,24 +12,27 @@ use tokio::net::TcpStream;
 use tokio::time::Instant;
 
 use g3_daemon::stat::task::TcpStreamConnectionStats;
-use g3_dpi::{Protocol, ProtocolInspector};
+use g3_dpi::{Protocol, ProtocolInspectError, ProtocolInspector};
 use g3_io_ext::{LimitedReader, LimitedWriter};
 use g3_types::net::UpstreamAddr;
 
 use super::{CommonTaskContext, SniProxyCltWrapperStats, TcpStreamTask};
+use crate::audit::AuditContext;
 use crate::config::server::ServerConfig;
 use crate::serve::{ServerTaskError, ServerTaskForbiddenError, ServerTaskResult};
 
 pub(crate) struct ClientHelloAcceptTask {
     ctx: CommonTaskContext,
+    audit_ctx: AuditContext,
     time_accepted: Instant,
     pre_handshake_stats: Arc<TcpStreamConnectionStats>,
 }
 
 impl ClientHelloAcceptTask {
-    pub(crate) fn new(ctx: CommonTaskContext) -> Self {
+    pub(crate) fn new(ctx: CommonTaskContext, audit_ctx: AuditContext) -> Self {
         ClientHelloAcceptTask {
             ctx,
+            audit_ctx,
             time_accepted: Instant::now(),
             pre_handshake_stats: Arc::new(TcpStreamConnectionStats::default()),
         }
@@ -77,7 +69,7 @@ impl ClientHelloAcceptTask {
         debug!(
             "new client from {} to {} server {}, using escaper {}",
             self.ctx.client_addr(),
-            self.ctx.server_config.server_type(),
+            self.ctx.server_config.r#type(),
             self.ctx.server_config.name(),
             self.ctx.server_config.escaper
         );
@@ -110,7 +102,7 @@ impl ClientHelloAcceptTask {
             Err(_) => {
                 return Err(ServerTaskError::ClientAppTimeout(
                     "timeout to wait client request",
-                ))
+                ));
             }
         }
 
@@ -128,6 +120,7 @@ impl ClientHelloAcceptTask {
                 let final_upstream = site.redirect(&upstream);
                 TcpStreamTask::new(
                     self.ctx,
+                    self.audit_ctx,
                     protocol,
                     final_upstream,
                     self.time_accepted.elapsed(),
@@ -145,6 +138,7 @@ impl ClientHelloAcceptTask {
         } else {
             TcpStreamTask::new(
                 self.ctx,
+                self.audit_ctx,
                 protocol,
                 upstream,
                 self.time_accepted.elapsed(),
@@ -179,7 +173,7 @@ impl ClientHelloAcceptTask {
                     let upstream = self.fetch_upstream(p, clt_r, clt_r_buf).await?;
                     return Ok((upstream, p));
                 }
-                Err(_) => {
+                Err(ProtocolInspectError::NeedMoreData(_)) => {
                     if clt_r_buf.remaining() == 0 {
                         return Err(ServerTaskError::InvalidClientProtocol(
                             "unable to detect client protocol",
@@ -209,7 +203,13 @@ impl ClientHelloAcceptTask {
                 super::http::parse_request(clt_r, clt_r_buf, self.ctx.server_port()).await
             }
             Protocol::TlsModern => {
-                super::tls::parse_request(clt_r, clt_r_buf, self.ctx.server_port()).await
+                super::tls::parse_request(
+                    clt_r,
+                    clt_r_buf,
+                    self.ctx.server_port(),
+                    self.ctx.server_config.tls_max_client_hello_size,
+                )
+                .await
             }
             _ => Err(ServerTaskError::InvalidClientProtocol(
                 "unsupported client protocol",

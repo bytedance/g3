@@ -1,17 +1,6 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
@@ -19,10 +8,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use tokio::io::AsyncWrite;
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 use tokio::sync::{broadcast, oneshot};
+use tokio::time::Instant;
 
-use g3_types::ext::DurationExt;
+use g3_std_ext::time::DurationExt;
 
 use super::StreamSharedState;
 use crate::module::keyless::{
@@ -34,7 +24,7 @@ pub(super) struct KeylessUpstreamSendTask {
     max_request_count: usize,
     max_alive_time: Duration,
     stats: Arc<KeylessBackendStats>,
-    req_receiver: flume::Receiver<KeylessForwardRequest>,
+    req_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
     quit_notifier: broadcast::Receiver<()>,
     shared_state: Arc<StreamSharedState>,
     duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
@@ -46,7 +36,7 @@ impl KeylessUpstreamSendTask {
         max_request_count: usize,
         max_alive_time: Duration,
         stats: Arc<KeylessBackendStats>,
-        req_receiver: flume::Receiver<KeylessForwardRequest>,
+        req_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
         quit_notifier: broadcast::Receiver<()>,
         shared_state: Arc<StreamSharedState>,
         duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
@@ -67,18 +57,21 @@ impl KeylessUpstreamSendTask {
         mut self,
         mut writer: W,
         mut reader_close_receiver: oneshot::Receiver<KeylessRecvMessageError>,
+        idle_timeout: Duration,
     ) -> anyhow::Result<()>
     where
         W: AsyncWrite + Unpin,
     {
         let mut request_count = 0;
-        let mut alive_timeout = Box::pin(tokio::time::sleep(self.max_alive_time));
+        let mut alive_sleep = Box::pin(tokio::time::sleep(self.max_alive_time));
+        let mut idle_sleep = Box::pin(tokio::time::sleep(idle_timeout));
 
         loop {
             tokio::select! {
                 biased;
 
-                r = self.req_receiver.recv_async() => {
+                r = self.req_receiver.recv() => {
+                    idle_sleep.as_mut().reset(Instant::now() + idle_timeout);
                     match r {
                         Ok(req) => {
                             request_count += 1;
@@ -86,13 +79,18 @@ impl KeylessUpstreamSendTask {
                                 .await
                                 .map_err(|e| anyhow!("send request failed: {e}"))?;
                             if request_count > self.max_request_count {
+                                let _ = writer.shutdown().await;
                                 return Ok(());
                             }
                         }
-                        Err(_) => return Err(anyhow!("backend dropped")),
+                        Err(_) => {
+                            let _ = writer.shutdown().await;
+                            return Err(anyhow!("backend dropped"));
+                        }
                     }
                 }
                 _ = self.quit_notifier.recv() => {
+                    let _ = writer.shutdown().await;
                     return Ok(());
                 }
                 r = &mut reader_close_receiver => {
@@ -101,7 +99,12 @@ impl KeylessUpstreamSendTask {
                         Err(_) => Ok(()), // reader closed without error
                     };
                 }
-                _ = &mut alive_timeout => {
+                _ = &mut alive_sleep => {
+                    let _ = writer.shutdown().await;
+                    return Ok(());
+                }
+                _ = &mut idle_sleep => {
+                    let _ = writer.shutdown().await;
                     return Ok(());
                 }
             }

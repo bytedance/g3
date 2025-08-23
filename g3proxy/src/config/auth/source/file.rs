@@ -1,25 +1,14 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use url::Url;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_types::fs::ConfigFileFormat;
 
@@ -36,10 +25,10 @@ pub(crate) struct UserDynamicFileSource {
 impl UserDynamicFileSource {
     fn new(path: PathBuf) -> Self {
         let mut format = ConfigFileFormat::Yaml;
-        if let Some(extension) = path.extension() {
-            if let Some(s) = extension.to_str() {
-                format = ConfigFileFormat::from_str(s).unwrap_or(format);
-            }
+        if let Some(extension) = path.extension()
+            && let Some(s) = extension.to_str()
+        {
+            format = ConfigFileFormat::from_str(s).unwrap_or(format);
         }
 
         UserDynamicFileSource { path, format }

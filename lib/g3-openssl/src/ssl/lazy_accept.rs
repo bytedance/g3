@@ -1,28 +1,18 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::future;
 use std::io;
 use std::task::{Context, Poll};
+use std::time::Duration;
 
 use openssl::error::ErrorStack;
-use openssl::ssl::{self, ErrorCode, Ssl, SslContextRef, SslRef};
+use openssl::ssl::{self, ErrorCode, Ssl, SslRef};
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use super::{SslAcceptor, SslIoWrapper};
+use super::{ConvertSslError, SslAcceptor, SslErrorAction, SslIoWrapper};
 
 pub struct SslLazyAcceptor<S> {
     inner: ssl::SslStream<SslIoWrapper<S>>,
@@ -42,11 +32,13 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslLazyAcceptor<S> {
             Ok(_) => Poll::Ready(Ok(())),
             Err(e) => match e.code() {
                 ErrorCode::WANT_READ | ErrorCode::WANT_WRITE => Poll::Pending,
-                #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
+                #[cfg(not(any(awslc, boringssl)))]
                 ErrorCode::WANT_CLIENT_HELLO_CB => Poll::Ready(Ok(())),
-                #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+                #[cfg(any(awslc, boringssl))]
                 ErrorCode::PENDING_CERTIFICATE => Poll::Ready(Ok(())),
-                _ => Poll::Ready(Err(e.into_io_error().unwrap_or_else(io::Error::other))),
+                _ => Poll::Ready(Err(e
+                    .into_io_error()
+                    .unwrap_or_else(|e| e.build_io_error(SslErrorAction::Accept)))),
             },
         }
     }
@@ -55,34 +47,8 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslLazyAcceptor<S> {
         future::poll_fn(|cx| self.poll_accept(cx)).await
     }
 
-    #[cfg(feature = "async-job")]
-    pub fn into_acceptor(
-        mut self,
-        ssl_ctx: Option<&SslContextRef>,
-    ) -> Result<SslAcceptor<S>, ErrorStack> {
-        use crate::ssl::async_mode::AsyncEnginePoller;
-
-        if let Some(ssl_ctx) = ssl_ctx {
-            self.inner.ssl_mut().set_verify(ssl_ctx.verify_mode());
-            self.inner.ssl_mut().set_ssl_context(ssl_ctx)?;
-        }
-        let async_engine = AsyncEnginePoller::new(self.inner.ssl())?;
-        Ok(SslAcceptor {
-            inner: self.inner,
-            async_engine,
-        })
-    }
-
-    #[cfg(not(feature = "async-job"))]
-    pub fn into_acceptor(
-        mut self,
-        ssl_ctx: Option<&SslContextRef>,
-    ) -> Result<SslAcceptor<S>, ErrorStack> {
-        if let Some(ssl_ctx) = ssl_ctx {
-            self.inner.ssl_mut().set_verify(ssl_ctx.verify_mode());
-            self.inner.ssl_mut().set_ssl_context(ssl_ctx)?;
-        }
-        Ok(SslAcceptor { inner: self.inner })
+    pub fn into_acceptor(self, timeout: Duration) -> Result<SslAcceptor<S>, ErrorStack> {
+        SslAcceptor::with_inner(self.inner, timeout)
     }
 
     pub fn ssl(&self) -> &SslRef {

@@ -1,60 +1,52 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ascii::AsciiString;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_yaml::YamlDocPosition;
 
-use super::{ServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_MAXIMUM_DURATION};
+use super::{
+    IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT, IDLE_CHECK_MAXIMUM_DURATION,
+    ServerConfig,
+};
 use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
 
 const SERVER_CONFIG_TYPE: &str = "KeylessProxy";
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct KeylessProxyServerConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
     pub(crate) task_idle_check_duration: Duration,
-    pub(crate) task_idle_max_count: i32,
+    pub(crate) task_idle_max_count: usize,
     pub(crate) spawn_task_unconstrained: bool,
-    pub(crate) backend: MetricsName,
+    pub(crate) backend: NodeName,
 }
 
 impl KeylessProxyServerConfig {
     pub(crate) fn new(position: Option<YamlDocPosition>) -> Self {
         KeylessProxyServerConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             shared_logger: None,
             ingress_net_filter: None,
             extra_metrics_tags: None,
             task_idle_check_duration: IDLE_CHECK_DEFAULT_DURATION,
-            task_idle_max_count: 1,
+            task_idle_max_count: IDLE_CHECK_DEFAULT_MAX_COUNT,
             spawn_task_unconstrained: false,
-            backend: MetricsName::default(),
+            backend: NodeName::default(),
         }
     }
 
@@ -87,7 +79,7 @@ impl KeylessProxyServerConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "shared_logger" => {
@@ -114,8 +106,8 @@ impl KeylessProxyServerConfig {
                 Ok(())
             }
             "task_idle_max_count" => {
-                self.task_idle_max_count =
-                    g3_yaml::value::as_i32(v).context(format!("invalid i32 value for key {k}"))?;
+                self.task_idle_max_count = g3_yaml::value::as_usize(v)
+                    .context(format!("invalid usize value for key {k}"))?;
                 Ok(())
             }
             "spawn_task_unconstrained" | "task_unconstrained" => {
@@ -123,7 +115,7 @@ impl KeylessProxyServerConfig {
                 Ok(())
             }
             "backend" => {
-                self.backend = g3_yaml::value::as_metrics_name(v)?;
+                self.backend = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
@@ -132,7 +124,7 @@ impl KeylessProxyServerConfig {
 }
 
 impl ServerConfig for KeylessProxyServerConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -140,7 +132,7 @@ impl ServerConfig for KeylessProxyServerConfig {
         self.position.clone()
     }
 
-    fn server_type(&self) -> &'static str {
+    fn r#type(&self) -> &'static str {
         SERVER_CONFIG_TYPE
     }
 
@@ -154,6 +146,6 @@ impl ServerConfig for KeylessProxyServerConfig {
             return ServerConfigDiffAction::NoAction;
         }
 
-        ServerConfigDiffAction::ReloadOnlyConfig
+        ServerConfigDiffAction::ReloadNoRespawn
     }
 }

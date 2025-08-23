@@ -1,29 +1,19 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use bytes::Bytes;
 use h2::client::SendRequest;
+use http::{Request, Version};
 use tokio::time::Instant;
 
 use super::{
-    BenchH2Args, BenchTaskContext, H2ConnectionPool, H2PreRequest, HttpHistogramRecorder,
-    HttpRuntimeStats, ProcArgs,
+    BenchH2Args, BenchTaskContext, H2ConnectionPool, HttpHistogramRecorder, HttpRuntimeStats,
+    ProcArgs,
 };
 use crate::target::BenchError;
 
@@ -35,7 +25,7 @@ pub(super) struct H2TaskContext {
     h2s: Option<SendRequest<Bytes>>,
 
     reuse_conn_count: u64,
-    pre_request: H2PreRequest,
+    static_request: Request<()>,
 
     runtime_stats: Arc<HttpRuntimeStats>,
     histogram_recorder: HttpHistogramRecorder,
@@ -56,16 +46,17 @@ impl H2TaskContext {
         histogram_recorder: HttpHistogramRecorder,
         pool: Option<Arc<H2ConnectionPool>>,
     ) -> anyhow::Result<Self> {
-        let pre_request = args
-            .build_pre_request_header()
-            .context("failed to build request header")?;
+        let static_request = args
+            .common
+            .build_static_request(Version::HTTP_2)
+            .context("failed to build static request header")?;
         Ok(H2TaskContext {
             args: Arc::clone(args),
             proc_args: Arc::clone(proc_args),
             pool,
             h2s: None,
             reuse_conn_count: 0,
-            pre_request,
+            static_request,
             runtime_stats: Arc::clone(runtime_stats),
             histogram_recorder,
         })
@@ -80,11 +71,11 @@ impl H2TaskContext {
             return pool.fetch_stream().await;
         }
 
-        if let Some(h2s) = self.h2s.clone() {
-            if let Ok(ups_send_req) = h2s.ready().await {
-                self.reuse_conn_count += 1;
-                return Ok(ups_send_req);
-            }
+        if let Some(h2s) = self.h2s.clone()
+            && let Ok(ups_send_req) = h2s.ready().await
+        {
+            self.reuse_conn_count += 1;
+            return Ok(ups_send_req);
         }
 
         if self.reuse_conn_count > 0 {
@@ -95,7 +86,7 @@ impl H2TaskContext {
 
         self.runtime_stats.add_conn_attempt();
         let h2s = match tokio::time::timeout(
-            self.args.connect_timeout,
+            self.args.common.connect_timeout,
             self.args
                 .new_h2_connection(&self.runtime_stats, &self.proc_args),
         )
@@ -121,10 +112,7 @@ impl H2TaskContext {
         time_started: Instant,
         mut send_req: SendRequest<Bytes>,
     ) -> anyhow::Result<()> {
-        let req = self
-            .pre_request
-            .build_request()
-            .context("failed to build request header")?;
+        let req = self.static_request.clone();
 
         // send hdr
         let (rsp_fut, _) = send_req
@@ -134,7 +122,7 @@ impl H2TaskContext {
         self.histogram_recorder.record_send_hdr_time(send_hdr_time);
 
         // recv hdr
-        let rsp = match tokio::time::timeout(self.args.timeout, rsp_fut).await {
+        let rsp = match tokio::time::timeout(self.args.common.timeout, rsp_fut).await {
             Ok(Ok(rsp)) => rsp,
             Ok(Err(e)) => return Err(anyhow!("failed to read response: {e}")),
             Err(_) => return Err(anyhow!("timeout to read response")),
@@ -142,14 +130,14 @@ impl H2TaskContext {
         let (rsp, mut rsp_recv_body) = rsp.into_parts();
         let recv_hdr_time = time_started.elapsed();
         self.histogram_recorder.record_recv_hdr_time(recv_hdr_time);
-        if let Some(ok_status) = self.args.ok_status {
-            if rsp.status != ok_status {
-                return Err(anyhow!(
-                    "Got rsp code {} while {} is expected",
-                    rsp.status.as_u16(),
-                    ok_status.as_u16()
-                ));
-            }
+        if let Some(ok_status) = self.args.common.ok_status
+            && rsp.status != ok_status
+        {
+            return Err(anyhow!(
+                "Got rsp code {} while {} is expected",
+                rsp.status.as_u16(),
+                ok_status.as_u16()
+            ));
         }
 
         // recv body

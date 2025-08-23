@@ -1,60 +1,49 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use arc_swap::ArcSwapOption;
 
 use g3_histogram::{HistogramMetricsConfig, HistogramRecorder, HistogramStats};
-use g3_types::ext::DurationExt;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_std_ext::time::DurationExt;
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::stats::StatId;
 
 pub(crate) struct StreamBackendStats {
-    name: MetricsName,
+    name: NodeName,
     id: StatId,
-    extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
+    extra_metrics_tags: Arc<ArcSwapOption<MetricTagMap>>,
 
     conn_attempt: AtomicU64,
     conn_established: AtomicU64,
 }
 
 impl StreamBackendStats {
-    pub(crate) fn new(name: &MetricsName) -> Self {
+    pub(crate) fn new(name: &NodeName) -> Self {
         StreamBackendStats {
             name: name.clone(),
-            id: StatId::new(),
+            id: StatId::new_unique(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             conn_attempt: AtomicU64::new(0),
             conn_established: AtomicU64::new(0),
         }
     }
 
-    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<StaticMetricsTags>>) {
+    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<MetricTagMap>>) {
         self.extra_metrics_tags.store(tags);
     }
 
-    pub(crate) fn load_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
+    pub(crate) fn load_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
         self.extra_metrics_tags.load_full()
     }
 
     #[inline]
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -81,24 +70,24 @@ impl StreamBackendStats {
 }
 
 pub(crate) struct StreamBackendDurationStats {
-    name: MetricsName,
+    name: NodeName,
     id: StatId,
-    extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
+    extra_metrics_tags: Arc<ArcSwapOption<MetricTagMap>>,
 
     pub(crate) connect: Arc<HistogramStats>,
 }
 
 impl StreamBackendDurationStats {
-    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<StaticMetricsTags>>) {
+    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<MetricTagMap>>) {
         self.extra_metrics_tags.store(tags);
     }
 
-    pub(crate) fn load_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
+    pub(crate) fn load_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
         self.extra_metrics_tags.load_full()
     }
 
     #[inline]
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -114,7 +103,7 @@ pub(crate) struct StreamBackendDurationRecorder {
 
 impl StreamBackendDurationRecorder {
     pub(crate) fn new(
-        name: &MetricsName,
+        name: &NodeName,
         config: &HistogramMetricsConfig,
     ) -> (StreamBackendDurationRecorder, StreamBackendDurationStats) {
         let (connect_r, connect_s) =
@@ -122,7 +111,7 @@ impl StreamBackendDurationRecorder {
         let r = StreamBackendDurationRecorder { connect: connect_r };
         let s = StreamBackendDurationStats {
             name: name.clone(),
-            id: StatId::new(),
+            id: StatId::new_unique(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             connect: connect_s,
         };

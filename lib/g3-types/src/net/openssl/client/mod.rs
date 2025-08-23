@@ -1,38 +1,27 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::time::Duration;
 
 use anyhow::anyhow;
-#[cfg(any(feature = "aws-lc", feature = "boringssl", feature = "tongsuo"))]
+use log::warn;
+#[cfg(any(awslc, boringssl, tongsuo))]
 use openssl::ssl::CertCompressionAlgorithm;
+#[cfg(not(any(awslc, boringssl, libressl)))]
+use openssl::ssl::SslCtValidationMode;
+#[cfg(not(any(awslc, boringssl)))]
+use openssl::ssl::StatusType;
 use openssl::ssl::{
     Ssl, SslConnector, SslConnectorBuilder, SslContext, SslMethod, SslVerifyMode, SslVersion,
 };
-#[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
-use openssl::ssl::{SslCtValidationMode, StatusType};
-use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
+use openssl::x509::store::X509StoreBuilder;
 
-use super::{OpensslCertificatePair, OpensslProtocol};
+use super::{OpensslCertificatePair, OpensslProtocol, OpensslTlcpCertificatePair};
 use crate::net::tls::AlpnProtocol;
-use crate::net::{Host, TlsAlpn, TlsServerName, UpstreamAddr};
-
-#[cfg(feature = "tongsuo")]
-use super::OpensslTlcpCertificatePair;
+use crate::net::{Host, TlsAlpn, TlsServerName, TlsVersion, UpstreamAddr};
 
 mod intercept;
 pub use intercept::{OpensslInterceptionClientConfig, OpensslInterceptionClientConfigBuilder};
@@ -108,44 +97,50 @@ impl OpensslClientConfig {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OpensslClientConfigBuilder {
     protocol: Option<OpensslProtocol>,
+    min_tls_version: Option<TlsVersion>,
+    max_tls_version: Option<TlsVersion>,
     ciphers: Vec<String>,
     disable_sni: bool,
     ca_certs: Vec<Vec<u8>>,
     no_default_ca_certs: bool,
     client_cert_pair: Option<OpensslCertificatePair>,
-    #[cfg(feature = "tongsuo")]
     client_tlcp_cert_pair: Option<OpensslTlcpCertificatePair>,
     handshake_timeout: Duration,
     session_cache: OpensslSessionCacheConfig,
     supported_groups: String,
     use_ocsp_stapling: bool,
+    #[cfg(not(libressl))]
     enable_sct: bool,
-    #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+    #[cfg(any(awslc, boringssl))]
     enable_grease: bool,
-    #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+    #[cfg(any(awslc, boringssl))]
     permute_extensions: bool,
+    insecure: bool,
 }
 
 impl Default for OpensslClientConfigBuilder {
     fn default() -> Self {
         OpensslClientConfigBuilder {
             protocol: None,
+            min_tls_version: None,
+            max_tls_version: None,
             ciphers: Vec::new(),
             disable_sni: false,
             ca_certs: Vec::new(),
             no_default_ca_certs: false,
             client_cert_pair: None,
-            #[cfg(feature = "tongsuo")]
             client_tlcp_cert_pair: None,
             handshake_timeout: DEFAULT_HANDSHAKE_TIMEOUT,
             session_cache: OpensslSessionCacheConfig::default(),
             supported_groups: String::default(),
             use_ocsp_stapling: false,
+            #[cfg(not(libressl))]
             enable_sct: false,
-            #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+            #[cfg(any(awslc, boringssl))]
             enable_grease: false,
-            #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+            #[cfg(any(awslc, boringssl))]
             permute_extensions: false,
+            insecure: false,
         }
     }
 }
@@ -170,7 +165,6 @@ impl OpensslClientConfigBuilder {
             cert_pair.check()?;
         }
 
-        #[cfg(feature = "tongsuo")]
         if let Some(tlcp_cert_pair) = &self.client_tlcp_cert_pair {
             tlcp_cert_pair.check()?;
         }
@@ -190,6 +184,14 @@ impl OpensslClientConfigBuilder {
 
     pub fn set_protocol(&mut self, protocol: OpensslProtocol) {
         self.protocol = Some(protocol);
+    }
+
+    pub fn set_min_tls_version(&mut self, version: TlsVersion) {
+        self.min_tls_version = Some(version);
+    }
+
+    pub fn set_max_tls_version(&mut self, version: TlsVersion) {
+        self.max_tls_version = Some(version);
     }
 
     pub fn set_ciphers(&mut self, ciphers: Vec<String>) {
@@ -227,7 +229,6 @@ impl OpensslClientConfigBuilder {
         self.client_cert_pair.replace(pair)
     }
 
-    #[cfg(feature = "tongsuo")]
     pub fn set_tlcp_cert_pair(
         &mut self,
         pair: OpensslTlcpCertificatePair,
@@ -266,36 +267,60 @@ impl OpensslClientConfigBuilder {
     }
 
     #[inline]
+    #[cfg(not(libressl))]
     pub fn set_enable_sct(&mut self, enable: bool) {
         self.enable_sct = enable;
     }
 
     #[inline]
-    #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+    #[cfg(libressl)]
+    pub fn set_enable_sct(&mut self, _enable: bool) {
+        warn!("SCT can not be enabled for LibreSSL");
+    }
+
+    #[inline]
+    #[cfg(any(awslc, boringssl))]
     pub fn set_enable_grease(&mut self, enable: bool) {
         self.enable_grease = enable;
     }
 
-    #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
+    #[cfg(not(any(awslc, boringssl)))]
     pub fn set_enable_grease(&mut self, _enable: bool) {
-        log::warn!("grease can only be set for BoringSSL variants");
+        warn!("grease can only be set for BoringSSL variants");
     }
 
-    #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+    #[cfg(any(awslc, boringssl))]
     pub fn set_permute_extensions(&mut self, enable: bool) {
         self.permute_extensions = enable;
     }
 
-    #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
+    #[cfg(not(any(awslc, boringssl)))]
     pub fn set_permute_extensions(&mut self, _enable: bool) {
-        log::warn!("permute extensions can only be set for BoringSSL variants");
+        warn!("permute extensions can only be set for BoringSSL variants");
     }
 
-    #[cfg(feature = "tongsuo")]
+    pub fn set_insecure(&mut self, enable: bool) {
+        self.insecure = enable;
+    }
+
+    fn set_verify(&self, builder: &mut SslConnectorBuilder) {
+        if self.insecure {
+            warn!(
+                "Tls Insecure Mode: Tls Peer (server) cert vertification is no longer enforced for this Context!"
+            );
+            builder.set_verify(SslVerifyMode::NONE);
+        } else {
+            builder.set_verify(SslVerifyMode::PEER);
+        }
+    }
+
+    #[cfg(tongsuo)]
     fn new_tlcp_builder(&self) -> anyhow::Result<SslConnectorBuilder> {
         let mut ctx_builder = SslConnector::builder(SslMethod::ntls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
-        ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        self.set_verify(&mut ctx_builder);
+
         ctx_builder.enable_ntls();
 
         let mut use_dhe = false;
@@ -328,11 +353,12 @@ impl OpensslClientConfigBuilder {
         Ok(ctx_builder)
     }
 
-    #[cfg(not(feature = "boringssl"))]
+    #[cfg(not(boringssl))]
     fn new_tls13_builder(&self) -> anyhow::Result<SslConnectorBuilder> {
         let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
-        ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        self.set_verify(&mut ctx_builder);
 
         ctx_builder
             .set_min_proto_version(Some(SslVersion::TLS1_3))
@@ -355,11 +381,12 @@ impl OpensslClientConfigBuilder {
         Ok(ctx_builder)
     }
 
-    #[cfg(feature = "boringssl")]
+    #[cfg(boringssl)]
     fn new_tls13_builder(&self) -> anyhow::Result<SslConnectorBuilder> {
         let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
-        ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        self.set_verify(&mut ctx_builder);
 
         ctx_builder
             .set_min_proto_version(Some(SslVersion::TLS1_3))
@@ -384,7 +411,8 @@ impl OpensslClientConfigBuilder {
     fn new_versioned_builder(&self, version: SslVersion) -> anyhow::Result<SslConnectorBuilder> {
         let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
-        ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        self.set_verify(&mut ctx_builder);
 
         ctx_builder
             .set_min_proto_version(Some(version))
@@ -410,7 +438,19 @@ impl OpensslClientConfigBuilder {
     fn new_default_builder(&self) -> anyhow::Result<SslConnectorBuilder> {
         let mut ctx_builder = SslConnector::builder(SslMethod::tls_client())
             .map_err(|e| anyhow!("failed to create ssl context builder: {e}"))?;
-        ctx_builder.set_verify(SslVerifyMode::PEER);
+
+        self.set_verify(&mut ctx_builder);
+
+        if let Some(version) = self.min_tls_version {
+            ctx_builder
+                .set_min_proto_version(Some(version.into()))
+                .map_err(|e| anyhow!("failed to set min ssl version to {version}: {e}"))?;
+        }
+        if let Some(version) = self.max_tls_version {
+            ctx_builder
+                .set_max_proto_version(Some(version.into()))
+                .map_err(|e| anyhow!("failed to set max ssl version to {version}: {e}"))?;
+        }
 
         if let Some(cert_pair) = &self.client_cert_pair {
             cert_pair.add_to_client_ssl_context(&mut ctx_builder)?;
@@ -429,7 +469,7 @@ impl OpensslClientConfigBuilder {
             Some(OpensslProtocol::Tls11) => self.new_versioned_builder(SslVersion::TLS1_1)?,
             Some(OpensslProtocol::Tls12) => self.new_versioned_builder(SslVersion::TLS1_2)?,
             Some(OpensslProtocol::Tls13) => self.new_tls13_builder()?,
-            #[cfg(feature = "tongsuo")]
+            #[cfg(tongsuo)]
             Some(OpensslProtocol::Tlcp11) => self.new_tlcp_builder()?,
             None => self.new_default_builder()?,
         };
@@ -441,35 +481,36 @@ impl OpensslClientConfigBuilder {
         }
 
         if self.use_ocsp_stapling {
-            #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
+            #[cfg(not(any(awslc, boringssl)))]
             ctx_builder
                 .set_status_type(StatusType::OCSP)
                 .map_err(|e| anyhow!("failed to enable OCSP status request: {e}"))?;
-            #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+            #[cfg(any(awslc, boringssl))]
             ctx_builder.enable_ocsp_stapling();
             // TODO check OCSP response
         }
 
+        #[cfg(not(libressl))]
         if self.enable_sct {
-            #[cfg(not(any(feature = "aws-lc", feature = "boringssl")))]
+            #[cfg(not(any(awslc, boringssl)))]
             ctx_builder
                 .enable_ct(SslCtValidationMode::PERMISSIVE)
                 .map_err(|e| anyhow!("failed to enable SCT: {e}"))?;
-            #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+            #[cfg(any(awslc, boringssl))]
             ctx_builder.enable_signed_cert_timestamps();
             // TODO check SCT list for AWS-LC or BoringSSL
         }
 
-        #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+        #[cfg(any(awslc, boringssl))]
         if self.enable_grease {
             ctx_builder.set_grease_enabled(true);
         }
-        #[cfg(any(feature = "aws-lc", feature = "boringssl"))]
+        #[cfg(any(awslc, boringssl))]
         if self.permute_extensions {
             ctx_builder.set_permute_extensions(true);
         }
 
-        #[cfg(any(feature = "aws-lc", feature = "boringssl", feature = "tongsuo"))]
+        #[cfg(any(awslc, boringssl, tongsuo))]
         ctx_builder
             .add_cert_decompression_alg(CertCompressionAlgorithm::BROTLI, |in_buf, out_buf| {
                 use std::io::Read;
@@ -493,11 +534,11 @@ impl OpensslClientConfigBuilder {
                 .add_cert(ca_cert)
                 .map_err(|e| anyhow!("failed to add ca certificate #{i}: {e}"))?;
         }
-        #[cfg(not(feature = "boringssl"))]
+        #[cfg(not(libressl))]
         ctx_builder
             .set_verify_cert_store(store_builder.build())
-            .map_err(|e| anyhow!("failed to set ca certs: {e}"))?;
-        #[cfg(feature = "boringssl")]
+            .map_err(|e| anyhow!("failed to set verify ca certs: {e}"))?;
+        #[cfg(libressl)]
         ctx_builder.set_cert_store(store_builder.build());
 
         let session_cache = self.session_cache.set_for_client(&mut ctx_builder)?;

@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
@@ -20,8 +9,8 @@ use std::time::Duration;
 use arc_swap::ArcSwapOption;
 
 use g3_histogram::{HistogramMetricsConfig, HistogramRecorder, HistogramStats};
-use g3_types::ext::DurationExt;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_std_ext::time::DurationExt;
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::stats::StatId;
 
 use crate::auth::UserType;
@@ -32,18 +21,18 @@ pub(crate) struct UserSiteDurationRecorder {
 
 impl UserSiteDurationRecorder {
     pub(crate) fn new(
-        user_group: &MetricsName,
+        user_group: &NodeName,
         user: &str,
         user_type: UserType,
-        server: &MetricsName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server: &NodeName,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
         config: &HistogramMetricsConfig,
     ) -> (Self, Arc<UserSiteDurationStats>) {
         let (task_ready_r, task_ready_s) =
             config.build_spawned(g3_daemon::runtime::main_handle().cloned());
 
         let stats = UserSiteDurationStats {
-            id: StatId::new(),
+            id: StatId::new_unique(),
             user_group: user_group.clone(),
             user: user.to_string(),
             user_type,
@@ -64,11 +53,11 @@ impl UserSiteDurationRecorder {
 
 pub(crate) struct UserSiteDurationStats {
     id: StatId,
-    user_group: MetricsName,
+    user_group: NodeName,
     user: String,
     user_type: UserType,
-    server: MetricsName,
-    server_extra_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
+    server: NodeName,
+    server_extra_tags: Arc<ArcSwapOption<MetricTagMap>>,
 
     pub(crate) task_ready: Arc<HistogramStats>,
 }
@@ -80,7 +69,7 @@ impl UserSiteDurationStats {
     }
 
     #[inline]
-    pub(crate) fn user_group(&self) -> &MetricsName {
+    pub(crate) fn user_group(&self) -> &NodeName {
         &self.user_group
     }
 
@@ -95,12 +84,12 @@ impl UserSiteDurationStats {
     }
 
     #[inline]
-    pub(crate) fn server(&self) -> &MetricsName {
+    pub(crate) fn server(&self) -> &NodeName {
         &self.server
     }
 
     #[inline]
-    pub(crate) fn server_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
+    pub(crate) fn server_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
         self.server_extra_tags.load_full()
     }
 }

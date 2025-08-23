@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
@@ -21,9 +10,25 @@ use std::os::unix::net::UnixDatagram;
 #[cfg(unix)]
 use std::path::PathBuf;
 
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "solaris",
+    target_os = "macos",
+))]
+use g3_io_sys::udp::UdpSocketExt;
+
+#[cfg(feature = "yaml")]
+mod yaml;
+
 mod udp;
 #[cfg(unix)]
 mod unix_datagram;
+
+pub(super) const MAX_BATCH_SIZE: usize = 32;
 
 pub(super) enum SyslogBackend {
     Udp(UdpSocket),
@@ -32,22 +37,69 @@ pub(super) enum SyslogBackend {
 }
 
 impl SyslogBackend {
-    pub(super) fn need_reconnect(&self) -> bool {
-        false
-    }
-}
+    pub(super) fn write_many(&self, msgs: &[String]) -> io::Result<usize> {
+        if msgs.len() == 1 {
+            match self {
+                SyslogBackend::Udp(s) => {
+                    s.send(msgs[0].as_bytes())?;
+                }
+                #[cfg(unix)]
+                SyslogBackend::Unix(s) => {
+                    s.send(msgs[0].as_bytes())?;
+                }
+            }
+            Ok(1)
+        } else {
+            match self {
+                #[cfg(any(
+                    target_os = "linux",
+                    target_os = "android",
+                    target_os = "freebsd",
+                    target_os = "netbsd",
+                    target_os = "openbsd",
+                    target_os = "solaris",
+                ))]
+                SyslogBackend::Udp(s) => {
+                    use g3_io_sys::udp::SendMsgHdr;
 
-impl io::Write for SyslogBackend {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        match self {
-            SyslogBackend::Udp(s) => s.send(buf),
-            #[cfg(unix)]
-            SyslogBackend::Unix(s) => s.send(buf),
+                    let mut hdrs: [SendMsgHdr<'_, 1>; MAX_BATCH_SIZE] =
+                        unsafe { std::mem::zeroed() };
+                    for (i, m) in msgs.iter().take(MAX_BATCH_SIZE).enumerate() {
+                        hdrs[i] = SendMsgHdr::new([io::IoSlice::new(m.as_bytes())], None);
+                    }
+                    s.batch_sendmsg(&mut hdrs[..msgs.len().min(MAX_BATCH_SIZE)])
+                }
+                #[cfg(target_os = "macos")]
+                SyslogBackend::Udp(s) => {
+                    use g3_io_sys::udp::SendMsgHdr;
+
+                    let mut hdrs: [SendMsgHdr<'_, 1>; MAX_BATCH_SIZE] =
+                        unsafe { std::mem::zeroed() };
+                    for (i, m) in msgs.iter().take(MAX_BATCH_SIZE).enumerate() {
+                        hdrs[i] = SendMsgHdr::new([io::IoSlice::new(m.as_bytes())], None);
+                    }
+                    s.batch_sendmsg_x(&mut hdrs[..msgs.len().min(MAX_BATCH_SIZE)])
+                }
+                #[cfg(not(any(
+                    target_os = "linux",
+                    target_os = "android",
+                    target_os = "freebsd",
+                    target_os = "netbsd",
+                    target_os = "openbsd",
+                    target_os = "solaris",
+                    target_os = "macos",
+                )))]
+                SyslogBackend::Udp(s) => {
+                    s.send(msgs[0].as_bytes())?;
+                    Ok(1)
+                }
+                #[cfg(unix)]
+                SyslogBackend::Unix(s) => {
+                    s.send(msgs[0].as_bytes())?;
+                    Ok(1)
+                }
+            }
         }
-    }
-
-    fn flush(&mut self) -> io::Result<()> {
-        Ok(())
     }
 }
 

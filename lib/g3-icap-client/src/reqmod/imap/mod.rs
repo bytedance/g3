@@ -1,31 +1,19 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use std::io::Write;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use bytes::BufMut;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use g3_io_ext::{IdleCheck, LimitedCopyConfig};
+use g3_io_ext::{IdleCheck, StreamCopyConfig};
 
 use super::IcapReqmodClient;
 use crate::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
-use crate::{IcapClientConnection, IcapServiceClient};
+use crate::{IcapClientConnection, IcapServiceClient, IcapServiceOptions};
 
 pub use crate::reqmod::h1::HttpAdapterErrorResponse;
 
@@ -37,15 +25,16 @@ mod append;
 impl IcapReqmodClient {
     pub async fn imap_message_adaptor<I: IdleCheck>(
         &self,
-        copy_config: LimitedCopyConfig,
+        copy_config: StreamCopyConfig,
         idle_checker: I,
         literal_size: u64,
     ) -> anyhow::Result<ImapMessageAdapter<I>> {
         let icap_client = self.inner.clone();
-        let (icap_connection, _icap_options) = icap_client.fetch_connection().await?;
+        let (icap_connection, icap_options) = icap_client.fetch_connection().await?;
         Ok(ImapMessageAdapter {
             icap_client,
             icap_connection,
+            icap_options,
             copy_config,
             idle_checker,
             client_addr: None,
@@ -58,7 +47,8 @@ impl IcapReqmodClient {
 pub struct ImapMessageAdapter<I: IdleCheck> {
     icap_client: Arc<IcapServiceClient>,
     icap_connection: IcapClientConnection,
-    copy_config: LimitedCopyConfig,
+    icap_options: Arc<IcapServiceOptions>,
+    copy_config: StreamCopyConfig,
     idle_checker: I,
     client_addr: Option<SocketAddr>,
     client_username: Option<Arc<str>>,
@@ -78,7 +68,14 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         let mut header = Vec::with_capacity(128);
         header.extend_from_slice(b"PUT / HTTP/1.1\r\n");
         header.extend_from_slice(b"Content-Type: message/rfc822\r\n");
-        let _ = write!(header, "X-IMAP-Message-Size: {}\r\n", self.literal_size);
+
+        let mut len_buf = itoa::Buffer::new();
+        let len_s = len_buf.format(self.literal_size);
+
+        header.extend_from_slice(b"Content-Length: ");
+        header.extend_from_slice(len_s.as_bytes());
+        header.extend_from_slice(b"\r\n");
+
         header.extend_from_slice(b"\r\n");
         header
     }

@@ -1,24 +1,13 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io::Write;
 
 use bytes::BufMut;
 use http::uri::Authority;
-use http::{Method, Request, Uri};
+use http::{HeaderMap, Method, Request, Uri};
 
 use g3_http::server::HttpAdaptedRequest;
 
@@ -34,18 +23,14 @@ impl<T> RequestExt for Request<T> {
         let method = self.method();
         let uri = self.uri();
         if let Some(pa) = uri.path_and_query() {
-            if method.eq(&Method::OPTIONS) && pa.query().is_none() && pa.path().eq("/") {
-                let _ = write!(buf, "OPTIONS * HTTP/1.1\r\n");
-            } else {
-                let _ = write!(buf, "{method} {pa} HTTP/1.1\r\n");
-            }
+            let _ = write!(buf, "{method} {pa} HTTP/1.1\r\n");
         } else if method.eq(&Method::OPTIONS) {
-            let _ = write!(buf, "OPTIONS * HTTP/1.1\r\n");
+            buf.extend_from_slice(b"OPTIONS * HTTP/1.1\r\n");
         } else {
             let _ = write!(buf, "{method} / HTTP/1.1\r\n");
         }
         for (name, value) in self.headers() {
-            if matches!(name, &http::header::TE | &http::header::TRAILER) {
+            if matches!(name, &http::header::TE) {
                 // skip hop-by-hop headers
                 continue;
             }
@@ -54,19 +39,19 @@ impl<T> RequestExt for Request<T> {
             buf.put_slice(value.as_bytes());
             buf.put_slice(b"\r\n");
         }
-        if !self.headers().contains_key(http::header::HOST) {
-            if let Some(host) = uri.host() {
-                buf.put_slice(b"Host: ");
-                buf.put_slice(host.as_bytes());
-                buf.put_slice(b"\r\n");
-            }
+        if !self.headers().contains_key(http::header::HOST)
+            && let Some(host) = uri.host()
+        {
+            buf.put_slice(b"Host: ");
+            buf.put_slice(host.as_bytes());
+            buf.put_slice(b"\r\n");
         }
         buf.put_slice(b"\r\n");
         buf
     }
 
     fn adapt_to(self, other: &HttpAdaptedRequest) -> Self {
-        let mut headers = other.headers.to_h2_map();
+        let mut headers = HeaderMap::from(&other.headers);
         // add hop-by-hop headers
         if let Some(v) = self.headers().get(http::header::TE) {
             headers.insert(http::header::TE, v.into());
@@ -82,11 +67,11 @@ impl<T> RequestExt for Request<T> {
             if parts.headers.contains_key(http::header::HOST) {
                 headers.insert(http::header::HOST, host.clone());
             }
-            if uri_parts.authority.is_none() {
-                if let Ok(authority) = Authority::from_maybe_shared(host.clone()) {
-                    //update the authority field
-                    uri_parts.authority = Some(authority);
-                }
+            if uri_parts.authority.is_none()
+                && let Ok(authority) = Authority::from_maybe_shared(host.clone())
+            {
+                //update the authority field
+                uri_parts.authority = Some(authority);
             }
         }
         if let Ok(new_uri) = Uri::from_parts(uri_parts) {

@@ -1,28 +1,21 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::str::FromStr;
 
 use http::Uri;
 
-use g3_types::net::UpstreamAddr;
+use g3_types::net::{HttpProxySubProtocol, UpstreamAddr};
 
 use super::HttpRequestParseError;
 
 pub trait UriExt {
+    fn get_upstream_and_protocol(
+        &self,
+    ) -> Result<(UpstreamAddr, HttpProxySubProtocol), HttpRequestParseError>;
+
     fn get_upstream_with_default_port(
         &self,
         default_port: u16,
@@ -37,6 +30,27 @@ pub trait UriExt {
 }
 
 impl UriExt for Uri {
+    fn get_upstream_and_protocol(
+        &self,
+    ) -> Result<(UpstreamAddr, HttpProxySubProtocol), HttpRequestParseError> {
+        if let Some(scheme) = self.scheme() {
+            if scheme.eq(&http::uri::Scheme::HTTP) {
+                let upstream = self.get_upstream_with_default_port(80)?;
+                Ok((upstream, HttpProxySubProtocol::HttpForward))
+            } else if scheme.eq(&http::uri::Scheme::HTTPS) {
+                let upstream = self.get_upstream_with_default_port(443)?;
+                Ok((upstream, HttpProxySubProtocol::HttpsForward))
+            } else if scheme.as_str().eq_ignore_ascii_case("ftp") {
+                let upstream = self.get_upstream_with_default_port(21)?;
+                Ok((upstream, HttpProxySubProtocol::FtpOverHttp))
+            } else {
+                Err(HttpRequestParseError::UnsupportedScheme)
+            }
+        } else {
+            Err(HttpRequestParseError::InvalidRequestTarget)
+        }
+    }
+
     fn get_upstream_with_default_port(
         &self,
         default_port: u16,

@@ -1,26 +1,15 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::cmp::Ordering;
-use std::hash::{Hash, Hasher};
+use std::hash::{BuildHasher, Hash, Hasher};
 use std::str::FromStr;
 use std::sync::atomic;
 
-use metrohash::MetroHash64;
-use rand::seq::SliceRandom;
+use foldhash::fast::FixedState;
+use rand::seq::IndexedRandom;
 use smallvec::SmallVec;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -155,9 +144,7 @@ pub struct SelectiveVec<T: SelectiveItem> {
 }
 
 macro_rules! panic_on_empty {
-    () => {{
-        panic!("do panic check before pick node")
-    }};
+    () => {{ panic!("do panic check before pick node") }};
 }
 
 impl<T: SelectiveItem> SelectiveVec<T> {
@@ -166,7 +153,7 @@ impl<T: SelectiveItem> SelectiveVec<T> {
             0 => panic_on_empty!(),
             1 => &self.inner[0],
             _ => {
-                let mut rng = rand::thread_rng();
+                let mut rng = rand::rng();
                 if self.weighted {
                     self.inner
                         .choose_weighted(&mut rng, |v| v.weight())
@@ -185,7 +172,7 @@ impl<T: SelectiveItem> SelectiveVec<T> {
             _ => {
                 let len = self.inner.len().min(n);
 
-                let mut rng = rand::thread_rng();
+                let mut rng = rand::rng();
                 if self.weighted {
                     self.inner
                         .choose_multiple_weighted(&mut rng, len, |v| v.weight())
@@ -296,9 +283,7 @@ impl<T: SelectiveItem> SelectiveVec<T> {
     where
         K: Hash + ?Sized,
     {
-        let mut hasher = MetroHash64::new();
-        key.hash(&mut hasher);
-        let mut h = hasher.finish();
+        let mut h = FixedState::default().hash_one(key);
         let (mut b, mut j) = (-1i64, 0i64);
         while j < slot_count as i64 {
             b = j;
@@ -328,7 +313,7 @@ impl<T: SelectiveItem> SelectiveVec<T> {
     where
         K: Hash + ?Sized,
     {
-        let mut hasher = MetroHash64::new();
+        let mut hasher = FixedState::default().build_hasher();
         key.hash(&mut hasher);
         item.selective_hash(&mut hasher);
         hasher.finish()
@@ -338,7 +323,7 @@ impl<T: SelectiveItem> SelectiveVec<T> {
     where
         K: Hash + ?Sized,
     {
-        let mut hasher = MetroHash64::new();
+        let mut hasher = FixedState::default().build_hasher();
         key.hash(&mut hasher);
         item.selective_hash(&mut hasher);
         let hash = hasher.finish() as f64;

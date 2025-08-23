@@ -1,17 +1,6 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::time::Duration;
@@ -21,6 +10,7 @@ pub struct ConnectionPoolConfig {
     check_interval: Duration,
     max_idle_count: usize,
     min_idle_count: usize,
+    idle_timeout: Duration,
 }
 
 impl Default for ConnectionPoolConfig {
@@ -35,6 +25,7 @@ impl ConnectionPoolConfig {
             check_interval: Duration::from_secs(10),
             max_idle_count: max_idle,
             min_idle_count: min_idle,
+            idle_timeout: Duration::from_secs(300),
         }
     }
 
@@ -66,5 +57,15 @@ impl ConnectionPoolConfig {
     #[inline]
     pub fn min_idle_count(&self) -> usize {
         self.min_idle_count
+    }
+
+    #[inline]
+    pub fn set_idle_timeout(&mut self, timeout: Duration) {
+        self.idle_timeout = timeout;
+    }
+
+    #[inline]
+    pub fn idle_timeout(&self) -> Duration {
+        self.idle_timeout
     }
 }

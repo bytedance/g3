@@ -1,20 +1,9 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use chrono::{Days, Utc};
 use openssl::asn1::{Asn1Integer, Asn1Time};
 use openssl::hash::MessageDigest;
@@ -22,11 +11,11 @@ use openssl::pkey::{PKey, Private};
 use openssl::x509::extension::{
     AuthorityKeyIdentifier, ExtendedKeyUsage, SubjectAlternativeName, SubjectKeyIdentifier,
 };
-use openssl::x509::{X509Builder, X509Extension, X509Name, X509Ref, X509};
+use openssl::x509::{X509, X509Builder, X509Extension, X509Name, X509Ref};
 
 use g3_types::net::Host;
 
-use super::{asn1_time_from_chrono, KeyUsageBuilder, SubjectNameBuilder};
+use super::{KeyUsageBuilder, SubjectNameBuilder, asn1_time_from_chrono};
 use crate::ext::X509BuilderExt;
 
 pub struct ClientCertBuilder {
@@ -41,7 +30,7 @@ pub struct ClientCertBuilder {
 
 pub struct TlsClientCertBuilder {}
 
-#[cfg(feature = "no-sm2")]
+#[cfg(osslconf = "OPENSSL_NO_SM2")]
 macro_rules! impl_no {
     ($f:ident, $a:literal) => {
         pub fn $f() -> anyhow::Result<ClientCertBuilder> {
@@ -65,9 +54,9 @@ impl TlsClientCertBuilder {
     tls_impl_new!(new_ec384);
     tls_impl_new!(new_ec521);
 
-    #[cfg(not(feature = "no-sm2"))]
+    #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
     tls_impl_new!(new_sm2);
-    #[cfg(feature = "no-sm2")]
+    #[cfg(osslconf = "OPENSSL_NO_SM2")]
     impl_no!(new_sm2, "SM2");
 
     pub fn new_ed25519() -> anyhow::Result<ClientCertBuilder> {
@@ -118,12 +107,12 @@ impl TlsClientCertBuilder {
 pub struct TlcpClientSignCertBuilder {}
 
 impl TlcpClientSignCertBuilder {
-    #[cfg(not(feature = "no-sm2"))]
+    #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
     pub fn new_sm2() -> anyhow::Result<ClientCertBuilder> {
         let pkey = super::pkey::new_sm2()?;
         TlcpClientSignCertBuilder::with_pkey(pkey)
     }
-    #[cfg(feature = "no-sm2")]
+    #[cfg(osslconf = "OPENSSL_NO_SM2")]
     impl_no!(new_sm2, "SM2");
 
     pub fn new_rsa(bits: u32) -> anyhow::Result<ClientCertBuilder> {
@@ -142,12 +131,12 @@ impl TlcpClientSignCertBuilder {
 pub struct TlcpClientEncCertBuilder {}
 
 impl TlcpClientEncCertBuilder {
-    #[cfg(not(feature = "no-sm2"))]
+    #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
     pub fn new_sm2() -> anyhow::Result<ClientCertBuilder> {
         let pkey = super::pkey::new_sm2()?;
         TlcpClientEncCertBuilder::with_pkey(pkey)
     }
-    #[cfg(feature = "no-sm2")]
+    #[cfg(osslconf = "OPENSSL_NO_SM2")]
     impl_no!(new_sm2, "SM2");
 
     pub fn new_rsa(bits: u32) -> anyhow::Result<ClientCertBuilder> {

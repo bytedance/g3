@@ -1,24 +1,13 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use arc_swap::{ArcSwap, ArcSwapOption};
 use async_trait::async_trait;
 use log::debug;
@@ -28,46 +17,52 @@ use slog::Logger;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio::sync::{broadcast, mpsc};
-use tokio_rustls::{server::TlsStream, TlsAcceptor};
+use tokio_rustls::{TlsAcceptor, server::TlsStream};
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
+use g3_io_ext::{AsyncStream, IdleWheel};
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
-use g3_types::metrics::MetricsName;
-use g3_types::net::{OpensslClientConfig, RustlsServerConnectionExt};
+use g3_types::metrics::NodeName;
+use g3_types::net::{
+    AlpnProtocol, OpensslClientConfig, OpensslTicketKey, RollingTicketer, RustlsServerConnectionExt,
+};
 
+use super::HttpProxyServerStats;
 use super::task::{
     CommonTaskContext, HttpProxyPipelineReaderTask, HttpProxyPipelineStats,
     HttpProxyPipelineWriterTask,
 };
-use super::HttpProxyServerStats;
-use crate::audit::AuditHandle;
+use crate::audit::{AuditContext, AuditHandle};
 use crate::auth::UserGroup;
 use crate::config::server::http_proxy::HttpProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
 use crate::serve::{
-    ArcServer, ArcServerStats, Server, ServerInternal, ServerQuitPolicy, ServerStats, WrapArcServer,
+    ArcServer, ArcServerInternal, ArcServerStats, Server, ServerInternal, ServerQuitPolicy,
+    ServerRegistry, ServerStats, WrapArcServer,
 };
 
 pub(crate) struct HttpProxyServer {
     config: Arc<HttpProxyServerConfig>,
     server_stats: Arc<HttpProxyServerStats>,
     listen_stats: Arc<ListenStats>,
+    tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     tls_acceptor: Option<TlsAcceptor>,
     tls_accept_timeout: Duration,
     tls_client_config: Arc<OpensslClientConfig>,
     ingress_net_filter: Option<AclNetworkRule>,
     dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
-    task_logger: Logger,
+    task_logger: Option<Logger>,
 
     escaper: ArcSwap<ArcEscaper>,
     user_group: ArcSwapOption<UserGroup>,
     audit_handle: ArcSwapOption<AuditHandle>,
     quit_policy: Arc<ServerQuitPolicy>,
+    idle_wheel: Arc<IdleWheel>,
     reload_version: usize,
 }
 
@@ -76,6 +71,7 @@ impl HttpProxyServer {
         config: Arc<HttpProxyServerConfig>,
         server_stats: Arc<HttpProxyServerStats>,
         listen_stats: Arc<ListenStats>,
+        tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         version: usize,
     ) -> anyhow::Result<HttpProxyServer> {
         let reload_sender = crate::serve::new_reload_notify_channel();
@@ -83,7 +79,10 @@ impl HttpProxyServer {
         let mut tls_accept_timeout = Duration::from_secs(10);
         let tls_acceptor = if let Some(tls_config_builder) = &config.server_tls_config {
             let tls_server_config = tls_config_builder
-                .build()
+                .build_with_alpn_protocols(
+                    Some(vec![AlpnProtocol::Http11, AlpnProtocol::Http10]),
+                    tls_rolling_ticketer.clone(),
+                )
                 .context("failed to build tls server config")?;
             tls_accept_timeout = tls_server_config.accept_timeout;
             Some(TlsAcceptor::from(tls_server_config.driver))
@@ -107,6 +106,7 @@ impl HttpProxyServer {
             .map(|builder| Arc::new(builder.build()));
 
         let task_logger = config.get_task_logger();
+        let idle_wheel = IdleWheel::spawn(config.task_idle_check_duration);
 
         // always update extra metrics tags
         server_stats.set_extra_tags(config.extra_metrics_tags.clone());
@@ -119,6 +119,7 @@ impl HttpProxyServer {
             config,
             server_stats,
             listen_stats,
+            tls_rolling_ticketer,
             tls_acceptor,
             tls_accept_timeout,
             tls_client_config: Arc::new(tls_client_config),
@@ -130,46 +131,75 @@ impl HttpProxyServer {
             user_group: ArcSwapOption::new(user_group),
             audit_handle: ArcSwapOption::new(audit_handle),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
+            idle_wheel,
             reload_version: version,
         };
 
         Ok(server)
     }
 
-    pub(crate) fn prepare_initial(config: HttpProxyServerConfig) -> anyhow::Result<ArcServer> {
+    pub(crate) fn prepare_initial(
+        config: HttpProxyServerConfig,
+    ) -> anyhow::Result<ArcServerInternal> {
         let config = Arc::new(config);
         let server_stats = Arc::new(HttpProxyServerStats::new(config.name()));
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-        let server = HttpProxyServer::new(config, server_stats, listen_stats, 1)?;
+        let tls_rolling_ticketer = if let Some(c) = &config.tls_ticketer {
+            let ticketer = c
+                .build_and_spawn_updater()
+                .context("failed to create tls rolling ticketer")?;
+            Some(ticketer)
+        } else {
+            None
+        };
+
+        let server =
+            HttpProxyServer::new(config, server_stats, listen_stats, tls_rolling_ticketer, 1)?;
         Ok(Arc::new(server))
     }
 
     fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<HttpProxyServer> {
         if let AnyServerConfig::HttpProxy(config) = config {
-            let config = Arc::new(*config);
+            let config = Arc::new(config);
             let server_stats = Arc::clone(&self.server_stats);
             let listen_stats = Arc::clone(&self.listen_stats);
 
-            let server =
-                HttpProxyServer::new(config, server_stats, listen_stats, self.reload_version + 1)?;
+            let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
+                self.tls_rolling_ticketer.clone()
+            } else if let Some(c) = &config.tls_ticketer {
+                let ticketer = c
+                    .build_and_spawn_updater()
+                    .context("failed to create tls rolling ticketer")?;
+                Some(ticketer)
+            } else {
+                None
+            };
+
+            let server = HttpProxyServer::new(
+                config,
+                server_stats,
+                listen_stats,
+                tls_rolling_ticketer,
+                self.reload_version + 1,
+            )?;
             Ok(server)
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
-                self.config.server_type(),
-                config.server_type()
+                self.config.r#type(),
+                config.r#type()
             ))
         }
     }
 
     fn get_common_task_context(&self, cc_info: ClientConnectionInfo) -> Arc<CommonTaskContext> {
         Arc::new(CommonTaskContext {
-            server_config: Arc::clone(&self.config),
-            server_stats: Arc::clone(&self.server_stats),
-            server_quit_policy: Arc::clone(&self.quit_policy),
+            server_config: self.config.clone(),
+            server_stats: self.server_stats.clone(),
+            server_quit_policy: self.quit_policy.clone(),
+            idle_wheel: self.idle_wheel.clone(),
             escaper: self.escaper.load().as_ref().clone(),
-            audit_handle: self.audit_handle.load_full(),
             cc_info,
             tls_client_config: self.tls_client_config.clone(),
             task_logger: self.task_logger.clone(),
@@ -194,39 +224,27 @@ impl HttpProxyServer {
         false
     }
 
+    fn audit_context(&self) -> AuditContext {
+        AuditContext::new(self.audit_handle.load_full())
+    }
+
     async fn spawn_stream_task<T>(&self, stream: T, cc_info: ClientConnectionInfo)
     where
-        T: AsyncRead + AsyncWrite + Send + Sync + 'static,
+        T: AsyncStream,
+        T::R: AsyncRead + Send + Sync + Unpin + 'static,
+        T::W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
         let ctx = self.get_common_task_context(cc_info);
         let pipeline_stats = Arc::new(HttpProxyPipelineStats::default());
-        let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size);
+        let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size.get());
 
         // NOTE tls underlying traffic is not counted in (server/task/user) stats
-
-        let (clt_r, clt_w) = tokio::io::split(stream);
-        let r_task = HttpProxyPipelineReaderTask::new(&ctx, task_sender, clt_r, &pipeline_stats);
-        let w_task = HttpProxyPipelineWriterTask::new(
-            &ctx,
-            self.user_group.load_full(),
-            task_receiver,
-            clt_w,
-            &pipeline_stats,
-        );
-
-        tokio::spawn(r_task.into_running());
-        w_task.into_running().await
-    }
-
-    async fn spawn_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
-        let ctx = self.get_common_task_context(cc_info);
-        let pipeline_stats = Arc::new(HttpProxyPipelineStats::default());
-        let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size);
 
         let (clt_r, clt_w) = stream.into_split();
         let r_task = HttpProxyPipelineReaderTask::new(&ctx, task_sender, clt_r, &pipeline_stats);
         let w_task = HttpProxyPipelineWriterTask::new(
             &ctx,
+            self.audit_context(),
             self.user_group.load_full(),
             task_receiver,
             clt_w,
@@ -246,7 +264,7 @@ impl HttpProxyServer {
     ) {
         let ctx = self.get_common_task_context(cc_info);
         let pipeline_stats = Arc::new(HttpProxyPipelineStats::default());
-        let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size);
+        let (task_sender, task_receiver) = mpsc::channel(ctx.server_config.pipeline_size.get());
 
         let r_task =
             HttpProxyPipelineReaderTask::new(&ctx, task_sender, recv_stream, &pipeline_stats);
@@ -254,6 +272,7 @@ impl HttpProxyServer {
 
         let w_task = HttpProxyPipelineWriterTask::new(
             &ctx,
+            self.audit_context(),
             self.user_group.load_full(),
             task_receiver,
             send_stream,
@@ -265,14 +284,10 @@ impl HttpProxyServer {
 
 impl ServerInternal for HttpProxyServer {
     fn _clone_config(&self) -> AnyServerConfig {
-        AnyServerConfig::HttpProxy(Box::new(self.config.as_ref().clone()))
+        AnyServerConfig::HttpProxy(self.config.as_ref().clone())
     }
 
-    fn _update_config_in_place(&self, _flags: u64, _config: AnyServerConfig) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn _depend_on_server(&self, _name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, _name: &NodeName) -> bool {
         false
     }
 
@@ -298,23 +313,31 @@ impl ServerInternal for HttpProxyServer {
         Ok(())
     }
 
-    fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyServerConfig,
+        _registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServerInternal> {
         let mut server = self.prepare_reload(config)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyServerConfig,
+        _registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServerInternal> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }
 
-    fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()> {
+    fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {
         let Some(listen_config) = &self.config.listen else {
             return Ok(());
         };
-        let runtime =
-            ListenTcpRuntime::new(WrapArcServer(server.clone()), server.get_listen_stats());
+        let listen_stats = server.get_listen_stats();
+        let runtime = ListenTcpRuntime::new(WrapArcServer(server), listen_stats);
         runtime
             .run_all_instances(
                 listen_config,
@@ -332,13 +355,13 @@ impl ServerInternal for HttpProxyServer {
 
 impl BaseServer for HttpProxyServer {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
     #[inline]
-    fn server_type(&self) -> &'static str {
-        self.config.server_type()
+    fn r#type(&self) -> &'static str {
+        self.config.r#type()
     }
 
     #[inline]
@@ -385,7 +408,7 @@ impl AcceptTcpServer for HttpProxyServer {
                 }
             }
         } else {
-            self.spawn_tcp_task(stream, cc_info).await;
+            self.spawn_stream_task(stream, cc_info).await;
         }
     }
 }
@@ -421,15 +444,15 @@ impl AcceptQuicServer for HttpProxyServer {
 
 #[async_trait]
 impl Server for HttpProxyServer {
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         self.config.escaper()
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         self.config.user_group()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         self.config.auditor()
     }
 

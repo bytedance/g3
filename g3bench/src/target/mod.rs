@@ -1,31 +1,20 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::future::Future;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::process::ExitCode;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
-use governor::RateLimiter;
+use anyhow::{Context, anyhow};
 use hdrhistogram::Histogram;
-use tokio::sync::{mpsc, Barrier, Semaphore};
+use tokio::sync::{Barrier, Semaphore, mpsc};
 use tokio::time::{Instant, MissedTickBehavior};
 
 use g3_statsd_client::StatsdClient;
+use g3_types::limit::RateLimiter;
 
 use super::ProcArgs;
 
@@ -37,6 +26,7 @@ pub mod h2;
 pub mod keyless;
 pub mod openssl;
 pub mod rustls;
+pub mod thrift;
 
 #[cfg_attr(feature = "quic", path = "h3/mod.rs")]
 #[cfg_attr(not(feature = "quic"), path = "no_h3.rs")]
@@ -176,7 +166,7 @@ fn register_signal_handler() {
     });
 }
 
-async fn run<RS, H, C, T>(mut target: T, proc_args: &ProcArgs) -> anyhow::Result<()>
+async fn run<RS, H, C, T>(mut target: T, proc_args: &ProcArgs) -> anyhow::Result<ExitCode>
 where
     RS: BenchRuntimeStats + Send + Sync + 'static,
     H: BenchHistogram + Send + 'static,
@@ -184,8 +174,8 @@ where
     T: BenchTarget<RS, H, C> + Send + Sync + 'static,
 {
     let sync_sem = Arc::new(Semaphore::new(0));
-    let sync_barrier = Arc::new(Barrier::new(proc_args.concurrency + 1));
-    let (sender, mut receiver) = mpsc::channel::<usize>(proc_args.concurrency);
+    let sync_barrier = Arc::new(Barrier::new(proc_args.concurrency.get() + 1));
+    let (sender, mut receiver) = mpsc::channel::<usize>(proc_args.concurrency.get());
     let progress = proc_args.new_progress_bar();
     let progress_counter = progress.as_ref().map(|p| p.counter());
 
@@ -194,9 +184,8 @@ where
 
     let rate_limit = proc_args
         .rate_limit
-        .as_ref()
-        .map(|c| Arc::new(RateLimiter::direct(c.get_inner())));
-    for i in 0..proc_args.concurrency {
+        .map(|q| Arc::new(RateLimiter::new_global(q)));
+    for i in 0..proc_args.concurrency.get() {
         let sem = Arc::clone(&sync_sem);
         let barrier = Arc::clone(&sync_barrier);
         let quit_sender = sender.clone();
@@ -232,7 +221,7 @@ where
 
                 if let Some(r) = &rate_limit {
                     while let Err(t) = r.check() {
-                        tokio::time::sleep_until(t.earliest_possible().into()).await;
+                        tokio::time::sleep(t).await;
                     }
                 }
 
@@ -283,7 +272,7 @@ where
     drop(sender);
 
     let _run_permit = sync_sem
-        .acquire_many(proc_args.concurrency as u32)
+        .acquire_many(proc_args.concurrency.get() as u32)
         .await
         .context("failed to start all task contexts")?;
 
@@ -302,15 +291,17 @@ where
             let quit_notifier = quit_notifier.clone();
             let handler = std::thread::Builder::new()
                 .name("runtime-stats".to_string())
-                .spawn(move || loop {
-                    runtime_stats.emit(&mut statsd_client);
-                    statsd_client.flush_sink();
+                .spawn(move || {
+                    loop {
+                        runtime_stats.emit(&mut statsd_client);
+                        statsd_client.flush_sink();
 
-                    if quit_notifier.load(Ordering::Relaxed) {
-                        break;
+                        if quit_notifier.load(Ordering::Relaxed) {
+                            break;
+                        }
+
+                        std::thread::sleep(emit_duration);
                     }
-
-                    std::thread::sleep(emit_duration);
                 })
                 .map_err(|e| anyhow!("failed to create runtime stats thread: {e}"))?;
             Some(handler)
@@ -387,21 +378,33 @@ where
         }
     }
 
-    stats::global_state().summary(total_time, &distribute_histogram);
     if let Some(handler) = runtime_stats_handler {
         let _ = handler.join();
     }
-    H::summary_newline();
     target.notify_finish();
-    target.fetch_runtime_stats().summary(total_time);
+
+    if !proc_args.no_summary {
+        stats::global_state().summary(total_time, &distribute_histogram);
+        H::summary_newline();
+        target.fetch_runtime_stats().summary(total_time);
+    }
+
     if let Some(handler) = histogram_stats_handler {
         match handler.join() {
             Ok(mut histogram) => {
                 histogram.refresh();
-                histogram.summary();
+                if !proc_args.no_summary {
+                    histogram.summary();
+                }
             }
             Err(e) => eprintln!("error to join histogram stats thread: {e:?}"),
         }
     }
-    Ok(())
+
+    let exit_code = if stats::global_state().all_succeeded() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    };
+    Ok(exit_code)
 }

@@ -1,23 +1,29 @@
 name: Linux-CI
+permissions: { }
 
 on:
   push:
     paths-ignore:
       - 'ansible/**'
       - 'doc/**'
-      - 'demo/**'
+      - 'sphinx/**'
       - 'scripts/**'
-      - 'g3proxy/doc/**'
-      - 'g3tiles/doc/**'
     branches:
       - 'master'
-      - 'rel/**'
       - 'lts/**'
   pull_request:
+    paths-ignore:
+      - 'ansible/**'
+      - 'doc/**'
+      - 'sphinx/**'
+      - 'scripts/**'
     branches:
       - 'master'
-      - 'rel/**'
       - 'lts/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -29,74 +35,75 @@ jobs:
     strategy:
       matrix:
         rust:
-        - stable
-        - beta
-        - nightly
+          - 1.88
+          - stable
+          - beta
+          - nightly
     steps:
-    - name: Checkout sources
-      uses: actions/checkout@v4
-      with:
-        submodules: true
-    - name: Install ${{ matrix.rust }} toolchain
-      uses: dtolnay/rust-toolchain@master
-      with:
-        toolchain: ${{ matrix.rust }}
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
-    - name: Cargo build
-      run: cargo build
-    - name: Cargo test
-      run: cargo test --workspace --lib --examples
+      - name: Checkout sources
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Install ${{ matrix.rust }} toolchain
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
+        with:
+          toolchain: ${{ matrix.rust }}
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
+      - name: Cargo build
+        run: cargo build
+      - name: Cargo test
+        run: cargo test --workspace
 
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout sources
-      uses: actions/checkout@v4
-      with:
-        submodules: true
-    - name: Install stable toolchain
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        components: clippy
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
-    - name: Cargo clippy
-      run: cargo clippy --tests -- --deny warnings
+      - name: Checkout sources
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
+      - name: Cargo clippy
+        run: cargo clippy --tests --all -- --deny warnings
 
-  build-vendored:
+  build-vendored-g1:
     name: Build vendored
     runs-on: ubuntu-latest
     strategy:
       matrix:
         feature:
-          - vendored-openssl
-          - vendored-tongsuo
-          - vendored-aws-lc
-          - vendored-boringssl
+          - vendored-openssl,rustls-ring
+          - vendored-tongsuo,rustls-ring
+          - vendored-boringssl,rustls-ring
+          - vendored-aws-lc,rustls-aws-lc
+          - vendored-aws-lc-fips,rustls-aws-lc-fips
         component:
           - g3proxy
           - g3bench
           - g3tiles
-          - g3fcgen
-          - g3mkcert
-          - g3keymess
         include:
-          - feature: vendored-c-ares
+          - feature: vendored-c-ares,rustls-ring
             component: g3proxy
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
       - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
         with:
+          toolchain: stable
           components: clippy
       - name: Install dependencies
         run: |
@@ -106,3 +113,64 @@ jobs:
         run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
       - name: Cargo clippy
         run: cargo clippy --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }} -- --deny warnings
+
+  build-vendored-g2:
+    name: Build vendored
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        feature:
+          - vendored-openssl
+          - vendored-tongsuo
+          - vendored-boringssl
+          - vendored-aws-lc
+          - vendored-aws-lc-fips
+        component:
+          - g3fcgen
+          - g3mkcert
+          - g3keymess
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto libssl-dev
+      - name: Cargo build
+        run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
+      - name: Cargo clippy
+        run: cargo clippy --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }} -- --deny warnings
+
+  openssl-async-job:
+    name: Build with OpenSSL Async Job
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component:
+          - g3keymess
+          - g3tiles
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto libssl-dev
+      - name: Cargo build
+        run: cargo build --features openssl-async-job -p ${{ matrix.component }}
+      - name: Cargo clippy
+        run: cargo clippy --features openssl-async-job -p ${{ matrix.component }} -- --deny warnings

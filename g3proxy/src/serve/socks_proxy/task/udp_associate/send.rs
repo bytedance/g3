@@ -1,32 +1,24 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io::{self, IoSlice};
 use std::net::SocketAddr;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
-use g3_io_ext::{AsyncUdpSend, UdpRelayClientError, UdpRelayClientSend};
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
     target_os = "freebsd",
     target_os = "netbsd",
     target_os = "openbsd",
+    target_os = "macos",
+    target_os = "solaris",
 ))]
-use g3_io_ext::{SendMsgHdr, UdpRelayPacket};
+use g3_io_ext::UdpRelayPacket;
+use g3_io_ext::{AsyncUdpSend, UdpRelayClientError, UdpRelayClientSend};
+use g3_io_sys::udp::SendMsgHdr;
 use g3_socks::v5::SocksUdpHeader;
 use g3_types::net::UpstreamAddr;
 
@@ -60,12 +52,12 @@ where
         from: &UpstreamAddr,
     ) -> Poll<Result<usize, UdpRelayClientError>> {
         let socks_header = self.socks_headers.get_mut(0).unwrap();
-        let nw = ready!(self.inner.poll_sendmsg(
-            cx,
-            &[IoSlice::new(socks_header.encode(from)), IoSlice::new(buf)],
-            Some(self.client)
-        ))
-        .map_err(UdpRelayClientError::SendFailed)?;
+        let hdr = SendMsgHdr::new(
+            [IoSlice::new(socks_header.encode(from)), IoSlice::new(buf)],
+            Some(self.client),
+        );
+        let nw =
+            ready!(self.inner.poll_sendmsg(cx, &hdr)).map_err(UdpRelayClientError::SendFailed)?;
         if nw == 0 {
             Poll::Ready(Err(UdpRelayClientError::SendFailed(io::Error::new(
                 io::ErrorKind::WriteZero,
@@ -82,6 +74,7 @@ where
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "solaris",
     ))]
     fn poll_send_packets(
         &mut self,
@@ -103,6 +96,38 @@ where
         }
 
         let count = ready!(self.inner.poll_batch_sendmsg(cx, &mut msgs))
+            .map_err(UdpRelayClientError::SendFailed)?;
+        if count == 0 {
+            Poll::Ready(Err(UdpRelayClientError::SendFailed(io::Error::new(
+                io::ErrorKind::WriteZero,
+                "write zero packet into sender",
+            ))))
+        } else {
+            Poll::Ready(Ok(count))
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    fn poll_send_packets(
+        &mut self,
+        cx: &mut Context<'_>,
+        packets: &[UdpRelayPacket],
+    ) -> Poll<Result<usize, UdpRelayClientError>> {
+        if packets.len() > self.socks_headers.len() {
+            self.socks_headers.resize(packets.len(), Default::default());
+        }
+        let mut msgs = Vec::with_capacity(packets.len());
+        for (p, h) in packets.iter().zip(self.socks_headers.iter_mut()) {
+            msgs.push(SendMsgHdr::new(
+                [
+                    IoSlice::new(h.encode(p.upstream())),
+                    IoSlice::new(p.payload()),
+                ],
+                None,
+            ));
+        }
+
+        let count = ready!(self.inner.poll_batch_sendmsg_x(cx, &mut msgs))
             .map_err(UdpRelayClientError::SendFailed)?;
         if count == 0 {
             Poll::Ready(Err(UdpRelayClientError::SendFailed(io::Error::new(

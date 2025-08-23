@@ -1,22 +1,11 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use pin_project_lite::pin_project;
 use tokio::io::{AsyncBufRead, AsyncRead, ReadBuf};
@@ -227,7 +216,7 @@ impl<'a, R> TextDataDecodeReader<'a, R> {
     }
 }
 
-impl<'a, R> AsyncRead for TextDataDecodeReader<'a, R>
+impl<R> AsyncRead for TextDataDecodeReader<'_, R>
 where
     R: AsyncRead + Unpin,
 {
@@ -241,7 +230,7 @@ where
     }
 }
 
-impl<'a, R> AsyncBufRead for TextDataDecodeReader<'a, R>
+impl<R> AsyncBufRead for TextDataDecodeReader<'_, R>
 where
     R: AsyncRead + Unpin,
 {
@@ -260,16 +249,13 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use bytes::Bytes;
-    use tokio::io::{AsyncReadExt, BufReader, Result};
-    use tokio_util::io::StreamReader;
+    use tokio::io::{AsyncReadExt, BufReader};
 
     #[tokio::test]
     async fn read_single_normal() {
         let body_len: usize = 18;
         let content = b"Line 1\r\n\r\n.Line 2\r\n.\r\n";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_deocder = TextDataDecodeReader::new(&mut buf_stream, 1024);
 
@@ -284,8 +270,7 @@ mod test {
     async fn read_single_malformed() {
         let body_len: usize = 18;
         let content = b"Line 1\r\n\r\n.Line 2\r\n.\r\n123";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_deocder = TextDataDecodeReader::new(&mut buf_stream, 1024);
 
@@ -303,13 +288,12 @@ mod test {
         let content2 = b"\n.";
         let content3 = b"Line 2";
         let content4 = b"\r\n.\r\n";
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(content1)),
-            Result::Ok(Bytes::from_static(content2)),
-            Result::Ok(Bytes::from_static(content3)),
-            Result::Ok(Bytes::from_static(content4)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .read(content3)
+            .read(content4)
+            .build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_deocder = TextDataDecodeReader::new(&mut buf_stream, 1024);
 
@@ -326,13 +310,12 @@ mod test {
         let content2 = b"\n.";
         let content3 = b"Line 2";
         let content4 = b"\r\n.\r\n";
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(content1)),
-            Result::Ok(Bytes::from_static(content2)),
-            Result::Ok(Bytes::from_static(content3)),
-            Result::Ok(Bytes::from_static(content4)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .read(content3)
+            .read(content4)
+            .build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_deocder = TextDataDecodeReader::new(&mut buf_stream, 1024);
 
@@ -352,13 +335,12 @@ mod test {
         let content2 = b"\n.";
         let content3 = b"Line 2";
         let content4 = b"\r\n.\r\n123";
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(content1)),
-            Result::Ok(Bytes::from_static(content2)),
-            Result::Ok(Bytes::from_static(content3)),
-            Result::Ok(Bytes::from_static(content4)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .read(content3)
+            .read(content4)
+            .build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_deocder = TextDataDecodeReader::new(&mut buf_stream, 1024);
 
@@ -375,13 +357,12 @@ mod test {
         let content2 = b"\n.";
         let content3 = b"Line 2";
         let content4 = b"\r\n.\r\n123";
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(content1)),
-            Result::Ok(Bytes::from_static(content2)),
-            Result::Ok(Bytes::from_static(content3)),
-            Result::Ok(Bytes::from_static(content4)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .read(content3)
+            .read(content4)
+            .build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_deocder = TextDataDecodeReader::new(&mut buf_stream, 1024);
 

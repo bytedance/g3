@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::str::FromStr;
@@ -30,7 +19,7 @@ pub struct HttpAdaptedRequest {
     pub uri: Uri,
     pub version: Version,
     pub headers: HttpHeaderMap,
-    trailer: Vec<HttpHeaderValue>,
+    pub content_length: Option<u64>,
 }
 
 impl HttpAdaptedRequest {
@@ -40,24 +29,8 @@ impl HttpAdaptedRequest {
             uri,
             version,
             headers: HttpHeaderMap::default(),
-            trailer: Vec::new(),
+            content_length: None,
         }
-    }
-
-    pub fn set_chunked_encoding(&mut self) {
-        self.headers.insert(
-            http::header::TRANSFER_ENCODING,
-            HttpHeaderValue::from_static("chunked"),
-        );
-    }
-
-    pub fn set_trailer(&mut self, trailers: Vec<HttpHeaderValue>) {
-        self.trailer = trailers;
-    }
-
-    #[inline]
-    pub(crate) fn trailer(&self) -> &[HttpHeaderValue] {
-        &self.trailer
     }
 
     pub async fn parse<R>(
@@ -159,11 +132,16 @@ impl HttpAdaptedRequest {
         })?;
 
         match name.as_str() {
-            "connection" | "keep-alive" | "te" | "trailer" => {
+            "connection" | "keep-alive" | "te" => {
                 // ignored hop-by-hop options
                 return Ok(());
             }
-            "transfer-encoding" | "content-length" => {
+            "content-length" => {
+                let content_length = u64::from_str(header.value)
+                    .map_err(|_| HttpRequestParseError::InvalidContentLength)?;
+                self.content_length = Some(content_length);
+            }
+            "transfer-encoding" => {
                 // this will always be chunked encoding
                 return Ok(());
             }

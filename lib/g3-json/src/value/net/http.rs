@@ -1,20 +1,9 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use serde_json::Value;
 
 use g3_types::net::HttpKeepAliveConfig;
@@ -52,4 +41,83 @@ pub fn as_http_keepalive_config(v: &Value) -> anyhow::Result<HttpKeepAliveConfig
     }
 
     Ok(config)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+    use std::time::Duration;
+
+    #[test]
+    fn as_http_keepalive_config_ok() {
+        // boolean input
+        let v = json!(true);
+        let config = as_http_keepalive_config(&v).unwrap();
+        assert!(config.is_enabled());
+        assert_eq!(config.idle_expire(), Duration::from_secs(60));
+
+        let v = json!(false);
+        let config = as_http_keepalive_config(&v).unwrap();
+        assert!(!config.is_enabled());
+        assert_eq!(config.idle_expire(), Duration::ZERO);
+
+        // duration string input
+        let v = json!("30s");
+        let config = as_http_keepalive_config(&v).unwrap();
+        assert!(config.is_enabled());
+        assert_eq!(config.idle_expire(), Duration::from_secs(30));
+
+        // object with only "enable"
+        let v = json!({"enable": true});
+        let config = as_http_keepalive_config(&v).unwrap();
+        assert!(config.is_enabled());
+        assert_eq!(config.idle_expire(), Duration::from_secs(60));
+
+        // object with only "idle_expire"
+        let v = json!({"idle_expire": "45s"});
+        let config = as_http_keepalive_config(&v).unwrap();
+        assert!(config.is_enabled());
+        assert_eq!(config.idle_expire(), Duration::from_secs(45));
+
+        // object with both keys
+        let v = json!({
+            "enable": false,
+            "idle_expire": "90s"
+        });
+        let config = as_http_keepalive_config(&v).unwrap();
+        assert!(!config.is_enabled());
+        assert_eq!(config.idle_expire(), Duration::ZERO);
+
+        let v = json!({
+            "enable": true,
+            "idle_expire": "120s"
+        });
+        let config = as_http_keepalive_config(&v).unwrap();
+        assert!(config.is_enabled());
+        assert_eq!(config.idle_expire(), Duration::from_secs(120));
+    }
+
+    #[test]
+    fn as_http_keepalive_config_err() {
+        // invalid key in object
+        let v = json!({"invalid_key": true});
+        assert!(as_http_keepalive_config(&v).is_err());
+
+        // wrong type for "enable"
+        let v = json!({"enable": "not_a_boolean"});
+        assert!(as_http_keepalive_config(&v).is_err());
+
+        // wrong type for "idle_expire"
+        let v = json!({"idle_expire": true});
+        assert!(as_http_keepalive_config(&v).is_err());
+
+        // invalid duration format
+        let v = json!("invalid_duration");
+        assert!(as_http_keepalive_config(&v).is_err());
+
+        // unsupported type (array)
+        let v = json!([1, 2, 3]);
+        assert!(as_http_keepalive_config(&v).is_err());
+    }
 }

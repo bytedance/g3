@@ -1,56 +1,49 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::collections::BTreeSet;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
 use slog::Logger;
+use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_resolver::ResolveError;
+use g3_socket::BindAddr;
 use g3_socket::util::AddressFamily;
 use g3_types::acl::AclNetworkRule;
-use g3_types::metrics::MetricsName;
-use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
+use g3_types::metrics::NodeName;
+use g3_types::net::{Host, ProxyProtocolEncoder, ProxyProtocolVersion, UpstreamAddr};
 use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
 
 use super::{
-    ArcEscaper, ArcEscaperStats, EgressPathSelection, Escaper, EscaperInternal, EscaperStats,
+    ArcEscaper, ArcEscaperStats, EgressPathSelection, Escaper, EscaperInternal, EscaperRegistry,
+    EscaperStats,
 };
+use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::direct_fixed::DirectFixedEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
 use crate::module::ftp_over_http::{
-    AnyFtpConnectContextParam, ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats,
-    BoxFtpConnectContext, BoxFtpRemoteConnection, DirectFtpConnectContext,
-    DirectFtpConnectContextParam,
+    ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpConnectContext,
+    BoxFtpRemoteConnection, DirectFtpConnectContext,
 };
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, BoxHttpForwardContext,
     DirectHttpForwardContext,
 };
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectResult, UdpConnectTaskNotes,
+    ArcUdpConnectTaskRemoteStats, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
 };
 use crate::resolve::{ArcIntegratedResolverHandle, HappyEyeballsResolveJob};
 use crate::serve::ServerTaskNotes;
@@ -60,7 +53,7 @@ pub(crate) use stats::DirectFixedEscaperStats;
 
 mod ftp_connect;
 pub(crate) mod http_forward;
-mod tcp_connect;
+pub(crate) mod tcp_connect;
 mod tls_connect;
 pub(crate) mod udp_connect;
 pub(crate) mod udp_relay;
@@ -71,7 +64,7 @@ pub(super) struct DirectFixedEscaper {
     resolver_handle: ArcIntegratedResolverHandle,
     egress_net_filter: Arc<AclNetworkRule>,
     resolve_redirection: Option<ResolveRedirection>,
-    escape_logger: Logger,
+    escape_logger: Option<Logger>,
 }
 
 impl DirectFixedEscaper {
@@ -113,7 +106,7 @@ impl DirectFixedEscaper {
         stats: Arc<DirectFixedEscaperStats>,
     ) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::DirectFixed(config) = config {
-            DirectFixedEscaper::new_obj(*config, stats)
+            DirectFixedEscaper::new_obj(config, stats)
         } else {
             Err(anyhow!("invalid escaper config type"))
         }
@@ -123,24 +116,42 @@ impl DirectFixedEscaper {
         &self,
         family: AddressFamily,
         path_selection: Option<&EgressPathSelection>,
-    ) -> Option<IpAddr> {
+    ) -> BindAddr {
         let vec = match family {
             AddressFamily::Ipv4 => &self.config.bind4,
             AddressFamily::Ipv6 => &self.config.bind6,
         };
         match vec.len() {
-            0 => None,
-            1 => Some(vec[0]),
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "illumos",
+                target_os = "solaris"
+            ))]
+            0 => self
+                .config
+                .bind_interface
+                .map(BindAddr::Interface)
+                .unwrap_or_default(),
+            #[cfg(not(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "illumos",
+                target_os = "solaris"
+            )))]
+            0 => BindAddr::None,
+            1 => BindAddr::Ip(vec[0]),
             n => {
-                if self.config.enable_path_selection {
-                    if let Some(path_selection) = path_selection {
-                        if let Some(i) = path_selection.select_by_index(n) {
-                            return Some(vec[i]);
-                        }
-                    }
+                if self.config.enable_path_selection
+                    && let Some(path_selection) = path_selection
+                    && let Some(i) = path_selection.select_by_index(n)
+                {
+                    return BindAddr::Ip(vec[i]);
                 }
 
-                fastrand::choice(vec).copied()
+                fastrand::choice(vec).map(|ip| BindAddr::Ip(*ip)).unwrap()
             }
         }
     }
@@ -159,38 +170,33 @@ impl DirectFixedEscaper {
 
     fn resolve_happy(
         &self,
-        domain: &str,
+        domain: Arc<str>,
         strategy: ResolveStrategy,
         task_notes: &ServerTaskNotes,
     ) -> Result<HappyEyeballsResolveJob, ResolveError> {
-        if let Some(user_ctx) = task_notes.user_ctx() {
-            if let Some(redirect) = user_ctx.user().resolve_redirection() {
-                if let Some(v) = redirect.query_value(domain) {
-                    return HappyEyeballsResolveJob::new_redirected(
-                        strategy,
-                        &self.resolver_handle,
-                        v,
-                    );
-                }
-            }
+        if let Some(user_ctx) = task_notes.user_ctx()
+            && let Some(redirect) = user_ctx.user().resolve_redirection()
+            && let Some(v) = redirect.query_value(&domain)
+        {
+            return HappyEyeballsResolveJob::new_redirected(strategy, &self.resolver_handle, v);
         }
 
-        if let Some(redirect) = &self.resolve_redirection {
-            if let Some(v) = redirect.query_value(domain) {
-                return HappyEyeballsResolveJob::new_redirected(strategy, &self.resolver_handle, v);
-            }
+        if let Some(redirect) = &self.resolve_redirection
+            && let Some(v) = redirect.query_value(&domain)
+        {
+            return HappyEyeballsResolveJob::new_redirected(strategy, &self.resolver_handle, v);
         }
 
-        HappyEyeballsResolveJob::new_dyn(strategy, &self.resolver_handle, Arc::from(domain))
+        HappyEyeballsResolveJob::new_dyn(strategy, &self.resolver_handle, domain)
     }
 
     async fn resolve_best(
         &self,
-        domain: &str,
+        domain: Arc<str>,
         strategy: ResolveStrategy,
     ) -> Result<IpAddr, ResolveError> {
         let mut resolver_job =
-            HappyEyeballsResolveJob::new_dyn(strategy, &self.resolver_handle, Arc::from(domain))?;
+            HappyEyeballsResolveJob::new_dyn(strategy, &self.resolver_handle, domain)?;
         let ips = resolver_job
             .get_r1_or_first(self.config.happy_eyeballs.resolution_delay(), usize::MAX)
             .await?;
@@ -206,7 +212,7 @@ impl DirectFixedEscaper {
     ) -> Result<IpAddr, ResolveError> {
         match redirect_result {
             Host::Ip(ip) => Ok(ip),
-            Host::Domain(new) => self.resolve_best(&new, resolve_strategy).await,
+            Host::Domain(new) => self.resolve_best(new, resolve_strategy).await,
         }
     }
 
@@ -219,30 +225,57 @@ impl DirectFixedEscaper {
         match ups.host() {
             Host::Ip(ip) => Ok(SocketAddr::new(*ip, ups.port())),
             Host::Domain(domain) => {
-                if let Some(user_ctx) = task_notes.user_ctx() {
-                    if let Some(redirect) = user_ctx.user().resolve_redirection() {
-                        if let Some(v) = redirect.query_first(domain, resolve_strategy.query) {
-                            return self
-                                .redirect_get_best(v, resolve_strategy)
-                                .await
-                                .map(|ip| SocketAddr::new(ip, ups.port()));
-                        }
-                    }
+                if let Some(user_ctx) = task_notes.user_ctx()
+                    && let Some(redirect) = user_ctx.user().resolve_redirection()
+                    && let Some(v) = redirect.query_first(domain, resolve_strategy.query)
+                {
+                    return self
+                        .redirect_get_best(v, resolve_strategy)
+                        .await
+                        .map(|ip| SocketAddr::new(ip, ups.port()));
                 }
 
-                if let Some(redirect) = &self.resolve_redirection {
-                    if let Some(v) = redirect.query_first(domain, resolve_strategy.query) {
-                        return self
-                            .redirect_get_best(v, resolve_strategy)
-                            .await
-                            .map(|ip| SocketAddr::new(ip, ups.port()));
-                    }
+                if let Some(redirect) = &self.resolve_redirection
+                    && let Some(v) = redirect.query_first(domain, resolve_strategy.query)
+                {
+                    return self
+                        .redirect_get_best(v, resolve_strategy)
+                        .await
+                        .map(|ip| SocketAddr::new(ip, ups.port()));
                 }
 
-                let ip = self.resolve_best(domain, resolve_strategy).await?;
+                let ip = self.resolve_best(domain.clone(), resolve_strategy).await?;
                 Ok(SocketAddr::new(ip, ups.port()))
             }
         }
+    }
+
+    async fn send_tcp_proxy_protocol_header<W>(
+        &self,
+        version: ProxyProtocolVersion,
+        writer: &mut W,
+        task_notes: &ServerTaskNotes,
+        do_flush: bool,
+    ) -> Result<(), TcpConnectError>
+    where
+        W: AsyncWrite + Unpin,
+    {
+        let mut encoder = ProxyProtocolEncoder::new(version);
+        let bytes = encoder
+            .encode_tcp(task_notes.client_addr(), task_notes.server_addr())
+            .map_err(TcpConnectError::ProxyProtocolEncodeError)?;
+        writer
+            .write_all(bytes) // no need to flush data
+            .await
+            .map_err(TcpConnectError::ProxyProtocolWriteFailed)?;
+        self.stats.tcp.io.add_out_bytes(bytes.len() as u64);
+        if do_flush {
+            writer
+                .flush()
+                .await
+                .map_err(TcpConnectError::ProxyProtocolWriteFailed)?;
+        }
+        Ok(())
     }
 
     fn fetch_user_upstream_io_stats(
@@ -258,12 +291,8 @@ impl DirectFixedEscaper {
 
 #[async_trait]
 impl Escaper for DirectFixedEscaper {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
-    }
-
-    fn escaper_type(&self) -> &str {
-        self.config.escaper_type()
     }
 
     fn get_escape_stats(&self) -> Option<ArcEscaperStats> {
@@ -274,52 +303,57 @@ impl Escaper for DirectFixedEscaper {
         Err(anyhow!("not implemented"))
     }
 
-    async fn tcp_setup_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn tcp_setup_connection(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
+        _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         self.stats.interface.add_tcp_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        self.tcp_new_connection(tcp_notes, task_notes, task_stats)
+        self.tcp_new_connection(task_conf, tcp_notes, task_notes, task_stats)
             .await
     }
 
-    async fn tls_setup_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn tls_setup_connection(
+        &self,
+        task_conf: &TlsConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
+        _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         self.stats.interface.add_tls_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        self.tls_new_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
+        self.tls_new_connection(task_conf, tcp_notes, task_notes, task_stats)
             .await
     }
 
-    async fn udp_setup_connection<'a>(
-        &'a self,
-        udp_notes: &'a mut UdpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn udp_setup_connection(
+        &self,
+        task_conf: &UdpConnectTaskConf<'_>,
+        udp_notes: &mut UdpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         self.stats.interface.add_udp_connect_attempted();
         udp_notes.escaper.clone_from(&self.config.name);
-        self.udp_connect_to(udp_notes, task_notes, task_stats).await
+        self.udp_connect_to(task_conf, udp_notes, task_notes, task_stats)
+            .await
     }
 
-    async fn udp_setup_relay<'a>(
-        &'a self,
-        udp_notes: &'a mut UdpRelayTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn udp_setup_relay(
+        &self,
+        task_conf: &UdpRelayTaskConf<'_>,
+        udp_notes: &mut UdpRelayTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         self.stats.interface.add_udp_relay_session_attempted();
         udp_notes.escaper.clone_from(&self.config.name);
-        self.udp_setup_relay(udp_notes, task_notes, task_stats)
+        self.udp_setup_relay(task_conf, task_notes, task_stats)
             .await
     }
 
@@ -328,108 +362,105 @@ impl Escaper for DirectFixedEscaper {
         Box::new(ctx)
     }
 
-    async fn new_ftp_connect_context<'a>(
-        &'a self,
+    async fn new_ftp_connect_context(
+        &self,
         escaper: ArcEscaper,
-        _task_notes: &'a ServerTaskNotes,
-        upstream: &'a UpstreamAddr,
+        task_conf: &TcpConnectTaskConf<'_>,
+        _task_notes: &ServerTaskNotes,
     ) -> BoxFtpConnectContext {
-        Box::new(DirectFtpConnectContext::new(escaper, upstream.clone()))
+        Box::new(DirectFtpConnectContext::new(
+            escaper,
+            task_conf.upstream.clone(),
+        ))
     }
 }
 
 #[async_trait]
 impl EscaperInternal for DirectFixedEscaper {
-    fn _resolver(&self) -> &MetricsName {
+    fn _resolver(&self) -> &NodeName {
         self.config.resolver()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
-        None
+    fn _depend_on_escaper(&self, _name: &NodeName) -> bool {
+        false
     }
 
     fn _clone_config(&self) -> AnyEscaperConfig {
         let config = &*self.config;
-        AnyEscaperConfig::DirectFixed(Box::new(config.clone()))
+        AnyEscaperConfig::DirectFixed(config.clone())
     }
 
-    fn _update_config_in_place(
+    fn _reload(
         &self,
-        _flags: u64,
-        _config: AnyEscaperConfig,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
+        config: AnyEscaperConfig,
+        _registry: &mut EscaperRegistry,
+    ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
         DirectFixedEscaper::prepare_reload(config, stats)
     }
 
-    async fn _new_http_forward_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn _new_http_forward_connection(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.stats.interface.add_http_forward_connection_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        self.http_forward_new_connection(tcp_notes, task_notes, task_stats)
+        self.http_forward_new_connection(task_conf, tcp_notes, task_notes, task_stats)
             .await
     }
 
-    async fn _new_https_forward_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn _new_https_forward_connection(
+        &self,
+        task_conf: &TlsConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.stats
             .interface
             .add_https_forward_connection_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        self.https_forward_new_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
+        self.https_forward_new_connection(task_conf, tcp_notes, task_notes, task_stats)
             .await
     }
 
-    async fn _new_ftp_control_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn _new_ftp_control_connection(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.stats.interface.add_ftp_over_http_request_attempted();
         self.stats.interface.add_ftp_control_connection_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
-        self.new_ftp_control_connection(tcp_notes, task_notes, task_stats)
+        self.new_ftp_control_connection(task_conf, tcp_notes, task_notes, task_stats)
             .await
     }
 
-    async fn _new_ftp_transfer_connection<'a>(
-        &'a self,
-        transfer_tcp_notes: &'a mut TcpConnectTaskNotes,
-        control_tcp_notes: &'a TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn _new_ftp_transfer_connection(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        transfer_tcp_notes: &mut TcpConnectTaskNotes,
+        control_tcp_notes: &TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcFtpTaskRemoteTransferStats,
-        mut context: AnyFtpConnectContextParam,
+        ftp_server: &UpstreamAddr,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.stats.interface.add_ftp_transfer_connection_attempted();
         transfer_tcp_notes.escaper.clone_from(&self.config.name);
-        match context.downcast_mut::<DirectFtpConnectContextParam>() {
-            Some(_ctx) => {
-                self.new_ftp_transfer_connection(
-                    transfer_tcp_notes,
-                    control_tcp_notes,
-                    task_notes,
-                    task_stats,
-                )
-                .await
-            }
-            None => Err(TcpConnectError::EscaperNotUsable(anyhow!(
-                "unmatched ftp connection context param"
-            ))),
-        }
+
+        self.new_ftp_transfer_connection(
+            task_conf,
+            transfer_tcp_notes,
+            control_tcp_notes,
+            task_notes,
+            task_stats,
+            ftp_server,
+        )
+        .await
     }
 }

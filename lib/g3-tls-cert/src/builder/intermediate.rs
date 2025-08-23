@@ -1,28 +1,17 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use chrono::{Days, Utc};
 use openssl::asn1::{Asn1Integer, Asn1Time};
 use openssl::hash::MessageDigest;
 use openssl::pkey::{PKey, Private};
 use openssl::x509::extension::{AuthorityKeyIdentifier, BasicConstraints, SubjectKeyIdentifier};
-use openssl::x509::{X509Builder, X509Extension, X509Ref, X509};
+use openssl::x509::{X509, X509Builder, X509Extension, X509Ref};
 
-use super::{asn1_time_from_chrono, KeyUsageBuilder, SubjectNameBuilder};
+use super::{KeyUsageBuilder, SubjectNameBuilder, asn1_time_from_chrono};
 use crate::ext::X509BuilderExt;
 
 pub struct IntermediateCertBuilder {
@@ -49,9 +38,9 @@ impl IntermediateCertBuilder {
     impl_new!(new_ec384);
     impl_new!(new_ec521);
 
-    #[cfg(not(feature = "no-sm2"))]
+    #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
     impl_new!(new_sm2);
-    #[cfg(feature = "no-sm2")]
+    #[cfg(osslconf = "OPENSSL_NO_SM2")]
     pub fn new_sm2() -> anyhow::Result<Self> {
         Err(anyhow!("SM2 is not supported"))
     }

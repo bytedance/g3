@@ -1,29 +1,18 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use futures_util::FutureExt;
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
 use tokio::time::Instant;
 
-use g3_http::client::HttpForwardRemoteResponse;
 use g3_http::HttpBodyReader;
+use g3_http::client::HttpForwardRemoteResponse;
 use g3_io_ext::{LimitedReader, LimitedWriter};
 
 use super::{
@@ -86,8 +75,9 @@ impl HttpTaskContext {
 
         self.runtime_stats.add_conn_attempt();
         let (r, w) = match tokio::time::timeout(
-            self.args.connect_timeout,
-            self.args.new_http_connection(&self.proc_args),
+            self.args.common.connect_timeout,
+            self.args
+                .new_http_connection(&self.runtime_stats, &self.proc_args),
         )
         .await
         {
@@ -142,10 +132,10 @@ impl HttpTaskContext {
 
         // recv hdr
         let rsp = match tokio::time::timeout(
-            self.args.timeout,
+            self.args.common.timeout,
             HttpForwardRemoteResponse::parse(
                 ups_r,
-                &self.args.method,
+                &self.args.common.method,
                 keep_alive,
                 self.args.max_header_size,
             ),
@@ -159,18 +149,18 @@ impl HttpTaskContext {
 
         let recv_hdr_time = time_started.elapsed();
         self.histogram_recorder.record_recv_hdr_time(recv_hdr_time);
-        if let Some(ok_status) = self.args.ok_status {
-            if rsp.code != ok_status.as_u16() {
-                return Err(anyhow!(
-                    "Got rsp code {} while {} is expected",
-                    rsp.code,
-                    ok_status.as_u16()
-                ));
-            }
+        if let Some(ok_status) = self.args.common.ok_status
+            && rsp.code != ok_status.as_u16()
+        {
+            return Err(anyhow!(
+                "Got rsp code {} while {} is expected",
+                rsp.code,
+                ok_status.as_u16()
+            ));
         }
 
         // recv body
-        if let Some(body_type) = rsp.body_type(&self.args.method) {
+        if let Some(body_type) = rsp.body_type(&self.args.common.method) {
             let mut body_reader = HttpBodyReader::new(ups_r, body_type, 2048);
             let mut sink = tokio::io::sink();
             tokio::io::copy(&mut body_reader, &mut sink)
@@ -218,20 +208,14 @@ impl BenchTaskContext for HttpTaskContext {
                 if keep_alive {
                     self.save_connection(connection);
                 } else {
-                    let runtime_stats = self.runtime_stats.clone();
-                    tokio::spawn(async move {
-                        // make sure the tls ticket will be reused
-                        match tokio::time::timeout(
-                            Duration::from_secs(4),
-                            connection.writer.shutdown(),
-                        )
+                    // make sure the tls ticket will be reused
+                    match tokio::time::timeout(Duration::from_secs(4), connection.writer.shutdown())
                         .await
-                        {
-                            Ok(Ok(_)) => {}
-                            Ok(Err(_e)) => runtime_stats.add_conn_close_fail(),
-                            Err(_) => runtime_stats.add_conn_close_timeout(),
-                        }
-                    });
+                    {
+                        Ok(Ok(_)) => {}
+                        Ok(Err(_e)) => self.runtime_stats.add_conn_close_fail(),
+                        Err(_) => self.runtime_stats.add_conn_close_timeout(),
+                    }
                 }
                 Ok(())
             }

@@ -1,56 +1,20 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use chrono::{DateTime, Utc};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{SocketBufferConfig, UpstreamAddr};
 
-pub(crate) struct UdpRelayTaskNotes {
-    pub(crate) buf_conf: SocketBufferConfig,
-    pub(crate) initial_peer: UpstreamAddr,
-    pub(crate) escaper: MetricsName,
-    pub(crate) expire: Option<DateTime<Utc>>,
+pub(crate) struct UdpRelayTaskConf<'a> {
+    pub(crate) initial_peer: &'a UpstreamAddr,
+    pub(crate) sock_buf: SocketBufferConfig,
 }
 
-impl UdpRelayTaskNotes {
-    pub(crate) fn empty(buf_conf: SocketBufferConfig) -> Self {
-        UdpRelayTaskNotes::new(UpstreamAddr::empty(), buf_conf)
-    }
-
-    pub(crate) fn new(initial_peer: UpstreamAddr, buf_conf: SocketBufferConfig) -> Self {
-        UdpRelayTaskNotes {
-            buf_conf,
-            initial_peer,
-            escaper: MetricsName::default(),
-            expire: None,
-        }
-    }
-
-    pub(crate) fn dup_as_new(&self) -> Self {
-        UdpRelayTaskNotes {
-            buf_conf: self.buf_conf,
-            initial_peer: self.initial_peer.clone(),
-            escaper: MetricsName::default(),
-            expire: None,
-        }
-    }
-
-    pub(crate) fn fill_generated(&mut self, other: &Self) {
-        self.escaper.clone_from(&other.escaper);
-        self.expire = other.expire;
-    }
+#[derive(Clone, Debug, Default)]
+pub(crate) struct UdpRelayTaskNotes {
+    pub(crate) escaper: NodeName,
+    pub(crate) expire: Option<DateTime<Utc>>,
 }

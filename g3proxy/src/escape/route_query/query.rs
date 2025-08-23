@@ -1,21 +1,9 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::VecDeque;
-use std::future::Future;
 use std::io;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -29,15 +17,15 @@ use uuid::Uuid;
 
 use g3_io_ext::{EffectiveCacheData, EffectiveQueryHandle};
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
-use super::cache::CacheQueryKey;
 use super::RouteQueryEscaperConfig;
+use super::cache::CacheQueryKey;
 
 pub(super) struct QueryRuntime {
     config: Arc<RouteQueryEscaperConfig>,
     socket: UdpSocket,
-    query_handle: EffectiveQueryHandle<CacheQueryKey, SelectiveVec<WeightedValue<MetricsName>>>,
+    query_handle: EffectiveQueryHandle<CacheQueryKey, SelectiveVec<WeightedValue<NodeName>>>,
     id_key_map: AHashMap<Uuid, Arc<CacheQueryKey>>,
     key_id_map: AHashMap<Arc<CacheQueryKey>, Uuid>,
     read_buffer: Box<[u8]>,
@@ -48,7 +36,7 @@ impl QueryRuntime {
     pub(super) fn new(
         config: &Arc<RouteQueryEscaperConfig>,
         socket: UdpSocket,
-        query_handle: EffectiveQueryHandle<CacheQueryKey, SelectiveVec<WeightedValue<MetricsName>>>,
+        query_handle: EffectiveQueryHandle<CacheQueryKey, SelectiveVec<WeightedValue<NodeName>>>,
     ) -> Self {
         QueryRuntime {
             config: Arc::clone(config),
@@ -85,7 +73,7 @@ impl QueryRuntime {
                 ),
                 (
                     ValueRef::String("user".into()),
-                    ValueRef::String(req.user.as_str().into()),
+                    ValueRef::String(req.user.as_ref().into()),
                 ),
                 (
                     ValueRef::String("host".into()),
@@ -112,14 +100,14 @@ impl QueryRuntime {
 
     fn parse_rsp(
         map: Vec<(rmpv::ValueRef, rmpv::ValueRef)>,
-    ) -> anyhow::Result<(Uuid, Vec<WeightedValue<MetricsName>>, u32)> {
+    ) -> anyhow::Result<(Uuid, Vec<WeightedValue<NodeName>>, u32)> {
         use anyhow::Context;
         use rmpv::ValueRef;
 
         const KEY_ID: &str = "id";
 
         let mut id: Option<Uuid> = None;
-        let mut nodes = Vec::<WeightedValue<MetricsName>>::new();
+        let mut nodes = Vec::<WeightedValue<NodeName>>::new();
         let mut ttl: u32 = 0;
 
         for (k, v) in map {
@@ -164,33 +152,28 @@ impl QueryRuntime {
         use rmpv::ValueRef;
 
         let mut buf = &self.read_buffer[..len];
-        if let Ok(ValueRef::Map(map)) = rmpv::decode::read_value_ref(&mut buf) {
-            if let Ok((id, nodes, mut ttl)) = Self::parse_rsp(map) {
-                if let Some(req) = self.id_key_map.remove(&id) {
-                    if ttl == 0 {
-                        ttl = self.config.protective_cache_ttl;
-                    } else if ttl > self.config.maximum_cache_ttl {
-                        ttl = self.config.maximum_cache_ttl;
-                    }
+        if let Ok(ValueRef::Map(map)) = rmpv::decode::read_value_ref(&mut buf)
+            && let Ok((id, nodes, mut ttl)) = Self::parse_rsp(map)
+            && let Some(req) = self.id_key_map.remove(&id)
+        {
+            if ttl == 0 {
+                ttl = self.config.protective_cache_ttl;
+            } else if ttl > self.config.maximum_cache_ttl {
+                ttl = self.config.maximum_cache_ttl;
+            }
 
-                    let mut builder = SelectiveVecBuilder::new();
-                    for node in nodes {
-                        builder.insert(node);
-                    }
-                    let result = builder
-                        .build()
-                        .map(|nodes| {
-                            EffectiveCacheData::new(nodes, ttl, self.config.cache_vanish_wait)
-                        })
-                        .unwrap_or_else(|| {
-                            EffectiveCacheData::empty(ttl, self.config.cache_vanish_wait)
-                        });
+            let mut builder = SelectiveVecBuilder::new();
+            for node in nodes {
+                builder.insert(node);
+            }
+            let result = builder
+                .build()
+                .map(|nodes| EffectiveCacheData::new(nodes, ttl, self.config.cache_vanish_wait))
+                .unwrap_or_else(|| EffectiveCacheData::empty(ttl, self.config.cache_vanish_wait));
 
-                    self.key_id_map.remove(&req);
-                    self.query_handle.send_rsp_data(req, result, false);
-                }
-            };
-        }
+            self.key_id_map.remove(&req);
+            self.query_handle.send_rsp_data(req, result, false);
+        };
     }
 
     fn handle_query_failed(&mut self, req: Arc<CacheQueryKey>, expired: bool) {

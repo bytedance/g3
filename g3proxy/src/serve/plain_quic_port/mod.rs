@@ -1,23 +1,12 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use quinn::Connection;
@@ -31,12 +20,15 @@ use g3_daemon::listen::{
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_openssl::SslStream;
 use g3_types::acl::AclNetworkRule;
-use g3_types::metrics::MetricsName;
-use g3_types::net::UdpListenConfig;
+use g3_types::metrics::NodeName;
+use g3_types::net::{OpensslTicketKey, RollingTicketer, UdpListenConfig};
 
 use crate::config::server::plain_quic_port::{PlainQuicPortConfig, PlainQuicPortUpdateFlags};
 use crate::config::server::{AnyServerConfig, ServerConfig};
-use crate::serve::{ArcServer, Server, ServerInternal, ServerQuitPolicy, WrapArcServer};
+use crate::serve::{
+    ArcServer, ArcServerInternal, Server, ServerInternal, ServerQuitPolicy, ServerRegistry,
+    WrapArcServer,
+};
 
 #[derive(Clone)]
 struct PlainQuicPortAuxConfig {
@@ -75,8 +67,9 @@ impl ListenQuicConf for PlainQuicPortAuxConfig {
 }
 
 pub(crate) struct PlainQuicPort {
-    name: MetricsName,
+    name: NodeName,
     config: ArcSwap<PlainQuicPortConfig>,
+    tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     quinn_config: quinn::ServerConfig,
     listen_stats: Arc<ListenStats>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
@@ -89,21 +82,28 @@ pub(crate) struct PlainQuicPort {
 }
 
 impl PlainQuicPort {
-    fn new(
+    fn new<F>(
         config: Arc<PlainQuicPortConfig>,
         listen_stats: Arc<ListenStats>,
+        tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         reload_version: usize,
-    ) -> anyhow::Result<Self> {
+        mut fetch_server: F,
+    ) -> anyhow::Result<Self>
+    where
+        F: FnMut(&NodeName) -> ArcServer,
+    {
         let reload_sender = crate::serve::new_reload_notify_channel();
 
-        let quic_server = config.tls_server.build_quic()?;
+        let quic_server = config
+            .tls_server
+            .build_quic_with_ticketer(tls_rolling_ticketer.clone())?;
 
         let ingress_net_filter = config
             .ingress_net_filter
             .as_ref()
             .map(|builder| Arc::new(builder.build()));
 
-        let next_server = Arc::new(crate::serve::get_or_insert_default(&config.server));
+        let next_server = Arc::new(fetch_server(&config.server));
 
         let aux_config = PlainQuicPortAuxConfig {
             ingress_net_filter,
@@ -117,6 +117,7 @@ impl PlainQuicPort {
         Ok(PlainQuicPort {
             name: config.name().clone(),
             config: ArcSwap::new(config),
+            tls_rolling_ticketer,
             quinn_config: quinn::ServerConfig::with_crypto(quic_server.driver),
             listen_stats,
             reload_sender,
@@ -127,24 +128,63 @@ impl PlainQuicPort {
         })
     }
 
-    pub(crate) fn prepare_initial(config: PlainQuicPortConfig) -> anyhow::Result<ArcServer> {
+    pub(crate) fn prepare_initial(
+        config: PlainQuicPortConfig,
+    ) -> anyhow::Result<ArcServerInternal> {
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-        let server = PlainQuicPort::new(Arc::new(config), listen_stats, 1)?;
+        let tls_rolling_ticketer = if let Some(c) = &config.tls_ticketer {
+            let ticketer = c
+                .build_and_spawn_updater()
+                .context("failed to create tls rolling ticketer")?;
+            Some(ticketer)
+        } else {
+            None
+        };
+
+        let server = PlainQuicPort::new(
+            Arc::new(config),
+            listen_stats,
+            tls_rolling_ticketer,
+            1,
+            crate::serve::get_or_insert_default,
+        )?;
         Ok(Arc::new(server))
     }
 
-    fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<PlainQuicPort> {
+    fn prepare_reload(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<PlainQuicPort> {
         if let AnyServerConfig::PlainQuicPort(config) = config {
             let listen_stats = Arc::clone(&self.listen_stats);
 
-            PlainQuicPort::new(Arc::new(config), listen_stats, self.reload_version + 1)
+            let this_config = self.config.load();
+            let tls_rolling_ticketer = if this_config.tls_ticketer.eq(&config.tls_ticketer) {
+                self.tls_rolling_ticketer.clone()
+            } else if let Some(c) = &config.tls_ticketer {
+                let ticketer = c
+                    .build_and_spawn_updater()
+                    .context("failed to create tls rolling ticketer")?;
+                Some(ticketer)
+            } else {
+                None
+            };
+
+            PlainQuicPort::new(
+                Arc::new(config),
+                listen_stats,
+                tls_rolling_ticketer,
+                self.reload_version + 1,
+                |name| registry.get_or_insert_default(name),
+            )
         } else {
             let cur_config = self.config.load();
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
-                cur_config.server_type(),
-                config.server_type()
+                cur_config.r#type(),
+                config.r#type()
             ))
         }
     }
@@ -197,7 +237,7 @@ impl ServerInternal for PlainQuicPort {
         }
     }
 
-    fn _depend_on_server(&self, name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, name: &NodeName) -> bool {
         let config = self.config.load();
         config.server.eq(name)
     }
@@ -218,24 +258,30 @@ impl ServerInternal for PlainQuicPort {
         Ok(())
     }
 
-    fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
-        let mut server = self.prepare_reload(config)?;
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServerInternal> {
+        let mut server = self.prepare_reload(config, registry)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
-        let server = self.prepare_reload(config)?;
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServerInternal> {
+        let server = self.prepare_reload(config, registry)?;
         Ok(Arc::new(server))
     }
 
-    fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()> {
+    fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {
         let config = self.config.load();
-        let runtime = ListenQuicRuntime::new(
-            WrapArcServer(server.clone()),
-            server.get_listen_stats(),
-            config.listen.clone(),
-        );
+        let listen_stats = server.get_listen_stats();
+        let runtime =
+            ListenQuicRuntime::new(WrapArcServer(server), listen_stats, config.listen.clone());
         runtime.run_all_instances(
             config.listen_in_worker,
             &self.quinn_config,
@@ -251,13 +297,13 @@ impl ServerInternal for PlainQuicPort {
 
 impl BaseServer for PlainQuicPort {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
-    fn server_type(&self) -> &'static str {
+    fn r#type(&self) -> &'static str {
         let config = self.config.load();
-        config.server_type()
+        config.r#type()
     }
 
     #[inline]
@@ -281,15 +327,15 @@ impl AcceptQuicServer for PlainQuicPort {
 
 #[async_trait]
 impl Server for PlainQuicPort {
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         Default::default()
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         Default::default()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         Default::default()
     }
 

@@ -1,31 +1,19 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::cell::RefCell;
-use std::io::{self, Write};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use flume::{Receiver, Sender, TrySendError};
 use log::warn;
 use slog::{Drain, OwnedKVList, Record};
 
 use g3_types::log::{AsyncLogConfig, LogStats};
 
 use super::{BoxSyslogFormatter, SyslogBackendBuilder, SyslogHeader};
+use crate::backend::MAX_BATCH_SIZE;
 use crate::backend::SyslogBackend;
 
 thread_local! {
@@ -34,7 +22,7 @@ thread_local! {
 
 pub struct AsyncSyslogStreamer {
     header: SyslogHeader,
-    sender: Sender<String>,
+    sender: kanal::Sender<String>,
     formatter: BoxSyslogFormatter,
     stats: Arc<LogStats>,
 }
@@ -46,7 +34,7 @@ impl AsyncSyslogStreamer {
         formatter: BoxSyslogFormatter,
         backend_builder: &SyslogBackendBuilder,
     ) -> Self {
-        let (sender, receiver) = flume::bounded::<String>(config.channel_capacity);
+        let (sender, receiver) = kanal::bounded::<String>(config.channel_capacity);
 
         let stats = Arc::new(LogStats::default());
 
@@ -54,7 +42,10 @@ impl AsyncSyslogStreamer {
             let io_thread = AsyncIoThread {
                 receiver: receiver.clone(),
                 backend_builder: backend_builder.clone(),
-                stats: Arc::clone(&stats),
+                stats: stats.clone(),
+                recv_buf: Vec::with_capacity(MAX_BATCH_SIZE),
+                backend_container: None,
+                backend_failed_instant: Instant::now(),
             };
 
             let _detached_thread = std::thread::Builder::new()
@@ -93,9 +84,9 @@ impl Drain for AsyncSyslogStreamer {
                 Ok(_) => {
                     let s = unsafe { String::from_utf8_unchecked(buf.clone()) };
                     match self.sender.try_send(s) {
-                        Ok(_) => {}
-                        Err(TrySendError::Full(_)) => self.stats.drop.add_channel_overflow(),
-                        Err(TrySendError::Disconnected(_)) => self.stats.drop.add_channel_closed(),
+                        Ok(true) => {}
+                        Ok(false) => self.stats.drop.add_channel_overflow(),
+                        Err(_) => self.stats.drop.add_channel_closed(),
                     }
 
                     Ok(())
@@ -110,58 +101,76 @@ impl Drain for AsyncSyslogStreamer {
 }
 
 struct AsyncIoThread {
-    receiver: Receiver<String>,
+    receiver: kanal::Receiver<String>,
     backend_builder: SyslogBackendBuilder,
     stats: Arc<LogStats>,
+    recv_buf: Vec<String>,
+    backend_container: Option<SyslogBackend>,
+    backend_failed_instant: Instant,
 }
 
 impl AsyncIoThread {
-    fn run_to_end(self) {
-        let mut backend_container: Option<SyslogBackend> = self.build_backend();
-        let mut failed_instant = Instant::now();
+    fn run_to_end(mut self) {
         while let Ok(s) = self.receiver.recv() {
-            if let Some(mut backend) = backend_container.take() {
-                if self.send_data(s, &mut backend).is_err() {
-                    self.stats.drop.add_peer_unreachable();
-                    if backend.need_reconnect() {
-                        failed_instant = Instant::now();
-                    } else {
-                        backend_container = Some(backend);
+            self.recv_buf.push(s);
+            self.recv_send_all();
+        }
+    }
+
+    fn recv_send_all(&mut self) {
+        while self.recv_buf.len() < MAX_BATCH_SIZE {
+            let Ok(Some(s)) = self.receiver.try_recv() else {
+                break;
+            };
+            self.recv_buf.push(s);
+        }
+
+        let mut already_sent = 0;
+        while already_sent < self.recv_buf.len() {
+            let to_sent = &self.recv_buf[already_sent..];
+            if let Some(backend) = self.backend_container.take() {
+                match backend.write_many(to_sent) {
+                    Ok(0) => {
+                        self.stats.drop.add_peer_unreachable_n(to_sent.len());
+                        self.recv_buf.clear();
+                        warn!("sent zero msg to syslog backend, will reconnect later");
+                        self.backend_failed_instant = Instant::now();
+                        return;
                     }
-                } else {
-                    backend_container = Some(backend);
+                    Ok(n) => {
+                        self.stats.io.add_passed_n(n);
+                        let size = to_sent.iter().take(n).map(|b| b.len()).sum();
+                        self.stats.io.add_size(size);
+                        already_sent += n;
+                        self.backend_container = Some(backend);
+                    }
+                    Err(e) => {
+                        self.stats.drop.add_peer_unreachable_n(to_sent.len());
+                        self.recv_buf.clear();
+                        warn!("failed to send msg to syslog backend: {e}, will reconnect later");
+                        self.backend_failed_instant = Instant::now();
+                        return;
+                    }
                 }
             } else {
-                if failed_instant.elapsed() > Duration::from_secs(4) {
+                if self.backend_failed_instant.elapsed() > Duration::from_secs(4) {
                     // hard coded 4s for a minimal reconnect interval
-                    if let Some(mut backend) = self.build_backend() {
-                        if self.send_data(s, &mut backend).is_ok() {
-                            backend_container = Some(backend);
+                    match self.backend_builder.build() {
+                        Ok(backend) => {
+                            self.backend_container = Some(backend);
                             continue;
+                        }
+                        Err(e) => {
+                            warn!("failed to build syslog backend: {e}, will reconnect later");
+                            self.backend_failed_instant = Instant::now();
                         }
                     }
                 }
-                self.stats.drop.add_peer_unreachable();
+                self.stats.drop.add_peer_unreachable_n(to_sent.len());
+                self.recv_buf.clear();
+                return;
             }
         }
-    }
-
-    fn build_backend(&self) -> Option<SyslogBackend> {
-        match self.backend_builder.build() {
-            Ok(backend) => Some(backend),
-            Err(e) => {
-                warn!("failed to build syslog backend: {e:?}");
-                None
-            }
-        }
-    }
-
-    fn send_data(&self, data: String, backend: &mut SyslogBackend) -> io::Result<()> {
-        let size = data.len();
-        backend.write_all(data.as_bytes())?;
-        backend.flush()?;
-        self.stats.io.add_passed();
-        self.stats.io.add_size(size);
-        Ok(())
+        self.recv_buf.clear();
     }
 }

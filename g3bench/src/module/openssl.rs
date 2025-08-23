@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::fs::File;
@@ -19,8 +8,8 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
+use anyhow::{Context, anyhow};
+use clap::{Arg, ArgAction, ArgMatches, Command, ValueHint, value_parser};
 use openssl::pkey::{PKey, Private};
 use openssl::ssl::SslVerifyMode;
 use openssl::x509::X509;
@@ -29,7 +18,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use g3_openssl::{SslConnector, SslStream};
 use g3_types::net::{
     AlpnProtocol, Host, OpensslCertificatePair, OpensslClientConfig, OpensslClientConfigBuilder,
-    OpensslProtocol, UpstreamAddr,
+    OpensslProtocol, TlsVersion, UpstreamAddr,
 };
 
 const TLS_ARG_CA_CERT: &str = "tls-ca-cert";
@@ -40,6 +29,8 @@ const TLS_ARG_SESSION_CACHE: &str = "tls-session-cache";
 const TLS_ARG_NO_VERIFY: &str = "tls-no-verify";
 const TLS_ARG_NO_SNI: &str = "tls-no-sni";
 const TLS_ARG_PROTOCOL: &str = "tls-protocol";
+const TLS_ARG_VERSION_MIN: &str = "tls-version-min";
+const TLS_ARG_VERSION_MAX: &str = "tls-version-max";
 const TLS_ARG_CIPHERS: &str = "tls-ciphers";
 const TLS_ARG_SUPPORTED_GROUPS: &str = "tls-supported-groups";
 const TLS_ARG_USE_OCSP_STAPLING: &str = "tls-use-ocsp-stapling";
@@ -55,6 +46,8 @@ const PROXY_TLS_ARG_SESSION_CACHE: &str = "proxy-tls-session-cache";
 const PROXY_TLS_ARG_NO_VERIFY: &str = "proxy-tls-no-verify";
 const PROXY_TLS_ARG_NO_SNI: &str = "proxy-tls-no-sni";
 const PROXY_TLS_ARG_PROTOCOL: &str = "proxy-tls-protocol";
+const PROXY_TLS_ARG_VERSION_MIN: &str = "proxy-tls-version-min";
+const PROXY_TLS_ARG_VERSION_MAX: &str = "proxy-tls-version-max";
 const PROXY_TLS_ARG_CIPHERS: &str = "proxy-tls-ciphers";
 const PROXY_TLS_ARG_SUPPORTED_GROUPS: &str = "proxy-tls-supported-groups";
 const PROXY_TLS_ARG_USE_OCSP_STAPLING: &str = "proxy-tls-use-ocsp-stapling";
@@ -183,6 +176,25 @@ impl OpensslTlsClientArgs {
         Ok(())
     }
 
+    fn parse_tls_version(
+        &mut self,
+        args: &ArgMatches,
+        version_min_id: &str,
+        version_max_id: &str,
+    ) -> anyhow::Result<()> {
+        let tls_config = self
+            .config
+            .as_mut()
+            .ok_or_else(|| anyhow!("no tls config found"))?;
+        if let Some(version) = args.get_one::<TlsVersion>(version_min_id) {
+            tls_config.set_min_tls_version(*version);
+        }
+        if let Some(version) = args.get_one::<TlsVersion>(version_max_id) {
+            tls_config.set_max_tls_version(*version);
+        }
+        Ok(())
+    }
+
     fn parse_session_cache(&mut self, args: &ArgMatches, id: &str) -> anyhow::Result<()> {
         let tls_config = self
             .config
@@ -304,6 +316,7 @@ impl OpensslTlsClientArgs {
         self.parse_ca_cert(args, TLS_ARG_CA_CERT)?;
         self.parse_client_auth(args, TLS_ARG_CERT, TLS_ARG_KEY)?;
         self.parse_protocol_and_args(args, TLS_ARG_PROTOCOL, TLS_ARG_CIPHERS)?;
+        self.parse_tls_version(args, TLS_ARG_VERSION_MIN, TLS_ARG_VERSION_MAX)?;
         self.parse_session_cache(args, TLS_ARG_SESSION_CACHE)?;
         self.parse_no_verify(args, TLS_ARG_NO_VERIFY);
         self.parse_no_sni(args, TLS_ARG_NO_SNI)?;
@@ -324,6 +337,7 @@ impl OpensslTlsClientArgs {
         self.parse_ca_cert(args, PROXY_TLS_ARG_CA_CERT)?;
         self.parse_client_auth(args, PROXY_TLS_ARG_CERT, PROXY_TLS_ARG_KEY)?;
         self.parse_protocol_and_args(args, PROXY_TLS_ARG_PROTOCOL, PROXY_TLS_ARG_CIPHERS)?;
+        self.parse_tls_version(args, PROXY_TLS_ARG_VERSION_MIN, PROXY_TLS_ARG_VERSION_MAX)?;
         self.parse_session_cache(args, PROXY_TLS_ARG_SESSION_CACHE)?;
         self.parse_no_verify(args, PROXY_TLS_ARG_NO_VERIFY);
         self.parse_no_sni(args, PROXY_TLS_ARG_NO_SNI)?;
@@ -481,6 +495,24 @@ pub(crate) fn append_tls_args(cmd: Command) -> Command {
             .num_args(1)
             .requires(TLS_ARG_PROTOCOL),
     )
+    .arg(
+        Arg::new(TLS_ARG_VERSION_MIN)
+            .help("Set minimum TLS version for target site")
+            .conflicts_with(TLS_ARG_PROTOCOL)
+            .value_name("TLS VERSION")
+            .long(TLS_ARG_VERSION_MIN)
+            .value_parser(value_parser!(TlsVersion))
+            .num_args(1),
+    )
+    .arg(
+        Arg::new(TLS_ARG_VERSION_MAX)
+            .help("Set maximum TLS version for target site")
+            .conflicts_with(TLS_ARG_PROTOCOL)
+            .value_name("TLS VERSION")
+            .long(TLS_ARG_VERSION_MAX)
+            .value_parser(value_parser!(TlsVersion))
+            .num_args(1),
+    )
 }
 
 pub(crate) fn append_proxy_tls_args(cmd: Command) -> Command {
@@ -585,5 +617,23 @@ pub(crate) fn append_proxy_tls_args(cmd: Command) -> Command {
             .long(PROXY_TLS_ARG_CIPHERS)
             .num_args(1)
             .requires(PROXY_TLS_ARG_PROTOCOL),
+    )
+    .arg(
+        Arg::new(PROXY_TLS_ARG_VERSION_MIN)
+            .help("Set minimum TLS version for proxy")
+            .conflicts_with(PROXY_TLS_ARG_PROTOCOL)
+            .value_name("TLS VERSION")
+            .long(PROXY_TLS_ARG_VERSION_MIN)
+            .value_parser(value_parser!(TlsVersion))
+            .num_args(1),
+    )
+    .arg(
+        Arg::new(PROXY_TLS_ARG_VERSION_MAX)
+            .help("Set maximum TLS version for proxy")
+            .conflicts_with(PROXY_TLS_ARG_PROTOCOL)
+            .value_name("TLS VERSION")
+            .long(PROXY_TLS_ARG_VERSION_MAX)
+            .value_parser(value_parser!(TlsVersion))
+            .num_args(1),
     )
 }

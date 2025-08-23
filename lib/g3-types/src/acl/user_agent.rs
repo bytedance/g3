@@ -1,60 +1,42 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::BTreeMap;
 
-use super::AclAction;
+use super::{AclAction, ActionContract};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AclUserAgentRule {
-    inner: BTreeMap<String, AclAction>,
-    missed_action: AclAction,
+pub struct AclUserAgentRule<Action = AclAction> {
+    inner: BTreeMap<String, Action>,
+    missed_action: Action,
 }
 
-impl Default for AclUserAgentRule {
-    fn default() -> Self {
-        // default to permit all
-        AclUserAgentRule::new(AclAction::Permit)
-    }
-}
-
-impl AclUserAgentRule {
-    pub fn new(missed_action: AclAction) -> Self {
+impl<Action: ActionContract> AclUserAgentRule<Action> {
+    pub fn new(missed_action: Action) -> Self {
         AclUserAgentRule {
             inner: BTreeMap::new(),
             missed_action,
         }
     }
 
-    pub fn add_ua_name(&mut self, ua: &str, action: AclAction) {
+    pub fn add_ua_name(&mut self, ua: &str, action: Action) {
         let name = ua.to_ascii_lowercase();
         self.inner.insert(name, action);
     }
 
     #[inline]
-    pub fn missed_action(&self) -> AclAction {
+    pub fn missed_action(&self) -> Action {
         self.missed_action
     }
 
     #[inline]
-    pub fn set_missed_action(&mut self, action: AclAction) {
+    pub fn set_missed_action(&mut self, action: Action) {
         self.missed_action = action;
     }
 
-    pub fn check(&self, ua_value: &str) -> (bool, AclAction) {
+    pub fn check(&self, ua_value: &str) -> (bool, Action) {
         let value = ua_value.to_ascii_lowercase();
 
         for (name, action) in self.inner.iter() {
@@ -99,7 +81,7 @@ mod tests {
 
     #[test]
     fn basic() {
-        let mut acl = AclUserAgentRule::default();
+        let mut acl = AclUserAgentRule::new(AclAction::Permit);
         acl.add_ua_name("curl", AclAction::Forbid);
         acl.add_ua_name("go", AclAction::Forbid);
 
@@ -119,7 +101,7 @@ mod tests {
 
     #[test]
     fn google_bots_apis() {
-        let mut acl = AclUserAgentRule::default();
+        let mut acl = AclUserAgentRule::new(AclAction::Permit);
         acl.add_ua_name("APIs-Google", AclAction::Forbid);
         let (found, action) =
             acl.check("APIs-Google (+https://developers.google.com/webmasters/APIs-Google.html)");
@@ -129,7 +111,7 @@ mod tests {
 
     #[test]
     fn google_bots_ads_mobile() {
-        let mut acl = AclUserAgentRule::default();
+        let mut acl = AclUserAgentRule::new(AclAction::Permit);
         acl.add_ua_name("AdsBot-Google-Mobile", AclAction::Forbid);
 
         let (found, action) = acl.check(

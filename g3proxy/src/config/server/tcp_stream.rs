@@ -1,46 +1,39 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ascii::AsciiString;
-use yaml_rust::{yaml, Yaml};
+use log::warn;
+use yaml_rust::{Yaml, yaml};
 
-use g3_io_ext::LimitedCopyConfig;
+use g3_io_ext::StreamCopyConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
 use g3_types::collection::SelectivePickPolicy;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{
     Host, OpensslClientConfigBuilder, TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
     WeightedUpstreamAddr,
 };
 use g3_yaml::YamlDocPosition;
 
-use super::{AnyServerConfig, ServerConfig, ServerConfigDiffAction, IDLE_CHECK_MAXIMUM_DURATION};
+use super::{
+    AnyServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT,
+    IDLE_CHECK_MAXIMUM_DURATION, ServerConfig, ServerConfigDiffAction,
+};
 
 const SERVER_CONFIG_TYPE: &str = "TcpStream";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct TcpStreamServerConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) escaper: MetricsName,
-    pub(crate) auditor: MetricsName,
+    pub(crate) escaper: NodeName,
+    pub(crate) auditor: NodeName,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: Option<TcpListenConfig>,
     pub(crate) listen_in_worker: bool,
@@ -51,19 +44,22 @@ pub(crate) struct TcpStreamServerConfig {
     pub(crate) upstream_tls_name: Option<Host>,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
     pub(crate) task_idle_check_duration: Duration,
-    pub(crate) task_idle_max_count: i32,
-    pub(crate) tcp_copy: LimitedCopyConfig,
+    pub(crate) task_idle_max_count: usize,
+    pub(crate) flush_task_log_on_created: bool,
+    pub(crate) flush_task_log_on_connected: bool,
+    pub(crate) task_log_flush_interval: Option<Duration>,
+    pub(crate) tcp_copy: StreamCopyConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
 impl TcpStreamServerConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         TcpStreamServerConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
-            escaper: MetricsName::default(),
-            auditor: MetricsName::default(),
+            escaper: NodeName::default(),
+            auditor: NodeName::default(),
             shared_logger: None,
             listen: None,
             listen_in_worker: false,
@@ -73,8 +69,11 @@ impl TcpStreamServerConfig {
             upstream_pick_policy: SelectivePickPolicy::Random,
             upstream_tls_name: None,
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
-            task_idle_check_duration: Duration::from_secs(300),
-            task_idle_max_count: 1,
+            task_idle_check_duration: IDLE_CHECK_DEFAULT_DURATION,
+            task_idle_max_count: IDLE_CHECK_DEFAULT_MAX_COUNT,
+            flush_task_log_on_created: false,
+            flush_task_log_on_connected: false,
+            task_log_flush_interval: None,
             tcp_copy: Default::default(),
             tcp_misc_opts: Default::default(),
             extra_metrics_tags: None,
@@ -97,15 +96,15 @@ impl TcpStreamServerConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "escaper" => {
-                self.escaper = g3_yaml::value::as_metrics_name(v)?;
+                self.escaper = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "auditor" => {
-                self.auditor = g3_yaml::value::as_metrics_name(v)?;
+                self.auditor = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "shared_logger" => {
@@ -173,10 +172,14 @@ impl TcpStreamServerConfig {
                 self.upstream_tls_name = Some(tls_name);
                 Ok(())
             }
-            "tcp_sock_speed_limit" | "tcp_conn_speed_limit" | "tcp_conn_limit" | "conn_limit" => {
+            "tcp_sock_speed_limit" => {
                 self.tcp_sock_speed_limit = g3_yaml::value::as_tcp_sock_speed_limit(v)
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 Ok(())
+            }
+            "tcp_conn_speed_limit" | "tcp_conn_limit" | "conn_limit" => {
+                warn!("deprecated config key '{k}', please use 'tcp_sock_speed_limit' instead");
+                self.set("tcp_sock_speed_limit", v)
             }
             "tcp_copy_buffer_size" => {
                 let buffer_size = g3_yaml::humanize::as_usize(v)
@@ -201,8 +204,22 @@ impl TcpStreamServerConfig {
                 Ok(())
             }
             "task_idle_max_count" => {
-                self.task_idle_max_count =
-                    g3_yaml::value::as_i32(v).context(format!("invalid i32 value for key {k}"))?;
+                self.task_idle_max_count = g3_yaml::value::as_usize(v)
+                    .context(format!("invalid usize value for key {k}"))?;
+                Ok(())
+            }
+            "flush_task_log_on_created" => {
+                self.flush_task_log_on_created = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            "flush_task_log_on_connected" => {
+                self.flush_task_log_on_connected = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            "task_log_flush_interval" => {
+                let interval = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                self.task_log_flush_interval = Some(interval);
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
@@ -222,10 +239,11 @@ impl TcpStreamServerConfig {
         if self.task_idle_check_duration > IDLE_CHECK_MAXIMUM_DURATION {
             self.task_idle_check_duration = IDLE_CHECK_MAXIMUM_DURATION;
         }
-        if self.client_tls_config.is_some() && self.upstream_tls_name.is_none() {
-            if let Some(upstream) = self.upstream.first() {
-                self.upstream_tls_name = Some(upstream.inner().host().to_owned());
-            }
+        if self.client_tls_config.is_some()
+            && self.upstream_tls_name.is_none()
+            && let Some(upstream) = self.upstream.first()
+        {
+            self.upstream_tls_name = Some(upstream.inner().host().to_owned());
         }
 
         Ok(())
@@ -233,7 +251,7 @@ impl TcpStreamServerConfig {
 }
 
 impl ServerConfig for TcpStreamServerConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -241,19 +259,19 @@ impl ServerConfig for TcpStreamServerConfig {
         self.position.clone()
     }
 
-    fn server_type(&self) -> &'static str {
+    fn r#type(&self) -> &'static str {
         SERVER_CONFIG_TYPE
     }
 
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         &self.escaper
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         Default::default()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         &self.auditor
     }
 
@@ -270,23 +288,24 @@ impl ServerConfig for TcpStreamServerConfig {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
 
-        ServerConfigDiffAction::ReloadOnlyConfig
+        ServerConfigDiffAction::ReloadNoRespawn
     }
 
     fn shared_logger(&self) -> Option<&str> {
         self.shared_logger.as_ref().map(|s| s.as_str())
     }
 
+    fn task_log_flush_interval(&self) -> Option<Duration> {
+        self.task_log_flush_interval
+    }
+
     #[inline]
-    fn limited_copy_config(&self) -> LimitedCopyConfig {
+    fn limited_copy_config(&self) -> StreamCopyConfig {
         self.tcp_copy
     }
+
     #[inline]
-    fn task_idle_check_duration(&self) -> Duration {
-        self.task_idle_check_duration
-    }
-    #[inline]
-    fn task_max_idle_count(&self) -> i32 {
+    fn task_max_idle_count(&self) -> usize {
         self.task_idle_max_count
     }
 }

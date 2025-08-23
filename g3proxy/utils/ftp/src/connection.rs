@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
@@ -21,17 +10,18 @@ use async_trait::async_trait;
 use tokio::net::TcpStream;
 
 use g3_ftp_client::FtpConnectionProvider;
+use g3_socket::BindAddr;
 use g3_types::net::UpstreamAddr;
 
 #[derive(Default)]
 pub(crate) struct LocalConnectionProvider {
-    bind_ip: Option<IpAddr>,
+    bind: BindAddr,
     remote_addr: Option<SocketAddr>,
 }
 
 impl LocalConnectionProvider {
     pub(crate) fn set_bind_ip(&mut self, ip: IpAddr) {
-        self.bind_ip = Some(ip);
+        self.bind = BindAddr::Ip(ip);
     }
 }
 
@@ -46,7 +36,7 @@ impl FtpConnectionProvider<TcpStream, io::Error, ()> for LocalConnectionProvider
         for addr in tokio::net::lookup_host(upstream.to_string()).await? {
             let socket = g3_socket::tcp::new_socket_to(
                 addr.ip(),
-                self.bind_ip,
+                &self.bind,
                 &Default::default(),
                 &Default::default(),
                 true,
@@ -73,7 +63,7 @@ impl FtpConnectionProvider<TcpStream, io::Error, ()> for LocalConnectionProvider
                 let data_addr = SocketAddr::new(addr.ip(), server.port());
                 let socket = g3_socket::tcp::new_socket_to(
                     data_addr.ip(),
-                    self.bind_ip,
+                    &self.bind,
                     &Default::default(),
                     &Default::default(),
                     false,

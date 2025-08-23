@@ -1,17 +1,6 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::env;
@@ -20,10 +9,11 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::OnceLock;
 
-use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgAction, Command, ValueHint};
+use anyhow::{Context, anyhow};
+use clap::{Arg, ArgAction, Command, ValueHint, value_parser};
 
 use g3_daemon::opts::{DaemonArgs, DaemonArgsExt};
+use g3_types::net::UdpListenConfig;
 
 const GLOBAL_ARG_VERSION: &str = "version";
 const GLOBAL_ARG_GROUP_NAME: &str = "group-name";
@@ -34,22 +24,21 @@ static DAEMON_GROUP: OnceLock<String> = OnceLock::new();
 #[derive(Debug)]
 pub struct ProcArgs {
     pub daemon_config: DaemonArgs,
-    udp_addr: Option<SocketAddr>,
+    listen: UdpListenConfig,
 }
 
 impl Default for ProcArgs {
     fn default() -> Self {
         ProcArgs {
             daemon_config: DaemonArgs::new(crate::build::PKG_NAME),
-            udp_addr: None,
+            listen: UdpListenConfig::new(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 2888)),
         }
     }
 }
 
 impl ProcArgs {
-    pub(crate) fn udp_listen_addr(&self) -> SocketAddr {
-        self.udp_addr
-            .unwrap_or_else(|| SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 2888))
+    pub(crate) fn listen_config(&self) -> &UdpListenConfig {
+        &self.listen
     }
 }
 
@@ -113,17 +102,19 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
             .set(group_name.to_string())
             .map_err(|_| anyhow!("daemon group has already been set"))?;
 
-        if let Some(s) = group_name.strip_prefix("port") {
-            if let Ok(port) = u16::from_str(s) {
-                proc_args.udp_addr = Some(SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), port));
-            }
+        if let Some(s) = group_name.strip_prefix("port")
+            && let Ok(port) = u16::from_str(s)
+        {
+            proc_args
+                .listen
+                .set_socket_address(SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), port));
         }
     }
 
-    if let Ok(s) = env::var("UDP_LISTEN_ADDR") {
-        if let Ok(addr) = SocketAddr::from_str(&s) {
-            proc_args.udp_addr = Some(addr);
-        }
+    if let Ok(s) = env::var("UDP_LISTEN_ADDR")
+        && let Ok(addr) = SocketAddr::from_str(&s)
+    {
+        proc_args.listen.set_socket_address(addr);
     }
 
     Ok(Some(proc_args))

@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
@@ -110,11 +99,9 @@ where
                 match tokio::time::timeout(
                     self.ctx.server_config.timeout.recv_req_header,
                     HttpProxyRequest::parse(
+                        &self.ctx.server_config,
                         &mut reader,
                         stream_sender.clone(),
-                        self.ctx.server_config.req_hdr_max_size,
-                        self.ctx.server_config.steal_forwarded_for,
-                        self.ctx.server_config.allow_custom_host,
                         &mut version,
                     ),
                 )
@@ -137,7 +124,9 @@ where
                         }
 
                         if self.task_queue.send(Ok(req)).await.is_err() {
-                            trace!("write end has closed for previous request while sending new request");
+                            trace!(
+                                "write end has closed for previous request while sending new request"
+                            );
                             break;
                         }
                         self.pipeline_stats.add_task();
@@ -150,10 +139,11 @@ where
                         self.stream_reader = Some(reader);
                         if let Some(response) =
                             HttpProxyClientResponse::from_request_error(&e, version)
+                            && self.task_queue.send(Err(response)).await.is_err()
                         {
-                            if self.task_queue.send(Err(response)).await.is_err() {
-                                trace!("write end has closed for previous request while sending error response");
-                            }
+                            trace!(
+                                "write end has closed for previous request while sending error response"
+                            );
                         }
                         trace!("Error handling client {}: {e:?}", self.ctx.client_addr());
                         // TODO handle error, negotiation failed, may be attack

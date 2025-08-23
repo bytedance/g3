@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
@@ -29,8 +18,8 @@ use g3_types::net::UpstreamAddr;
 
 use crate::auth::UserUpstreamTrafficStats;
 use crate::module::http_forward::{
-    send_req_header_to_origin, ArcHttpForwardTaskRemoteStats, HttpForwardRemoteWrapperStats,
-    HttpForwardTaskRemoteStats, HttpForwardTaskRemoteWrapperStats, HttpForwardWrite,
+    ArcHttpForwardTaskRemoteStats, HttpForwardRemoteWrapperStats, HttpForwardTaskRemoteStats,
+    HttpForwardTaskRemoteWrapperStats, HttpForwardWrite, send_req_header_to_origin,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -94,7 +83,8 @@ where
         user_stats: Vec<Arc<UserUpstreamTrafficStats>>,
     ) {
         if let Some(escaper_stats) = &self.escaper_stats {
-            let mut wrapper_stats = HttpForwardRemoteWrapperStats::new(escaper_stats, task_stats);
+            let mut wrapper_stats =
+                HttpForwardRemoteWrapperStats::new(escaper_stats.clone(), task_stats);
             wrapper_stats.push_user_io_stats(user_stats);
             self.inner.reset_stats(Arc::new(wrapper_stats));
         } else {
@@ -104,10 +94,11 @@ where
         }
     }
 
-    async fn send_request_header<'a>(
-        &'a mut self,
-        req: &'a HttpProxyClientRequest,
+    async fn send_request_header(
+        &mut self,
+        req: &HttpProxyClientRequest,
+        body: Option<&[u8]>,
     ) -> io::Result<()> {
-        send_req_header_to_origin(&mut self.inner, req).await
+        send_req_header_to_origin(&mut self.inner, req, body).await
     }
 }

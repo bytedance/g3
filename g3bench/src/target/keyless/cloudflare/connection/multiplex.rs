@@ -1,26 +1,14 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
-use std::task::{ready, Context, Poll, Waker};
+use std::task::{Context, Poll, Waker, ready};
 use std::time::Duration;
 
 use atomic_waker::AtomicWaker;
@@ -157,21 +145,18 @@ impl UnderlyingWriterState {
 
             match self.shared.req_queue.pop() {
                 Ok((req, waker)) => {
-                    let mut rsp_table = self.shared.rsp_table.lock().unwrap();
-                    rsp_table.insert(req.id(), ResponseValue::new(waker));
-                    drop(rsp_table);
+                    let mut rsp_table_guard = self.shared.rsp_table.lock().unwrap();
+                    rsp_table_guard.insert(req.id(), ResponseValue::new(waker));
                     self.current_offset = 0;
                     self.current_request = Some(req);
                 }
                 Err(PopError::Empty) => {
-                    if do_flush {
-                        if let Err(e) = ready!(writer.as_mut().poll_flush(cx)) {
-                            self.shared.req_queue.close();
-                            self.shared.set_req_error(e);
-                            self.shared.clean_pending_req();
-                            let _ = writer.as_mut().poll_shutdown(cx);
-                            return Poll::Ready(());
-                        }
+                    if do_flush && let Err(e) = ready!(writer.as_mut().poll_flush(cx)) {
+                        self.shared.req_queue.close();
+                        self.shared.set_req_error(e);
+                        self.shared.clean_pending_req();
+                        let _ = writer.as_mut().poll_shutdown(cx);
+                        return Poll::Ready(());
                     }
                     return Poll::Pending;
                 }
@@ -225,6 +210,8 @@ impl Future for SendRequest {
     type Output = Result<KeylessResponse, u32>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        use std::collections::hash_map::Entry;
+
         if let Some(mut req) = self.request.take() {
             let rsp_waker = cx.waker().clone();
             let id = self.shared.next_req_id();
@@ -244,15 +231,16 @@ impl Future for SendRequest {
             }
         } else {
             let mut rsp_table_guard = self.shared.rsp_table.lock().unwrap();
-            match rsp_table_guard.remove(&self.rsp_id) {
-                Some(v) => {
-                    if v.end {
+            match rsp_table_guard.entry(self.rsp_id) {
+                Entry::Occupied(v) => {
+                    if v.get().end {
+                        let v = v.remove();
                         Poll::Ready(v.data.ok_or(self.rsp_id))
                     } else {
                         Poll::Pending
                     }
                 }
-                None => Poll::Pending,
+                Entry::Vacant(_) => Poll::Pending,
             }
         }
     }
@@ -355,9 +343,9 @@ impl MultiplexTransfer {
                         let Some(entry) = rsp_table_guard.get_mut(&r.id()) else {
                             continue;
                         };
+                        entry.end = true;
                         if let Some(waker) = entry.waker.take() {
                             entry.data = Some(r);
-                            entry.end = true;
                             drop(rsp_table_guard);
                             waker.wake();
                         }

@@ -5,6 +5,7 @@ import hashlib
 import argparse
 import secrets
 import binascii
+import json
 
 
 def is_float(s: str):
@@ -18,7 +19,7 @@ def is_float(s: str):
 def print_token(salt_s, md5_s, sha1_s, json_format=False):
     print("-=-=-=- for server -=-=-=-")
     if json_format:
-        print({'salt': salt_s, 'md5': md5_s, 'sha1': sha1_s})
+        print(json.dumps({'salt': salt_s, 'md5': md5_s, 'sha1': sha1_s}))
     else:
         print('salt:', salt_s)
         print('md5:', md5_s)

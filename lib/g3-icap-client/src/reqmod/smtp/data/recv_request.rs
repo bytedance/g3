@@ -1,25 +1,13 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use tokio::io::{AsyncWrite, BufWriter};
-use tokio::time::Instant;
 
-use g3_http::server::HttpAdaptedRequest;
 use g3_http::HttpBodyDecodeReader;
-use g3_io_ext::{IdleCheck, LimitedCopyError};
+use g3_http::server::HttpAdaptedRequest;
+use g3_io_ext::{IdleCheck, StreamCopyError};
 use g3_smtp_proto::io::TextDataEncodeTransfer;
 
 use super::{SmtpAdaptationError, SmtpMessageAdapter};
@@ -34,10 +22,11 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
         http_header_size: usize,
     ) -> Result<ReqmodAdaptationEndState, SmtpAdaptationError> {
         let _http_req =
-            HttpAdaptedRequest::parse(&mut self.icap_connection.1, http_header_size, true).await?;
-
+            HttpAdaptedRequest::parse(&mut self.icap_connection.reader, http_header_size, true)
+                .await?;
+        self.icap_connection.mark_reader_finished();
         if icap_rsp.keep_alive {
-            self.icap_client.save_connection(self.icap_connection).await;
+            self.icap_client.save_connection(self.icap_connection);
         }
         // there should be a message body
         Err(SmtpAdaptationError::IcapServerErrorResponse(
@@ -57,17 +46,17 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
         UW: AsyncWrite + Unpin,
     {
         let _http_req =
-            HttpAdaptedRequest::parse(&mut self.icap_connection.1, http_header_size, true).await?;
+            HttpAdaptedRequest::parse(&mut self.icap_connection.reader, http_header_size, true)
+                .await?;
         // TODO check request content type?
 
-        let mut body_reader = HttpBodyDecodeReader::new_chunked(&mut self.icap_connection.1, 256);
+        let mut body_reader =
+            HttpBodyDecodeReader::new_chunked(&mut self.icap_connection.reader, 256);
         let mut ups_buf_writer = BufWriter::new(ups_writer);
         let mut msg_transfer =
             TextDataEncodeTransfer::new(&mut body_reader, &mut ups_buf_writer, self.copy_config);
 
-        let idle_duration = self.idle_checker.idle_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
 
         loop {
@@ -78,18 +67,21 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
                     return match r {
                         Ok(_) => {
                             state.mark_ups_send_all();
-                            if icap_rsp.keep_alive && body_reader.trailer(128).await.is_ok() {
-                                self.icap_client.save_connection(self.icap_connection).await;
+                            if body_reader.trailer(128).await.is_ok() {
+                                self.icap_connection.mark_reader_finished();
+                                if icap_rsp.keep_alive {
+                                    self.icap_client.save_connection(self.icap_connection);
+                                }
                             }
                             Ok(ReqmodAdaptationEndState::AdaptedTransferred)
                         },
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(SmtpAdaptationError::IcapServerReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(SmtpAdaptationError::SmtpUpstreamWriteFailed(e)),
+                        Err(StreamCopyError::ReadFailed(e)) => Err(SmtpAdaptationError::IcapServerReadFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(SmtpAdaptationError::SmtpUpstreamWriteFailed(e)),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if msg_transfer.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = self.idle_checker.check_quit(idle_count);
                         if quit {

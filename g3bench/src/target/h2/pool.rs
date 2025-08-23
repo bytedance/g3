@@ -1,21 +1,10 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::anyhow;
 use bytes::Bytes;
@@ -62,11 +51,11 @@ impl H2ConnectionUnlocked {
     }
 
     async fn fetch_stream(&mut self) -> anyhow::Result<SendRequest<Bytes>> {
-        if let Some(h2s) = self.h2s.clone() {
-            if let Ok(send_req) = h2s.ready().await {
-                self.reuse_conn_count += 1;
-                return Ok(send_req);
-            }
+        if let Some(h2s) = self.h2s.clone()
+            && let Ok(send_req) = h2s.ready().await
+        {
+            self.reuse_conn_count += 1;
+            return Ok(send_req);
         }
 
         self.histogram_recorder
@@ -75,7 +64,7 @@ impl H2ConnectionUnlocked {
 
         self.runtime_stats.add_conn_attempt();
         let new_h2s = match tokio::time::timeout(
-            self.args.connect_timeout,
+            self.args.common.connect_timeout,
             self.args
                 .new_h2_connection(&self.runtime_stats, &self.proc_args),
         )

@@ -1,35 +1,24 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::path::{Path, PathBuf};
 
 use anyhow::anyhow;
-use log::warn;
+use log::{debug, warn};
 use openssl::pkey::{PKey, Private};
 use tokio::sync::oneshot;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::KeyStoreConfig;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct LocalKeyStoreConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
     dir_path: PathBuf,
     watch: bool,
@@ -38,7 +27,7 @@ pub struct LocalKeyStoreConfig {
 impl LocalKeyStoreConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         LocalKeyStoreConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             dir_path: PathBuf::new(),
             watch: false,
@@ -71,7 +60,7 @@ impl LocalKeyStoreConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_STORE_TYPE => Ok(()),
             "name" => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "dir" | "directory" | "dir_path" | "directory_path" => {
@@ -90,13 +79,14 @@ impl LocalKeyStoreConfig {
 
 impl KeyStoreConfig for LocalKeyStoreConfig {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
     async fn load_keys(&self) -> anyhow::Result<()> {
         const BATCH_SIZE: usize = 128;
 
+        debug!("loading keys from dir {}", self.dir_path.display());
         let mut dir = tokio::fs::read_dir(&self.dir_path)
             .await
             .map_err(|e| anyhow!("failed to open {}: {e}", self.dir_path.display()))?;
@@ -107,29 +97,43 @@ impl KeyStoreConfig for LocalKeyStoreConfig {
             .await
             .map_err(|e| anyhow!("failed to read dir {}: {e}", self.dir_path.display()))?
         {
-            let ft = entry.file_type().await.map_err(|e| {
-                anyhow!("failed to get file type of {}: {e}", entry.path().display())
-            })?;
-            if !ft.is_file() {
-                continue;
+            if count >= BATCH_SIZE {
+                tokio::task::yield_now().await;
+                count = 0;
+            } else {
+                count += 1;
             }
 
             let path = entry.path();
-            match load_key(&path).await {
-                Ok(Some(key)) => {
-                    if let Err(e) = crate::store::add_global(key) {
-                        warn!("failed to add key from file {}: {e}", path.display());
+            let filetype = match entry.file_type().await {
+                Ok(t) => t,
+                Err(e) => {
+                    warn!(
+                        " - failed to get filetype for dir entry {}: {e}",
+                        path.display()
+                    );
+                    continue;
+                }
+            };
+
+            if filetype.is_file() {
+                load_add_key(&path).await;
+            } else if filetype.is_symlink() {
+                // traverse the symlink to get the real file type
+                match tokio::fs::metadata(&path).await {
+                    Ok(meta) => {
+                        if meta.is_file() {
+                            load_add_key(&path).await;
+                        } else {
+                            debug!(" - skip non-regular file {}", path.display());
+                        }
+                    }
+                    Err(e) => {
+                        warn!(" - failed to get metadata for {}: {e}", path.display());
                     }
                 }
-                Ok(None) => {}
-                Err(e) => {
-                    warn!("failed to load key from file {}: {e}", path.display());
-                }
-            }
-
-            count += 1;
-            if count >= BATCH_SIZE {
-                tokio::task::yield_now().await;
+            } else {
+                debug!(" - skip non-regular file {}", path.display());
             }
         }
         Ok(())
@@ -167,24 +171,15 @@ impl KeyStoreConfig for LocalKeyStoreConfig {
                     Some(Ok(v)) => {
                         if let Some(p) = v.name {
                             let path = dir_path.join(p);
-                            match load_key(&path).await {
-                                Ok(Some(key)) => {
-                                    if let Err(e) = crate::store::add_global(key) {
-                                        warn!("failed to add key from file {}: {e}", path.display())
-                                    }
-                                }
-                                Ok(None) => {}
-                                Err(e) => {
-                                    warn!("{e:?}")
-                                }
-                            }
+                            debug!("got close_write event on {}", path.display());
+                            load_add_key(&path).await;
                         }
                     }
                     Some(Err(e)) => {
-                        warn!("inotify watch failed: {e}")
+                        warn!("inotify watch failed: {e}");
                     }
                     None => {
-                        warn!("inotify watch ended unexpected")
+                        warn!("inotify watch ended unexpected");
                     }
                 }
             }
@@ -207,17 +202,36 @@ impl KeyStoreConfig for LocalKeyStoreConfig {
     }
 }
 
+async fn load_add_key(path: &Path) {
+    match load_key(path).await {
+        Ok(Some(key)) => match crate::store::add_global(key) {
+            Ok(_) => {
+                debug!(" - loaded key from file {}", path.display());
+            }
+            Err(e) => {
+                warn!(" - failed to add key from file {}: {e}", path.display());
+            }
+        },
+        Ok(None) => {
+            debug!(" - no key found in file {}", path.display());
+        }
+        Err(e) => {
+            warn!(" - failed to load key from file {}: {e}", path.display());
+        }
+    }
+}
+
 async fn load_key<T: AsRef<Path>>(path: T) -> anyhow::Result<Option<PKey<Private>>> {
     let path = path.as_ref();
-    if let Some(ext) = path.extension() {
-        if ext.eq_ignore_ascii_case("key") {
-            let content = tokio::fs::read_to_string(path)
-                .await
-                .map_err(|e| anyhow!("failed to read content of file {}: {e}", path.display()))?;
-            let key = PKey::private_key_from_pem(content.as_bytes())
-                .map_err(|e| anyhow!("invalid private key pem file {}: {e}", path.display()))?;
-            return Ok(Some(key));
-        }
+    if let Some(ext) = path.extension()
+        && ext.eq_ignore_ascii_case("key")
+    {
+        let content = tokio::fs::read_to_string(path)
+            .await
+            .map_err(|e| anyhow!("failed to read content of file {}: {e}", path.display()))?;
+        let key = PKey::private_key_from_pem(content.as_bytes())
+            .map_err(|e| anyhow!("invalid private key pem file {}: {e}", path.display()))?;
+        return Ok(Some(key));
     }
     Ok(None)
 }

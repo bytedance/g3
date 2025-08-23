@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::pin::pin;
@@ -22,14 +11,17 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 use tokio::time::Instant;
 
-use g3_types::net::{Host, HttpForwardCapability, OpensslClientConfig, UpstreamAddr};
+use g3_types::net::{HttpForwardCapability, UpstreamAddr};
 
 use super::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, HttpConnectionEofPoller,
     HttpForwardContext,
 };
+use crate::audit::AuditContext;
 use crate::escape::{ArcEscaper, RouteEscaperStats};
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::serve::ServerTaskNotes;
 
 struct HttpConnectFailoverContext {
@@ -39,9 +31,9 @@ struct HttpConnectFailoverContext {
 }
 
 impl HttpConnectFailoverContext {
-    fn new(upstream: UpstreamAddr, escaper: ArcEscaper) -> Self {
+    fn new(escaper: ArcEscaper) -> Self {
         HttpConnectFailoverContext {
-            tcp_notes: TcpConnectTaskNotes::new(upstream),
+            tcp_notes: TcpConnectTaskNotes::default(),
             escaper,
             connect_result: Err(TcpConnectError::EscaperNotUsable(anyhow!(
                 "no http connection tried yet"
@@ -51,12 +43,13 @@ impl HttpConnectFailoverContext {
 
     async fn run_http(
         mut self,
+        task_conf: &TcpConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<Self, Self> {
         match self
             .escaper
-            ._new_http_forward_connection(&mut self.tcp_notes, task_notes, task_stats)
+            ._new_http_forward_connection(task_conf, &mut self.tcp_notes, task_notes, task_stats)
             .await
         {
             Ok(c) => {
@@ -72,20 +65,13 @@ impl HttpConnectFailoverContext {
 
     async fn run_https(
         mut self,
+        task_conf: &TlsConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &OpensslClientConfig,
-        tls_name: &Host,
     ) -> Result<Self, Self> {
         match self
             .escaper
-            ._new_https_forward_connection(
-                &mut self.tcp_notes,
-                task_notes,
-                task_stats,
-                tls_config,
-                tls_name,
-            )
+            ._new_https_forward_connection(task_conf, &mut self.tcp_notes, task_notes, task_stats)
             .await
         {
             Ok(c) => {
@@ -110,6 +96,8 @@ pub(crate) struct FailoverHttpForwardContext {
     use_primary: bool,
     used_escaper: ArcEscaper,
     tcp_notes: TcpConnectTaskNotes,
+    audit_ctx: AuditContext,
+    last_upstream: UpstreamAddr,
     last_is_tls: bool,
     last_connection: Option<(Instant, HttpConnectionEofPoller)>,
 }
@@ -130,7 +118,9 @@ impl FailoverHttpForwardContext {
             standby_final_escaper: Arc::clone(standby_escaper),
             use_primary: true,
             used_escaper: Arc::clone(primary_escaper),
-            tcp_notes: TcpConnectTaskNotes::empty(),
+            tcp_notes: TcpConnectTaskNotes::default(),
+            audit_ctx: AuditContext::default(),
+            last_upstream: UpstreamAddr::empty(),
             last_is_tls: false,
             last_connection: None,
         }
@@ -139,39 +129,48 @@ impl FailoverHttpForwardContext {
 
 #[async_trait]
 impl HttpForwardContext for FailoverHttpForwardContext {
-    async fn check_in_final_escaper<'a>(
-        &'a mut self,
-        task_notes: &'a ServerTaskNotes,
-        upstream: &'a UpstreamAddr,
+    async fn check_in_final_escaper(
+        &mut self,
+        task_notes: &ServerTaskNotes,
+        upstream: &UpstreamAddr,
+        audit_ctx: &mut AuditContext,
     ) -> HttpForwardCapability {
-        let mut primary_next_escaper = Arc::clone(&self.primary_escaper);
-        while let Some(escaper) = primary_next_escaper
-            ._check_out_next_escaper(task_notes, upstream)
-            .await
-        {
-            primary_next_escaper = escaper;
-        }
+        if self.last_upstream.ne(upstream) {
+            self.audit_ctx = audit_ctx.clone();
+            // only use audit ctx of the primary escaper
 
-        let mut standby_next_escaper = Arc::clone(&self.standby_escaper);
-        while let Some(escaper) = standby_next_escaper
-            ._check_out_next_escaper(task_notes, upstream)
-            .await
-        {
-            standby_next_escaper = escaper;
-        }
+            let mut primary_next_escaper = Arc::clone(&self.primary_escaper);
+            primary_next_escaper._update_audit_context(&mut self.audit_ctx);
+            while let Some(escaper) = primary_next_escaper
+                ._check_out_next_escaper(task_notes, upstream)
+                .await
+            {
+                primary_next_escaper = escaper;
+                primary_next_escaper._update_audit_context(&mut self.audit_ctx);
+            }
 
-        if self.use_primary {
-            if !Arc::ptr_eq(&self.primary_final_escaper, &primary_next_escaper) {
-                self.primary_final_escaper = primary_next_escaper;
+            let mut standby_next_escaper = Arc::clone(&self.standby_escaper);
+            while let Some(escaper) = standby_next_escaper
+                ._check_out_next_escaper(task_notes, upstream)
+                .await
+            {
+                standby_next_escaper = escaper;
+            }
+
+            if self.use_primary {
+                if !Arc::ptr_eq(&self.primary_final_escaper, &primary_next_escaper) {
+                    self.primary_final_escaper = primary_next_escaper;
+                    // drop the old connection on old escaper
+                    let _old_connection = self.last_connection.take();
+                }
+            } else if !Arc::ptr_eq(&self.standby_final_escaper, &standby_next_escaper) {
+                self.standby_final_escaper = standby_next_escaper;
                 // drop the old connection on old escaper
                 let _old_connection = self.last_connection.take();
             }
-        } else if !Arc::ptr_eq(&self.standby_final_escaper, &standby_next_escaper) {
-            self.standby_final_escaper = standby_next_escaper;
-            // drop the old connection on old escaper
-            let _old_connection = self.last_connection.take();
         }
 
+        *audit_ctx = self.audit_ctx.clone();
         self.primary_final_escaper._local_http_forward_capability()
             & self.standby_final_escaper._local_http_forward_capability()
     }
@@ -185,10 +184,10 @@ impl HttpForwardContext for FailoverHttpForwardContext {
             }
         }
 
-        if self.tcp_notes.upstream.ne(ups) || self.last_is_tls != is_tls {
+        if self.last_upstream.ne(ups) || self.last_is_tls != is_tls {
             // new upstream
-            self.tcp_notes.upstream = ups.clone();
-            self.tcp_notes.reset_generated();
+            self.last_upstream = ups.clone();
+            self.tcp_notes.reset();
             // always use different connection for different upstream
             let _old_connection = self.last_connection.take();
         } else {
@@ -196,9 +195,9 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         }
     }
 
-    async fn get_alive_connection<'a>(
-        &'a mut self,
-        task_notes: &'a ServerTaskNotes,
+    async fn get_alive_connection(
+        &mut self,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
         idle_expire: Duration,
     ) -> Option<BoxHttpForwardConnection> {
@@ -225,18 +224,17 @@ impl HttpForwardContext for FailoverHttpForwardContext {
         }
     }
 
-    async fn make_new_http_connection<'a>(
-        &'a mut self,
-        task_notes: &'a ServerTaskNotes,
+    async fn make_new_http_connection(
+        &mut self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.last_is_tls = false;
 
-        let primary_context = HttpConnectFailoverContext::new(
-            self.tcp_notes.upstream.clone(),
-            self.primary_final_escaper.clone(),
-        );
-        let mut primary_task = pin!(primary_context.run_http(task_notes, task_stats.clone()));
+        let primary_context = HttpConnectFailoverContext::new(self.primary_final_escaper.clone());
+        let mut primary_task =
+            pin!(primary_context.run_http(task_conf, task_notes, task_stats.clone()));
 
         match tokio::time::timeout(self.fallback_delay, &mut primary_task).await {
             Ok(Ok(ctx)) => {
@@ -246,7 +244,8 @@ impl HttpForwardContext for FailoverHttpForwardContext {
                     }
                     self.used_escaper = ctx.escaper;
                 }
-                self.tcp_notes.fill_generated(&ctx.tcp_notes);
+                self.use_primary = true;
+                self.tcp_notes.clone_from(&ctx.tcp_notes);
                 self.route_stats.add_request_passed();
                 return ctx.connect_result;
             }
@@ -257,9 +256,15 @@ impl HttpForwardContext for FailoverHttpForwardContext {
                     }
                     self.used_escaper = self.standby_final_escaper.clone();
                 }
+                self.use_primary = false;
                 return match self
                     .used_escaper
-                    ._new_http_forward_connection(&mut self.tcp_notes, task_notes, task_stats)
+                    ._new_http_forward_connection(
+                        task_conf,
+                        &mut self.tcp_notes,
+                        task_notes,
+                        task_stats,
+                    )
                     .await
                 {
                     Ok(c) => {
@@ -275,11 +280,8 @@ impl HttpForwardContext for FailoverHttpForwardContext {
             Err(_) => {}
         }
 
-        let standby_context = HttpConnectFailoverContext::new(
-            self.tcp_notes.upstream.clone(),
-            self.standby_final_escaper.clone(),
-        );
-        let standby_task = pin!(standby_context.run_http(task_notes, task_stats));
+        let standby_context = HttpConnectFailoverContext::new(self.standby_final_escaper.clone());
+        let standby_task = pin!(standby_context.run_http(task_conf, task_notes, task_stats));
 
         let ctx = match futures_util::future::select_ok([primary_task, standby_task]).await {
             Ok((ctx, _left)) => {
@@ -297,25 +299,22 @@ impl HttpForwardContext for FailoverHttpForwardContext {
             }
             self.used_escaper = ctx.escaper;
         }
-        self.tcp_notes.fill_generated(&ctx.tcp_notes);
+        self.use_primary = Arc::ptr_eq(&self.used_escaper, &self.primary_final_escaper);
+        self.tcp_notes.clone_from(&ctx.tcp_notes);
         ctx.connect_result
     }
 
-    async fn make_new_https_connection<'a>(
-        &'a mut self,
-        task_notes: &'a ServerTaskNotes,
+    async fn make_new_https_connection(
+        &mut self,
+        task_conf: &TlsConnectTaskConf<'_>,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.last_is_tls = true;
 
-        let primary_context = HttpConnectFailoverContext::new(
-            self.tcp_notes.upstream.clone(),
-            self.primary_final_escaper.clone(),
-        );
+        let primary_context = HttpConnectFailoverContext::new(self.primary_final_escaper.clone());
         let mut primary_task =
-            pin!(primary_context.run_https(task_notes, task_stats.clone(), tls_config, tls_name));
+            pin!(primary_context.run_https(task_conf, task_notes, task_stats.clone()));
 
         match tokio::time::timeout(self.fallback_delay, &mut primary_task).await {
             Ok(Ok(ctx)) => {
@@ -325,7 +324,8 @@ impl HttpForwardContext for FailoverHttpForwardContext {
                     }
                     self.used_escaper = ctx.escaper;
                 }
-                self.tcp_notes.fill_generated(&ctx.tcp_notes);
+                self.use_primary = true;
+                self.tcp_notes.clone_from(&ctx.tcp_notes);
                 self.route_stats.add_request_passed();
                 return ctx.connect_result;
             }
@@ -336,14 +336,14 @@ impl HttpForwardContext for FailoverHttpForwardContext {
                     }
                     self.used_escaper = self.standby_final_escaper.clone();
                 }
+                self.use_primary = false;
                 return match self
                     .used_escaper
                     ._new_https_forward_connection(
+                        task_conf,
                         &mut self.tcp_notes,
                         task_notes,
                         task_stats,
-                        tls_config,
-                        tls_name,
                     )
                     .await
                 {
@@ -360,12 +360,8 @@ impl HttpForwardContext for FailoverHttpForwardContext {
             Err(_) => {}
         }
 
-        let standby_context = HttpConnectFailoverContext::new(
-            self.tcp_notes.upstream.clone(),
-            self.standby_final_escaper.clone(),
-        );
-        let standby_task =
-            pin!(standby_context.run_https(task_notes, task_stats, tls_config, tls_name));
+        let standby_context = HttpConnectFailoverContext::new(self.standby_final_escaper.clone());
+        let standby_task = pin!(standby_context.run_https(task_conf, task_notes, task_stats));
 
         let ctx = match futures_util::future::select_ok([primary_task, standby_task]).await {
             Ok((ctx, _left)) => {
@@ -383,7 +379,8 @@ impl HttpForwardContext for FailoverHttpForwardContext {
             }
             self.used_escaper = ctx.escaper;
         }
-        self.tcp_notes.fill_generated(&ctx.tcp_notes);
+        self.use_primary = Arc::ptr_eq(&self.used_escaper, &self.primary_final_escaper);
+        self.tcp_notes.clone_from(&ctx.tcp_notes);
         ctx.connect_result
     }
 
@@ -393,7 +390,6 @@ impl HttpForwardContext for FailoverHttpForwardContext {
     }
 
     fn fetch_tcp_notes(&self, tcp_notes: &mut TcpConnectTaskNotes) {
-        assert!(tcp_notes.upstream.eq(&self.tcp_notes.upstream));
-        tcp_notes.fill_generated(&self.tcp_notes);
+        tcp_notes.clone_from(&self.tcp_notes);
     }
 }

@@ -1,22 +1,11 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use bytes::BufMut;
 use tokio::io::{AsyncBufRead, AsyncRead, ReadBuf};
@@ -48,6 +37,17 @@ impl ChunkedDataDecodeReaderInternal {
 
     fn finished(&self) -> bool {
         self.poll_chunk_end && self.this_chunk_size == 0
+    }
+
+    fn left_chunk_size(&self) -> Option<u64> {
+        if self.poll_chunk_end_r || self.poll_chunk_end_n {
+            return None;
+        }
+        Some(self.left_chunk_size)
+    }
+
+    fn pending_cancel_safe(&self) -> bool {
+        self.chunk_header.is_empty() && !self.poll_chunk_end_r && !self.poll_chunk_end_n
     }
 
     fn poll_decode<R>(
@@ -219,8 +219,25 @@ impl<'a, R> ChunkedDataDecodeReader<'a, R> {
         }
     }
 
+    #[inline]
     pub fn into_reader(self) -> &'a mut R {
         self.reader
+    }
+
+    #[inline]
+    pub fn left_chunk_size(&self) -> Option<u64> {
+        self.internal.left_chunk_size()
+    }
+
+    /**
+     * Check whether it's safe to break from a Poll::Pending state
+     *
+     * Return true of the inner reader is still possible to be read as chunked,
+     * the `left_chink_size()` must be used in this case and the value must be `Some(size)`.
+     */
+    #[inline]
+    pub fn pending_cancel_safe(&self) -> bool {
+        self.internal.pending_cancel_safe()
     }
 
     pub fn finished(&self) -> bool {
@@ -228,7 +245,7 @@ impl<'a, R> ChunkedDataDecodeReader<'a, R> {
     }
 }
 
-impl<'a, R> AsyncRead for ChunkedDataDecodeReader<'a, R>
+impl<R> AsyncRead for ChunkedDataDecodeReader<'_, R>
 where
     R: AsyncBufRead + Unpin,
 {
@@ -256,16 +273,13 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use bytes::Bytes;
-    use tokio::io::{AsyncReadExt, BufReader, Result};
-    use tokio_util::io::StreamReader;
+    use tokio::io::{AsyncReadExt, BufReader};
 
     #[tokio::test]
     async fn read_single_chunked() {
         let body_len: usize = 9;
         let content = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\n\r\nXXX";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_deocder = ChunkedDataDecodeReader::new(&mut buf_stream, 1024);
 
@@ -280,8 +294,7 @@ mod test {
     async fn read_single_tailer() {
         let body_len: usize = 9;
         let content = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\nA: B\r\n\r\nXXX";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_deocder = ChunkedDataDecodeReader::new(&mut buf_stream, 1024);
 

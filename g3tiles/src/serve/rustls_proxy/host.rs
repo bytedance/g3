@@ -1,28 +1,17 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
-use governor::{clock::DefaultClock, state::InMemoryState, state::NotKeyed, RateLimiter};
 use rustls::ServerConfig;
 
 use g3_types::collection::NamedValue;
-use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
-use g3_types::metrics::MetricsName;
+use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit, GlobalRateLimitState, RateLimiter};
+use g3_types::metrics::NodeName;
+use g3_types::net::{OpensslTicketKey, RollingTicketer};
 use g3_types::route::AlpnMatch;
 
 use crate::backend::ArcBackend;
@@ -32,20 +21,22 @@ pub(crate) struct RustlsHost {
     pub(super) config: Arc<RustlsHostConfig>,
     pub(super) tls_config: Arc<ServerConfig>,
     req_alive_sem: Option<GaugeSemaphore>,
-    request_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
+    request_rate_limit: Option<Arc<RateLimiter<GlobalRateLimitState>>>,
     pub(crate) backends: Arc<ArcSwap<AlpnMatch<ArcBackend>>>,
 }
 
 impl RustlsHost {
-    pub(super) fn try_build(config: &Arc<RustlsHostConfig>) -> anyhow::Result<Self> {
-        let tls_config = config.build_tls_config()?;
+    pub(super) fn try_build(
+        config: &Arc<RustlsHostConfig>,
+        tls_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
+    ) -> anyhow::Result<Self> {
+        let tls_config = config.build_tls_config(tls_ticketer)?;
 
         let backends = config.backends.build(crate::backend::get_or_insert_default);
 
         let request_rate_limit = config
             .request_rate_limit
-            .as_ref()
-            .map(|quota| Arc::new(RateLimiter::direct(quota.get_inner())));
+            .map(|quota| Arc::new(RateLimiter::new_global(quota)));
         let req_alive_sem = config.request_alive_max.map(GaugeSemaphore::new);
 
         Ok(RustlsHost {
@@ -53,27 +44,31 @@ impl RustlsHost {
             tls_config,
             req_alive_sem,
             request_rate_limit,
-            backends: Arc::new(ArcSwap::new(Arc::new(backends))),
+            backends: Arc::new(ArcSwap::from_pointee(backends)),
         })
     }
 
-    pub(super) fn new_for_reload(&self, config: Arc<RustlsHostConfig>) -> anyhow::Result<Self> {
-        let tls_config = config.build_tls_config()?;
+    pub(super) fn new_for_reload(
+        &self,
+        config: Arc<RustlsHostConfig>,
+        tls_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
+    ) -> anyhow::Result<Self> {
+        let tls_config = config.build_tls_config(tls_ticketer)?;
 
-        let request_rate_limit = if let Some(quota) = &config.request_rate_limit {
+        let request_rate_limit = if let Some(quota) = config.request_rate_limit {
             if let Some(old_limiter) = &self.request_rate_limit {
                 if let Some(old_quota) = &self.config.request_rate_limit {
                     if quota.eq(old_quota) {
                         // always use the old rate limiter when possible
                         Some(Arc::clone(old_limiter))
                     } else {
-                        Some(Arc::new(RateLimiter::direct(quota.get_inner())))
+                        Some(Arc::new(RateLimiter::new_global(quota)))
                     }
                 } else {
                     unreachable!()
                 }
             } else {
-                Some(Arc::new(RateLimiter::direct(quota.get_inner())))
+                Some(Arc::new(RateLimiter::new_global(quota)))
             }
         } else {
             None
@@ -101,11 +96,11 @@ impl RustlsHost {
     }
 
     pub(super) fn check_rate_limit(&self) -> Result<(), ()> {
-        if let Some(limit) = &self.request_rate_limit {
-            if limit.check().is_err() {
-                // TODO add stats
-                return Err(());
-            }
+        if let Some(limit) = &self.request_rate_limit
+            && limit.check().is_err()
+        {
+            // TODO add stats
+            return Err(());
         }
         Ok(())
     }
@@ -125,7 +120,7 @@ impl RustlsHost {
         self.backends.load().get_default().cloned()
     }
 
-    pub(super) fn use_backend(&self, name: &MetricsName) -> bool {
+    pub(super) fn use_backend(&self, name: &NodeName) -> bool {
         self.config.backends.contains_value(name)
     }
 

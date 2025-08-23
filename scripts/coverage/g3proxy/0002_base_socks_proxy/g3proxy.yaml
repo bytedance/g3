@@ -1,0 +1,36 @@
+---
+
+log: syslog
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+resolver:
+  - name: default
+    type: c-ares
+    server:
+      - 127.0.0.1
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: default
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.1
+
+server:
+  - name: socks1
+    type: socks_proxy
+    listen: 127.0.0.1:1080
+    escaper: default
+    flush_task_log_on_created: true
+    flush_task_log_on_connected: true
+    task_log_flush_interval: 1s
+    tcp_sock_speed_limit: 500K
+  - name: socks2
+    type: socks_proxy
+    listen: 127.0.0.1:1081
+    escaper: default
+    use-udp-associate: true

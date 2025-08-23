@@ -1,17 +1,6 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::fmt;
@@ -72,5 +61,70 @@ impl FromStr for TlsServiceType {
             "imap" | "IMAP" => Ok(TlsServiceType::Imap),
             _ => Err(InvalidServiceType),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn as_str() {
+        assert_eq!(TlsServiceType::Http.as_str(), "http");
+        assert_eq!(TlsServiceType::Smtp.as_str(), "smtp");
+        assert_eq!(TlsServiceType::Imap.as_str(), "imap");
+    }
+
+    #[test]
+    fn display() {
+        assert_eq!(format!("{}", TlsServiceType::Http), "http");
+        assert_eq!(format!("{}", TlsServiceType::Smtp), "smtp");
+        assert_eq!(format!("{}", TlsServiceType::Imap), "imap");
+    }
+
+    #[test]
+    fn try_from_u8_valid() {
+        assert!(matches!(
+            TlsServiceType::try_from(0),
+            Ok(TlsServiceType::Http)
+        ));
+        assert!(matches!(
+            TlsServiceType::try_from(1),
+            Ok(TlsServiceType::Smtp)
+        ));
+        assert!(matches!(
+            TlsServiceType::try_from(2),
+            Ok(TlsServiceType::Imap)
+        ));
+    }
+
+    #[test]
+    fn try_from_u8_invalid() {
+        assert!(TlsServiceType::try_from(3).is_err());
+        assert!(TlsServiceType::try_from(255).is_err());
+    }
+
+    #[test]
+    fn from_str_valid() {
+        assert!(matches!("http".parse(), Ok(TlsServiceType::Http)));
+        assert!(matches!("HTTP".parse(), Ok(TlsServiceType::Http)));
+        assert!(matches!("smtp".parse(), Ok(TlsServiceType::Smtp)));
+        assert!(matches!("SMTP".parse(), Ok(TlsServiceType::Smtp)));
+        assert!(matches!("imap".parse(), Ok(TlsServiceType::Imap)));
+        assert!(matches!("IMAP".parse(), Ok(TlsServiceType::Imap)));
+    }
+
+    #[test]
+    fn from_str_invalid() {
+        assert!("https".parse::<TlsServiceType>().is_err());
+        assert!("ftp".parse::<TlsServiceType>().is_err());
+        assert!("pop3".parse::<TlsServiceType>().is_err());
+        assert!("".parse::<TlsServiceType>().is_err());
+    }
+
+    #[test]
+    fn invalid_service_type_display() {
+        let err = InvalidServiceType;
+        assert_eq!(format!("{}", err), "unsupported tls service type");
     }
 }

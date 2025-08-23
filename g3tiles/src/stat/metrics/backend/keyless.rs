@@ -1,35 +1,24 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::{Arc, LazyLock, Mutex};
-
-use ahash::AHashMap;
+use std::sync::{Arc, Mutex};
 
 use g3_daemon::metrics::TAG_KEY_QUANTILE;
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
-use g3_types::stats::StatId;
+use g3_types::stats::GlobalStatsMap;
 
 use super::BackendMetricExt;
 use crate::module::keyless::{KeylessBackendStats, KeylessUpstreamDurationStats};
 
 const METRIC_NAME_KEYLESS_CONN_ATTEMPT: &str = "backend.keyless.connection.attempt";
 const METRIC_NAME_KEYLESS_CONN_ESTABLISHED: &str = "backend.keyless.connection.established";
+const METRIC_NAME_KEYLESS_CHANNEL_ALIVE: &str = "backend.keyless.channel.alive";
 const METRIC_NAME_KEYLESS_REQUEST_RECV: &str = "backend.keyless.request.recv";
 const METRIC_NAME_KEYLESS_REQUEST_SEND: &str = "backend.keyless.request.send";
 const METRIC_NAME_KEYLESS_REQUEST_DROP: &str = "backend.keyless.request.drop";
+const METRIC_NAME_KEYLESS_REQUEST_TIMEOUT: &str = "backend.keyless.request.timeout";
 const METRIC_NAME_KEYLESS_RESPONSE_RECV: &str = "backend.keyless.response.recv";
 const METRIC_NAME_KEYLESS_RESPONSE_SEND: &str = "backend.keyless.response.send";
 const METRIC_NAME_KEYLESS_RESPONSE_DROP: &str = "backend.keyless.response.drop";
@@ -40,16 +29,14 @@ const METRIC_NAME_KEYLESS_RESPONSE_DURATION: &str = "backend.keyless.response.du
 
 type KeylessBackendStatsValue = (Arc<KeylessBackendStats>, KeylessBackendSnapshot);
 
-static STORE_KEYLESS_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, KeylessBackendStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static KEYLESS_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, KeylessBackendStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static STORE_KEYLESS_DURATION_STATS_MAP: LazyLock<
-    Mutex<AHashMap<StatId, Arc<KeylessUpstreamDurationStats>>>,
-> = LazyLock::new(|| Mutex::new(AHashMap::new()));
-static KEYLESS_DURATION_STATS_MAP: LazyLock<
-    Mutex<AHashMap<StatId, Arc<KeylessUpstreamDurationStats>>>,
-> = LazyLock::new(|| Mutex::new(AHashMap::new()));
+static STORE_KEYLESS_STATS_MAP: Mutex<GlobalStatsMap<KeylessBackendStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static KEYLESS_STATS_MAP: Mutex<GlobalStatsMap<KeylessBackendStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static STORE_KEYLESS_DURATION_STATS_MAP: Mutex<GlobalStatsMap<Arc<KeylessUpstreamDurationStats>>> =
+    Mutex::new(GlobalStatsMap::new());
+static KEYLESS_DURATION_STATS_MAP: Mutex<GlobalStatsMap<Arc<KeylessUpstreamDurationStats>>> =
+    Mutex::new(GlobalStatsMap::new());
 
 #[derive(Default)]
 struct KeylessBackendSnapshot {
@@ -58,6 +45,7 @@ struct KeylessBackendSnapshot {
     request_recv: u64,
     request_send: u64,
     request_drop: u64,
+    request_timeout: u64,
     response_recv: u64,
     response_send: u64,
     response_drop: u64,
@@ -87,7 +75,7 @@ pub(super) fn sync_stats() {
 
 pub(super) fn emit_stats(client: &mut StatsdClient) {
     let mut backend_stats_map = KEYLESS_STATS_MAP.lock().unwrap();
-    backend_stats_map.retain(|_, (stats, snap)| {
+    backend_stats_map.retain(|(stats, snap)| {
         emit_keyless_stats(client, stats, snap);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1
@@ -95,7 +83,7 @@ pub(super) fn emit_stats(client: &mut StatsdClient) {
     drop(backend_stats_map);
 
     let mut duration_stats_map = KEYLESS_DURATION_STATS_MAP.lock().unwrap();
-    duration_stats_map.retain(|_, stats| {
+    duration_stats_map.retain(|stats| {
         emit_keyless_duration_stats(client, stats);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1
@@ -114,6 +102,15 @@ fn emit_keyless_stats(
         common_tags.add_static_tags(&tags);
     }
 
+    let channel_alive = stats.alive_channel();
+    client
+        .gauge_with_tags(
+            METRIC_NAME_KEYLESS_CHANNEL_ALIVE,
+            channel_alive,
+            &common_tags,
+        )
+        .send();
+
     macro_rules! emit_count {
         ($field:ident, $name:expr) => {
             let new_value = stats.$field();
@@ -131,6 +128,7 @@ fn emit_keyless_stats(
     emit_count!(request_recv, METRIC_NAME_KEYLESS_REQUEST_RECV);
     emit_count!(request_send, METRIC_NAME_KEYLESS_REQUEST_SEND);
     emit_count!(request_drop, METRIC_NAME_KEYLESS_REQUEST_DROP);
+    emit_count!(request_timeout, METRIC_NAME_KEYLESS_REQUEST_TIMEOUT);
 
     emit_count!(response_recv, METRIC_NAME_KEYLESS_RESPONSE_RECV);
     emit_count!(response_send, METRIC_NAME_KEYLESS_RESPONSE_SEND);

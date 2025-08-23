@@ -1,28 +1,20 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
-use yaml_rust::{yaml, Yaml};
+use anyhow::{Context, anyhow};
+use yaml_rust::{Yaml, yaml};
 
 use g3_histogram::HistogramMetricsConfig;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
-use g3_types::net::{ConnectionPoolConfig, RustlsClientConfigBuilder, SocketBufferConfig};
+use g3_types::metrics::{MetricTagMap, NodeName};
+use g3_types::net::{
+    ConnectionPoolConfig, QuinnTransportConfigBuilder, RustlsClientConfigBuilder,
+    SocketBufferConfig,
+};
 use g3_yaml::YamlDocPosition;
 
 const BACKEND_CONFIG_TYPE: &str = "KeylessQuic";
@@ -33,11 +25,11 @@ use crate::module::keyless::MultiplexedUpstreamConnectionConfig;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct KeylessQuicBackendConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) discover: MetricsName,
+    pub(crate) discover: NodeName,
     pub(crate) discover_data: DiscoverRegisterData,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
     pub(crate) tls_client: RustlsClientConfigBuilder,
     pub(crate) tls_name: Option<String>,
     pub(crate) duration_stats: HistogramMetricsConfig,
@@ -46,16 +38,18 @@ pub(crate) struct KeylessQuicBackendConfig {
     pub(crate) connection_config: MultiplexedUpstreamConnectionConfig,
     pub(crate) graceful_close_wait: Duration,
     pub(crate) connection_pool: ConnectionPoolConfig,
+    pub(crate) quic_transport: QuinnTransportConfigBuilder,
     pub(crate) concurrent_streams: usize,
+    pub(crate) wait_new_channel: bool,
     pub(crate) socket_buffer: SocketBufferConfig,
 }
 
 impl KeylessQuicBackendConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         KeylessQuicBackendConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
-            discover: MetricsName::default(),
+            discover: NodeName::default(),
             discover_data: DiscoverRegisterData::Null,
             extra_metrics_tags: None,
             tls_client: RustlsClientConfigBuilder::default(),
@@ -64,8 +58,10 @@ impl KeylessQuicBackendConfig {
             request_buffer_size: 128,
             connection_config: Default::default(),
             graceful_close_wait: Duration::from_secs(10),
-            connection_pool: ConnectionPoolConfig::new(1024, 32),
+            connection_pool: ConnectionPoolConfig::new(2048, 128),
+            quic_transport: QuinnTransportConfigBuilder::default(),
             concurrent_streams: 4,
+            wait_new_channel: false,
             socket_buffer: SocketBufferConfig::default(),
         }
     }
@@ -100,11 +96,11 @@ impl KeylessQuicBackendConfig {
         match k {
             super::CONFIG_KEY_BACKEND_TYPE => Ok(()),
             super::CONFIG_KEY_BACKEND_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "discover" => {
-                self.discover = g3_yaml::value::as_metrics_name(v)?;
+                self.discover = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "discover_data" => {
@@ -162,8 +158,17 @@ impl KeylessQuicBackendConfig {
                     .context(format!("invalid connection pool config value for key {k}"))?;
                 Ok(())
             }
+            "quic_transport" => {
+                self.quic_transport = g3_yaml::value::as_quinn_transport_config(v)
+                    .context(format!("invalid quinn transport config value for key {k}"))?;
+                Ok(())
+            }
             "concurrent_streams" => {
                 self.concurrent_streams = g3_yaml::value::as_usize(v)?;
+                Ok(())
+            }
+            "wait_new_channel" => {
+                self.wait_new_channel = g3_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "socket_buffer" => {
@@ -176,7 +181,7 @@ impl KeylessQuicBackendConfig {
 }
 
 impl BackendConfig for KeylessQuicBackendConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -184,7 +189,7 @@ impl BackendConfig for KeylessQuicBackendConfig {
         self.position.clone()
     }
 
-    fn backend_type(&self) -> &'static str {
+    fn r#type(&self) -> &'static str {
         BACKEND_CONFIG_TYPE
     }
 

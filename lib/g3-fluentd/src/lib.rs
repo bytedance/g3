@@ -1,30 +1,18 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::VecDeque;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use anyhow::anyhow;
-use flume::Receiver;
 use log::warn;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
-use tokio_rustls::client::TlsStream;
 
+use g3_openssl::SslStream;
 use g3_types::log::{AsyncLogConfig, AsyncLogger, LogStats};
 
 mod config;
@@ -43,14 +31,14 @@ pub fn new_async_logger(
     fluent_conf: &Arc<FluentdClientConfig>,
     tag_name: String,
 ) -> AsyncLogger<Vec<u8>, FluentdFormatter> {
-    let (sender, receiver) = flume::bounded::<Vec<u8>>(async_conf.channel_capacity);
+    let (sender, receiver) = kanal::bounded::<Vec<u8>>(async_conf.channel_capacity);
 
     let stats = Arc::new(LogStats::default());
 
     for i in 0..async_conf.thread_number {
         let io_thread = AsyncIoThread {
             config: Arc::clone(fluent_conf),
-            receiver: receiver.clone(),
+            receiver: receiver.clone_async(),
             stats: Arc::clone(&stats),
             retry_queue: VecDeque::with_capacity(fluent_conf.retry_queue_len),
         };
@@ -71,12 +59,12 @@ pub fn new_async_logger(
 
 enum FluentdConnection {
     Tcp(TcpStream),
-    Tls(TlsStream<TcpStream>),
+    Tls(SslStream<TcpStream>),
 }
 
 struct AsyncIoThread {
     config: Arc<FluentdClientConfig>,
-    receiver: Receiver<Vec<u8>>,
+    receiver: kanal::AsyncReceiver<Vec<u8>>,
     stats: Arc<LogStats>,
     retry_queue: VecDeque<Vec<u8>>,
 }
@@ -123,7 +111,7 @@ impl AsyncIoThread {
         let drop_count = Arc::new(AtomicUsize::new(0));
         let drop_count_i = drop_count.clone();
         match tokio::time::timeout(self.config.connect_delay, async {
-            while let Ok(data) = self.receiver.recv_async().await {
+            while let Ok(data) = self.receiver.recv().await {
                 if self.push_to_retry(data).is_some() {
                     drop_count_i.fetch_add(1, Ordering::Relaxed);
                 }
@@ -168,7 +156,7 @@ impl AsyncIoThread {
 
         loop {
             tokio::select! {
-                r = self.receiver.recv_async() => {
+                r = self.receiver.recv() => {
                     match r {
                         Ok(data) => {
                             match tokio::time::timeout(self.config.write_timeout, connection.write_all(data.as_slice())).await {

@@ -1,25 +1,14 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::num::{NonZeroI32, NonZeroIsize, NonZeroU32};
+use std::num::{NonZeroI32, NonZeroIsize, NonZeroU32, NonZeroUsize};
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use yaml_rust::Yaml;
 
@@ -158,6 +147,19 @@ pub fn as_usize(v: &Yaml) -> anyhow::Result<usize> {
     }
 }
 
+pub fn as_nonzero_usize(v: &Yaml) -> anyhow::Result<NonZeroUsize> {
+    match v {
+        Yaml::String(s) => Ok(NonZeroUsize::from_str(s)?),
+        Yaml::Integer(i) => {
+            let u = usize::try_from(*i)?;
+            Ok(NonZeroUsize::try_from(u)?)
+        }
+        _ => Err(anyhow!(
+            "yaml value type for 'nonzero usize' should be 'string' or 'integer'"
+        )),
+    }
+}
+
 pub fn as_ascii(v: &Yaml) -> anyhow::Result<AsciiString> {
     let s = as_string(v).context("the base type for AsciiString should be String")?;
     AsciiString::from_str(&s).map_err(|e| anyhow!("invalid ascii string: {e}"))
@@ -220,23 +222,564 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use yaml_rust::YamlLoader;
 
     #[test]
-    fn t_string() {
-        let v = Yaml::String("123.0".to_string());
-        let pv = as_string(&v).unwrap();
-        assert_eq!(pv, "123.0");
+    fn as_u8_ok() {
+        // valid string input
+        let v = yaml_str!("100");
+        assert_eq!(as_u8(&v).unwrap(), 100);
 
+        // valid integer input
+        let v = Yaml::Integer(200);
+        assert_eq!(as_u8(&v).unwrap(), 200);
+
+        // boundary value (max u8)
+        let v = Yaml::Integer(255);
+        assert_eq!(as_u8(&v).unwrap(), 255);
+    }
+
+    #[test]
+    fn as_u8_err() {
+        // overflow
+        let v = Yaml::Integer(256);
+        assert!(as_u8(&v).is_err());
+
+        // negative number
+        let v = Yaml::Integer(-1);
+        assert!(as_u8(&v).is_err());
+
+        // invalid type
+        let v = Yaml::Boolean(true);
+        assert!(as_u8(&v).is_err());
+
+        // parse error
+        let v = yaml_str!("abc");
+        assert!(as_u8(&v).is_err());
+    }
+
+    #[test]
+    fn as_u16_ok() {
+        // valid string input
+        let v = yaml_str!("50000");
+        assert_eq!(as_u16(&v).unwrap(), 50000);
+
+        // valid integer input
+        let v = Yaml::Integer(60000);
+        assert_eq!(as_u16(&v).unwrap(), 60000);
+
+        // boundary value (max u16)
+        let v = Yaml::Integer(65535);
+        assert_eq!(as_u16(&v).unwrap(), 65535);
+    }
+
+    #[test]
+    fn as_u16_err() {
+        // overflow
+        let v = Yaml::Integer(65536);
+        assert!(as_u16(&v).is_err());
+
+        // negative number
+        let v = Yaml::Integer(-1);
+        assert!(as_u16(&v).is_err());
+
+        // invalid type
+        let v = Yaml::Boolean(false);
+        assert!(as_u16(&v).is_err());
+
+        // parse error
+        let v = yaml_str!("def");
+        assert!(as_u16(&v).is_err());
+    }
+
+    #[test]
+    fn as_u32_ok() {
+        // valid string input
+        let v = yaml_str!("4000000000");
+        assert_eq!(as_u32(&v).unwrap(), 4000000000);
+
+        // valid integer input
+        let v = Yaml::Integer(2000000000);
+        assert_eq!(as_u32(&v).unwrap(), 2000000000);
+
+        // boundary value (max u32)
+        let v = Yaml::Integer(4294967295);
+        assert_eq!(as_u32(&v).unwrap(), 4294967295);
+    }
+
+    #[test]
+    fn as_u32_err() {
+        // overflow
+        let v = Yaml::Integer(4294967296);
+        assert!(as_u32(&v).is_err());
+
+        // negative number
+        let v = Yaml::Integer(-1);
+        assert!(as_u32(&v).is_err());
+
+        // invalid type
+        let v = Yaml::Null;
+        assert!(as_u32(&v).is_err());
+
+        // parse error
+        let v = yaml_str!("ghi");
+        assert!(as_u32(&v).is_err());
+    }
+
+    #[test]
+    fn as_nonzero_u32_ok() {
+        // valid string input
+        let v = yaml_str!("1");
+        assert_eq!(as_nonzero_u32(&v).unwrap(), NonZeroU32::new(1).unwrap());
+
+        // valid integer input
+        let v = Yaml::Integer(2);
+        assert_eq!(as_nonzero_u32(&v).unwrap(), NonZeroU32::new(2).unwrap());
+
+        // boundary value (max u32)
+        let v = Yaml::Integer(4294967295);
+        assert_eq!(
+            as_nonzero_u32(&v).unwrap(),
+            NonZeroU32::new(4294967295).unwrap()
+        );
+    }
+
+    #[test]
+    fn as_nonzero_u32_err() {
+        // overflow
+        let v = Yaml::Integer(4294967296);
+        assert!(as_nonzero_u32(&v).is_err());
+
+        // zero value
+        let v = yaml_str!("0");
+        assert!(as_nonzero_u32(&v).is_err());
+
+        // negative number
+        let v = Yaml::Integer(-1);
+        assert!(as_nonzero_u32(&v).is_err());
+
+        // invalid type
+        let v = Yaml::Array(vec![]);
+        assert!(as_nonzero_u32(&v).is_err());
+
+        // parse error
+        let v = yaml_str!("jkl");
+        assert!(as_nonzero_u32(&v).is_err());
+    }
+
+    #[test]
+    fn as_u64_ok() {
+        // valid string input
+        let v = yaml_str!("18446744073709551615");
+        assert_eq!(as_u64(&v).unwrap(), 18446744073709551615);
+
+        // valid integer input
+        let v = Yaml::Integer(8446744073709551615);
+        assert_eq!(as_u64(&v).unwrap(), 8446744073709551615);
+    }
+
+    #[test]
+    fn as_u64_err() {
+        // overflow
+        let v = yaml_str!("18446744073709551616");
+        assert!(as_u64(&v).is_err());
+
+        // negative number
+        let v = Yaml::Integer(-1);
+        assert!(as_u64(&v).is_err());
+
+        // invalid type
+        let v = Yaml::Boolean(false);
+        assert!(as_u64(&v).is_err());
+
+        // parse error
+        let v = yaml_str!("mno");
+        assert!(as_u64(&v).is_err());
+    }
+
+    #[test]
+    fn as_i32_ok() {
+        // valid string input
+        let v = yaml_str!("-2147483648");
+        assert_eq!(as_i32(&v).unwrap(), -2147483648);
+
+        let v = yaml_str!("0");
+        assert_eq!(as_i32(&v).unwrap(), 0);
+
+        // valid integer input
+        let v = Yaml::Integer(2147483647);
+        assert_eq!(as_i32(&v).unwrap(), 2147483647);
+    }
+
+    #[test]
+    fn as_i32_err() {
+        // overflow
+        let v = Yaml::Integer(2147483648);
+        assert!(as_i32(&v).is_err());
+
+        // underflow
+        let v = Yaml::Integer(-2147483649);
+        assert!(as_i32(&v).is_err());
+
+        // invalid type
+        let v = Yaml::Boolean(true);
+        assert!(as_i32(&v).is_err());
+
+        // parse error
+        let v = yaml_str!("pqr");
+        assert!(as_i32(&v).is_err());
+    }
+
+    #[test]
+    fn as_nonzero_i32_ok() {
+        // valid positive value
+        let v = yaml_str!(1);
+        assert_eq!(as_nonzero_i32(&v).unwrap(), NonZeroI32::new(1).unwrap());
+
+        let v = Yaml::Integer(2147483647);
+        assert_eq!(
+            as_nonzero_i32(&v).unwrap(),
+            NonZeroI32::new(2147483647).unwrap()
+        );
+
+        // valid negative value
+        let v = yaml_str!(-1);
+        assert_eq!(as_nonzero_i32(&v).unwrap(), NonZeroI32::new(-1).unwrap());
+
+        let v = Yaml::Integer(-2147483648);
+        assert_eq!(
+            as_nonzero_i32(&v).unwrap(),
+            NonZeroI32::new(-2147483648).unwrap()
+        );
+    }
+
+    #[test]
+    fn as_nonzero_i32_err() {
+        // zero value
+        let v = yaml_str!("0");
+        assert!(as_nonzero_i32(&v).is_err());
+
+        // overflow
+        let v = Yaml::Integer(2147483648);
+        assert!(as_nonzero_i32(&v).is_err());
+
+        // underflow
+        let v = Yaml::Integer(-2147483649);
+        assert!(as_nonzero_i32(&v).is_err());
+
+        // invalid type
+        let v = Yaml::Null;
+        assert!(as_nonzero_i32(&v).is_err());
+
+        // parse error
+        let v = yaml_str!("stu");
+        assert!(as_nonzero_i32(&v).is_err());
+    }
+
+    #[test]
+    fn as_i64_ok() {
+        // valid string input
+        let v = yaml_str!("-9223372036854775808");
+        assert_eq!(as_i64(&v).unwrap(), -9223372036854775808);
+
+        let v = yaml_str!("0");
+        assert_eq!(as_i64(&v).unwrap(), 0);
+
+        // valid integer input
+        let v = Yaml::Integer(9223372036854775807);
+        assert_eq!(as_i64(&v).unwrap(), 9223372036854775807);
+    }
+
+    #[test]
+    fn as_i64_err() {
+        // overflow
+        let v = yaml_str!("9223372036854775808");
+        assert!(as_i64(&v).is_err());
+
+        // underflow
+        let v = yaml_str!("-9223372036854775809");
+        assert!(as_i64(&v).is_err());
+
+        // invalid type
+        let v = Yaml::Real("1.234e10".into());
+        assert!(as_i64(&v).is_err());
+
+        // parse error
+        let v = yaml_str!("xyz");
+        assert!(as_i64(&v).is_err());
+    }
+
+    #[test]
+    fn as_f64_ok() {
+        // valid string input
+        let v = yaml_str!("3.141592653589793");
+        assert_eq!(as_f64(&v).unwrap(), std::f64::consts::PI);
+
+        // valid integer input
+        let v = Yaml::Integer(42);
+        assert_eq!(as_f64(&v).unwrap(), 42.0);
+
+        // valid real input
+        let v = Yaml::Real("1.234e10".into());
+        assert_eq!(as_f64(&v).unwrap(), 1.234e10);
+    }
+
+    #[test]
+    fn as_f64_err() {
+        // invalid string
+        let v = yaml_str!("not a number");
+        assert!(as_f64(&v).is_err());
+
+        // invalid type
+        let v = Yaml::Boolean(true);
+        assert!(as_f64(&v).is_err());
+    }
+
+    #[test]
+    fn as_bool_ok() {
+        // truthy strings
+        assert!(as_bool(&yaml_str!("on")).unwrap());
+        assert!(as_bool(&yaml_str!("true")).unwrap());
+        assert!(as_bool(&yaml_str!("yes")).unwrap());
+        assert!(as_bool(&yaml_str!("1")).unwrap());
+
+        // falsy strings
+        assert!(!as_bool(&yaml_str!("off")).unwrap());
+        assert!(!as_bool(&yaml_str!("false")).unwrap());
+        assert!(!as_bool(&yaml_str!("no")).unwrap());
+        assert!(!as_bool(&yaml_str!("0")).unwrap());
+
+        // boolean values
+        assert!(as_bool(&Yaml::Boolean(true)).unwrap());
+        assert!(!as_bool(&Yaml::Boolean(false)).unwrap());
+
+        // integer values
+        assert!(as_bool(&Yaml::Integer(1)).unwrap());
+        assert!(!as_bool(&Yaml::Integer(0)).unwrap());
+    }
+
+    #[test]
+    fn as_bool_err() {
+        // invalid string
+        let v = yaml_str!("maybe");
+        assert!(as_bool(&v).is_err());
+
+        // invalid type
+        let v = Yaml::Real("123.45".into());
+        assert!(as_bool(&v).is_err());
+    }
+
+    #[test]
+    fn as_nonzero_isize_ok() {
+        // positive value
+        let v = Yaml::Integer(1);
+        assert_eq!(as_nonzero_isize(&v).unwrap(), NonZeroIsize::new(1).unwrap());
+
+        let v = yaml_str!("2");
+        assert_eq!(as_nonzero_isize(&v).unwrap(), NonZeroIsize::new(2).unwrap());
+
+        // negative value
+        let v = Yaml::Integer(-1);
+        assert_eq!(
+            as_nonzero_isize(&v).unwrap(),
+            NonZeroIsize::new(-1).unwrap()
+        );
+
+        let v = yaml_str!("-2");
+        assert_eq!(
+            as_nonzero_isize(&v).unwrap(),
+            NonZeroIsize::new(-2).unwrap()
+        );
+    }
+
+    #[test]
+    fn as_nonzero_isize_err() {
+        // zero value
+        let v = Yaml::Integer(0);
+        assert!(as_nonzero_isize(&v).is_err());
+
+        let v = yaml_str!("0");
+        assert!(as_nonzero_isize(&v).is_err());
+
+        // invalid type
+        let v = Yaml::Null;
+        assert!(as_nonzero_isize(&v).is_err());
+    }
+
+    #[test]
+    fn as_usize_ok() {
+        // valid string input
+        let v = yaml_str!("100");
+        assert_eq!(as_usize(&v).unwrap(), 100);
+
+        // valid integer input
+        let v = Yaml::Integer(200);
+        assert_eq!(as_usize(&v).unwrap(), 200);
+    }
+
+    #[test]
+    fn as_usize_err() {
+        // negative number
+        let v = Yaml::Integer(-1);
+        assert!(as_usize(&v).is_err());
+
+        // invalid type
+        let v = Yaml::Array(vec![]);
+        assert!(as_usize(&v).is_err());
+    }
+
+    #[test]
+    fn as_nonzero_usize_ok() {
+        // valid string input
+        let v = yaml_str!("1");
+        assert_eq!(as_nonzero_usize(&v).unwrap(), NonZeroUsize::new(1).unwrap());
+
+        // valid integer input
+        let v = Yaml::Integer(2);
+        assert_eq!(as_nonzero_usize(&v).unwrap(), NonZeroUsize::new(2).unwrap());
+    }
+
+    #[test]
+    fn as_nonzero_usize_err() {
+        // zero value
+        let v = yaml_str!("0");
+        assert!(as_nonzero_usize(&v).is_err());
+
+        // negative number
+        let v = Yaml::Integer(-1);
+        assert!(as_nonzero_usize(&v).is_err());
+
+        // invalid type
+        let v = Yaml::Null;
+        assert!(as_nonzero_usize(&v).is_err());
+    }
+
+    #[test]
+    fn as_ascii_ok() {
+        // valid ASCII string
+        let v = yaml_str!("hello");
+        assert_eq!(as_ascii(&v).unwrap().as_str(), "hello");
+    }
+
+    #[test]
+    fn as_ascii_err() {
+        // non-ASCII string
+        let v = yaml_str!("héllo");
+        assert!(as_ascii(&v).is_err());
+
+        let v = yaml_str!("你好");
+        assert!(as_ascii(&v).is_err());
+
+        // invalid type
+        let v = Yaml::Array(vec![]);
+        assert!(as_ascii(&v).is_err());
+    }
+
+    #[test]
+    fn as_string_ok() {
+        // Valid string
+        let v = yaml_str!("123.0");
+        assert_eq!(as_string(&v).unwrap(), "123.0");
+
+        // Valid integer
         let v = Yaml::Integer(123);
-        let pv = as_string(&v).unwrap();
-        assert_eq!(pv, "123");
+        assert_eq!(as_string(&v).unwrap(), "123");
 
+        // Valid negative integer
         let v = Yaml::Integer(-123);
-        let pv = as_string(&v).unwrap();
-        assert_eq!(pv, "-123");
+        assert_eq!(as_string(&v).unwrap(), "-123");
 
-        let v = Yaml::Real("123.0".to_string());
-        let pv = as_string(&v).unwrap();
-        assert_eq!(pv, "123.0");
+        // Valid real number
+        let v = Yaml::Real("123.0".into());
+        assert_eq!(as_string(&v).unwrap(), "123.0");
+    }
+
+    #[test]
+    fn as_string_err() {
+        // Invalid type (boolean)
+        let v = Yaml::Boolean(true);
+        assert!(as_string(&v).is_err());
+
+        // Invalid type (null)
+        let v = Yaml::Null;
+        assert!(as_string(&v).is_err());
+    }
+
+    #[test]
+    fn as_list_ok() {
+        // array input
+        let v = Yaml::Array(vec![Yaml::Integer(1), Yaml::Integer(2), Yaml::Integer(3)]);
+        assert_eq!(as_list(&v, as_i32).unwrap(), vec![1, 2, 3]);
+
+        let v = yaml_doc!("[-1, -2, -3]");
+        assert_eq!(as_list(&v, as_i32).unwrap(), vec![-1, -2, -3]);
+
+        // single value
+        let v = yaml_doc!("42");
+        assert_eq!(as_list(&v, as_i32).unwrap(), vec![42]);
+    }
+
+    #[test]
+    fn as_list_err() {
+        // conversion error in element
+        let v = Yaml::Array(vec![
+            Yaml::Integer(1),
+            Yaml::Boolean(true),
+            Yaml::Integer(3),
+        ]);
+        assert!(as_list::<i32, _>(&v, as_i32).is_err());
+
+        let v = yaml_doc!("[1, 2, 3, x]");
+        assert!(as_list::<i32, _>(&v, as_i32).is_err());
+
+        // invalid single value
+        let v = yaml_doc!("notanumber");
+        assert!(as_list::<i32, _>(&v, as_i32).is_err());
+
+        // invalid type
+        let v = Yaml::Null;
+        assert!(as_list::<i32, _>(&v, as_i32).is_err());
+    }
+
+    #[test]
+    fn as_hashmap_ok() {
+        // valid map
+        let v = yaml_doc!(
+            "
+            key1: 1
+            key2: 2
+            "
+        );
+        let result = as_hashmap(&v, as_string, as_i32).unwrap();
+        assert_eq!(result.get("key1").unwrap(), &1);
+        assert_eq!(result.get("key2").unwrap(), &2);
+
+        let v = yaml_doc!("key: value");
+        assert_eq!(
+            as_hashmap(&v, as_string, as_string)
+                .unwrap()
+                .get("key")
+                .unwrap(),
+            "value"
+        );
+
+        // empty map
+        let v = yaml_doc!("{}");
+        assert_eq!(as_hashmap(&v, as_string, as_i32).unwrap().len(), 0);
+    }
+
+    #[test]
+    fn as_hashmap_err() {
+        // non-key
+        let v = yaml_doc!(": value");
+        assert!(as_hashmap(&v, as_string, as_string).is_err());
+
+        // invalid value
+        let v = yaml_doc!("key: not_a_number");
+        assert!(as_hashmap(&v, as_string, as_i32).is_err());
+
+        // invalid type
+        let v = Yaml::Null;
+        assert!(as_hashmap(&v, as_string, as_i32).is_err());
     }
 }

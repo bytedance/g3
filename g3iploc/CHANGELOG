@@ -1,3 +1,15 @@
 
+v0.4.0:
+ - Compatibility: bump MSRV to 1.88.0
+
+v0.3.0:
+ - Compatibility: bump MSRV to 1.86.0
+ - Deprecated: the following config options are deprecated:
+     - emit_duration in statsd config, use emit_interval instead
+
+v0.2.0:
+ - Feature: listen to Ctrl-C event and shutdown gracefully
+ - Feature: allow to run in multiple worker threads
+
 v0.1.0:
  - Initial release

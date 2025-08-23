@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
@@ -36,12 +25,16 @@ pub(crate) struct AuditHandle {
     server_tcp_portmap: Arc<ProtocolPortMap>,
     client_tcp_portmap: Arc<ProtocolPortMap>,
     tls_interception: Option<TlsInterceptionContext>,
-    inspect_logger: Logger,
-    intercept_logger: Logger,
+    inspect_logger: Option<Logger>,
+    intercept_logger: Option<Logger>,
     icap_reqmod_client: Option<IcapReqmodClient>,
     icap_respmod_client: Option<IcapRespmodClient>,
     #[cfg(feature = "quic")]
     stream_detour_client: Option<Arc<StreamDetourClient>>,
+    pub(crate) h2_inspect_policy: ProtocolInspectPolicy,
+    pub(crate) websocket_inspect_policy: ProtocolInspectPolicy,
+    pub(crate) smtp_inspect_policy: ProtocolInspectPolicy,
+    pub(crate) imap_inspect_policy: ProtocolInspectPolicy,
 }
 
 impl AuditHandle {
@@ -65,6 +58,10 @@ impl AuditHandle {
             icap_respmod_client: icap_respmod_service,
             #[cfg(feature = "quic")]
             stream_detour_client: auditor.stream_detour_service.clone(),
+            h2_inspect_policy: auditor.config.h2_inspect_policy.build(),
+            websocket_inspect_policy: auditor.config.websocket_inspect_policy.build(),
+            smtp_inspect_policy: auditor.config.smtp_inspect_policy.build(),
+            imap_inspect_policy: auditor.config.imap_inspect_policy.build(),
         }
     }
 
@@ -73,13 +70,13 @@ impl AuditHandle {
     }
 
     #[inline]
-    pub(crate) fn inspect_logger(&self) -> &Logger {
-        &self.inspect_logger
+    pub(crate) fn inspect_logger(&self) -> Option<&Logger> {
+        self.inspect_logger.as_ref()
     }
 
     #[inline]
-    pub(crate) fn intercept_logger(&self) -> &Logger {
-        &self.intercept_logger
+    pub(crate) fn intercept_logger(&self) -> Option<&Logger> {
+        self.intercept_logger.as_ref()
     }
 
     #[inline]
@@ -113,28 +110,13 @@ impl AuditHandle {
     }
 
     #[inline]
-    pub(crate) fn h2_inspect_policy(&self) -> ProtocolInspectPolicy {
-        self.auditor_config.h2_inspect_policy
-    }
-
-    #[inline]
     pub(crate) fn h2_interception(&self) -> &H2InterceptionConfig {
         &self.auditor_config.h2_interception
     }
 
     #[inline]
-    pub(crate) fn smtp_inspect_policy(&self) -> ProtocolInspectPolicy {
-        self.auditor_config.smtp_inspect_policy
-    }
-
-    #[inline]
     pub(crate) fn smtp_interception(&self) -> &SmtpInterceptionConfig {
         &self.auditor_config.smtp_interception
-    }
-
-    #[inline]
-    pub(crate) fn imap_inspect_policy(&self) -> ProtocolInspectPolicy {
-        self.auditor_config.imap_inspect_policy
     }
 
     #[inline]
@@ -159,9 +141,9 @@ impl AuditHandle {
     }
 
     pub(crate) fn do_task_audit(&self) -> bool {
-        use rand::distributions::Distribution;
+        use rand::distr::Distribution;
 
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         self.auditor_config.task_audit_ratio.sample(&mut rng)
     }
 }

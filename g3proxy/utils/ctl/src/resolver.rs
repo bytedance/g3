@@ -1,23 +1,12 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use clap::{value_parser, Arg, ArgMatches, Command};
+use clap::{Arg, ArgMatches, Command, value_parser};
 use futures_util::future::TryFutureExt;
 
 use g3_ctl::{CommandError, CommandResult};
@@ -25,7 +14,7 @@ use g3_types::resolve::QueryStrategy as ResolverQueryStrategy;
 
 use g3proxy_proto::proc_capnp::proc_control;
 use g3proxy_proto::resolver_capnp::{
-    query_result, resolver_control, QueryStrategy as RpcQueryStrategy,
+    QueryStrategy as RpcQueryStrategy, query_result, resolver_control,
 };
 
 pub const COMMAND: &str = "resolver";
@@ -87,7 +76,6 @@ async fn query_domain(client: &resolver_control::Client, args: &ArgMatches) -> C
     match result.which().unwrap() {
         query_result::Which::Ip(ips) => {
             let ips = ips?;
-            println!("query results:");
             g3_ctl::print_text_list("ip", ips)
         }
         query_result::Which::Err(reason) => g3_ctl::print_text("err", reason?),

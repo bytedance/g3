@@ -1,0 +1,17 @@
+log: journal
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+  prefix: g3keymess
+
+server:
+  - name: default
+    listen: "[::]:1300"
+    extra_metrics_tags:
+      cluster: default
+
+store:
+  - name: local
+    type: local
+    dir: ../keys

@@ -1,34 +1,23 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
 
 use http::Response;
-use tokio::time::Instant;
 
 use g3_h2::{
     H2StreamFromChunkedTransfer, H2StreamFromChunkedTransferError, H2StreamToChunkedTransfer,
     H2StreamToChunkedTransferError, ResponseExt,
 };
-use g3_io_ext::{IdleCheck, LimitedBufReadExt, LimitedCopyConfig};
+use g3_io_ext::{IdleCheck, LimitedBufReadExt, StreamCopyConfig};
 
 use super::{
     H2RespmodAdaptationError, H2SendResponseToClient, HttpAdaptedResponse,
     RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
+use crate::reason::IcapErrorReason;
 use crate::respmod::response::RespmodResponse;
 use crate::{IcapClientReader, IcapClientWriter, IcapServiceClient};
 
@@ -38,14 +27,12 @@ pub(super) struct BidirectionalRecvIcapResponse<'a, I: IdleCheck> {
     pub(super) idle_checker: &'a I,
 }
 
-impl<'a, I: IdleCheck> BidirectionalRecvIcapResponse<'a, I> {
+impl<I: IdleCheck> BidirectionalRecvIcapResponse<'_, I> {
     pub(super) async fn transfer_and_recv(
         self,
         mut body_transfer: &mut H2StreamToChunkedTransfer<'_, IcapClientWriter>,
     ) -> Result<RespmodResponse, H2RespmodAdaptationError> {
-        let idle_duration = self.idle_checker.idle_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
 
         loop {
@@ -67,9 +54,9 @@ impl<'a, I: IdleCheck> BidirectionalRecvIcapResponse<'a, I> {
                         Err(e) => Err(H2RespmodAdaptationError::IcapServerReadFailed(e)),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if body_transfer.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = self.idle_checker.check_quit(idle_count);
                         if quit {
@@ -104,40 +91,42 @@ impl<'a, I: IdleCheck> BidirectionalRecvIcapResponse<'a, I> {
 
         match rsp.code {
             204 | 206 => Err(H2RespmodAdaptationError::IcapServerErrorResponse(
-                rsp.code, rsp.reason,
+                IcapErrorReason::InvalidResponseAfterContinue,
+                rsp.code,
+                rsp.reason,
             )),
             n if (200..300).contains(&n) => Ok(rsp),
             _ => Err(H2RespmodAdaptationError::IcapServerErrorResponse(
-                rsp.code, rsp.reason,
+                IcapErrorReason::UnknownResponseAfterContinue,
+                rsp.code,
+                rsp.reason,
             )),
         }
     }
 }
 
 pub(super) struct BidirectionalRecvHttpResponse<'a, I: IdleCheck> {
-    pub(super) icap_rsp: RespmodResponse,
     pub(super) icap_reader: &'a mut IcapClientReader,
-    pub(super) copy_config: LimitedCopyConfig,
+    pub(super) copy_config: StreamCopyConfig,
     pub(super) http_body_line_max_size: usize,
     pub(super) http_trailer_max_size: usize,
     pub(super) idle_checker: &'a I,
+    pub(super) http_header_size: usize,
+    pub(super) icap_read_finished: bool,
 }
 
-impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
+impl<I: IdleCheck> BidirectionalRecvHttpResponse<'_, I> {
     pub(super) async fn transfer<CW>(
-        mut self,
+        &mut self,
         state: &mut RespmodAdaptationRunState,
         mut ups_body_transfer: &mut H2StreamToChunkedTransfer<'_, IcapClientWriter>,
-        http_header_size: usize,
         orig_http_response: Response<()>,
         clt_send_response: &mut CW,
     ) -> Result<RespmodAdaptationEndState, H2RespmodAdaptationError>
     where
         CW: H2SendResponseToClient,
     {
-        let mut http_rsp = HttpAdaptedResponse::parse(self.icap_reader, http_header_size).await?;
-        let trailers = self.icap_rsp.take_trailers();
-        http_rsp.set_trailer(trailers);
+        let http_rsp = HttpAdaptedResponse::parse(self.icap_reader, self.http_header_size).await?;
 
         let final_rsp = orig_http_response.adapt_to(&http_rsp);
         state.mark_clt_send_start();
@@ -154,9 +143,7 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
             self.http_trailer_max_size,
         );
 
-        let idle_duration = self.idle_checker.idle_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.idle_checker.interval_timer();
         let mut idle_count = 0;
 
         loop {
@@ -167,12 +154,13 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
                             match adp_body_transfer.await {
                                 Ok(_) => {
                                     state.mark_clt_send_all();
-                                    state.icap_io_finished = true;
+                                    self.icap_read_finished = true;
                                     Ok(RespmodAdaptationEndState::AdaptedTransferred(http_rsp))
                                 }
                                 Err(H2StreamFromChunkedTransferError::ReadError(e)) => Err(H2RespmodAdaptationError::IcapServerReadFailed(e)),
                                 Err(H2StreamFromChunkedTransferError::SendDataFailed(e)) => Err(H2RespmodAdaptationError::HttpClientSendDataFailed(e)),
                                 Err(H2StreamFromChunkedTransferError::SendTrailerFailed(e)) => Err(H2RespmodAdaptationError::HttpClientSendTrailerFailed(e)),
+                                Err(H2StreamFromChunkedTransferError::SenderNotInSendState) => Err(H2RespmodAdaptationError::HttpClientNotInSendState),
                             }
                         }
                         Err(H2StreamToChunkedTransferError::WriteError(e)) => Err(H2RespmodAdaptationError::IcapServerWriteFailed(e)),
@@ -184,19 +172,18 @@ impl<'a, I: IdleCheck> BidirectionalRecvHttpResponse<'a, I> {
                     return match r {
                         Ok(_) => {
                             state.mark_clt_send_all();
-                            if ups_body_transfer.finished() {
-                                state.icap_io_finished = true;
-                            }
+                            self.icap_read_finished = true;
                             Ok(RespmodAdaptationEndState::AdaptedTransferred(http_rsp))
                         }
                         Err(H2StreamFromChunkedTransferError::ReadError(e)) => Err(H2RespmodAdaptationError::IcapServerReadFailed(e)),
                         Err(H2StreamFromChunkedTransferError::SendDataFailed(e)) => Err(H2RespmodAdaptationError::HttpClientSendDataFailed(e)),
                         Err(H2StreamFromChunkedTransferError::SendTrailerFailed(e)) => Err(H2RespmodAdaptationError::HttpClientSendTrailerFailed(e)),
+                        Err(H2StreamFromChunkedTransferError::SenderNotInSendState) => Err(H2RespmodAdaptationError::HttpClientNotInSendState),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if ups_body_transfer.is_idle() && adp_body_transfer.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         let quit = self.idle_checker.check_quit(idle_count);
                         if quit {

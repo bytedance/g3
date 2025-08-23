@@ -1,9 +1,9 @@
 [package]
 name = "g3fcgen"
-version = "0.8.1"
+version = "0.9.0"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.74.0"
+rust-version.workspace = true
 description = "G3 fake certificate generator"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -12,21 +12,19 @@ description = "G3 fake certificate generator"
 anyhow.workspace = true
 clap.workspace = true
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
-rmpv.workspace = true
-memchr.workspace = true
 openssl.workspace = true
-tokio = { workspace = true, features = ["macros", "net", "io-util", "time"] }
-flume = { workspace = true, features = ["async"] }
+tokio = { workspace = true, features = ["macros", "net", "io-util", "time", "signal"] }
+kanal = { workspace = true, features = ["async"] }
 yaml-rust.workspace = true
+g3-std-ext.workspace = true
 g3-types.workspace = true
-g3-runtime.workspace = true
-g3-msgpack.workspace = true
 g3-yaml = { workspace = true, features = ["histogram", "openssl"] }
 g3-daemon.workspace = true
 g3-statsd-client.workspace = true
 g3-histogram.workspace = true
 g3-tls-cert.workspace = true
 g3-cert-agent.workspace = true
+g3-socket.workspace = true
 
 [build-dependencies]
 g3-build-env.workspace = true
@@ -35,5 +33,6 @@ g3-build-env.workspace = true
 default = []
 vendored-openssl = ["openssl/vendored"]
 vendored-tongsuo = ["openssl/tongsuo", "g3-cert-agent/tongsuo"]
-vendored-aws-lc = ["openssl/aws-lc", "g3-types/aws-lc", "g3-tls-cert/aws-lc"]
-vendored-boringssl = ["openssl/boringssl", "g3-types/boringssl", "g3-tls-cert/boringssl"]
+vendored-boringssl = ["openssl/boringssl"]
+vendored-aws-lc = ["openssl/aws-lc"]
+vendored-aws-lc-fips = ["openssl/aws-lc-fips"]

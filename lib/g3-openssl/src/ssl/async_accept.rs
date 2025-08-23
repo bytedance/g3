@@ -1,52 +1,106 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::future;
+use std::future::poll_fn;
 use std::io;
-use std::task::{ready, Context, Poll};
+use std::pin::Pin;
+use std::task::{Context, Poll, ready};
+use std::time::Duration;
 
 use openssl::error::ErrorStack;
-use openssl::ssl::{self, ErrorCode, Ssl, SslVersion};
+use openssl::ssl::{self, ErrorCode, Ssl};
 use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::time::Sleep;
 
-use super::{AsyncEnginePoller, SslIoWrapper, SslStream};
+use super::{
+    AsyncEnginePoller, ConvertSslError, SslAsyncModeExt, SslErrorAction, SslIoWrapper, SslStream,
+};
 
 pub struct SslAcceptor<S> {
-    pub(crate) inner: ssl::SslStream<SslIoWrapper<S>>,
-    pub(crate) async_engine: Option<AsyncEnginePoller>,
+    inner: ssl::SslStream<SslIoWrapper<S>>,
+    async_engine: Option<AsyncEnginePoller>,
+    sleep_future: Pin<Box<Sleep>>,
+    wait_async_job: bool,
 }
 
 impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {
-    pub fn new(ssl: Ssl, stream: S) -> Result<Self, ErrorStack> {
+    pub fn new(ssl: Ssl, stream: S, timeout: Duration) -> Result<Self, ErrorStack> {
         let wrapper = SslIoWrapper::new(stream);
         let async_engine = AsyncEnginePoller::new(&ssl)?;
+        let sleep_future = tokio::time::sleep(timeout);
 
         ssl::SslStream::new(ssl, wrapper).map(|inner| SslAcceptor {
             inner,
             async_engine,
+            sleep_future: Box::pin(sleep_future),
+            wait_async_job: false,
+        })
+    }
+
+    pub(crate) fn with_inner(
+        inner: ssl::SslStream<SslIoWrapper<S>>,
+        timeout: Duration,
+    ) -> Result<Self, ErrorStack> {
+        let async_engine = AsyncEnginePoller::new(inner.ssl())?;
+        let sleep_future = tokio::time::sleep(timeout);
+        Ok(SslAcceptor {
+            inner,
+            async_engine,
+            sleep_future: Box::pin(sleep_future),
+            wait_async_job: false,
         })
     }
 }
 
 impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {
-    pub fn poll_accept(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    fn poll_wait_async_job(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let Some(async_engine) = &mut self.async_engine else {
+            return Poll::Ready(Ok(()));
+        };
+
+        if !self.inner.ssl().waiting_for_async() {
+            return Poll::Ready(Ok(()));
+        }
+
+        if !async_engine.is_poll_pending() {
+            return Poll::Ready(Ok(()));
+        }
+
+        match self.inner.accept() {
+            Ok(_) => Poll::Ready(Ok(())),
+            Err(e) => match e.code() {
+                ErrorCode::WANT_READ | ErrorCode::WANT_WRITE => Poll::Pending,
+                ErrorCode::WANT_ASYNC => async_engine.poll_ready(self.inner.ssl(), cx),
+                ErrorCode::WANT_ASYNC_JOB => Poll::Ready(Ok(())),
+                _ => Poll::Ready(Err(e
+                    .into_io_error()
+                    .unwrap_or_else(|e| e.build_io_error(SslErrorAction::Accept)))),
+            },
+        }
+    }
+
+    fn poll_accept(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
         self.inner.get_mut().set_cx(cx);
         #[cfg(ossl300)]
         if let Some(async_engine) = &self.async_engine {
             async_engine.set_cx(cx);
+        }
+
+        loop {
+            if self.wait_async_job {
+                ready!(self.poll_wait_async_job(cx))?;
+                return Poll::Ready(Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "ssl accept timed out",
+                )));
+            }
+
+            match Pin::new(&mut self.sleep_future).poll(cx) {
+                Poll::Pending => break,
+                Poll::Ready(_) => self.wait_async_job = true,
+            }
         }
 
         loop {
@@ -68,22 +122,25 @@ impl<S: AsyncRead + AsyncWrite + Unpin> SslAcceptor<S> {
                         return Poll::Pending;
                     }
                     _ => {
-                        return Poll::Ready(Err(e.into_io_error().unwrap_or_else(io::Error::other)))
+                        return Poll::Ready(Err(e
+                            .into_io_error()
+                            .unwrap_or_else(|e| e.build_io_error(SslErrorAction::Accept))));
                     }
                 },
             }
         }
     }
 
+    /// Accept ssl handshake and get a connected SSL Stream
+    ///
+    /// # Cancellation
+    ///
+    /// Not supported. Users have to wait for the future to run to the end, or you may encounter
+    /// crashes in OpenSSL. See:
+    ///   - https://github.com/intel/QAT_Engine/issues/292
+    ///   - https://github.com/openssl/openssl/discussions/23158
     pub async fn accept(mut self) -> io::Result<SslStream<S>> {
-        future::poll_fn(|cx| self.poll_accept(cx)).await?;
-        let ssl = self.inner.ssl();
-        if let Some(session) = ssl.session() {
-            if session.protocol_version() == SslVersion::TLS1_3 && ssl.session_reused() {
-                // do session resumption only once according to TLS1.3
-                unsafe { ssl.ssl_context().remove_session(session) };
-            }
-        }
+        poll_fn(|cx| self.poll_accept(cx)).await?;
         Ok(SslStream::new(self.inner, self.async_engine))
     }
 }

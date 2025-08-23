@@ -1,30 +1,20 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use bytes::Bytes;
 use h3::client::SendRequest;
 use h3_quinn::OpenStreams;
+use http::{Request, Version};
 use tokio::time::Instant;
 
 use super::{
-    BenchH3Args, BenchTaskContext, H3ConnectionPool, H3PreRequest, HttpHistogramRecorder,
-    HttpRuntimeStats, ProcArgs,
+    BenchH3Args, BenchTaskContext, H3ConnectionPool, HttpHistogramRecorder, HttpRuntimeStats,
+    ProcArgs,
 };
 use crate::target::BenchError;
 
@@ -36,7 +26,7 @@ pub(super) struct H3TaskContext {
     h3s: Option<SendRequest<OpenStreams, Bytes>>,
 
     reuse_conn_count: u64,
-    pre_request: H3PreRequest,
+    static_request: Request<()>,
 
     runtime_stats: Arc<HttpRuntimeStats>,
     histogram_recorder: HttpHistogramRecorder,
@@ -57,16 +47,17 @@ impl H3TaskContext {
         histogram_recorder: HttpHistogramRecorder,
         pool: Option<Arc<H3ConnectionPool>>,
     ) -> anyhow::Result<Self> {
-        let pre_request = args
-            .build_pre_request_header()
-            .context("failed to build request header")?;
+        let static_request = args
+            .common
+            .build_static_request(Version::HTTP_3)
+            .context("failed to build static request header")?;
         Ok(H3TaskContext {
             args: Arc::clone(args),
             proc_args: Arc::clone(proc_args),
             pool,
             h3s: None,
             reuse_conn_count: 0,
-            pre_request,
+            static_request,
             runtime_stats: Arc::clone(runtime_stats),
             histogram_recorder,
         })
@@ -95,7 +86,7 @@ impl H3TaskContext {
 
         self.runtime_stats.add_conn_attempt();
         let h3s = match tokio::time::timeout(
-            self.args.connect_timeout,
+            self.args.common.connect_timeout,
             self.args
                 .new_h3_connection(&self.runtime_stats, &self.proc_args),
         )
@@ -117,10 +108,7 @@ impl H3TaskContext {
         time_started: Instant,
         mut send_req: SendRequest<OpenStreams, Bytes>,
     ) -> anyhow::Result<()> {
-        let req = self
-            .pre_request
-            .build_request()
-            .context("failed to build request header")?;
+        let req = self.static_request.clone();
 
         // send hdr
         let mut send_stream = send_req
@@ -132,14 +120,16 @@ impl H3TaskContext {
         self.histogram_recorder.record_send_hdr_time(send_hdr_time);
 
         // recv hdr
-        let rsp = match tokio::time::timeout(self.args.timeout, send_stream.recv_response()).await {
+        let rsp = match tokio::time::timeout(self.args.common.timeout, send_stream.recv_response())
+            .await
+        {
             Ok(Ok(rsp)) => rsp,
             Ok(Err(e)) => return Err(anyhow!("failed to read response: {e}")),
             Err(_) => return Err(anyhow!("timeout to read response")),
         };
         let recv_hdr_time = time_started.elapsed();
         self.histogram_recorder.record_recv_hdr_time(recv_hdr_time);
-        if let Some(ok_status) = self.args.ok_status {
+        if let Some(ok_status) = self.args.common.ok_status {
             let status = rsp.status();
             if status != ok_status {
                 return Err(anyhow!(

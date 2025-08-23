@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use anyhow::anyhow;
@@ -36,9 +25,53 @@ mod tests {
     use super::*;
 
     #[test]
-    fn utc_tz() {
-        let value = Yaml::String("2019-05-23T17:38:00Z".to_string());
-        let dt = as_rfc3339_datetime(&value).unwrap();
-        assert_eq!(dt.to_rfc3339(), "2019-05-23T17:38:00+00:00");
+    fn as_rfc3339_datetime_ok() {
+        let value = yaml_str!("2019-05-23T17:38:00Z");
+        assert_eq!(
+            as_rfc3339_datetime(&value).unwrap().to_rfc3339(),
+            "2019-05-23T17:38:00+00:00"
+        );
+
+        let value = yaml_str!("2020-06-02T12:00:00+08:00");
+        assert_eq!(
+            as_rfc3339_datetime(&value).unwrap().to_rfc3339(),
+            "2020-06-02T04:00:00+00:00"
+        );
+
+        let value = yaml_str!("2023-01-01T12:00:00-05:00");
+        assert_eq!(
+            as_rfc3339_datetime(&value).unwrap().to_rfc3339(),
+            "2023-01-01T17:00:00+00:00"
+        );
+
+        let value = yaml_str!("2025-11-12T12:00:00.123Z");
+        assert_eq!(
+            as_rfc3339_datetime(&value).unwrap().to_rfc3339(),
+            "2025-11-12T12:00:00.123+00:00"
+        );
+
+        let value = yaml_str!("2016-12-31T23:59:60Z");
+        assert_eq!(
+            as_rfc3339_datetime(&value).unwrap().to_rfc3339(),
+            "2016-12-31T23:59:60+00:00"
+        );
+    }
+
+    #[test]
+    fn as_rfc3339_datetime_err() {
+        let value = yaml_str!("2022-01-01T12:00:00");
+        assert!(as_rfc3339_datetime(&value).is_err());
+
+        let value = yaml_str!("2023-02-30T00:00:00Z");
+        assert!(as_rfc3339_datetime(&value).is_err());
+
+        let value = yaml_str!("2024-03-01T25:00:00Z");
+        assert!(as_rfc3339_datetime(&value).is_err());
+
+        let value = Yaml::Integer(12345);
+        assert!(as_rfc3339_datetime(&value).is_err());
+
+        let value = Yaml::Boolean(true);
+        assert!(as_rfc3339_datetime(&value).is_err());
     }
 }

@@ -1,125 +1,112 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use regex::{Regex, RegexSet};
 
-use super::AclAction;
+use super::{AclAction, ActionContract, OrderedActionContract};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AclRegexSetRuleBuilder {
-    inner: HashMap<String, AclAction>,
-    missed_action: AclAction,
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct RegexSetBuilder<Action = AclAction> {
+    inner: HashMap<String, Action>,
 }
 
-impl Default for AclRegexSetRuleBuilder {
+impl<Action: ActionContract> Default for RegexSetBuilder<Action> {
     fn default() -> Self {
-        Self::new(AclAction::Forbid)
+        RegexSetBuilder {
+            inner: HashMap::new(),
+        }
     }
 }
 
-impl AclRegexSetRuleBuilder {
-    pub fn new(missed_action: AclAction) -> Self {
+impl<Action: ActionContract> RegexSetBuilder<Action> {
+    pub(super) fn add_regex(&mut self, regex: &Regex, action: Action) {
+        self.inner.insert(regex.as_str().to_string(), action);
+    }
+}
+
+impl<Action: OrderedActionContract> RegexSetBuilder<Action> {
+    pub(super) fn build(&self) -> RegexSetMatch<Action> {
+        let mut action_map: BTreeMap<Action, Vec<&str>> = BTreeMap::new();
+        for (r, action) in &self.inner {
+            action_map.entry(*action).or_default().push(r.as_str());
+        }
+
+        let action_map = action_map
+            .into_iter()
+            .map(|(action, v)| (action, RegexSet::new(v).unwrap()))
+            .collect();
+
+        RegexSetMatch { inner: action_map }
+    }
+}
+
+pub(super) struct RegexSetMatch<Action = AclAction> {
+    inner: BTreeMap<Action, RegexSet>,
+}
+
+impl<Action: ActionContract> RegexSetMatch<Action> {
+    pub fn check(&self, text: &str) -> Option<Action> {
+        for (action, rs) in &self.inner {
+            if rs.is_match(text) {
+                return Some(*action);
+            }
+        }
+        None
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AclRegexSetRuleBuilder<Action = AclAction> {
+    inner: RegexSetBuilder<Action>,
+    missed_action: Action,
+}
+
+impl<Action: ActionContract> AclRegexSetRuleBuilder<Action> {
+    pub fn new(missed_action: Action) -> Self {
         AclRegexSetRuleBuilder {
-            inner: HashMap::new(),
+            inner: RegexSetBuilder::default(),
             missed_action,
         }
     }
 
     #[inline]
-    pub fn add_regex(&mut self, regex: &Regex, action: AclAction) {
-        self.inner.insert(regex.as_str().to_string(), action);
+    pub fn add_regex(&mut self, regex: &Regex, action: Action) {
+        self.inner.add_regex(regex, action);
     }
 
     #[inline]
-    pub fn set_missed_action(&mut self, action: AclAction) {
+    pub fn set_missed_action(&mut self, action: Action) {
         self.missed_action = action;
     }
 
     #[inline]
-    pub fn missed_action(&self) -> AclAction {
+    pub fn missed_action(&self) -> Action {
         self.missed_action
     }
+}
 
-    pub fn build(&self) -> AclRegexSetRule {
-        let mut forbid_log_v = Vec::new();
-        let mut forbid_v = Vec::new();
-        let mut permit_log_v = Vec::new();
-        let mut permit_v = Vec::new();
-
-        for (r, action) in &self.inner {
-            match action {
-                AclAction::ForbidAndLog => forbid_log_v.push(r.as_str()),
-                AclAction::Forbid => forbid_v.push(r.as_str()),
-                AclAction::PermitAndLog => permit_log_v.push(r.as_str()),
-                AclAction::Permit => permit_v.push(r.as_str()),
-            }
-        }
-
-        fn build_rs_from_vec(v: &[&str]) -> Option<RegexSet> {
-            if v.is_empty() {
-                None
-            } else {
-                Some(RegexSet::new(v).unwrap())
-            }
-        }
-
+impl<Action: OrderedActionContract> AclRegexSetRuleBuilder<Action> {
+    pub fn build(&self) -> AclRegexSetRule<Action> {
         AclRegexSetRule {
-            forbid_log: build_rs_from_vec(&forbid_log_v),
-            forbid: build_rs_from_vec(&forbid_v),
-            permit_log: build_rs_from_vec(&permit_log_v),
-            permit: build_rs_from_vec(&permit_v),
+            action_map: self.inner.build(),
             missed_action: self.missed_action,
         }
     }
 }
 
-pub struct AclRegexSetRule {
-    forbid_log: Option<RegexSet>,
-    forbid: Option<RegexSet>,
-    permit_log: Option<RegexSet>,
-    permit: Option<RegexSet>,
-    missed_action: AclAction,
+pub struct AclRegexSetRule<Action = AclAction> {
+    action_map: RegexSetMatch<Action>,
+    missed_action: Action,
 }
 
-impl AclRegexSetRule {
-    pub fn check(&self, text: &str) -> (bool, AclAction) {
-        if let Some(rs) = &self.forbid_log {
-            if rs.is_match(text) {
-                return (true, AclAction::ForbidAndLog);
-            }
-        }
-
-        if let Some(rs) = &self.forbid {
-            if rs.is_match(text) {
-                return (true, AclAction::Forbid);
-            }
-        }
-
-        if let Some(rs) = &self.permit_log {
-            if rs.is_match(text) {
-                return (true, AclAction::PermitAndLog);
-            }
-        }
-
-        if let Some(rs) = &self.permit {
-            if rs.is_match(text) {
-                return (true, AclAction::Permit);
-            }
+impl<Action: ActionContract> AclRegexSetRule<Action> {
+    pub fn check(&self, text: &str) -> (bool, Action) {
+        if let Some(action) = self.action_map.check(text) {
+            return (true, action);
         }
 
         (false, self.missed_action)
@@ -157,5 +144,28 @@ mod tests {
         let rule = builder.build();
 
         assert_eq!(rule.check("www.example.net"), (true, AclAction::Permit));
+    }
+
+    #[test]
+    fn check_order() {
+        let mut builder = AclRegexSetRuleBuilder::new(AclAction::Forbid);
+
+        let regex = Regex::new("[.]net$").unwrap();
+        builder.add_regex(&regex, AclAction::Permit);
+
+        let regex = Regex::new("example[.]net$").unwrap();
+        builder.add_regex(&regex, AclAction::PermitAndLog);
+
+        let regex = Regex::new("f[.]example[.]net$").unwrap();
+        builder.add_regex(&regex, AclAction::ForbidAndLog);
+
+        let rule = builder.build();
+
+        assert_eq!(
+            rule.check("www.example.net"),
+            (true, AclAction::PermitAndLog)
+        );
+        assert_eq!(rule.check("a.example1.net"), (true, AclAction::Permit));
+        assert_eq!(rule.check("f.example.net"), (true, AclAction::ForbidAndLog));
     }
 }

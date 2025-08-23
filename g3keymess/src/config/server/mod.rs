@@ -1,31 +1,20 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use slog::Logger;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_histogram::HistogramMetricsConfig;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
-use g3_types::net::TcpListenConfig;
+use g3_types::metrics::{MetricTagMap, NodeName};
+use g3_types::net::{OpensslServerConfigBuilder, TcpListenConfig};
 use g3_yaml::{HybridParser, YamlDocPosition};
 
 mod registry;
@@ -33,29 +22,29 @@ pub(crate) use registry::{clear, get_all};
 
 #[derive(Clone)]
 pub(crate) struct KeyServerConfig {
-    name: MetricsName,
+    name: NodeName,
     #[allow(unused)]
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: TcpListenConfig,
-    #[cfg(feature = "openssl-async-job")]
+    pub(crate) tls_server: Option<OpensslServerConfigBuilder>,
     pub(crate) multiplex_queue_depth: usize,
     pub(crate) request_read_timeout: Duration,
     pub(crate) duration_stats: HistogramMetricsConfig,
     #[cfg(feature = "openssl-async-job")]
     pub(crate) async_op_timeout: Duration,
     pub(crate) concurrency_limit: usize,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
 impl KeyServerConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         KeyServerConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             shared_logger: None,
             listen: TcpListenConfig::default(),
-            #[cfg(feature = "openssl-async-job")]
+            tls_server: None,
             multiplex_queue_depth: 0,
             request_read_timeout: Duration::from_millis(100),
             duration_stats: HistogramMetricsConfig::default(),
@@ -67,7 +56,7 @@ impl KeyServerConfig {
     }
 
     #[inline]
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -91,7 +80,7 @@ impl KeyServerConfig {
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
             "name" => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "shared_logger" => {
@@ -110,7 +99,14 @@ impl KeyServerConfig {
                     .context(format!("invalid tcp listen config value for key {k}"))?;
                 Ok(())
             }
-            #[cfg(feature = "openssl-async-job")]
+            "tls" | "tls_server" => {
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let tls_server =
+                    g3_yaml::value::as_openssl_tls_server_config_builder(v, Some(lookup_dir))
+                        .context(format!("invalid server tls config value for key {k}"))?;
+                self.tls_server = Some(tls_server);
+                Ok(())
+            }
             "multiplex_queue_depth" => {
                 self.multiplex_queue_depth = g3_yaml::value::as_usize(v)?;
                 Ok(())
@@ -138,7 +134,7 @@ impl KeyServerConfig {
         }
     }
 
-    pub(crate) fn get_task_logger(&self) -> Logger {
+    pub(crate) fn get_task_logger(&self) -> Option<Logger> {
         if let Some(shared_logger) = &self.shared_logger {
             crate::log::task::get_shared_logger(shared_logger.as_str(), self.name())
         } else {
@@ -146,7 +142,7 @@ impl KeyServerConfig {
         }
     }
 
-    pub(crate) fn get_request_logger(&self) -> Logger {
+    pub(crate) fn get_request_logger(&self) -> Option<Logger> {
         if let Some(shared_logger) = &self.shared_logger {
             crate::log::request::get_shared_logger(shared_logger.as_str(), self.name())
         } else {

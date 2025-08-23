@@ -1,21 +1,17 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::fmt;
 use std::str::FromStr;
 use std::time::Duration;
+
+use g3_types::acl::{
+    AclChildDomainRule, AclChildDomainRuleBuilder, AclExactHostRule, AclNetworkRule,
+    AclNetworkRuleBuilder, ActionContract,
+};
+use g3_types::net::Host;
 
 mod size_limit;
 
@@ -30,30 +26,138 @@ pub use smtp::SmtpInterceptionConfig;
 mod imap;
 pub use imap::ImapInterceptionConfig;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum ProtocolInspectPolicy {
-    #[default]
-    Intercept,
-    #[cfg(feature = "quic")]
-    Detour,
-    Bypass,
-    Block,
+#[derive(Clone)]
+pub struct ProtocolInspectPolicyBuilder {
+    missed_action: ProtocolInspectAction,
+    pub exact: Option<AclExactHostRule<ProtocolInspectAction>>,
+    pub child: Option<AclChildDomainRuleBuilder<ProtocolInspectAction>>,
+    pub subnet: Option<AclNetworkRuleBuilder<ProtocolInspectAction>>,
 }
 
-impl FromStr for ProtocolInspectPolicy {
+impl Default for ProtocolInspectPolicyBuilder {
+    fn default() -> Self {
+        Self::new(ProtocolInspectAction::Intercept)
+    }
+}
+
+impl ProtocolInspectPolicyBuilder {
+    pub fn new(missed_action: ProtocolInspectAction) -> Self {
+        ProtocolInspectPolicyBuilder {
+            missed_action,
+            exact: None,
+            child: None,
+            subnet: None,
+        }
+    }
+
+    pub fn set_missed_action(&mut self, missed_action: ProtocolInspectAction) {
+        self.missed_action = missed_action;
+    }
+
+    pub fn build(&self) -> ProtocolInspectPolicy {
+        ProtocolInspectPolicy {
+            exact: self.exact.clone(),
+            child: self.child.as_ref().map(|b| b.build()),
+            subnet: self.subnet.as_ref().map(|b| b.build()),
+            missed_action: self.missed_action,
+        }
+    }
+}
+
+pub struct ProtocolInspectPolicy {
+    exact: Option<AclExactHostRule<ProtocolInspectAction>>,
+    child: Option<AclChildDomainRule<ProtocolInspectAction>>,
+    subnet: Option<AclNetworkRule<ProtocolInspectAction>>,
+    missed_action: ProtocolInspectAction,
+}
+
+impl ProtocolInspectPolicy {
+    pub fn check(&self, upstream: &Host) -> (bool, ProtocolInspectAction) {
+        match upstream {
+            Host::Ip(ip) => {
+                if let Some(rule) = &self.exact {
+                    let (found, action) = rule.check_ip(ip);
+                    if found {
+                        return (true, action);
+                    }
+                }
+
+                if let Some(rule) = &self.subnet {
+                    let (found, action) = rule.check(*ip);
+                    if found {
+                        return (true, action);
+                    }
+                }
+            }
+            Host::Domain(domain) => {
+                if let Some(rule) = &self.exact {
+                    let (found, action) = rule.check_domain(domain);
+                    if found {
+                        return (true, action);
+                    }
+                }
+
+                if let Some(rule) = &self.child {
+                    let (found, action) = rule.check(domain);
+                    if found {
+                        return (true, action);
+                    }
+                }
+            }
+        }
+
+        (false, self.missed_action)
+    }
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub enum ProtocolInspectAction {
+    Block,
+    #[default]
+    Intercept,
+    Bypass,
+    #[cfg(feature = "quic")]
+    Detour,
+}
+
+impl ProtocolInspectAction {
+    fn as_str(&self) -> &'static str {
+        match self {
+            Self::Block => "block",
+            Self::Intercept => "intercept",
+            Self::Bypass => "bypass",
+            #[cfg(feature = "quic")]
+            Self::Detour => "detour",
+        }
+    }
+
+    pub fn is_block(&self) -> bool {
+        matches!(self, ProtocolInspectAction::Block)
+    }
+}
+
+impl fmt::Display for ProtocolInspectAction {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for ProtocolInspectAction {
     type Err = ();
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "intercept" => Ok(ProtocolInspectPolicy::Intercept),
+            "block" => Ok(ProtocolInspectAction::Block),
+            "intercept" => Ok(ProtocolInspectAction::Intercept),
+            "bypass" => Ok(ProtocolInspectAction::Bypass),
             #[cfg(feature = "quic")]
-            "detour" => Ok(ProtocolInspectPolicy::Detour),
-            "bypass" => Ok(ProtocolInspectPolicy::Bypass),
-            "block" => Ok(ProtocolInspectPolicy::Block),
+            "detour" => Ok(ProtocolInspectAction::Detour),
             _ => Err(()),
         }
     }
 }
+
+impl ActionContract for ProtocolInspectAction {}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProtocolInspectionConfig {

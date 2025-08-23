@@ -1,0 +1,25 @@
+[package]
+name = "g3-tls-ticket"
+version = "0.3.0"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+log.workspace = true
+rustc-hash.workspace = true
+chrono = { workspace = true, features = ["now"] }
+tokio = { workspace = true, features = ["rt", "time", "macros"] }
+tokio-util = { workspace = true, features = ["time"] }
+serde_json.workspace = true
+yaml-rust = { workspace = true, optional = true }
+redis = { workspace = true, features = ["aio", "tokio-comp"] }
+g3-types = { workspace = true, features = ["openssl"] }
+g3-json.workspace = true
+g3-redis-client.workspace = true
+g3-yaml = { workspace = true, optional = true }
+
+[features]
+default = []
+yaml = ["g3-redis-client/yaml", "dep:g3-yaml", "dep:yaml-rust"]

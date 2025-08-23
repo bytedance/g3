@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
@@ -19,12 +8,29 @@ use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use anyhow::anyhow;
 use num_traits::ToPrimitive;
 
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos",
+    target_os = "illumos",
+    target_os = "solaris"
+))]
+use crate::net::Interface;
 use crate::net::{SocketBufferConfig, UdpMiscSockOpts};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UdpListenConfig {
     address: SocketAddr,
-    ipv6only: bool,
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "illumos",
+        target_os = "solaris"
+    ))]
+    interface: Option<Interface>,
+    #[cfg(not(target_os = "openbsd"))]
+    ipv6only: Option<bool>,
     buf_conf: SocketBufferConfig,
     misc_opts: UdpMiscSockOpts,
     instance: usize,
@@ -33,21 +39,43 @@ pub struct UdpListenConfig {
 
 impl Default for UdpListenConfig {
     fn default() -> Self {
+        UdpListenConfig::new(SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0))
+    }
+}
+
+impl UdpListenConfig {
+    pub fn new(address: SocketAddr) -> Self {
         UdpListenConfig {
-            address: SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
-            ipv6only: false,
+            address,
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "illumos",
+                target_os = "solaris"
+            ))]
+            interface: None,
+            #[cfg(not(target_os = "openbsd"))]
+            ipv6only: None,
             buf_conf: SocketBufferConfig::default(),
             misc_opts: UdpMiscSockOpts::default(),
             instance: 1,
             scale: 0,
         }
     }
-}
 
-impl UdpListenConfig {
-    pub fn check(&self) -> anyhow::Result<()> {
+    pub fn check(&mut self) -> anyhow::Result<()> {
         if self.address.port() == 0 {
             return Err(anyhow!("no listen port is set"));
+        }
+        #[cfg(not(target_os = "openbsd"))]
+        match self.address.ip() {
+            IpAddr::V4(_) => self.ipv6only = None,
+            IpAddr::V6(v6) => {
+                if !v6.is_unspecified() {
+                    self.ipv6only = None;
+                }
+            }
         }
 
         Ok(())
@@ -56,6 +84,18 @@ impl UdpListenConfig {
     #[inline]
     pub fn address(&self) -> SocketAddr {
         self.address
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "illumos",
+        target_os = "solaris"
+    ))]
+    #[inline]
+    pub fn interface(&self) -> Option<&Interface> {
+        self.interface.as_ref()
     }
 
     #[inline]
@@ -68,8 +108,9 @@ impl UdpListenConfig {
         self.misc_opts
     }
 
+    #[cfg(not(target_os = "openbsd"))]
     #[inline]
-    pub fn is_ipv6only(&self) -> bool {
+    pub fn is_ipv6only(&self) -> Option<bool> {
         self.ipv6only
     }
 
@@ -81,6 +122,18 @@ impl UdpListenConfig {
     #[inline]
     pub fn set_socket_address(&mut self, addr: SocketAddr) {
         self.address = addr;
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "illumos",
+        target_os = "solaris"
+    ))]
+    #[inline]
+    pub fn set_interface(&mut self, interface: Interface) {
+        self.interface = Some(interface);
     }
 
     #[inline]
@@ -98,9 +151,10 @@ impl UdpListenConfig {
         self.address.set_port(port);
     }
 
+    #[cfg(not(target_os = "openbsd"))]
     #[inline]
     pub fn set_ipv6_only(&mut self, ipv6only: bool) {
-        self.ipv6only = ipv6only;
+        self.ipv6only = Some(ipv6only);
     }
 
     pub fn set_instance(&mut self, instance: usize) {

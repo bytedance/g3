@@ -1,56 +1,45 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::IpAddr;
 use std::sync::Arc;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
-use slog::{slog_info, Logger};
+use slog::{Logger, slog_info};
 use tokio::time::Instant;
 
 use g3_resolver::{ResolveError, ResolveQueryType, ResolvedRecordSource};
 use g3_slog_types::{LtDuration, LtIpAddr};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
-use crate::config::resolver::c_ares::CAresResolverConfig;
 use crate::config::resolver::ResolverConfig;
+use crate::config::resolver::c_ares::CAresResolverConfig;
 use crate::resolve::{BoxLoggedResolveJob, IntegratedResolverHandle, LoggedResolveJob};
 
 pub(crate) struct CAresResolverHandle {
     config: Arc<CAresResolverConfig>,
     inner: g3_resolver::ResolverHandle,
-    logger: Arc<Logger>,
+    logger: Option<Logger>,
 }
 
 impl CAresResolverHandle {
     pub(crate) fn new(
         config: &Arc<CAresResolverConfig>,
         inner: g3_resolver::ResolverHandle,
-        logger: &Arc<Logger>,
+        logger: Option<Logger>,
     ) -> Self {
         CAresResolverHandle {
             config: Arc::clone(config),
             inner,
-            logger: Arc::clone(logger),
+            logger,
         }
     }
 }
 
 impl IntegratedResolverHandle for CAresResolverHandle {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -65,7 +54,7 @@ impl IntegratedResolverHandle for CAresResolverHandle {
             domain,
             query_type: ResolveQueryType::A,
             inner: job,
-            logger: Arc::clone(&self.logger),
+            logger: self.logger.clone(),
             create_ins: Instant::now(),
         }))
     }
@@ -77,7 +66,7 @@ impl IntegratedResolverHandle for CAresResolverHandle {
             domain,
             query_type: ResolveQueryType::Aaaa,
             inner: job,
-            logger: Arc::clone(&self.logger),
+            logger: self.logger.clone(),
             create_ins: Instant::now(),
         }))
     }
@@ -92,12 +81,16 @@ struct CAresResolverJob {
     domain: Arc<str>,
     query_type: ResolveQueryType,
     inner: g3_resolver::ResolveJob,
-    logger: Arc<Logger>,
+    logger: Option<Logger>,
     create_ins: Instant,
 }
 
 impl LoggedResolveJob for CAresResolverJob {
     fn log_error(&self, e: &ResolveError, source: ResolvedRecordSource) {
+        let Some(logger) = &self.logger else {
+            return;
+        };
+
         let servers = self
             .config
             .get_servers()
@@ -105,7 +98,7 @@ impl LoggedResolveJob for CAresResolverJob {
             .map(|server| server.to_string())
             .collect::<Vec<_>>()
             .join(" ");
-        slog_info!(&self.logger, "{}", e;
+        slog_info!(logger, "{}", e;
             "bind_ipv4" => self.config.get_bind_ipv4().map(IpAddr::V4).map(LtIpAddr),
             "bind_ipv6" => self.config.get_bind_ipv6().map(IpAddr::V6).map(LtIpAddr),
             "server" => servers,

@@ -1,28 +1,18 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::collections::HashSet;
 use std::io::Write;
 use std::str::FromStr;
 
 use bytes::BufMut;
-use http::{header, HeaderName, Method, Uri, Version};
+use http::{HeaderName, Method, Uri, Version, header};
 use tokio::io::AsyncBufRead;
 
 use g3_io_ext::LimitedBufReadExt;
-use g3_types::net::{HttpAuth, HttpHeaderMap, HttpHeaderValue, UpstreamAddr};
+use g3_types::net::{Host, HttpAuth, HttpHeaderMap, HttpHeaderValue, UpstreamAddr};
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
 use crate::header::Connection;
@@ -45,7 +35,6 @@ pub struct HttpProxyClientRequest {
     chunked_transfer: bool,
     has_transfer_encoding: bool,
     has_content_length: bool,
-    has_trailer: bool,
 }
 
 impl HttpProxyClientRequest {
@@ -66,16 +55,68 @@ impl HttpProxyClientRequest {
             chunked_transfer: false,
             has_transfer_encoding: false,
             has_content_length: false,
-            has_trailer: false,
         }
     }
 
-    pub fn clone_by_adaptation(&self, adapted: HttpAdaptedRequest) -> Self {
+    pub fn adapt_with_body(&self, adapted: HttpAdaptedRequest) -> Self {
         let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
-        hop_by_hop_headers.remove(header::TRAILER);
-        for v in adapted.trailer() {
-            hop_by_hop_headers.append(header::TRAILER, v.clone());
+        match adapted.content_length {
+            Some(content_length) => {
+                hop_by_hop_headers.remove(header::TRANSFER_ENCODING);
+                HttpProxyClientRequest {
+                    version: adapted.version,
+                    method: adapted.method,
+                    uri: adapted.uri,
+                    end_to_end_headers: adapted.headers,
+                    hop_by_hop_headers,
+                    auth_info: HttpAuth::None,
+                    host: None,
+                    original_connection_name: self.original_connection_name.clone(),
+                    extra_connection_headers: self.extra_connection_headers.clone(),
+                    origin_header_size: self.origin_header_size,
+                    keep_alive: self.keep_alive,
+                    content_length,
+                    chunked_transfer: false,
+                    has_transfer_encoding: false,
+                    has_content_length: true,
+                }
+            }
+            None => {
+                if !self.chunked_transfer {
+                    if let Some(mut v) = hop_by_hop_headers.remove(header::TRANSFER_ENCODING) {
+                        v.set_static_value("chunked");
+                        hop_by_hop_headers.insert(header::TRANSFER_ENCODING, v);
+                    } else {
+                        hop_by_hop_headers.insert(
+                            header::TRANSFER_ENCODING,
+                            HttpHeaderValue::from_static("chunked"),
+                        );
+                    }
+                }
+                HttpProxyClientRequest {
+                    version: adapted.version,
+                    method: adapted.method,
+                    uri: adapted.uri,
+                    end_to_end_headers: adapted.headers,
+                    hop_by_hop_headers,
+                    auth_info: HttpAuth::None,
+                    host: None,
+                    original_connection_name: self.original_connection_name.clone(),
+                    extra_connection_headers: self.extra_connection_headers.clone(),
+                    origin_header_size: self.origin_header_size,
+                    keep_alive: self.keep_alive,
+                    content_length: 0,
+                    chunked_transfer: true,
+                    has_transfer_encoding: true,
+                    has_content_length: false,
+                }
+            }
         }
+    }
+
+    pub fn adapt_without_body(&self, adapted: HttpAdaptedRequest) -> Self {
+        let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
+        hop_by_hop_headers.remove(header::TRANSFER_ENCODING);
         HttpProxyClientRequest {
             version: adapted.version,
             method: adapted.method,
@@ -88,11 +129,10 @@ impl HttpProxyClientRequest {
             extra_connection_headers: self.extra_connection_headers.clone(),
             origin_header_size: self.origin_header_size,
             keep_alive: self.keep_alive,
-            content_length: self.content_length,
-            chunked_transfer: true,
+            content_length: 0,
+            chunked_transfer: false,
             has_transfer_encoding: false,
             has_content_length: false,
-            has_trailer: false,
         }
     }
 
@@ -139,6 +179,29 @@ impl HttpProxyClientRequest {
         false
     }
 
+    pub fn is_local_request(&self, local_names: &HashSet<Host>) -> bool {
+        if local_names.is_empty() {
+            // no local server name set, treat request without absolute URI as local targeted
+            self.uri.scheme().is_none()
+        } else {
+            self.host
+                .as_ref()
+                .map(|addr| local_names.contains(addr.host()))
+                .unwrap_or(false)
+        }
+    }
+
+    pub fn set_host(&mut self, host: &UpstreamAddr) {
+        let mut new_v = unsafe { HttpHeaderValue::from_string_unchecked(host.to_string()) };
+        if let Some(old_v) = self.end_to_end_headers.remove(header::HOST)
+            && let Some(name) = old_v.original_name()
+        {
+            new_v.set_original_name(name);
+        }
+        self.end_to_end_headers.insert(header::HOST, new_v);
+        self.host = Some(host.clone());
+    }
+
     pub async fn parse_basic<R>(
         reader: &mut R,
         max_header_size: usize,
@@ -148,7 +211,7 @@ impl HttpProxyClientRequest {
         R: AsyncBufRead + Unpin,
     {
         Self::parse(reader, max_header_size, version, |req, name, value| {
-            req.append_header(name, value)
+            req.append_parsed_header(name, value)
         })
         .await
     }
@@ -226,10 +289,6 @@ impl HttpProxyClientRequest {
 
     /// do some necessary check and fix
     fn post_check_and_fix(&mut self) {
-        if self.has_trailer && !self.chunked_transfer {
-            self.hop_by_hop_headers.remove(header::TRAILER);
-        }
-
         // Don't move non-standard connection headers to hop-by-hop headers, as we don't support them
     }
 
@@ -300,7 +359,7 @@ impl HttpProxyClientRequest {
         Ok(())
     }
 
-    pub fn append_header(
+    pub fn append_parsed_header(
         &mut self,
         name: HeaderName,
         header: &HttpHeaderLine,
@@ -363,10 +422,6 @@ impl HttpProxyClientRequest {
                 // TODO we have no support for it right now
                 return Err(HttpRequestParseError::UpgradeIsNotSupported);
             }
-            "trailer" => {
-                self.has_trailer = true;
-                return self.insert_hop_by_hop_header(name, &header);
-            }
             "transfer-encoding" => {
                 // it's a hop-by-hop option, but we just pass it
                 self.has_transfer_encoding = true;
@@ -413,11 +468,7 @@ impl HttpProxyClientRequest {
         let mut buf =
             Vec::<u8>::with_capacity(self.origin_header_size + RESERVED_LEN_FOR_EXTRA_HEADERS);
         if let Some(pa) = self.uri.path_and_query() {
-            if self.method.eq(&Method::OPTIONS) && pa.query().is_none() && pa.path().eq("/") {
-                let _ = write!(buf, "OPTIONS * {:?}\r\n", self.version);
-            } else {
-                let _ = write!(buf, "{} {} {:?}\r\n", self.method, pa, self.version);
-            }
+            let _ = write!(buf, "{} {} {:?}\r\n", self.method, pa, self.version);
         } else if self.method.eq(&Method::OPTIONS) {
             let _ = write!(buf, "OPTIONS * {:?}\r\n", self.version);
         } else {
@@ -467,11 +518,7 @@ impl HttpProxyClientRequest {
     pub fn serialize_for_adapter(&self) -> Vec<u8> {
         let mut buf = Vec::<u8>::with_capacity(self.origin_header_size);
         if let Some(pa) = self.uri.path_and_query() {
-            if self.method.eq(&Method::OPTIONS) && pa.query().is_none() && pa.path().eq("/") {
-                let _ = write!(buf, "OPTIONS * {:?}\r\n", self.version);
-            } else {
-                let _ = write!(buf, "{} {} {:?}\r\n", self.method, pa, self.version);
-            }
+            let _ = write!(buf, "{} {} {:?}\r\n", self.method, pa, self.version);
         } else if self.method.eq(&Method::OPTIONS) {
             let _ = write!(buf, "OPTIONS * {:?}\r\n", self.version);
         } else {
@@ -487,16 +534,14 @@ impl HttpProxyClientRequest {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::Bytes;
-    use tokio::io::{BufReader, Result};
-    use tokio_util::io::StreamReader;
+    use tokio::io::BufReader;
 
     fn parse_more_header(
         req: &mut HttpProxyClientRequest,
         name: HeaderName,
         value: &HttpHeaderLine,
-    ) -> std::result::Result<(), HttpRequestParseError> {
-        req.append_header(name, value)?;
+    ) -> Result<(), HttpRequestParseError> {
+        req.append_parsed_header(name, value)?;
         Ok(())
     }
 
@@ -511,8 +556,7 @@ mod tests {
             User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like G\
             ecko) Chrome/72.0.3611.2 Safari/537.36\r\n\
             Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7\r\n\r\n";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut version = Version::HTTP_11;
         let request =
@@ -536,8 +580,7 @@ mod tests {
             User-Agent: axios/0.21.1\r\n\
             host: api.giphy.com\r\n\
             Connection: close\r\n\r\n";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut version = Version::HTTP_11;
         let request =

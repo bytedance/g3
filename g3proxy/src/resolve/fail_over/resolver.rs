@@ -1,33 +1,22 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use slog::Logger;
 
 use g3_resolver::driver::fail_over::FailOverDriverConfig;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use crate::config::resolver::fail_over::FailOverResolverConfig;
 use crate::config::resolver::{AnyResolverConfig, ResolverConfig};
 use crate::resolve::{
-    ArcIntegratedResolverHandle, BoxResolver, Resolver, ResolverInternal, ResolverStats,
+    ArcIntegratedResolverHandle, BoxResolverInternal, Resolver, ResolverInternal, ResolverStats,
 };
 
 pub(crate) struct FailOverResolver {
@@ -35,11 +24,11 @@ pub(crate) struct FailOverResolver {
     driver_config: FailOverDriverConfig,
     inner: g3_resolver::Resolver,
     stats: Arc<ResolverStats>,
-    logger: Arc<Logger>,
+    logger: Option<Logger>,
 }
 
 impl FailOverResolver {
-    pub(crate) fn new_obj(config: FailOverResolverConfig) -> anyhow::Result<BoxResolver> {
+    pub(crate) fn new_obj(config: FailOverResolverConfig) -> anyhow::Result<BoxResolverInternal> {
         let mut driver_config = FailOverDriverConfig::default();
 
         let primary_handle = crate::resolve::get_handle(&config.primary)
@@ -59,7 +48,7 @@ impl FailOverResolver {
         builder.thread_name(format!("res-{}", config.name()));
         let resolver = builder.build()?;
 
-        let logger = crate::log::resolve::get_logger(config.resolver_type(), config.name());
+        let logger = crate::log::resolve::get_logger(config.r#type(), config.name());
         let stats = ResolverStats::new(config.name(), resolver.get_stats());
 
         Ok(Box::new(FailOverResolver {
@@ -67,14 +56,14 @@ impl FailOverResolver {
             driver_config,
             inner: resolver,
             stats: Arc::new(stats),
-            logger: Arc::new(logger),
+            logger,
         }))
     }
 }
 
 #[async_trait]
 impl ResolverInternal for FailOverResolver {
-    fn _dependent_resolver(&self) -> Option<BTreeSet<MetricsName>> {
+    fn _dependent_resolver(&self) -> Option<BTreeSet<NodeName>> {
         self.config.dependent_resolver()
     }
 
@@ -85,7 +74,7 @@ impl ResolverInternal for FailOverResolver {
     fn _update_config(
         &mut self,
         config: AnyResolverConfig,
-        dep_table: BTreeMap<MetricsName, ArcIntegratedResolverHandle>,
+        dep_table: BTreeMap<NodeName, ArcIntegratedResolverHandle>,
     ) -> anyhow::Result<()> {
         if let AnyResolverConfig::FailOver(config) = config {
             let mut driver_config = FailOverDriverConfig::default();
@@ -115,7 +104,7 @@ impl ResolverInternal for FailOverResolver {
 
     fn _update_dependent_handle(
         &mut self,
-        target: &MetricsName,
+        target: &NodeName,
         handle: ArcIntegratedResolverHandle,
     ) -> anyhow::Result<()> {
         let mut driver_config = self.driver_config.clone();
@@ -155,7 +144,7 @@ impl Resolver for FailOverResolver {
         Arc::new(super::FailOverResolverHandle::new(
             &self.config,
             inner_context,
-            &self.logger,
+            self.logger.clone(),
         ))
     }
 

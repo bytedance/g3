@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
@@ -28,17 +17,17 @@ use g3_http::server::HttpProxyClientRequest;
 use g3_io_ext::LimitedWriter;
 use g3_types::net::UpstreamAddr;
 
-use super::ProxyFloatHttpsPeerSharedConfig;
 use crate::auth::UserUpstreamTrafficStats;
+use crate::escape::proxy_float::peer::http::ProxyFloatHttpPeerSharedConfig;
 use crate::module::http_forward::{
-    send_req_header_to_origin, send_req_header_via_proxy, ArcHttpForwardTaskRemoteStats,
-    HttpForwardTaskRemoteWrapperStats, HttpForwardWrite,
+    ArcHttpForwardTaskRemoteStats, HttpForwardTaskRemoteWrapperStats, HttpForwardWrite,
+    send_req_header_to_origin, send_req_header_via_proxy,
 };
 use crate::serve::ServerTaskNotes;
 
 pin_project! {
     pub(super) struct HttpsPeerHttpForwardWriter<W: AsyncWrite> {
-        config: Arc<ProxyFloatHttpsPeerSharedConfig>,
+        config: Arc<ProxyFloatHttpPeerSharedConfig>,
         #[pin]
         inner: W,
         upstream: UpstreamAddr,
@@ -51,7 +40,7 @@ where
 {
     pub(super) fn new(
         ups_w: W,
-        config: &Arc<ProxyFloatHttpsPeerSharedConfig>,
+        config: &Arc<ProxyFloatHttpPeerSharedConfig>,
         upstream: UpstreamAddr,
     ) -> Self {
         HttpsPeerHttpForwardWriter {
@@ -105,9 +94,10 @@ where
         self.inner.reset_stats(Arc::new(wrapper_stats));
     }
 
-    async fn send_request_header<'a>(
-        &'a mut self,
-        req: &'a HttpProxyClientRequest,
+    async fn send_request_header(
+        &mut self,
+        req: &HttpProxyClientRequest,
+        body: Option<&[u8]>,
     ) -> io::Result<()> {
         if let Some(expire) = &self.config.expire_instant {
             let now = Instant::now();
@@ -118,6 +108,7 @@ where
         send_req_header_via_proxy(
             &mut self.inner,
             req,
+            body,
             &self.upstream,
             &self.config.append_http_headers,
             None,
@@ -128,7 +119,7 @@ where
 
 pin_project! {
     pub(super) struct HttpsPeerHttpRequestWriter<W: AsyncWrite> {
-        config: Arc<ProxyFloatHttpsPeerSharedConfig>,
+        config: Arc<ProxyFloatHttpPeerSharedConfig>,
         #[pin]
         inner: W,
     }
@@ -138,7 +129,7 @@ impl<W> HttpsPeerHttpRequestWriter<W>
 where
     W: AsyncWrite,
 {
-    pub(super) fn new(ups_w: W, config: &Arc<ProxyFloatHttpsPeerSharedConfig>) -> Self {
+    pub(super) fn new(ups_w: W, config: &Arc<ProxyFloatHttpPeerSharedConfig>) -> Self {
         HttpsPeerHttpRequestWriter {
             config: Arc::clone(config),
             inner: ups_w,
@@ -187,9 +178,10 @@ where
         self.inner.reset_stats(Arc::new(wrapper_stats));
     }
 
-    async fn send_request_header<'a>(
-        &'a mut self,
-        req: &'a HttpProxyClientRequest,
+    async fn send_request_header(
+        &mut self,
+        req: &HttpProxyClientRequest,
+        body: Option<&[u8]>,
     ) -> io::Result<()> {
         if let Some(expire) = &self.config.expire_instant {
             let now = Instant::now();
@@ -197,6 +189,6 @@ where
                 return Err(io::Error::other("connection has expired"));
             }
         }
-        send_req_header_to_origin(&mut self.inner, req).await
+        send_req_header_to_origin(&mut self.inner, req, body).await
     }
 }

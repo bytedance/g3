@@ -1,24 +1,14 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
+use std::process::ExitCode;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgMatches, Command};
+use anyhow::{Context, anyhow};
+use clap::{Arg, ArgMatches, Command, value_parser};
 use clap_complete::Shell;
 
 const COMMAND_VERSION: &str = "version";
@@ -45,21 +35,30 @@ fn build_cli_args() -> Command {
         .subcommand(g3bench::target::rustls::command())
         .subcommand(g3bench::target::dns::command())
         .subcommand(g3bench::target::keyless::command())
+        .subcommand(g3bench::target::thrift::command())
 }
 
-fn main() -> anyhow::Result<()> {
+fn main() -> anyhow::Result<ExitCode> {
     #[cfg(feature = "openssl-probe")]
-    openssl_probe::init_ssl_cert_env_vars();
+    unsafe {
+        openssl_probe::init_openssl_env_vars();
+    }
     openssl::init();
 
-    #[cfg(feature = "rustls-aws-lc")]
+    #[cfg(any(feature = "rustls-aws-lc", feature = "rustls-aws-lc-fips"))]
     rustls::crypto::aws_lc_rs::default_provider()
         .install_default()
         .unwrap();
-    #[cfg(not(feature = "rustls-aws-lc"))]
+    #[cfg(feature = "rustls-ring")]
     rustls::crypto::ring::default_provider()
         .install_default()
         .unwrap();
+    #[cfg(not(any(
+        feature = "rustls-aws-lc",
+        feature = "rustls-aws-lc-fips",
+        feature = "rustls-ring"
+    )))]
+    compile_error!("either rustls-aws-lc or rustls-ring should be enabled");
 
     let args = build_cli_args().get_matches();
     let proc_args = g3bench::parse_global_args(&args)?;
@@ -72,31 +71,30 @@ fn main() -> anyhow::Result<()> {
     match subcommand {
         COMMAND_VERSION => {
             g3bench::build::print_version();
-            return Ok(());
+            return Ok(ExitCode::SUCCESS);
         }
         COMMAND_COMPLETION => {
             generate_completion(sub_args);
-            return Ok(());
+            return Ok(ExitCode::SUCCESS);
         }
         _ => {}
     }
 
     proc_args.summary();
 
+    let _worker_guard = if let Some(worker_config) = proc_args.worker_runtime() {
+        let guard =
+            g3bench::worker::spawn_workers(worker_config).context("failed to start workers")?;
+        Some(guard)
+    } else {
+        None
+    };
+
     let rt = proc_args
         .main_runtime()
         .start()
         .context("failed to start main runtime")?;
     rt.block_on(async move {
-        let _worker_guard = if let Some(worker_config) = proc_args.worker_runtime() {
-            let guard = g3bench::worker::spawn_workers(&worker_config)
-                .await
-                .context("failed to start workers")?;
-            Some(guard)
-        } else {
-            None
-        };
-
         match subcommand {
             g3bench::target::h1::COMMAND => g3bench::target::h1::run(&proc_args, sub_args).await,
             g3bench::target::h2::COMMAND => g3bench::target::h2::run(&proc_args, sub_args).await,
@@ -110,6 +108,9 @@ fn main() -> anyhow::Result<()> {
             g3bench::target::dns::COMMAND => g3bench::target::dns::run(&proc_args, sub_args).await,
             g3bench::target::keyless::COMMAND => {
                 g3bench::target::keyless::run(&proc_args, sub_args).await
+            }
+            g3bench::target::thrift::COMMAND => {
+                g3bench::target::thrift::run(&proc_args, sub_args).await
             }
             cmd => Err(anyhow!("invalid subcommand {}", cmd)),
         }

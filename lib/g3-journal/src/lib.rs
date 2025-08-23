@@ -1,22 +1,9 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
-
-use flume::Receiver;
 
 use g3_types::log::{AsyncLogConfig, AsyncLogger, LogStats};
 
@@ -52,7 +39,7 @@ pub fn new_async_logger(
     async_conf: &AsyncLogConfig,
     journal_conf: JournalConfig,
 ) -> AsyncLogger<Vec<u8>, JournalFormatter> {
-    let (sender, receiver) = flume::bounded::<Vec<u8>>(async_conf.channel_capacity);
+    let (sender, receiver) = kanal::bounded::<Vec<u8>>(async_conf.channel_capacity);
 
     let stats = Arc::new(LogStats::default());
 
@@ -73,7 +60,7 @@ pub fn new_async_logger(
 }
 
 struct AsyncIoThread {
-    receiver: Receiver<Vec<u8>>,
+    receiver: kanal::Receiver<Vec<u8>>,
     stats: Arc<LogStats>,
 }
 

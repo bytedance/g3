@@ -1,4 +1,148 @@
 
+v1.13.0:
+ - Compatibility: bump MSRV to 1.88.0
+ - Deprecated: the following config options are deprecated:
+     - tcp_conn_rate_limit/tcp_conn_limit_quota in user config, use connection_rate_limit instead
+
+v1.12.0:
+ - Feature: allow to connect to ICAP server via UNIX domain socket
+
+v1.11.10:
+ - BUG FIX: fix panic when trying to parse PROXY Protocol V1
+ - Feature: allow to drop the default port part in Host header in http_proxy server
+ - Optimization: make less new connections in ICAP connection pool
+
+v1.11.9:
+ - Feature: allow to set hop_limit and traffic_class ipv6 socket options
+ - Feature: allow to set congestion control algorithm for TCP socket
+ - Feature: allow to set tcp keepalive on tcp listen socket in server
+ - Feature: add support for masque/http Well-Known URI in http_proxy server
+
+v1.11.8:
+ - BUG FIX: fix corrupt data when send small chunked body to ICAP REQMOD service
+ - BUG FIX: fix panic when detect DNS over TLS traffic
+ - Feature: restore support for aws-lc
+ - Feature: add support for aws-lc-fips
+ - Deprecated: the following config options are deprecated:
+     - emit_duration in statsd config, use emit_interval instead
+     - auto_reply_local_ip_map in socks server config, use transmute_udp_echo_ip instead
+     - untrusted_read_limit in server config, use untrusted_read_speed_limit instead
+     - tcp_conn_speed_limit/tcp_conn_limit/conn_limit in server & escaper config, use tcp_sock_speed_limit instead
+     - udp_relay_speed_limit/udp_relay_limit/relay_limit in server & escaper config, use udp_sock_speed_limit instead
+     - tcp_conn_speed_limit/tcp_conn_limit in user config, use tcp_sock_speed_limit instead
+     - udp_relay_speed_limit/udp_relay_limit in user config, use udp_sock_speed_limit instead
+
+v1.11.7:
+ - BUG FIX: fix read of H2 zero size body frame
+ - BUG FIX: fix format of HTTP 1 OPTIONS header line
+ - BUG FIX: fix h2 max concurrent streams settings sent to client
+ - BUG FIX: fix h2 connection level IDLE check
+ - BUG FIX: fix reconnect of syslog unix socket after syslogd restarted
+ - Optimization: use more reasonable h2 default settings value
+ - Compatibility: support to build on OpenBSD with LibreSSL
+
+v1.11.6:
+ - BUG FIX: fix alignment of RawSocketAddr used in recvmmsg & sendmmsg
+ - BUG FIX: fix default positive min ttl in c-ares resolver
+ - Feature: allow to bind to interface in tcp & udp listen config on supported platforms
+ - Feature: update TTL calculation in resolver, cache longer and query earlier
+ - Compatibility: drop hickory as a feature flag, it's always enabled now
+ - Compatibility: drop package support for Debian 10
+ - Optimization: create IDLE ICAP connections more timely
+ - Optimization: wait to receive as much as possible preview data for ICAP h1 & h2 reqmod service
+
+v1.11.5:
+ - Feature: support easy-proxy Well-Known URI in http-proxy server
+ - Feature: allow to match parent domain before do regex match in dst-host acl set rules
+ - Feature: allow to do regex match in route_upstream escaper
+ - Optimization: update IDLE wheel code to improve performance
+
+v1.11.4:
+ - BUG FIX: fix deadlock when reload port servers
+ - Feature: allow to quit process on panic
+ - Feature: support bind to interface on more platforms when connect
+ - Feature: add tls peer closure metrics to escaper
+     - escaper.tls.peer.closure.orderly
+     - escaper.tls.peer.closure.abortive
+
+v1.11.3:
+ - Feature: support to set bind interface and many other socket options in hickory resolver
+ - Feature: do not require explicit server address in c-ares resolver, /etc/resolv.conf will be used in this case
+ - Feature: support multi-threaded runtime in worker
+ - Feature: add an extra exported-pdu layer to represent client side addresses when dump traffic to wireshark
+ - Feature: support to use PROXY Protocol in direct-fixed escaper
+ - Feature: support full duplex mode of TCP shutdown, and log partial shutdown event in task/intercept log
+ - Optimization: limit the range of max-frame-size h2 config
+ - Optimization: use IdleWheel to reduce timer usage when doing IDLE check
+ - Optimization: changed default idle-check-interval to 60s and set default max-idle-count to 5
+ - Compatibility: switch to rust edition 2024
+
+v1.11.2:
+ - BUG FIX: correctly handle ICAP null-body response
+ - BUG FIX: fix ICAP connection state when reading modified SMTP/IMAP message
+ - BUG FIX: fix chunked encoding of H2 body stream when sending to ICAP server
+ - BUG FIX: keep control socket open on accept error
+ - Feature: allow ICAP 204 response for small IMAP messages
+ - Optimization: use standard Content-Length header instead of X-IMAP-Message-Size in ICAP for IMAP request
+ - Compatibility: drop AWS-LC support to reduce outdated dependencies
+
+v1.11.1:
+ - Feature: retry HTTP connection if upstream close connection without any data in HTTP proxy/rproxy server
+ - Feature: add idle-timeout config option to connection pool
+ - Feature: add more tcp connect and tls handshake metrics in escaper
+ - Optimization: allow to use 0 idle connections in icap connection pool
+ - Optimization: use more detailed error message for OpenSSL stream
+
+v1.11.0:
+ - Feature: add 'insecure' config option to OpenSSL Client config to skip cert verification
+ - Feature: add more runtime metrics
+ - Feature: set supported ALPN protocols in HTTP Proxy server
+ - Feature: support to send small HTTP body along with header in HTTP Proxy server
+ - Feature: simplify default log backend config format
+ - Feature: support to flush task log on created/connected and periodically
+
+v1.10.3:
+ - BUG FIX: fix read of trailer for chunked FTP over HTTP upload
+ - BUG FIX: fix idle check in udp copy and udp relay task
+ - Optimization: respect Content-Length header when sending ICAP adapted body
+
+v1.10.2:
+ - BUG FIX: fix handle of ICAP preview data in HTTP/2 interception
+ - BUG FIX: fix panic when sending H2 stream data if peer gone
+ - BUG FIX: do not send Allow-204 in ICAP preview request
+
+v1.10.1:
+ - BUG FIX: fix socket usage on Windows
+ - BUG FIX: set expire info for udp tasks with socks5 proxy peers
+ - BUG FIX: send ppv2 header on http forward connections in divert_tcp escaper
+ - BUG FIX: fix match of TLS ticker name in decryption
+ - BUG FIX: fix global datagram limiter
+ - BUG FIX: fix DELETE in FTP over HTTP task
+ - BUG FIX: fix handle of ICAP Preview data in HTTP/1 interception
+ - Optimization: support chunked upload in FTP over HTTP task
+
+v1.10.0:
+ - Policy: LTS version
+
+v1.9.9:
+ - BUG FIX: fix the check of H2 Extended CONNECT protocol
+ - BUG FIX: fix the set of session cache for TLS interception client
+ - Feature: allow to set max/min_tls_version in tls client config
+ - Feature: allow to set remote TLS ticketer in tls server config
+ - Feature: allow to set quic transport config
+ - Feature: support ICAP over TLS
+ - Feature: support TLS port in front of socks server
+ - Feature: add new Socks5 over TLS escaper support
+ - Feature: allow to select auditor in comply_audit escaper
+ - Feature: allow to bind to interface in various escapers
+ - Feature: allow to set protocol inspect policy based on domain rules
+ - Feature: send HTTP Upgrade header via ICAP request header X-HTTP-Upgrade
+ - Optimization: cache resolved IP address in UDP ASSOCIATE task
+ - Optimization: be compatible with more bad socks5 server implementations
+ - Optimization: echo empty ip in UDP ASSOCIATE reply when needed in socks server
+ - Optimization: support fragmented TLS ClientHello record in SNI proxy server
+ - Optimization: treat HTTP Trailer header as end-to-end
+
 v1.9.8:
  - BUG FIX: fix panic when build socks5 UDP header with domain address
  - BUG FIX: fix possible panic when reading H2 stream
@@ -6,6 +150,7 @@ v1.9.8:
  - Feature: allow to write event logs to stdout
  - Feature: add stream detour support to audit
  - Feature: only enable anonymous user if ingress network ACL matched
+ - Feature: allow to set inspect policy for WebSocket
  - Optimization: check user ingress network ACL early and reply auth failed if denied
  - Optimization: ignore more clean connection close error in interception
 

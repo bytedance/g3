@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use anyhow::anyhow;
@@ -36,9 +25,53 @@ mod tests {
     use super::*;
 
     #[test]
-    fn utc_tz() {
-        let value = Value::String("2019-05-23T17:38:00Z".to_string());
-        let dt = as_rfc3339_datetime(&value).unwrap();
-        assert_eq!(dt.to_rfc3339(), "2019-05-23T17:38:00+00:00");
+    fn as_rfc3339_datetime_ok() {
+        // valid RFC3339 datetime strings
+        let valid_cases = vec![
+            "2023-01-01T00:00:00Z",
+            "2025-12-31T23:59:59.999Z",
+            "1990-06-15T12:30:45+08:00",
+            "2000-02-29T14:30:00-05:00",
+        ];
+
+        for case in valid_cases {
+            let value = Value::String(case.to_string());
+            let result = as_rfc3339_datetime(&value).unwrap();
+            let expected = DateTime::parse_from_rfc3339(case)
+                .expect("valid RFC3339 string in test case")
+                .with_timezone(&Utc);
+            assert_eq!(result, expected);
+        }
+    }
+
+    #[test]
+    fn as_rfc3339_datetime_err() {
+        // invalid RFC3339 strings
+        let invalid_strings = vec![
+            "",
+            "invalid-date",
+            "2023-13-01T00:00:00Z",
+            "2023-02-30T00:00:00Z",
+            "2023-01-01 00:00:00",
+            "2023-01-01T25:00:00Z",
+        ];
+
+        for s in invalid_strings {
+            let value = Value::String(s.to_string());
+            assert!(as_rfc3339_datetime(&value).is_err());
+        }
+
+        // non-string JSON types
+        let non_string_types = vec![
+            Value::Null,
+            Value::Bool(true),
+            Value::Number(12345.into()),
+            Value::Array(vec![]),
+            Value::Object(serde_json::Map::new()),
+        ];
+
+        for value in non_string_types {
+            assert!(as_rfc3339_datetime(&value).is_err());
+        }
     }
 }

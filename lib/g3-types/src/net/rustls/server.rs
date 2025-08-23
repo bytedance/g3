@@ -1,31 +1,24 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 #[cfg(feature = "quinn")]
 use quinn::crypto::rustls::QuicServerConfig;
-use rustls::server::WebPkiClientVerifier;
+use rustls::server::{ProducesTickets, WebPkiClientVerifier};
 use rustls::{RootCertStore, ServerConfig};
 use rustls_pki_types::CertificateDer;
 
-use super::{MultipleCertResolver, RustlsCertificatePair, RustlsServerConfigExt};
+use super::{
+    MultipleCertResolver, RustlsCertificatePair, RustlsNoSessionTicketer, RustlsServerConfigExt,
+};
 use crate::net::tls::AlpnProtocol;
+#[cfg(feature = "openssl")]
+use crate::net::{OpensslTicketKey, RollingTicketer};
 
 #[derive(Clone)]
 pub struct RustlsServerConfig {
@@ -104,24 +97,30 @@ impl RustlsServerConfigBuilder {
         self.accept_timeout
     }
 
-    fn build_server_config(
+    fn build_server_config<T>(
         &self,
         alpn_protocols: Option<Vec<AlpnProtocol>>,
-    ) -> anyhow::Result<ServerConfig> {
+        ticketer: Option<Arc<T>>,
+    ) -> anyhow::Result<ServerConfig>
+    where
+        T: ProducesTickets + 'static,
+    {
         let config_builder = ServerConfig::builder();
         let config_builder = if self.client_auth {
             let mut root_store = RootCertStore::empty();
             if let Some(certs) = &self.client_auth_certs {
                 for (i, cert) in certs.iter().enumerate() {
                     root_store.add(cert.clone()).map_err(|e| {
-                        anyhow!("failed to add cert {i} as root certs for client auth: {e:?}",)
+                        anyhow!("failed to add cert {i} as root certs for client auth: {e:?}")
                     })?;
                 }
             } else {
                 let certs = super::load_native_certs_for_rustls()?;
                 for (i, cert) in certs.into_iter().enumerate() {
                     root_store.add(cert).map_err(|e| {
-                        anyhow!("failed to add openssl ca cert {i} as root certs for client auth: {e:?}",)
+                        anyhow!(
+                            "failed to add openssl ca cert {i} as root certs for client auth: {e:?}"
+                        )
                     })?;
                 }
             };
@@ -153,7 +152,7 @@ impl RustlsServerConfigBuilder {
         };
 
         config.set_session_cache(self.no_session_cache);
-        config.set_session_ticketer(self.use_session_ticket)?;
+        config.set_session_ticketer(self.use_session_ticket, ticketer)?;
 
         if let Some(protocols) = alpn_protocols {
             for proto in protocols {
@@ -166,27 +165,43 @@ impl RustlsServerConfigBuilder {
         Ok(config)
     }
 
-    pub fn build_with_alpn_protocols(
+    pub fn build_with_alpn_protocols<T>(
         &self,
         alpn_protocols: Option<Vec<AlpnProtocol>>,
-    ) -> anyhow::Result<RustlsServerConfig> {
-        let config = self.build_server_config(alpn_protocols)?;
+        ticketer: Option<Arc<T>>,
+    ) -> anyhow::Result<RustlsServerConfig>
+    where
+        T: ProducesTickets + 'static,
+    {
+        let config = self.build_server_config(alpn_protocols, ticketer)?;
         Ok(RustlsServerConfig {
             driver: Arc::new(config),
             accept_timeout: self.accept_timeout,
         })
     }
 
+    #[cfg(feature = "openssl")]
+    pub fn build_with_ticketer(
+        &self,
+        ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
+    ) -> anyhow::Result<RustlsServerConfig> {
+        self.build_with_alpn_protocols(None, ticketer)
+    }
+
     pub fn build(&self) -> anyhow::Result<RustlsServerConfig> {
-        self.build_with_alpn_protocols(None)
+        self.build_with_alpn_protocols::<RustlsNoSessionTicketer>(None, None)
     }
 
     #[cfg(feature = "quinn")]
-    pub fn build_quic_with_alpn_protocols(
+    pub fn build_quic_with_alpn_protocols<T>(
         &self,
         alpn_protocols: Option<Vec<AlpnProtocol>>,
-    ) -> anyhow::Result<RustlsQuicServerConfig> {
-        let config = self.build_server_config(alpn_protocols)?;
+        ticketer: Option<Arc<T>>,
+    ) -> anyhow::Result<RustlsQuicServerConfig>
+    where
+        T: ProducesTickets + 'static,
+    {
+        let config = self.build_server_config(alpn_protocols, ticketer)?;
         let quic_config = QuicServerConfig::try_from(config)
             .map_err(|e| anyhow!("invalid quic tls config: {e}"))?;
         Ok(RustlsQuicServerConfig {
@@ -195,8 +210,16 @@ impl RustlsServerConfigBuilder {
         })
     }
 
+    #[cfg(all(feature = "quinn", feature = "openssl"))]
+    pub fn build_quic_with_ticketer(
+        &self,
+        ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
+    ) -> anyhow::Result<RustlsQuicServerConfig> {
+        self.build_quic_with_alpn_protocols(None, ticketer)
+    }
+
     #[cfg(feature = "quinn")]
     pub fn build_quic(&self) -> anyhow::Result<RustlsQuicServerConfig> {
-        self.build_quic_with_alpn_protocols(None)
+        self.build_quic_with_alpn_protocols::<RustlsNoSessionTicketer>(None, None)
     }
 }

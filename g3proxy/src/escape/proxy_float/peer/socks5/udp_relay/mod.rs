@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
@@ -25,7 +14,7 @@ use crate::escape::proxy_socks5::udp_relay::{
 use crate::module::tcp_connect::TcpConnectTaskNotes;
 use crate::module::udp_relay::{
     ArcUdpRelayTaskRemoteStats, UdpRelayRemoteWrapperStats, UdpRelaySetupError,
-    UdpRelaySetupResult, UdpRelayTaskNotes,
+    UdpRelaySetupResult, UdpRelayTaskConf,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -33,17 +22,17 @@ impl ProxyFloatSocks5Peer {
     pub(super) async fn udp_setup_relay(
         &self,
         escaper: &ProxyFloatEscaper,
-        udp_notes: &UdpRelayTaskNotes,
+        task_conf: &UdpRelayTaskConf<'_>,
         task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
-        let mut tcp_notes = TcpConnectTaskNotes::empty();
-        let (tcp_close_receiver, udp_socket, udp_local_addr, udp_peer_addr) = self
-            .timed_socks5_udp_associate(escaper, udp_notes.buf_conf, &mut tcp_notes, task_notes)
+        let mut tcp_notes = TcpConnectTaskNotes::default();
+        let (ctl_stream, udp_socket, udp_local_addr, udp_peer_addr) = self
+            .timed_socks5_udp_associate(escaper, task_conf.sock_buf, &mut tcp_notes, task_notes)
             .await
             .map_err(UdpRelaySetupError::SetupSocketFailed)?;
 
-        let mut wrapper_stats = UdpRelayRemoteWrapperStats::new(&escaper.stats, task_stats);
+        let mut wrapper_stats = UdpRelayRemoteWrapperStats::new(escaper.stats.clone(), task_stats);
         wrapper_stats.push_user_io_stats(escaper.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 
@@ -67,7 +56,8 @@ impl ProxyFloatSocks5Peer {
             recv,
             udp_local_addr,
             udp_peer_addr,
-            tcp_close_receiver,
+            ctl_stream,
+            self.end_on_control_closed,
         );
         let send = ProxySocks5UdpRelayRemoteSend::new(send, udp_local_addr, udp_peer_addr);
 

@@ -1,32 +1,23 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
-use rand::distributions::Bernoulli;
-use yaml_rust::{yaml, Yaml};
+use anyhow::{Context, anyhow};
+use rand::distr::Bernoulli;
+use yaml_rust::{Yaml, yaml};
 
 use g3_cert_agent::CertAgentConfig;
 use g3_dpi::{
-    H1InterceptionConfig, H2InterceptionConfig, ImapInterceptionConfig, ProtocolInspectPolicy,
-    ProtocolInspectionConfig, ProtocolPortMap, SmtpInterceptionConfig,
+    H1InterceptionConfig, H2InterceptionConfig, ImapInterceptionConfig,
+    ProtocolInspectPolicyBuilder, ProtocolInspectionConfig, ProtocolPortMap,
+    SmtpInterceptionConfig,
 };
 use g3_icap_client::IcapServiceConfig;
-use g3_types::metrics::MetricsName;
+use g3_tls_ticket::TlsTicketConfig;
+use g3_types::metrics::NodeName;
 use g3_types::net::{
     OpensslInterceptionClientConfigBuilder, OpensslInterceptionServerConfigBuilder,
 };
@@ -38,22 +29,24 @@ use super::AuditStreamDetourConfig;
 
 #[derive(Clone)]
 pub(crate) struct AuditorConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) protocol_inspection: ProtocolInspectionConfig,
     pub(crate) server_tcp_portmap: ProtocolPortMap,
     pub(crate) client_tcp_portmap: ProtocolPortMap,
     pub(crate) tls_cert_agent: Option<CertAgentConfig>,
+    pub(crate) tls_ticketer: Option<TlsTicketConfig>,
     pub(crate) tls_interception_client: OpensslInterceptionClientConfigBuilder,
     pub(crate) tls_interception_server: OpensslInterceptionServerConfigBuilder,
     pub(crate) tls_stream_dump: Option<StreamDumpConfig>,
     pub(crate) log_uri_max_chars: usize,
     pub(crate) h1_interception: H1InterceptionConfig,
-    pub(crate) h2_inspect_policy: ProtocolInspectPolicy,
+    pub(crate) h2_inspect_policy: ProtocolInspectPolicyBuilder,
     pub(crate) h2_interception: H2InterceptionConfig,
-    pub(crate) smtp_inspect_policy: ProtocolInspectPolicy,
+    pub(crate) websocket_inspect_policy: ProtocolInspectPolicyBuilder,
+    pub(crate) smtp_inspect_policy: ProtocolInspectPolicyBuilder,
     pub(crate) smtp_interception: SmtpInterceptionConfig,
-    pub(crate) imap_inspect_policy: ProtocolInspectPolicy,
+    pub(crate) imap_inspect_policy: ProtocolInspectPolicyBuilder,
     pub(crate) imap_interception: ImapInterceptionConfig,
     pub(crate) icap_reqmod_service: Option<Arc<IcapServiceConfig>>,
     pub(crate) icap_respmod_service: Option<Arc<IcapServiceConfig>>,
@@ -63,7 +56,7 @@ pub(crate) struct AuditorConfig {
 }
 
 impl AuditorConfig {
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -71,7 +64,7 @@ impl AuditorConfig {
         self.position.clone()
     }
 
-    fn with_name(name: MetricsName, position: Option<YamlDocPosition>) -> Self {
+    fn with_name(name: NodeName, position: Option<YamlDocPosition>) -> Self {
         AuditorConfig {
             name,
             position,
@@ -79,16 +72,18 @@ impl AuditorConfig {
             server_tcp_portmap: ProtocolPortMap::tcp_server(),
             client_tcp_portmap: ProtocolPortMap::tcp_client(),
             tls_cert_agent: None,
+            tls_ticketer: None,
             tls_interception_client: Default::default(),
             tls_interception_server: Default::default(),
             tls_stream_dump: None,
             log_uri_max_chars: 1024,
             h1_interception: Default::default(),
-            h2_inspect_policy: ProtocolInspectPolicy::Intercept,
+            h2_inspect_policy: Default::default(),
             h2_interception: Default::default(),
-            smtp_inspect_policy: ProtocolInspectPolicy::Intercept,
+            websocket_inspect_policy: Default::default(),
+            smtp_inspect_policy: Default::default(),
             smtp_interception: Default::default(),
-            imap_inspect_policy: ProtocolInspectPolicy::Intercept,
+            imap_inspect_policy: Default::default(),
             imap_interception: Default::default(),
             icap_reqmod_service: None,
             icap_respmod_service: None,
@@ -98,12 +93,12 @@ impl AuditorConfig {
         }
     }
 
-    pub(crate) fn empty(name: &MetricsName) -> Self {
+    pub(crate) fn empty(name: &NodeName) -> Self {
         AuditorConfig::with_name(name.clone(), None)
     }
 
     pub(crate) fn new(position: Option<YamlDocPosition>) -> Self {
-        AuditorConfig::with_name(MetricsName::default(), position)
+        AuditorConfig::with_name(NodeName::default(), position)
     }
 
     pub(crate) fn parse(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
@@ -123,7 +118,7 @@ impl AuditorConfig {
     fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
             "name" => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "protocol_inspection" => {
@@ -143,10 +138,17 @@ impl AuditorConfig {
                     .context(format!("invalid protocol portmap value for key {k}"))
             }
             "tls_cert_agent" | "tls_cert_generator" => {
-                let agent = g3_yaml::value::as_tls_cert_agent_config(v).context(format!(
+                let agent = CertAgentConfig::parse_yaml(v).context(format!(
                     "invalid tls cert generator config value for key {k}"
                 ))?;
                 self.tls_cert_agent = Some(agent);
+                Ok(())
+            }
+            "tls_ticketer" => {
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let ticketer = TlsTicketConfig::parse_yaml(v, Some(lookup_dir))
+                    .context(format!("invalid tls ticket config value for key {k}"))?;
+                self.tls_ticketer = Some(ticketer);
                 Ok(())
             }
             "tls_interception_client" => {
@@ -168,7 +170,7 @@ impl AuditorConfig {
                 Ok(())
             }
             "tls_stream_dump" => {
-                let dump = g3_yaml::value::as_stream_dump_config(v)
+                let dump = StreamDumpConfig::parse_yaml(v)
                     .context(format!("invalid udp stream dump config value for key {k}"))?;
                 self.tls_stream_dump = Some(dump);
                 Ok(())
@@ -184,7 +186,7 @@ impl AuditorConfig {
                 Ok(())
             }
             "h2_inspect_policy" => {
-                self.h2_inspect_policy = g3_yaml::value::as_protocol_inspect_policy(v)
+                self.h2_inspect_policy = g3_yaml::value::as_protocol_inspect_policy_builder(v)
                     .context(format!("invalid protocol inspect policy value for key {k}"))?;
                 Ok(())
             }
@@ -193,8 +195,14 @@ impl AuditorConfig {
                     .context(format!("invalid h1 interception value for key {k}"))?;
                 Ok(())
             }
+            "websocket_inspect_policy" => {
+                self.websocket_inspect_policy =
+                    g3_yaml::value::as_protocol_inspect_policy_builder(v)
+                        .context(format!("invalid protocol inspect policy value for key {k}"))?;
+                Ok(())
+            }
             "smtp_inspect_policy" => {
-                self.smtp_inspect_policy = g3_yaml::value::as_protocol_inspect_policy(v)
+                self.smtp_inspect_policy = g3_yaml::value::as_protocol_inspect_policy_builder(v)
                     .context(format!("invalid protocol inspect policy value for key {k}"))?;
                 Ok(())
             }
@@ -204,7 +212,7 @@ impl AuditorConfig {
                 Ok(())
             }
             "imap_inspect_policy" => {
-                self.imap_inspect_policy = g3_yaml::value::as_protocol_inspect_policy(v)
+                self.imap_inspect_policy = g3_yaml::value::as_protocol_inspect_policy_builder(v)
                     .context(format!("invalid protocol inspect policy value for key {k}"))?;
                 Ok(())
             }
@@ -214,16 +222,20 @@ impl AuditorConfig {
                 Ok(())
             }
             "icap_reqmod_service" => {
-                let service = g3_yaml::value::as_icap_reqmod_service_config(v).context(format!(
-                    "invalid icap reqmod service config value for key {k}"
-                ))?;
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let service = IcapServiceConfig::parse_reqmod_service_yaml(v, Some(lookup_dir))
+                    .context(format!(
+                        "invalid icap reqmod service config value for key {k}"
+                    ))?;
                 self.icap_reqmod_service = Some(Arc::new(service));
                 Ok(())
             }
             "icap_respmod_service" => {
-                let service = g3_yaml::value::as_icap_respmod_service_config(v).context(
-                    format!("invalid icap respmod service config value for key {k}"),
-                )?;
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let service = IcapServiceConfig::parse_respmod_service_yaml(v, Some(lookup_dir))
+                    .context(format!(
+                        "invalid icap respmod service config value for key {k}"
+                    ))?;
                 self.icap_respmod_service = Some(Arc::new(service));
                 Ok(())
             }

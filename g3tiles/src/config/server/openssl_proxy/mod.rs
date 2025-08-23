@@ -1,34 +1,27 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ascii::AsciiString;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
-use g3_io_ext::LimitedCopyConfig;
+use g3_io_ext::StreamCopyConfig;
+use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig};
 use g3_types::route::HostMatch;
 use g3_yaml::YamlDocPosition;
 
-use super::{ServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_MAXIMUM_DURATION};
+use super::{
+    IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT, IDLE_CHECK_MAXIMUM_DURATION,
+    ServerConfig,
+};
 use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
 
 mod host;
@@ -38,21 +31,28 @@ const SERVER_CONFIG_TYPE: &str = "OpensslProxy";
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct OpensslProxyServerConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: TcpListenConfig,
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
     pub(crate) client_hello_recv_timeout: Duration,
+    pub(crate) client_hello_max_size: u32,
     pub(crate) accept_timeout: Duration,
     pub(crate) hosts: HostMatch<Arc<OpensslHostConfig>>,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
     pub(crate) task_idle_check_duration: Duration,
-    pub(crate) task_idle_max_count: i32,
-    pub(crate) tcp_copy: LimitedCopyConfig,
+    pub(crate) task_idle_max_count: usize,
+    pub(crate) flush_task_log_on_created: bool,
+    pub(crate) flush_task_log_on_connected: bool,
+    pub(crate) task_log_flush_interval: Option<Duration>,
+    pub(crate) tcp_copy: StreamCopyConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
+    pub(crate) tls_ticketer: Option<TlsTicketConfig>,
+    #[cfg(feature = "openssl-async-job")]
+    pub(crate) tls_no_async_mode: bool,
     pub(crate) spawn_task_unconstrained: bool,
     pub(crate) alert_unrecognized_name: bool,
 }
@@ -60,7 +60,7 @@ pub(crate) struct OpensslProxyServerConfig {
 impl OpensslProxyServerConfig {
     pub(crate) fn new(position: Option<YamlDocPosition>) -> Self {
         OpensslProxyServerConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             shared_logger: None,
             listen: TcpListenConfig::default(),
@@ -68,13 +68,20 @@ impl OpensslProxyServerConfig {
             ingress_net_filter: None,
             extra_metrics_tags: None,
             client_hello_recv_timeout: Duration::from_secs(10),
+            client_hello_max_size: 16384, // 16K
             accept_timeout: Duration::from_secs(60),
             hosts: HostMatch::default(),
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
             task_idle_check_duration: IDLE_CHECK_DEFAULT_DURATION,
-            task_idle_max_count: 1,
+            task_idle_max_count: IDLE_CHECK_DEFAULT_MAX_COUNT,
+            flush_task_log_on_created: false,
+            flush_task_log_on_connected: false,
+            task_log_flush_interval: None,
             tcp_copy: Default::default(),
             tcp_misc_opts: Default::default(),
+            tls_ticketer: None,
+            #[cfg(feature = "openssl-async-job")]
+            tls_no_async_mode: false,
             spawn_task_unconstrained: false,
             alert_unrecognized_name: false,
         }
@@ -109,7 +116,7 @@ impl OpensslProxyServerConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "shared_logger" => {
@@ -140,9 +147,13 @@ impl OpensslProxyServerConfig {
                 Ok(())
             }
             "client_hello_recv_timeout" => {
-                let timeout = g3_yaml::humanize::as_duration(v)
+                self.client_hello_recv_timeout = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
-                self.client_hello_recv_timeout = timeout;
+                Ok(())
+            }
+            "client_hello_max_size" => {
+                self.client_hello_max_size = g3_yaml::humanize::as_u32(v)
+                    .context(format!("invalid humanize u32 value for key {k}"))?;
                 Ok(())
             }
             "accept_timeout" | "handshake_timeout" | "negotiation_timeout" => {
@@ -165,8 +176,22 @@ impl OpensslProxyServerConfig {
                 Ok(())
             }
             "task_idle_max_count" => {
-                self.task_idle_max_count =
-                    g3_yaml::value::as_i32(v).context(format!("invalid i32 value for key {k}"))?;
+                self.task_idle_max_count = g3_yaml::value::as_usize(v)
+                    .context(format!("invalid usize value for key {k}"))?;
+                Ok(())
+            }
+            "flush_task_log_on_created" => {
+                self.flush_task_log_on_created = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            "flush_task_log_on_connected" => {
+                self.flush_task_log_on_connected = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            "task_log_flush_interval" => {
+                let interval = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                self.task_log_flush_interval = Some(interval);
                 Ok(())
             }
             "tcp_copy_buffer_size" => {
@@ -186,6 +211,18 @@ impl OpensslProxyServerConfig {
                     .context(format!("invalid tcp misc sock opts value for key {k}"))?;
                 Ok(())
             }
+            "tls_ticketer" => {
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let ticketer = TlsTicketConfig::parse_yaml(v, Some(lookup_dir))
+                    .context(format!("invalid tls ticket config value for key {k}"))?;
+                self.tls_ticketer = Some(ticketer);
+                Ok(())
+            }
+            #[cfg(feature = "openssl-async-job")]
+            "tls_no_async_mode" => {
+                self.tls_no_async_mode = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
             "spawn_task_unconstrained" | "task_unconstrained" => {
                 self.spawn_task_unconstrained = g3_yaml::value::as_bool(v)?;
                 Ok(())
@@ -201,7 +238,7 @@ impl OpensslProxyServerConfig {
 }
 
 impl ServerConfig for OpensslProxyServerConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -209,7 +246,7 @@ impl ServerConfig for OpensslProxyServerConfig {
         self.position.clone()
     }
 
-    fn server_type(&self) -> &'static str {
+    fn r#type(&self) -> &'static str {
         SERVER_CONFIG_TYPE
     }
 
@@ -226,6 +263,6 @@ impl ServerConfig for OpensslProxyServerConfig {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
 
-        ServerConfigDiffAction::ReloadOnlyConfig
+        ServerConfigDiffAction::ReloadNoRespawn
     }
 }

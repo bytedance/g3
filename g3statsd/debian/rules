@@ -1,0 +1,27 @@
+#!/usr/bin/make -f
+
+PACKAGE_NAME := g3statsd
+BUILD_PROFILE := release-lto
+
+DEB_VERSION ?= $(shell dpkg-parsechangelog -SVersion)
+
+%:
+	dh $@
+
+override_dh_clean:
+	dh_clean -Xvendor
+
+override_dh_auto_clean:
+	cargo clean --frozen --offline
+
+override_dh_auto_build:
+	G3_PACKAGE_VERSION=$(DEB_VERSION) \
+	  cargo build --frozen --offline --profile $(BUILD_PROFILE) \
+	    --package g3statsd --package g3statsd-ctl
+
+override_dh_auto_install:
+	install -m 755 -D target/$(BUILD_PROFILE)/g3statsd debian/tmp/usr/bin/g3statsd
+	install -m 755 -D target/$(BUILD_PROFILE)/g3statsd-ctl debian/tmp/usr/bin/g3statsd-ctl
+
+override_dh_installchangelogs:
+	dh_installchangelogs $(PACKAGE_NAME)/CHANGELOG

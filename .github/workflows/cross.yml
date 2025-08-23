@@ -1,36 +1,48 @@
 name: CrossCompiling
+permissions: { }
 
 on:
   push:
     paths-ignore:
       - 'ansible/**'
       - 'doc/**'
-      - 'demo/**'
+      - 'sphinx/**'
       - 'scripts/**'
-      - 'g3proxy/doc/**'
-      - 'g3tiles/doc/**'
     branches:
       - 'master'
-      - 'rel/**'
       - 'lts/**'
   pull_request:
+    paths-ignore:
+      - 'ansible/**'
+      - 'doc/**'
+      - 'sphinx/**'
+      - 'scripts/**'
     branches:
       - 'master'
-      - 'rel/**'
       - 'lts/**'
 
-env:
-  CARGO_TERM_COLOR: always
-  CROSS_FEATURES: --no-default-features --features vendored-openssl,quic,vendored-c-ares,hickory
-  CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
-  CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER: riscv64-linux-gnu-gcc
-  CARGO_TARGET_POWERPC64LE_UNKNOWN_LINUX_GNU_LINKER: powerpc64le-linux-gnu-gcc
-  CARGO_TARGET_S390X_UNKNOWN_LINUX_GNU_LINKER: s390x-linux-gnu-gcc
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
+    container:
+      image: debian:trixie
+      env:
+        CARGO_TERM_COLOR: always
+        CROSS_FEATURES: --no-default-features --features vendored-openssl,rustls-ring,quic,vendored-c-ares
+        CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        CARGO_TARGET_RISCV64GC_UNKNOWN_LINUX_GNU_LINKER: riscv64-linux-gnu-gcc
+        CARGO_TARGET_POWERPC64LE_UNKNOWN_LINUX_GNU_LINKER: powerpc64le-linux-gnu-gcc
+        CARGO_TARGET_S390X_UNKNOWN_LINUX_GNU_LINKER: s390x-linux-gnu-gcc
+        CARGO_TARGET_LOONGARCH64_UNKNOWN_LINUX_GNU_LINKER: loongarch64-linux-gnu-gcc
+        CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+        CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABIHF_LINKER: arm-linux-gnueabihf-gcc
+        CARGO_TARGET_ARM_UNKNOWN_LINUX_GNUEABI_LINKER: arm-linux-gnueabi-gcc
+        CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER: i686-linux-gnu-gcc
     strategy:
       matrix:
         target: [
@@ -39,8 +51,24 @@ jobs:
             gcc: gcc-mingw-w64-x86-64,
           },
           {
+            rustc: i686-unknown-linux-gnu,
+            gcc: gcc-i686-linux-gnu,
+          },
+          {
             rustc: aarch64-unknown-linux-gnu,
             gcc: gcc-aarch64-linux-gnu,
+          },
+          {
+            rustc: armv7-unknown-linux-gnueabihf,
+            gcc: gcc-arm-linux-gnueabihf,
+          },
+          {
+            rustc: arm-unknown-linux-gnueabihf,
+            gcc: gcc-arm-linux-gnueabihf,
+          },
+          {
+            rustc: arm-unknown-linux-gnueabi,
+            gcc: gcc-arm-linux-gnueabi,
           },
           {
             rustc: riscv64gc-unknown-linux-gnu,
@@ -54,20 +82,29 @@ jobs:
             rustc: s390x-unknown-linux-gnu,
             gcc: gcc-s390x-linux-gnu,
           },
+          {
+            rustc: loongarch64-unknown-linux-gnu,
+            gcc: gcc-loongarch64-linux-gnu,
+          },
         ]
     steps:
+      - name: Install tools
+        run: |
+          apt-get -y update
+          apt-get -y install git curl gcc make pkgconf cmake
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
       - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
         with:
+          toolchain: stable
           targets: ${{ matrix.target.rustc }}
+          components: clippy
       - name: Install dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install capnproto ${{ matrix.target.gcc }}
+          apt-get -y install capnproto ${{ matrix.target.gcc }}
       - name: Cargo build
         run: cargo build --target=${{ matrix.target.rustc }} $CROSS_FEATURES
       - name: Cargo clippy

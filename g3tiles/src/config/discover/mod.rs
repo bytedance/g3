@@ -1,25 +1,15 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::path::Path;
 
-use anyhow::{anyhow, Context};
-use yaml_rust::{yaml, Yaml};
+use anyhow::{Context, anyhow};
+use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::MetricsName;
+use g3_macros::AnyConfig;
+use g3_types::metrics::NodeName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
 mod registry;
@@ -47,47 +37,21 @@ pub(crate) enum DiscoverConfigDiffAction {
 }
 
 pub(crate) trait DiscoverConfig {
-    fn name(&self) -> &MetricsName;
+    fn name(&self) -> &NodeName;
     fn position(&self) -> Option<YamlDocPosition>;
-    fn discover_type(&self) -> &'static str;
+    fn r#type(&self) -> &'static str;
 
     fn diff_action(&self, new: &AnyDiscoverConfig) -> DiscoverConfigDiffAction;
 }
 
-#[derive(Clone)]
+#[derive(Clone, AnyConfig)]
+#[def_fn(name, &NodeName)]
+#[def_fn(r#type, &'static str)]
+#[def_fn(position, Option<YamlDocPosition>)]
+#[def_fn(diff_action, &Self, DiscoverConfigDiffAction)]
 pub(crate) enum AnyDiscoverConfig {
     StaticAddr(static_addr::StaticAddrDiscoverConfig),
     HostResolver(host_resolver::HostResolverDiscoverConfig),
-}
-
-macro_rules! impl_transparent0 {
-    ($f:tt, $v:ty) => {
-        pub(crate) fn $f(&self) -> $v {
-            match self {
-                AnyDiscoverConfig::StaticAddr(d) => d.$f(),
-                AnyDiscoverConfig::HostResolver(d) => d.$f(),
-            }
-        }
-    };
-}
-
-macro_rules! impl_transparent1 {
-    ($f:tt, $v:ty, $p:ty) => {
-        pub(crate) fn $f(&self, p: $p) -> $v {
-            match self {
-                AnyDiscoverConfig::StaticAddr(d) => d.$f(p),
-                AnyDiscoverConfig::HostResolver(d) => d.$f(p),
-            }
-        }
-    };
-}
-
-impl AnyDiscoverConfig {
-    impl_transparent0!(name, &MetricsName);
-    impl_transparent0!(discover_type, &'static str);
-    impl_transparent0!(position, Option<YamlDocPosition>);
-
-    impl_transparent1!(diff_action, DiscoverConfigDiffAction, &Self);
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {

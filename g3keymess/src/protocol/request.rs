@@ -1,22 +1,10 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
 
-use openssl::encrypt::Decrypter;
 use openssl::hash::MessageDigest;
 use openssl::md::Md;
 use openssl::nid::Nid;
@@ -282,11 +270,11 @@ impl KeylessRequest {
     }
 
     pub(crate) fn find_key(&self) -> Result<PKey<Private>, KeylessErrorResponse> {
-        if !self.ski.is_empty() {
-            if let Some(k) = crate::store::get_by_ski(&self.ski) {
-                self.check_payload_for_key_size(k.size())?;
-                return Ok(k);
-            }
+        if !self.ski.is_empty()
+            && let Some(k) = crate::store::get_by_ski(&self.ski)
+        {
+            self.check_payload_for_key_size(k.size())?;
+            return Ok(k);
         }
         Err(KeylessErrorResponse::new(self.id).key_not_found())
     }
@@ -300,13 +288,12 @@ impl KeylessRequest {
         let mut data_rsp = KeylessDataResponse::new(self.id, key_size);
         match self.action {
             KeylessAction::RsaDecrypt(p) => {
-                let mut decrypter = Decrypter::new(key).map_err(|_| err_rsp.crypto_fail())?;
-                decrypter
-                    .set_rsa_padding(p)
-                    .map_err(|_| err_rsp.crypto_fail())?;
+                let mut ctx = PkeyCtx::new(key).map_err(|_| err_rsp.crypto_fail())?;
+                ctx.decrypt_init().map_err(|_| err_rsp.crypto_fail())?;
+                ctx.set_rsa_padding(p).map_err(|_| err_rsp.crypto_fail())?;
 
-                let len = decrypter
-                    .decrypt(&self.payload, data_rsp.payload_data_mut())
+                let len = ctx
+                    .decrypt(&self.payload, Some(data_rsp.payload_data_mut()))
                     .map_err(|_| err_rsp.crypto_fail())?;
                 data_rsp.finalize_payload(len);
                 Ok(data_rsp)

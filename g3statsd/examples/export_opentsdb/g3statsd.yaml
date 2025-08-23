@@ -1,0 +1,26 @@
+runtime:
+  thread_number: 2
+
+worker:
+  thread_number: 2
+
+importer:
+  - name: statsd
+    type: statsd
+    collector: aggregate_1s
+    listen: 127.0.0.1:8125
+
+collector:
+  - name: aggregate_1s
+    type: aggregate
+    emit_interval: 1s
+    join_tags:
+      - stat_id
+    exporter: opentsdb
+
+exporter:
+  - name: opentsdb
+    type: opentsdb
+    server: 127.0.0.1
+    port: 4242
+    prefix: g3.example

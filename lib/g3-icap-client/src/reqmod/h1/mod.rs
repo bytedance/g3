@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
@@ -25,7 +14,7 @@ use tokio::time::Instant;
 
 use g3_http::server::HttpAdaptedRequest;
 use g3_http::{HttpBodyReader, HttpBodyType};
-use g3_io_ext::{IdleCheck, LimitedCopyConfig};
+use g3_io_ext::{IdleCheck, StreamCopyConfig};
 use g3_types::net::HttpHeaderMap;
 
 use super::IcapReqmodClient;
@@ -53,8 +42,9 @@ pub trait HttpRequestForAdaptation {
     fn method(&self) -> &Method;
     fn body_type(&self) -> Option<HttpBodyType>;
     fn serialize_for_adapter(&self) -> Vec<u8>;
-    fn append_trailer_header(&self, buf: &mut Vec<u8>);
-    fn adapt_to(&self, other: HttpAdaptedRequest) -> Self;
+    fn append_upgrade_header(&self, buf: &mut Vec<u8>);
+    fn adapt_with_body(&self, other: HttpAdaptedRequest) -> Self;
+    fn adapt_without_body(&self, other: HttpAdaptedRequest) -> Self;
 }
 
 #[allow(async_fn_in_trait)]
@@ -65,7 +55,7 @@ pub trait HttpRequestUpstreamWriter<H: HttpRequestForAdaptation>: AsyncWrite {
 impl IcapReqmodClient {
     pub async fn h1_adapter<I: IdleCheck>(
         &self,
-        copy_config: LimitedCopyConfig,
+        copy_config: StreamCopyConfig,
         http_body_line_max_size: usize,
         http_req_add_no_via_header: bool,
         idle_checker: I,
@@ -90,7 +80,7 @@ pub struct HttpRequestAdapter<I: IdleCheck> {
     icap_client: Arc<IcapServiceClient>,
     icap_connection: IcapClientConnection,
     icap_options: Arc<IcapServiceOptions>,
-    copy_config: LimitedCopyConfig,
+    copy_config: StreamCopyConfig,
     http_body_line_max_size: usize,
     http_req_add_no_via_header: bool,
     idle_checker: I,
@@ -104,7 +94,6 @@ pub struct ReqmodAdaptationRunState {
     pub dur_ups_send_all: Option<Duration>,
     pub clt_read_finished: bool,
     pub ups_write_finished: bool,
-    pub(crate) icap_io_finished: bool,
     pub(crate) respond_shared_headers: Option<HttpHeaderMap>,
 }
 
@@ -116,7 +105,6 @@ impl ReqmodAdaptationRunState {
             dur_ups_send_all: None,
             clt_read_finished: false,
             ups_write_finished: false,
-            icap_io_finished: false,
             respond_shared_headers: None,
         }
     }
@@ -158,6 +146,13 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         }
     }
 
+    fn preview_size(&self) -> Option<usize> {
+        if self.icap_client.config.disable_preview {
+            return None;
+        }
+        self.icap_options.preview_size
+    }
+
     pub async fn xfer<H, CR, UW>(
         self,
         state: &mut ReqmodAdaptationRunState,
@@ -176,7 +171,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                     "no client http body io supplied while body type is not none",
                 ));
             };
-            if let Some(preview_size) = self.icap_options.preview_size {
+            if let Some(preview_size) = self.preview_size() {
                 self.xfer_with_preview(
                     state,
                     http_request,
@@ -217,13 +212,14 @@ pub struct ReqmodRecvHttpResponseBody {
 }
 
 impl ReqmodRecvHttpResponseBody {
-    pub fn body_reader(&mut self) -> HttpBodyReader<'_, impl AsyncBufRead> {
-        HttpBodyReader::new_chunked(&mut self.icap_connection.1, 1024)
+    pub fn body_reader(&mut self) -> HttpBodyReader<'_, impl AsyncBufRead + use<>> {
+        HttpBodyReader::new_chunked(&mut self.icap_connection.reader, 1024)
     }
 
-    pub async fn save_connection(self) {
+    pub async fn save_connection(mut self) {
         if self.icap_keepalive {
-            self.icap_client.save_connection(self.icap_connection).await;
+            self.icap_connection.mark_reader_finished();
+            self.icap_client.save_connection(self.icap_connection);
         }
     }
 }

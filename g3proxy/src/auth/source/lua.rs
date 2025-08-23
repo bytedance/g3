@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::path::{Path, PathBuf};
@@ -22,8 +11,10 @@ use anyhow::anyhow;
 use log::warn;
 use mlua::{Function, Lua, Value};
 
-use crate::config::auth::source::lua::UserDynamicLuaSource;
 use crate::config::auth::UserConfig;
+use crate::config::auth::source::lua::UserDynamicLuaSource;
+
+const LUA_GLOBAL_VAR_FILE: &str = "__file__";
 
 pub(super) async fn fetch_records(
     source: &Arc<UserDynamicLuaSource>,
@@ -130,6 +121,16 @@ async fn call_lua_fetch(script: PathBuf) -> anyhow::Result<String> {
 
     tokio::task::spawn_blocking(move || {
         let lua = unsafe { Lua::unsafe_new() };
+        let globals = lua.globals();
+        globals
+            .set(LUA_GLOBAL_VAR_FILE, script.display().to_string())
+            .map_err(|e| {
+                anyhow!(
+                    "failed to set {} to {}: {e}",
+                    LUA_GLOBAL_VAR_FILE,
+                    script.display()
+                )
+            })?;
         let code = lua.load(&code);
         code.eval::<String>()
             .map_err(|e| anyhow!("failed to run lua fetch script {}: {e}", script.display()))
@@ -148,16 +149,26 @@ async fn call_lua_report_ok(script: PathBuf) -> anyhow::Result<()> {
 
     tokio::task::spawn_blocking(move || {
         let lua = unsafe { Lua::unsafe_new() };
+        let globals = lua.globals();
+        globals
+            .set(LUA_GLOBAL_VAR_FILE, script.display().to_string())
+            .map_err(|e| {
+                anyhow!(
+                    "failed to set {} to {}: {e}",
+                    LUA_GLOBAL_VAR_FILE,
+                    script.display()
+                )
+            })?;
         lua.load(&code)
             .exec()
             .map_err(|e| anyhow!("failed to load lua report script {}: {e}", script.display()))?;
 
         let report_ok = lua
             .globals()
-            .get::<_, Function>("reportOk")
+            .get::<Function>("reportOk")
             .map_err(|e| anyhow!("failed to load reportOk function: {e}"))?;
         report_ok
-            .call::<_, ()>(Value::Nil)
+            .call::<()>(Value::Nil)
             .map_err(|e| anyhow!("failed to call reportOk: {e}"))?;
         Ok(())
     })
@@ -175,16 +186,26 @@ async fn call_lua_report_err(script: PathBuf, e: String) -> anyhow::Result<()> {
 
     tokio::task::spawn_blocking(move || {
         let lua = unsafe { Lua::unsafe_new() };
+        let globals = lua.globals();
+        globals
+            .set(LUA_GLOBAL_VAR_FILE, script.display().to_string())
+            .map_err(|e| {
+                anyhow!(
+                    "failed to set {} to {}: {e}",
+                    LUA_GLOBAL_VAR_FILE,
+                    script.display()
+                )
+            })?;
         lua.load(&code)
             .exec()
             .map_err(|e| anyhow!("failed to load lua report script {}: {e}", script.display()))?;
 
         let report_err = lua
             .globals()
-            .get::<_, Function>("reportErr")
+            .get::<Function>("reportErr")
             .map_err(|e| anyhow!("failed to load reportErr function: {e}"))?;
         report_err
-            .call::<_, ()>(e)
+            .call::<()>(e)
             .map_err(|e| anyhow!("failed to call reportErr: {e}"))?;
         Ok(())
     })

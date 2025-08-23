@@ -1,33 +1,23 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::HashSet;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_recursion::async_recursion;
 use log::{debug, warn};
 use tokio::sync::Mutex;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::registry;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfigDiffAction};
 use crate::escape::ArcEscaper;
 
+use super::comply_audit::ComplyAuditEscaper;
 use super::direct_fixed::DirectFixedEscaper;
 use super::direct_float::DirectFloatEscaper;
 use super::divert_tcp::DivertTcpEscaper;
@@ -36,6 +26,7 @@ use super::proxy_float::ProxyFloatEscaper;
 use super::proxy_http::ProxyHttpEscaper;
 use super::proxy_https::ProxyHttpsEscaper;
 use super::proxy_socks5::ProxySocks5Escaper;
+use super::proxy_socks5s::ProxySocks5sEscaper;
 use super::route_client::RouteClientEscaper;
 use super::route_failover::RouteFailoverEscaper;
 use super::route_geoip::RouteGeoIpEscaper;
@@ -51,7 +42,7 @@ static ESCAPER_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 pub async fn load_all() -> anyhow::Result<()> {
     let _guard = ESCAPER_OPS_LOCK.lock().await;
 
-    let mut new_names = HashSet::<MetricsName>::new();
+    let mut new_names = HashSet::<NodeName>::new();
 
     let all_config = crate::config::escaper::get_all_sorted()?;
     for config in all_config {
@@ -82,7 +73,7 @@ pub async fn load_all() -> anyhow::Result<()> {
     Ok(())
 }
 
-pub(crate) fn get_escaper(name: &MetricsName) -> anyhow::Result<ArcEscaper> {
+pub(crate) fn get_escaper(name: &NodeName) -> anyhow::Result<ArcEscaper> {
     match registry::get_escaper(name) {
         Some(server) => Ok(server),
         None => Err(anyhow!("no escaper named {name} found")),
@@ -90,7 +81,7 @@ pub(crate) fn get_escaper(name: &MetricsName) -> anyhow::Result<ArcEscaper> {
 }
 
 pub(crate) async fn reload(
-    name: &MetricsName,
+    name: &NodeName,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<()> {
     let _guard = ESCAPER_OPS_LOCK.lock().await;
@@ -131,10 +122,10 @@ pub(crate) async fn reload(
     Ok(())
 }
 
-pub(crate) async fn update_dependency_to_resolver(resolver: &MetricsName, status: &str) {
+pub(crate) async fn update_dependency_to_resolver(resolver: &NodeName, status: &str) {
     let _guard = ESCAPER_OPS_LOCK.lock().await;
 
-    let mut names = Vec::<MetricsName>::new();
+    let mut names = Vec::<NodeName>::new();
 
     registry::foreach(|name, escaper| {
         if escaper._resolver().eq(resolver) {
@@ -155,15 +146,39 @@ pub(crate) async fn update_dependency_to_resolver(resolver: &MetricsName, status
     }
 }
 
-#[async_recursion]
-async fn update_dependency_to_escaper_unlocked(target: &MetricsName, status: &str) {
-    let mut names = Vec::<MetricsName>::new();
+pub(crate) async fn update_dependency_to_auditor(auditor: &NodeName, status: &str) {
+    let _guard = ESCAPER_OPS_LOCK.lock().await;
+
+    let mut names = Vec::<NodeName>::new();
 
     registry::foreach(|name, escaper| {
-        if let Some(set) = escaper._dependent_escaper() {
-            if set.contains(target) {
-                names.push(name.clone())
-            }
+        if let Some(dep_auditor) = escaper._auditor()
+            && dep_auditor.eq(auditor)
+        {
+            names.push(name.clone());
+        }
+    });
+
+    if names.is_empty() {
+        return;
+    }
+
+    debug!("auditor {auditor} changed({status}), will reload escaper(s) {names:?}");
+    for name in names.iter() {
+        debug!("escaper {name}: will reload as it's using auditor {auditor}");
+        if let Err(e) = reload_existed_unlocked(name, None).await {
+            warn!("failed to reload escaper {name}: {e:?}");
+        }
+    }
+}
+
+#[async_recursion]
+async fn update_dependency_to_escaper_unlocked(target: &NodeName, status: &str) {
+    let mut names = Vec::<NodeName>::new();
+
+    registry::foreach(|name, escaper| {
+        if escaper._depend_on_escaper(target) {
+            names.push(name.clone());
         }
     });
 
@@ -198,14 +213,10 @@ async fn reload_unlocked(old: AnyEscaperConfig, new: AnyEscaperConfig) -> anyhow
             debug!("escaper {name} reload: will reload from existed");
             reload_existed_unlocked(name, Some(new)).await
         }
-        EscaperConfigDiffAction::UpdateInPlace(flags) => {
-            debug!("escaper {name} reload: will update the existed in place");
-            registry::update_config_in_place(name, flags, new)
-        }
     }
 }
 
-async fn delete_existed_unlocked(name: &MetricsName) {
+async fn delete_existed_unlocked(name: &NodeName) {
     const STATUS: &str = "deleted";
 
     registry::del(name);
@@ -214,12 +225,12 @@ async fn delete_existed_unlocked(name: &MetricsName) {
 }
 
 async fn reload_existed_unlocked(
-    name: &MetricsName,
+    name: &NodeName,
     new: Option<AnyEscaperConfig>,
 ) -> anyhow::Result<()> {
     const STATUS: &str = "reloaded";
 
-    registry::reload_existed(name, new).await?;
+    registry::reload_existed(name, new)?;
     update_dependency_to_escaper_unlocked(name, STATUS).await;
     crate::serve::update_dependency_to_escaper(name, STATUS).await;
     Ok(())
@@ -230,19 +241,21 @@ async fn spawn_new_unlocked(config: AnyEscaperConfig) -> anyhow::Result<()> {
 
     let name = config.name().clone();
     let escaper = match config {
-        AnyEscaperConfig::DirectFixed(c) => DirectFixedEscaper::prepare_initial(*c)?,
-        AnyEscaperConfig::DirectFloat(c) => DirectFloatEscaper::prepare_initial(*c).await?,
+        AnyEscaperConfig::ComplyAudit(c) => ComplyAuditEscaper::prepare_initial(c)?,
+        AnyEscaperConfig::DirectFixed(c) => DirectFixedEscaper::prepare_initial(c)?,
+        AnyEscaperConfig::DirectFloat(c) => DirectFloatEscaper::prepare_initial(c).await?,
         AnyEscaperConfig::DivertTcp(c) => DivertTcpEscaper::prepare_initial(c)?,
         AnyEscaperConfig::DummyDeny(c) => DummyDenyEscaper::prepare_initial(c)?,
         AnyEscaperConfig::ProxyFloat(c) => ProxyFloatEscaper::prepare_initial(c).await?,
-        AnyEscaperConfig::ProxyHttp(c) => ProxyHttpEscaper::prepare_initial(*c)?,
-        AnyEscaperConfig::ProxyHttps(c) => ProxyHttpsEscaper::prepare_initial(*c)?,
+        AnyEscaperConfig::ProxyHttp(c) => ProxyHttpEscaper::prepare_initial(c)?,
+        AnyEscaperConfig::ProxyHttps(c) => ProxyHttpsEscaper::prepare_initial(c)?,
         AnyEscaperConfig::ProxySocks5(c) => ProxySocks5Escaper::prepare_initial(c)?,
+        AnyEscaperConfig::ProxySocks5s(c) => ProxySocks5sEscaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteFailover(c) => RouteFailoverEscaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteResolved(c) => RouteResolvedEscaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteGeoIp(c) => RouteGeoIpEscaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteMapping(c) => RouteMappingEscaper::prepare_initial(c)?,
-        AnyEscaperConfig::RouteQuery(c) => RouteQueryEscaper::prepare_initial(c).await?,
+        AnyEscaperConfig::RouteQuery(c) => RouteQueryEscaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteSelect(c) => RouteSelectEscaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteUpstream(c) => RouteUpstreamEscaper::prepare_initial(c)?,
         AnyEscaperConfig::RouteClient(c) => RouteClientEscaper::prepare_initial(c)?,

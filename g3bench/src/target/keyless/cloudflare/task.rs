@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
@@ -95,7 +84,8 @@ impl KeylessCloudflareTaskContext {
         self.runtime_stats.add_conn_attempt();
         let handle = match tokio::time::timeout(
             self.args.connect_timeout,
-            self.args.new_multiplex_keyless_connection(&self.proc_args),
+            self.args
+                .new_multiplex_keyless_connection(&self.runtime_stats, &self.proc_args),
         )
         .await
         {
@@ -110,11 +100,11 @@ impl KeylessCloudflareTaskContext {
     }
 
     async fn fetch_simplex_connection(&mut self) -> anyhow::Result<SimplexTransfer> {
-        if let Some(mut c) = self.simplex.take() {
-            if !c.is_closed() {
-                self.reuse_conn_count += 1;
-                return Ok(c);
-            }
+        if let Some(mut c) = self.simplex.take()
+            && !c.is_closed()
+        {
+            self.reuse_conn_count += 1;
+            return Ok(c);
         }
 
         if self.reuse_conn_count > 0 {
@@ -126,7 +116,8 @@ impl KeylessCloudflareTaskContext {
         self.runtime_stats.add_conn_attempt();
         match tokio::time::timeout(
             self.args.connect_timeout,
-            self.args.new_simplex_keyless_connection(&self.proc_args),
+            self.args
+                .new_simplex_keyless_connection(&self.runtime_stats, &self.proc_args),
         )
         .await
         {
@@ -208,7 +199,7 @@ impl BenchTaskContext for KeylessCloudflareTaskContext {
                     self.histogram_recorder.record_total_time(total_time);
                     self.args
                         .global
-                        .check_result(task_id, rsp.into_vec())
+                        .check_result(task_id, rsp.into_vec(), &self.proc_args)
                         .map_err(BenchError::Task)
                 }
                 Err(e) => Err(BenchError::Task(e)),
@@ -225,7 +216,7 @@ impl BenchTaskContext for KeylessCloudflareTaskContext {
                     self.histogram_recorder.record_total_time(total_time);
                     self.args
                         .global
-                        .check_result(task_id, rsp.into_vec())
+                        .check_result(task_id, rsp.into_vec(), &self.proc_args)
                         .map_err(BenchError::Task)
                 }
                 Err(e) => {

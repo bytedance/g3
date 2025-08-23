@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io::{IoSlice, Write};
@@ -27,8 +16,9 @@ use super::{
     H2RespmodAdaptationError, H2ResponseAdapter, H2SendResponseToClient, RespmodAdaptationEndState,
     RespmodAdaptationRunState,
 };
-use crate::respmod::response::RespmodResponse;
+use crate::reason::IcapErrorReason;
 use crate::respmod::IcapRespmodResponsePayload;
+use crate::respmod::response::RespmodResponse;
 
 impl<I: IdleCheck> H2ResponseAdapter<I> {
     fn build_header_only_request(
@@ -66,7 +56,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
         let icap_header =
             self.build_header_only_request(http_req_header.len(), http_rsp_header.len());
 
-        let icap_w = &mut self.icap_connection.0;
+        let icap_w = &mut self.icap_connection.writer;
         icap_w
             .write_all_vectored([
                 IoSlice::new(&icap_header),
@@ -79,15 +69,19 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             .flush()
             .await
             .map_err(H2RespmodAdaptationError::IcapServerWriteFailed)?;
+        self.icap_connection.mark_writer_finished();
 
         let rsp = RespmodResponse::parse(
-            &mut self.icap_connection.1,
+            &mut self.icap_connection.reader,
             self.icap_client.config.icap_max_header_size,
         )
         .await?;
 
         match rsp.code {
             204 => {
+                if rsp.payload == IcapRespmodResponsePayload::NoPayload {
+                    self.icap_connection.mark_reader_finished();
+                }
                 self.handle_original_http_response_without_body(
                     state,
                     rsp,
@@ -98,6 +92,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             }
             n if (200..300).contains(&n) => match rsp.payload {
                 IcapRespmodResponsePayload::NoPayload => {
+                    self.icap_connection.mark_reader_finished();
                     self.handle_icap_ok_without_payload(rsp).await
                 }
                 IcapRespmodResponsePayload::HttpResponseWithoutBody(header_size) => {
@@ -122,11 +117,16 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
                 }
             },
             _ => {
-                if rsp.keep_alive && rsp.payload == IcapRespmodResponsePayload::NoPayload {
-                    self.icap_client.save_connection(self.icap_connection).await;
+                if rsp.payload == IcapRespmodResponsePayload::NoPayload {
+                    self.icap_connection.mark_reader_finished();
+                    if rsp.keep_alive && rsp.payload == IcapRespmodResponsePayload::NoPayload {
+                        self.icap_client.save_connection(self.icap_connection);
+                    }
                 }
                 Err(H2RespmodAdaptationError::IcapServerErrorResponse(
-                    rsp.code, rsp.reason,
+                    IcapErrorReason::UnknownResponse,
+                    rsp.code,
+                    rsp.reason,
                 ))
             }
         }

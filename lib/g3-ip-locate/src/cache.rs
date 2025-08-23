@@ -1,29 +1,17 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::hash_map;
-use std::future::Future;
 use std::io;
 use std::net::IpAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
-use ahash::AHashMap;
 use ip_network_table::IpNetworkTable;
+use rustc_hash::FxHashMap;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
@@ -39,7 +27,7 @@ struct CacheValue {
 pub(crate) struct IpLocationCacheRuntime {
     request_batch_handle_count: usize,
     cache: IpNetworkTable<CacheValue>,
-    doing: AHashMap<IpAddr, Vec<CacheQueryRequest>>,
+    doing: FxHashMap<IpAddr, Vec<CacheQueryRequest>>,
     req_receiver: mpsc::UnboundedReceiver<CacheQueryRequest>,
     rsp_receiver: mpsc::UnboundedReceiver<(Option<IpAddr>, IpLocationCacheResponse)>,
     query_sender: mpsc::UnboundedSender<IpAddr>,
@@ -55,7 +43,7 @@ impl IpLocationCacheRuntime {
         IpLocationCacheRuntime {
             request_batch_handle_count: config.cache_request_batch_count,
             cache: IpNetworkTable::new(),
-            doing: AHashMap::new(),
+            doing: FxHashMap::default(),
             req_receiver,
             rsp_receiver,
             query_sender,
@@ -67,11 +55,11 @@ impl IpLocationCacheRuntime {
             let net = location.network_addr();
             let location = Arc::new(location);
 
-            if let Some(ip) = ip {
-                if let Some(vec) = self.doing.remove(&ip) {
-                    for req in vec.into_iter() {
-                        let _ = req.notifier.send(location.clone());
-                    }
+            if let Some(ip) = ip
+                && let Some(vec) = self.doing.remove(&ip)
+            {
+                for req in vec.into_iter() {
+                    let _ = req.notifier.send(location.clone());
                 }
             }
 
@@ -85,11 +73,11 @@ impl IpLocationCacheRuntime {
             );
         } else if let Some(ip) = ip {
             // if no new value found, just use the old expired value
-            if let Some((_net, v)) = self.cache.longest_match(ip) {
-                if let Some(vec) = self.doing.remove(&ip) {
-                    for req in vec.into_iter() {
-                        let _ = req.notifier.send(v.location.clone());
-                    }
+            if let Some((_net, v)) = self.cache.longest_match(ip)
+                && let Some(vec) = self.doing.remove(&ip)
+            {
+                for req in vec.into_iter() {
+                    let _ = req.notifier.send(v.location.clone());
                 }
             }
         }
@@ -103,11 +91,11 @@ impl IpLocationCacheRuntime {
     }
 
     fn handle_req(&mut self, req: CacheQueryRequest) {
-        if let Some((_net, v)) = self.cache.longest_match(req.ip) {
-            if v.valid_before >= Instant::now() {
-                let _ = req.notifier.send(v.location.clone());
-                return;
-            }
+        if let Some((_net, v)) = self.cache.longest_match(req.ip)
+            && v.valid_before >= Instant::now()
+        {
+            let _ = req.notifier.send(v.location.clone());
+            return;
         }
 
         match self.doing.entry(req.ip) {

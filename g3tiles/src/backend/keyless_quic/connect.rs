@@ -1,32 +1,22 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::borrow::Cow;
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::anyhow;
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
-use quinn::{ClientConfig, Connection, Endpoint, TokioRuntime};
+use quinn::{ClientConfig, Connection, Endpoint, TokioRuntime, TransportConfig};
 use tokio::sync::broadcast;
 use tokio::time::Instant;
 
+use g3_std_ext::time::DurationExt;
 use g3_types::collection::{SelectiveVec, WeightedValue};
-use g3_types::ext::DurationExt;
 use g3_types::net::RustlsQuicClientConfig;
 
 use crate::config::backend::keyless_quic::KeylessQuicBackendConfig;
@@ -41,6 +31,7 @@ pub(super) struct KeylessQuicUpstreamConnector {
     duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
     peer_addrs: Arc<ArcSwapOption<SelectiveVec<WeightedValue<SocketAddr>>>>,
     tls_client: RustlsQuicClientConfig,
+    quic_transport: Arc<TransportConfig>,
 }
 
 impl KeylessQuicUpstreamConnector {
@@ -51,12 +42,14 @@ impl KeylessQuicUpstreamConnector {
         peer_addrs_container: Arc<ArcSwapOption<SelectiveVec<WeightedValue<SocketAddr>>>>,
     ) -> anyhow::Result<Self> {
         let tls_client = config.tls_client.build_quic()?;
+        let quic_transport = config.quic_transport.build_for_client();
         Ok(KeylessQuicUpstreamConnector {
             config,
             stats,
             duration_recorder,
             peer_addrs: peer_addrs_container,
             tls_client,
+            quic_transport: Arc::new(quic_transport),
         })
     }
 
@@ -72,7 +65,7 @@ impl KeylessQuicUpstreamConnector {
 
         let socket = g3_socket::udp::new_std_socket_to(
             peer,
-            None,
+            &Default::default(),
             self.config.socket_buffer,
             Default::default(),
         )
@@ -84,7 +77,8 @@ impl KeylessQuicUpstreamConnector {
         let endpoint = Endpoint::new(Default::default(), None, socket, Arc::new(TokioRuntime))
             .map_err(|e| anyhow!("failed to create quic endpoint: {e}"))?;
 
-        let client_config = ClientConfig::new(self.tls_client.driver.clone());
+        let mut client_config = ClientConfig::new(self.tls_client.driver.clone());
+        client_config.transport_config(self.quic_transport.clone());
         let tls_name = self
             .config
             .tls_name
@@ -111,8 +105,9 @@ impl KeylessUpstreamConnect for KeylessQuicUpstreamConnector {
 
     async fn new_connection(
         &self,
-        req_receiver: flume::Receiver<KeylessForwardRequest>,
+        req_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
         quit_notifier: broadcast::Receiver<()>,
+        idle_timeout: Duration,
     ) -> anyhow::Result<Self::Connection> {
         let start = Instant::now();
         let conn = self.connect().await?;
@@ -136,7 +131,7 @@ impl KeylessUpstreamConnect for KeylessQuicUpstreamConnector {
                 quit_notifier.resubscribe(),
             );
             tokio::spawn(async move {
-                let _ = connection.run().await;
+                let _ = connection.run(idle_timeout).await;
             });
         }
 
@@ -153,7 +148,7 @@ pub(crate) struct KeylessQuicUpstreamConnection {
 }
 
 impl KeylessUpstreamConnection for KeylessQuicUpstreamConnection {
-    async fn run(mut self) -> anyhow::Result<()> {
+    async fn run(mut self, _idle_timeout: Duration) -> anyhow::Result<()> {
         tokio::select! {
             e = self.c.closed() => {
                 Err(anyhow::Error::new(e))

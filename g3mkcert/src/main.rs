@@ -1,29 +1,18 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use clap::builder::ArgPredicate;
-use clap::{value_parser, Arg, ArgAction, ArgGroup, ArgMatches, Command, ValueHint};
+use clap::{Arg, ArgAction, ArgGroup, ArgMatches, Command, ValueHint, value_parser};
 use clap_complete::Shell;
 use openssl::pkey::{PKey, Private};
 use openssl::x509::extension::SubjectAlternativeName;
-use openssl::x509::{X509Name, X509};
+use openssl::x509::{X509, X509Name};
 
 use g3_tls_cert::builder::{
     ClientCertBuilder, IntermediateCertBuilder, MimicCertBuilder, RootCertBuilder,
@@ -79,7 +68,9 @@ const ARG_GROUP_ALGORITHM: &str = "algorithm";
 
 fn main() -> anyhow::Result<()> {
     #[cfg(feature = "openssl-probe")]
-    openssl_probe::init_ssl_cert_env_vars();
+    unsafe {
+        openssl_probe::init_openssl_env_vars();
+    }
     openssl::init();
 
     let args = build_cli_args().get_matches();

@@ -1,23 +1,12 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use log::debug;
@@ -33,16 +22,20 @@ use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_io_ext::haproxy::{ProxyProtocolV1Reader, ProxyProtocolV2Reader};
 use g3_openssl::{SslAcceptor, SslStream};
 use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::metrics::MetricsName;
-use g3_types::net::{OpensslServerConfig, ProxyProtocolVersion};
+use g3_types::metrics::NodeName;
+use g3_types::net::{OpensslServerConfig, OpensslTicketKey, ProxyProtocolVersion, RollingTicketer};
 
 use crate::config::server::native_tls_port::NativeTlsPortConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
-use crate::serve::{ArcServer, Server, ServerInternal, ServerQuitPolicy, WrapArcServer};
+use crate::serve::{
+    ArcServer, ArcServerInternal, Server, ServerInternal, ServerQuitPolicy, ServerRegistry,
+    WrapArcServer,
+};
 
 pub(crate) struct NativeTlsPort {
     config: NativeTlsPortConfig,
     listen_stats: Arc<ListenStats>,
+    tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     tls_server_config: OpensslServerConfig,
     ingress_net_filter: Option<AclNetworkRule>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
@@ -53,16 +46,21 @@ pub(crate) struct NativeTlsPort {
 }
 
 impl NativeTlsPort {
-    fn new(
+    fn new<F>(
         config: NativeTlsPortConfig,
         listen_stats: Arc<ListenStats>,
+        tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         reload_version: usize,
-    ) -> anyhow::Result<Self> {
+        mut fetch_server: F,
+    ) -> anyhow::Result<Self>
+    where
+        F: FnMut(&NodeName) -> ArcServer,
+    {
         let reload_sender = crate::serve::new_reload_notify_channel();
 
         let tls_server_config = if let Some(builder) = &config.server_tls_config {
             builder
-                .build()
+                .build_with_ticketer(tls_rolling_ticketer.clone())
                 .context("failed to build tls server config")?
         } else {
             return Err(anyhow!("no tls server config set"));
@@ -73,11 +71,12 @@ impl NativeTlsPort {
             .as_ref()
             .map(|builder| builder.build());
 
-        let next_server = Arc::new(crate::serve::get_or_insert_default(&config.server));
+        let next_server = Arc::new(fetch_server(&config.server));
 
         Ok(NativeTlsPort {
             config,
             listen_stats,
+            tls_rolling_ticketer,
             tls_server_config,
             ingress_net_filter,
             reload_sender,
@@ -87,23 +86,61 @@ impl NativeTlsPort {
         })
     }
 
-    pub(crate) fn prepare_initial(config: NativeTlsPortConfig) -> anyhow::Result<ArcServer> {
+    pub(crate) fn prepare_initial(
+        config: NativeTlsPortConfig,
+    ) -> anyhow::Result<ArcServerInternal> {
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-        let server = NativeTlsPort::new(config, listen_stats, 1)?;
+        let tls_rolling_ticketer = if let Some(c) = &config.tls_ticketer {
+            let ticketer = c
+                .build_and_spawn_updater()
+                .context("failed to create tls rolling ticketer")?;
+            Some(ticketer)
+        } else {
+            None
+        };
+
+        let server = NativeTlsPort::new(
+            config,
+            listen_stats,
+            tls_rolling_ticketer,
+            1,
+            crate::serve::get_or_insert_default,
+        )?;
         Ok(Arc::new(server))
     }
 
-    fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<NativeTlsPort> {
+    fn prepare_reload(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<NativeTlsPort> {
         if let AnyServerConfig::NativeTlsPort(config) = config {
             let listen_stats = Arc::clone(&self.listen_stats);
 
-            NativeTlsPort::new(config, listen_stats, self.reload_version + 1)
+            let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
+                self.tls_rolling_ticketer.clone()
+            } else if let Some(c) = &config.tls_ticketer {
+                let ticketer = c
+                    .build_and_spawn_updater()
+                    .context("failed to create tls rolling ticketer")?;
+                Some(ticketer)
+            } else {
+                None
+            };
+
+            NativeTlsPort::new(
+                config,
+                listen_stats,
+                tls_rolling_ticketer,
+                self.reload_version + 1,
+                |name| registry.get_or_insert_default(name),
+            )
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
-                self.config.server_type(),
-                config.server_type()
+                self.config.r#type(),
+                config.r#type()
             ))
         }
     }
@@ -159,14 +196,13 @@ impl NativeTlsPort {
             None => {}
         }
 
-        let Ok(ssl_acceptor) = SslAcceptor::new(ssl, stream) else {
+        let Ok(ssl_acceptor) = SslAcceptor::new(ssl, stream, self.tls_server_config.accept_timeout)
+        else {
             self.listen_stats.add_dropped();
             return;
         };
-        match tokio::time::timeout(self.tls_server_config.accept_timeout, ssl_acceptor.accept())
-            .await
-        {
-            Ok(Ok(ssl_stream)) => {
+        match ssl_acceptor.accept().await {
+            Ok(ssl_stream) => {
                 if ssl_stream.ssl().session_reused() {
                     // Quick ACK is needed with session resumption
                     cc_info.tcp_sock_try_quick_ack();
@@ -174,19 +210,10 @@ impl NativeTlsPort {
                 let next_server = self.next_server.load().as_ref().clone();
                 next_server.run_openssl_task(ssl_stream, cc_info).await
             }
-            Ok(Err(e)) => {
+            Err(e) => {
                 self.listen_stats.add_failed();
                 debug!(
                     "{} - {} tls error: {e:?}",
-                    cc_info.sock_local_addr(),
-                    cc_info.sock_peer_addr()
-                );
-                // TODO record tls failure and add some sec policy
-            }
-            Err(_) => {
-                self.listen_stats.add_timeout();
-                debug!(
-                    "{} - {} tls timeout",
                     cc_info.sock_local_addr(),
                     cc_info.sock_peer_addr()
                 );
@@ -201,11 +228,7 @@ impl ServerInternal for NativeTlsPort {
         AnyServerConfig::NativeTlsPort(self.config.clone())
     }
 
-    fn _update_config_in_place(&self, _flags: u64, _config: AnyServerConfig) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn _depend_on_server(&self, name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, name: &NodeName) -> bool {
         self.config.server.eq(name)
     }
 
@@ -225,20 +248,28 @@ impl ServerInternal for NativeTlsPort {
         Ok(())
     }
 
-    fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
-        let mut server = self.prepare_reload(config)?;
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServerInternal> {
+        let mut server = self.prepare_reload(config, registry)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
-        let server = self.prepare_reload(config)?;
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyServerConfig,
+        registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServerInternal> {
+        let server = self.prepare_reload(config, registry)?;
         Ok(Arc::new(server))
     }
 
-    fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()> {
-        let runtime =
-            ListenTcpRuntime::new(WrapArcServer(server.clone()), server.get_listen_stats());
+    fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {
+        let listen_stats = server.get_listen_stats();
+        let runtime = ListenTcpRuntime::new(WrapArcServer(server), listen_stats);
         runtime.run_all_instances(
             &self.config.listen,
             self.config.listen_in_worker,
@@ -253,13 +284,13 @@ impl ServerInternal for NativeTlsPort {
 
 impl BaseServer for NativeTlsPort {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
     #[inline]
-    fn server_type(&self) -> &'static str {
-        self.config.server_type()
+    fn r#type(&self) -> &'static str {
+        self.config.r#type()
     }
 
     #[inline]
@@ -288,15 +319,15 @@ impl AcceptQuicServer for NativeTlsPort {
 
 #[async_trait]
 impl Server for NativeTlsPort {
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         Default::default()
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         Default::default()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         Default::default()
     }
 

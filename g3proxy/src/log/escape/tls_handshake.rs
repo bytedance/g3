@@ -1,20 +1,9 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use slog::{slog_info, Logger};
+use slog::{Logger, slog_info};
 use uuid::Uuid;
 
 use g3_slog_types::{LtDateTime, LtHost, LtIpAddr, LtUpstreamAddr, LtUuid};
@@ -23,6 +12,7 @@ use g3_types::net::{Host, UpstreamAddr};
 use crate::module::tcp_connect::TcpConnectTaskNotes;
 
 pub(crate) struct EscapeLogForTlsHandshake<'a> {
+    pub(crate) upstream: &'a UpstreamAddr,
     pub(crate) tcp_notes: &'a TcpConnectTaskNotes,
     pub(crate) task_id: &'a Uuid,
     pub(crate) tls_name: &'a Host,
@@ -51,8 +41,8 @@ impl EscapeLogForTlsHandshake<'_> {
         slog_info!(logger, "{:?}", e;
             "escape_type" => "TlsHandshake",
             "task_id" => LtUuid(self.task_id),
-            "upstream" => LtUpstreamAddr(&self.tcp_notes.upstream),
-            "next_bind_ip" => self.tcp_notes.bind.map(LtIpAddr),
+            "upstream" => LtUpstreamAddr(self.upstream),
+            "next_bind_ip" => self.tcp_notes.bind.ip().map(LtIpAddr),
             "next_bound_addr" => self.tcp_notes.local,
             "next_peer_addr" => self.tcp_notes.next,
             "next_expire" => self.tcp_notes.expire.as_ref().map(LtDateTime),

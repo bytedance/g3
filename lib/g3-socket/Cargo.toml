@@ -1,17 +1,24 @@
 [package]
 name = "g3-socket"
-version = "0.4.0"
+version = "0.6.0"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.75.0"
+rust-version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 tokio = { workspace = true, features = ["net"] }
-socket2 = { version = "0.5", features = ["all"] }
+socket2 = { version = "0.6", features = ["all"] }
 fastrand.workspace = true
+g3-compat.workspace = true
 g3-types.workspace = true
 
-[target.'cfg(target_os = "linux")'.dependencies]
+[target.'cfg(unix)'.dependencies]
 libc.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = ["Win32_Networking_WinSock"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }

@@ -1,33 +1,82 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
 use std::net::{SocketAddr, UdpSocket};
 
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "netbsd",
+    target_os = "openbsd",
+    target_os = "solaris",
+))]
+use g3_io_sys::udp::{SendMsgHdr, UdpSocketExt};
+
+use super::SinkBuf;
+
 pub(super) struct UdpMetricsSink {
     addr: SocketAddr,
     socket: UdpSocket,
+    max_segment_size: usize,
 }
 
 impl UdpMetricsSink {
-    pub(super) fn new(addr: SocketAddr, socket: UdpSocket) -> Self {
-        UdpMetricsSink { addr, socket }
+    pub(super) fn new(
+        addr: SocketAddr,
+        socket: UdpSocket,
+        max_segment_size: Option<usize>,
+    ) -> Self {
+        UdpMetricsSink {
+            addr,
+            socket,
+            max_segment_size: max_segment_size.unwrap_or(1400),
+        }
     }
 
-    pub(super) fn send_msg(&self, msg: &[u8]) -> io::Result<usize> {
-        self.socket.send_to(msg, self.addr)
+    #[cfg(not(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "solaris",
+    )))]
+    pub(super) fn send_batch(&self, buf: &mut SinkBuf) -> io::Result<()> {
+        for packet in buf.iter(self.max_segment_size) {
+            self.socket.send_to(packet.as_ref(), self.addr)?;
+        }
+        Ok(())
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd",
+        target_os = "solaris",
+    ))]
+    pub(super) fn send_batch(&self, buf: &mut SinkBuf) -> io::Result<()> {
+        const MAX_BATCH_SIZE: usize = 32;
+
+        let mut hdrs: [SendMsgHdr<'_, 1>; MAX_BATCH_SIZE] = unsafe { std::mem::zeroed() };
+
+        let mut offset = 0usize;
+        for packet in buf.iter(self.max_segment_size) {
+            hdrs[offset] = SendMsgHdr::new([packet], Some(self.addr));
+            offset += 1;
+            if offset >= MAX_BATCH_SIZE {
+                self.socket.batch_sendmsg(&mut hdrs)?;
+                offset = 0;
+            }
+        }
+        if offset > 0 {
+            self.socket.batch_sendmsg(&mut hdrs[..offset])?;
+        }
+        Ok(())
     }
 }

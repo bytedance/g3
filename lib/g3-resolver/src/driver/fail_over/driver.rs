@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
@@ -24,7 +13,7 @@ use crate::config::ResolverRuntimeConfig;
 use crate::message::ResolveDriverResponse;
 use crate::{
     ResolveDriver, ResolveJob, ResolveJobRecvResult, ResolveLocalError, ResolvedRecord,
-    ResolverHandle,
+    ResolvedRecordSource, ResolverHandle,
 };
 
 pub(super) struct FailOverResolver {
@@ -60,12 +49,29 @@ impl FailOverResolverJob {
         }
     }
 
+    fn select_trash_usable(&self, r1: &ResolvedRecord, r2: ResolveJobRecvResult) -> ResolvedRecord {
+        match r2 {
+            Ok((_, ResolvedRecordSource::Trash)) => r1.clone(),
+            Ok((r2, _)) => {
+                if r2.is_usable() {
+                    r2.as_ref().clone()
+                } else {
+                    r1.clone()
+                }
+            }
+            Err(_) => r1.clone(),
+        }
+    }
+
     async fn resolve(mut self, domain: Arc<str>) -> ResolvedRecord {
         let primary = self.primary.take();
         let standby = self.standby.take();
         match (primary, standby) {
             (Some(mut primary), Some(mut standby)) => {
                 match tokio::time::timeout(self.config.fallback_delay, primary.recv()).await {
+                    Ok(Ok((r, ResolvedRecordSource::Trash))) => {
+                        self.select_trash_usable(r.as_ref(), standby.recv().await)
+                    }
                     Ok(Ok((r, _))) => {
                         if self.record_is_valid(&r) {
                             r.as_ref().clone()
@@ -81,6 +87,9 @@ impl FailOverResolverJob {
 
                             r = primary.recv() => {
                                 match r {
+                                    Ok((r, ResolvedRecordSource::Trash)) => {
+                                        self.select_trash_usable(r.as_ref(), standby.recv().await)
+                                    }
                                     Ok((r, _)) => {
                                         if self.record_is_valid(&r) {
                                             r.as_ref().clone()
@@ -95,6 +104,9 @@ impl FailOverResolverJob {
                             }
                             r = standby.recv() => {
                                 match r {
+                                    Ok((r, ResolvedRecordSource::Trash)) => {
+                                        self.select_trash_usable(r.as_ref(), primary.recv().await)
+                                    }
                                     Ok((r, _)) => {
                                         if self.record_is_valid(&r) {
                                             r.as_ref().clone()

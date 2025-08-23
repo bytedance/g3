@@ -1,17 +1,6 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::hash_map;
@@ -20,9 +9,9 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use ahash::AHashMap;
+use rustc_hash::FxHashMap;
 use tokio::sync::{mpsc, oneshot};
-use tokio_util::time::{delay_queue, DelayQueue};
+use tokio_util::time::{DelayQueue, delay_queue};
 
 use g3_geoip_types::IpLocation;
 
@@ -74,7 +63,7 @@ impl IpLocationCacheHandle {
 pub(super) struct IpLocationQueryHandle {
     req_receiver: mpsc::UnboundedReceiver<IpAddr>,
     rsp_sender: mpsc::UnboundedSender<(Option<IpAddr>, IpLocationCacheResponse)>,
-    doing_cache: AHashMap<IpAddr, delay_queue::Key>,
+    doing_cache: FxHashMap<IpAddr, delay_queue::Key>,
     doing_timeout_queue: DelayQueue<IpAddr>,
 }
 
@@ -86,7 +75,7 @@ impl IpLocationQueryHandle {
         IpLocationQueryHandle {
             req_receiver,
             rsp_sender,
-            doing_cache: AHashMap::new(),
+            doing_cache: FxHashMap::default(),
             doing_timeout_queue: DelayQueue::new(),
         }
     }
@@ -109,12 +98,11 @@ impl IpLocationQueryHandle {
         data: IpLocationCacheResponse,
         expired: bool,
     ) {
-        if let Some(ip) = ip {
-            if let Some(timeout_key) = self.doing_cache.remove(&ip) {
-                if !expired {
-                    self.doing_timeout_queue.remove(&timeout_key);
-                }
-            }
+        if let Some(ip) = ip
+            && let Some(timeout_key) = self.doing_cache.remove(&ip)
+            && !expired
+        {
+            self.doing_timeout_queue.remove(&timeout_key);
         }
         let _ = self.rsp_sender.send((ip, data));
     }

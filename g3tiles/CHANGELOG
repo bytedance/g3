@@ -1,4 +1,46 @@
 
+v0.4.0:
+ - Compatibility: bump MSRV to 1.88.0
+
+v0.3.9:
+ - Feature: restore support for aws-lc
+ - Feature: add support for aws-lc-fips
+ - Feature: allow to set hop_limit and traffic_class ipv6 socket options
+ - Feature: allow to set congestion control algorithm for TCP socket
+ - Feature: allow to set tcp keepalive on tcp listen socket in server
+ - Deprecated: the following config options are deprecated:
+     - emit_duration in statsd config, use emit_interval instead
+
+v0.3.8:
+ - BUG FIX: fix deadlock when reload port servers
+ - Feature: allow to quit process on panic
+ - Feature: support multi-threaded runtime in worker
+ - Feature: support to flush task log on created/connected and periodically
+ - Feature: support full duplex mode of TCP shutdown, and log partial shutdown event in task log
+ - Optimization: use IdleWheel to reduce timer usage when doing IDLE check
+ - Optimization: changed default idle-check-interval to 60s and set default max-idle-count to 5
+ - Compatibility: switch to rust edition 2024
+
+v0.3.7:
+ - BUG FIX: keep control socket open on accept error
+ - BUG FIX: fix session ticket lookup if ticketer is enabled
+ - Feature: support to use openssl async engine in openssl server
+ - Optimization: switch to use our own TLS ClientHello parser in openssl server
+ - Optimization: use external session cache in openssl server and shutdown connections cleanly
+ - Optimization: always refresh TLS session ticket in openssl server
+ - Compatibility: drop AWS-LC support to reduce outdated dependencies
+
+v0.3.6:
+ - Feature: allow to set remote TLS ticketer in tls server config
+ - Feature: add new runtime metrics runtime.tokio.global_queue_depth
+ - Feature: add new keyless metrics backend.keyless.request.timeout
+ - BUG FIX: fix the detection of alive keyless remote channels
+
+v0.3.5:
+ - Feature: allow to write event log to stdout
+ - Feature: compile in debug level logs when build in release mode
+ - Feature: default to drop keyless request if no idle connections
+
 v0.3.4:
  - BUG FIX: avoid dead loop try of keyless connection
  - Feature: set limit for the reuse of upstream keyless connection

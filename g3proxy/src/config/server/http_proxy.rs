@@ -1,42 +1,35 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::collections::HashSet;
+use std::num::NonZeroUsize;
 use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use http::HeaderName;
-use yaml_rust::{yaml, Yaml};
+use log::warn;
+use yaml_rust::{Yaml, yaml};
 
 use g3_ftp_client::FtpClientConfig;
-use g3_io_ext::LimitedCopyConfig;
+use g3_io_ext::StreamCopyConfig;
+use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::{AclExactPortRule, AclNetworkRuleBuilder};
 use g3_types::acl_set::AclDstHostRuleSetBuilder;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{
-    HttpKeepAliveConfig, HttpServerId, OpensslClientConfigBuilder, RustlsServerConfigBuilder,
+    Host, HttpKeepAliveConfig, HttpServerId, OpensslClientConfigBuilder, RustlsServerConfigBuilder,
     TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
 };
 use g3_yaml::YamlDocPosition;
 
 use super::{
-    AnyServerConfig, ServerConfig, ServerConfigDiffAction, IDLE_CHECK_DEFAULT_DURATION,
-    IDLE_CHECK_MAXIMUM_DURATION,
+    AnyServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT,
+    IDLE_CHECK_MAXIMUM_DURATION, ServerConfig, ServerConfigDiffAction,
 };
 
 const SERVER_CONFIG_TYPE: &str = "HttpProxy";
@@ -61,35 +54,41 @@ impl Default for HttpProxyServerTimeoutConfig {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct HttpProxyServerConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) escaper: MetricsName,
-    pub(crate) auditor: MetricsName,
-    pub(crate) user_group: MetricsName,
+    pub(crate) escaper: NodeName,
+    pub(crate) auditor: NodeName,
+    pub(crate) user_group: NodeName,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: Option<TcpListenConfig>,
     pub(crate) listen_in_worker: bool,
     pub(crate) server_tls_config: Option<RustlsServerConfigBuilder>,
+    pub(crate) tls_ticketer: Option<TlsTicketConfig>,
     pub(crate) client_tls_config: OpensslClientConfigBuilder,
     pub(crate) ftp_client_config: Arc<FtpClientConfig>,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) dst_host_filter: Option<AclDstHostRuleSetBuilder>,
     pub(crate) dst_port_filter: Option<AclExactPortRule>,
+    pub(crate) local_server_names: HashSet<Host>,
     pub(crate) server_id: Option<HttpServerId>,
     pub(crate) auth_realm: AsciiString,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
     pub(crate) timeout: HttpProxyServerTimeoutConfig,
     pub(crate) task_idle_check_duration: Duration,
-    pub(crate) task_idle_max_count: i32,
-    pub(crate) tcp_copy: LimitedCopyConfig,
+    pub(crate) task_idle_max_count: usize,
+    pub(crate) flush_task_log_on_created: bool,
+    pub(crate) flush_task_log_on_connected: bool,
+    pub(crate) task_log_flush_interval: Option<Duration>,
+    pub(crate) tcp_copy: StreamCopyConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) req_hdr_max_size: usize,
     pub(crate) rsp_hdr_max_size: usize,
     pub(crate) log_uri_max_chars: usize,
-    pub(crate) pipeline_size: usize,
+    pub(crate) pipeline_size: NonZeroUsize,
     pub(crate) pipeline_read_idle_timeout: Duration,
     pub(crate) no_early_error_reply: bool,
     pub(crate) allow_custom_host: bool,
+    pub(crate) drop_default_port_in_host: bool,
     pub(crate) body_line_max_len: usize,
     pub(crate) http_forward_upstream_keepalive: HttpKeepAliveConfig,
     pub(crate) http_forward_mark_upstream: bool,
@@ -97,41 +96,47 @@ pub(crate) struct HttpProxyServerConfig {
     pub(crate) untrusted_read_limit: Option<TcpSockSpeedLimitConfig>,
     pub(crate) egress_path_selection_header: Option<HeaderName>,
     pub(crate) steal_forwarded_for: bool,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
 impl HttpProxyServerConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         HttpProxyServerConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
-            escaper: MetricsName::default(),
-            auditor: MetricsName::default(),
-            user_group: MetricsName::default(),
+            escaper: NodeName::default(),
+            auditor: NodeName::default(),
+            user_group: NodeName::default(),
             shared_logger: None,
             listen: None,
             listen_in_worker: false,
             server_tls_config: None,
+            tls_ticketer: None,
             client_tls_config: OpensslClientConfigBuilder::with_cache_for_many_sites(),
             ftp_client_config: Arc::new(Default::default()),
             ingress_net_filter: None,
             dst_host_filter: None,
             dst_port_filter: None,
+            local_server_names: HashSet::new(),
             server_id: None,
             auth_realm: AsciiString::from_ascii("proxy").unwrap(),
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
             timeout: HttpProxyServerTimeoutConfig::default(),
             task_idle_check_duration: IDLE_CHECK_DEFAULT_DURATION,
-            task_idle_max_count: 1,
+            task_idle_max_count: IDLE_CHECK_DEFAULT_MAX_COUNT,
+            flush_task_log_on_created: false,
+            flush_task_log_on_connected: false,
+            task_log_flush_interval: None,
             tcp_copy: Default::default(),
             tcp_misc_opts: Default::default(),
             req_hdr_max_size: 65536, // 64KiB
             rsp_hdr_max_size: 65536, // 64KiB
             log_uri_max_chars: 1024,
-            pipeline_size: 10,
+            pipeline_size: NonZeroUsize::new(10).unwrap(),
             pipeline_read_idle_timeout: Duration::from_secs(300),
             no_early_error_reply: false,
             allow_custom_host: true,
+            drop_default_port_in_host: false,
             body_line_max_len: 8192,
             http_forward_upstream_keepalive: Default::default(),
             http_forward_mark_upstream: false,
@@ -159,19 +164,19 @@ impl HttpProxyServerConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "escaper" => {
-                self.escaper = g3_yaml::value::as_metrics_name(v)?;
+                self.escaper = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "auditor" => {
-                self.auditor = g3_yaml::value::as_metrics_name(v)?;
+                self.auditor = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "user_group" => {
-                self.user_group = g3_yaml::value::as_metrics_name(v)?;
+                self.user_group = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "shared_logger" => {
@@ -202,6 +207,13 @@ impl HttpProxyServerConfig {
                 self.server_tls_config = Some(builder);
                 Ok(())
             }
+            "tls_ticketer" => {
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let ticketer = TlsTicketConfig::parse_yaml(v, Some(lookup_dir))
+                    .context(format!("invalid tls ticket config value for key {k}"))?;
+                self.tls_ticketer = Some(ticketer);
+                Ok(())
+            }
             "tls_client" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
                 self.client_tls_config =
@@ -215,7 +227,7 @@ impl HttpProxyServerConfig {
                 Ok(())
             }
             "ftp_client" => {
-                let client_config = g3_yaml::value::as_ftp_client_config(v)
+                let client_config = FtpClientConfig::parse_yaml(v)
                     .context(format!("invalid ftp client config value for key {k}"))?;
                 self.ftp_client_config = Arc::new(client_config);
                 Ok(())
@@ -239,6 +251,12 @@ impl HttpProxyServerConfig {
                 self.dst_port_filter = Some(filter);
                 Ok(())
             }
+            "local_server_name" => {
+                let server_names = g3_yaml::value::as_list(v, g3_yaml::value::as_host)
+                    .context(format!("invalid host name str value for key {k}"))?;
+                self.local_server_names.extend(server_names);
+                Ok(())
+            }
             "server_id" => {
                 let server_id = g3_yaml::value::as_http_server_id(v)
                     .context(format!("invalid http server id value for key {k}"))?;
@@ -250,10 +268,14 @@ impl HttpProxyServerConfig {
                     .context(format!("invalid ascii string value for key {k}"))?;
                 Ok(())
             }
-            "tcp_sock_speed_limit" | "tcp_conn_speed_limit" | "tcp_conn_limit" | "conn_limit" => {
+            "tcp_sock_speed_limit" => {
                 self.tcp_sock_speed_limit = g3_yaml::value::as_tcp_sock_speed_limit(v)
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 Ok(())
+            }
+            "tcp_conn_speed_limit" | "tcp_conn_limit" | "conn_limit" => {
+                warn!("deprecated config key '{k}', please use 'tcp_sock_speed_limit' instead");
+                self.set("tcp_sock_speed_limit", v)
             }
             "tcp_copy_buffer_size" => {
                 let buffer_size = g3_yaml::humanize::as_usize(v)
@@ -278,8 +300,22 @@ impl HttpProxyServerConfig {
                 Ok(())
             }
             "task_idle_max_count" => {
-                self.task_idle_max_count =
-                    g3_yaml::value::as_i32(v).context(format!("invalid i32 value for key {k}"))?;
+                self.task_idle_max_count = g3_yaml::value::as_usize(v)
+                    .context(format!("invalid usize value for key {k}"))?;
+                Ok(())
+            }
+            "flush_task_log_on_created" => {
+                self.flush_task_log_on_created = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            "flush_task_log_on_connected" => {
+                self.flush_task_log_on_connected = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            "task_log_flush_interval" => {
+                let interval = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                self.task_log_flush_interval = Some(interval);
                 Ok(())
             }
             "req_header_recv_timeout" => {
@@ -308,8 +344,8 @@ impl HttpProxyServerConfig {
                 Ok(())
             }
             "pipeline_size" => {
-                self.pipeline_size = g3_yaml::value::as_usize(v)
-                    .context(format!("invalid usize value for key {k}"))?;
+                self.pipeline_size = g3_yaml::value::as_nonzero_usize(v)
+                    .context(format!("invalid nonzero usize value for key {k}"))?;
                 Ok(())
             }
             "pipeline_read_idle_timeout" => {
@@ -324,6 +360,11 @@ impl HttpProxyServerConfig {
             }
             "allow_custom_host" => {
                 self.allow_custom_host = g3_yaml::value::as_bool(v)
+                    .context(format!("invalid bool value for key {k}"))?;
+                Ok(())
+            }
+            "drop_default_port_in_host" => {
+                self.drop_default_port_in_host = g3_yaml::value::as_bool(v)
                     .context(format!("invalid bool value for key {k}"))?;
                 Ok(())
             }
@@ -345,11 +386,15 @@ impl HttpProxyServerConfig {
                 self.echo_chained_info = g3_yaml::value::as_bool(v)?;
                 Ok(())
             }
-            "untrusted_read_speed_limit" | "untrusted_read_limit" => {
+            "untrusted_read_speed_limit" => {
                 let limit = g3_yaml::value::as_tcp_sock_speed_limit(v)
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 self.untrusted_read_limit = Some(limit);
                 Ok(())
+            }
+            "untrusted_read_limit" => {
+                warn!("deprecated config key {k}, please use 'untrusted_read_speed_limit' instead");
+                self.set("untrusted_read_speed_limit", v)
             }
             "egress_path_selection_header" | "path_selection_header" => {
                 if let Yaml::String(s) = v {
@@ -395,7 +440,7 @@ impl HttpProxyServerConfig {
 }
 
 impl ServerConfig for HttpProxyServerConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -403,19 +448,19 @@ impl ServerConfig for HttpProxyServerConfig {
         self.position.clone()
     }
 
-    fn server_type(&self) -> &'static str {
+    fn r#type(&self) -> &'static str {
         SERVER_CONFIG_TYPE
     }
 
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         &self.escaper
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         &self.user_group
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         &self.auditor
     }
 
@@ -432,23 +477,24 @@ impl ServerConfig for HttpProxyServerConfig {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
 
-        ServerConfigDiffAction::ReloadOnlyConfig
+        ServerConfigDiffAction::ReloadNoRespawn
     }
 
     fn shared_logger(&self) -> Option<&str> {
         self.shared_logger.as_ref().map(|s| s.as_str())
     }
 
+    fn task_log_flush_interval(&self) -> Option<Duration> {
+        self.task_log_flush_interval
+    }
+
     #[inline]
-    fn limited_copy_config(&self) -> LimitedCopyConfig {
+    fn limited_copy_config(&self) -> StreamCopyConfig {
         self.tcp_copy
     }
+
     #[inline]
-    fn task_idle_check_duration(&self) -> Duration {
-        self.task_idle_check_duration
-    }
-    #[inline]
-    fn task_max_idle_count(&self) -> i32 {
+    fn task_max_idle_count(&self) -> usize {
         self.task_idle_max_count
     }
 }

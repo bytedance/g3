@@ -1,8 +1,9 @@
 [package]
 name = "g3-cert-agent"
-version = "0.1.0"
+version = "0.3.0"
 license.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 
 [dependencies]
 anyhow.workspace = true
@@ -10,11 +11,14 @@ log.workspace = true
 tokio = { workspace = true, features = ["net", "rt", "sync"] }
 openssl.workspace = true
 rmpv.workspace = true
+yaml-rust = { workspace = true, optional = true }
 g3-types = { workspace = true, features = ["openssl"] }
 g3-msgpack = { workspace = true, features = ["openssl"] }
 g3-socket.workspace = true
 g3-io-ext.workspace = true
+g3-yaml = { workspace = true, optional = true }
 
 [features]
 default = []
 tongsuo = ["openssl/tongsuo"]
+yaml = ["dep:g3-yaml", "dep:yaml-rust"]

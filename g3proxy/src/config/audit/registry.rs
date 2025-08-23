@@ -1,28 +1,18 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::HashMap;
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::{Arc, Mutex};
 
 use anyhow::anyhow;
+use foldhash::fast::FixedState;
 
 use super::AuditorConfig;
 
-static INITIAL_AUDITOR_CONFIG_REGISTRY: LazyLock<Mutex<HashMap<String, Arc<AuditorConfig>>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+static INITIAL_AUDITOR_CONFIG_REGISTRY: Mutex<HashMap<String, Arc<AuditorConfig>, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub(crate) fn clear() {
     let mut ht = INITIAL_AUDITOR_CONFIG_REGISTRY.lock().unwrap();

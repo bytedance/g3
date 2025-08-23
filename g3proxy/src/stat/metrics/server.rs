@@ -1,29 +1,16 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::{Arc, LazyLock, Mutex};
-
-use ahash::AHashMap;
+use std::sync::{Arc, Mutex};
 
 use g3_daemon::listen::{ListenSnapshot, ListenStats};
 use g3_daemon::metrics::{
     ServerMetricExt, TAG_KEY_TRANSPORT, TRANSPORT_TYPE_TCP, TRANSPORT_TYPE_UDP,
 };
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
-use g3_types::stats::{StatId, TcpIoSnapshot, UdpIoSnapshot};
+use g3_types::stats::{GlobalStatsMap, TcpIoSnapshot, UdpIoSnapshot};
 
 use crate::serve::{ArcServerStats, ServerForbiddenSnapshot};
 use crate::stat::types::UntrustedTaskStatsSnapshot;
@@ -45,10 +32,10 @@ const METRIC_NAME_SERVER_IO_UNTRUSTED_IN_BYTES: &str = "server.traffic.untrusted
 type ServerStatsValue = (ArcServerStats, ServerSnapshot);
 type ListenStatsValue = (Arc<ListenStats>, ListenSnapshot);
 
-static SERVER_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, ServerStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static LISTEN_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, ListenStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
+static SERVER_STATS_MAP: Mutex<GlobalStatsMap<ServerStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static LISTEN_STATS_MAP: Mutex<GlobalStatsMap<ListenStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
 
 #[derive(Default)]
 struct ServerSnapshot {
@@ -64,10 +51,8 @@ pub(in crate::stat) fn sync_stats() {
     let mut server_stats_map = SERVER_STATS_MAP.lock().unwrap();
     crate::serve::foreach_server(|_, server| {
         if let Some(stats) = server.get_server_stats() {
-            let stat_id = stats.stat_id();
             server_stats_map
-                .entry(stat_id)
-                .or_insert_with(|| (stats, ServerSnapshot::default()));
+                .get_or_insert_with(stats.stat_id(), || (stats, ServerSnapshot::default()));
         }
     });
     drop(server_stats_map);
@@ -75,17 +60,14 @@ pub(in crate::stat) fn sync_stats() {
     let mut listen_stats_map = LISTEN_STATS_MAP.lock().unwrap();
     crate::serve::foreach_server(|_, server| {
         let stats = server.get_listen_stats();
-        let stat_id = stats.stat_id();
-        listen_stats_map
-            .entry(stat_id)
-            .or_insert_with(|| (stats, ListenSnapshot::default()));
+        listen_stats_map.get_or_insert_with(stats.stat_id(), || (stats, ListenSnapshot::default()));
     });
     drop(listen_stats_map);
 }
 
 pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     let mut server_stats_map = SERVER_STATS_MAP.lock().unwrap();
-    server_stats_map.retain(|_, (stats, snap)| {
+    server_stats_map.retain(|(stats, snap)| {
         emit_server_stats(client, stats, snap);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1
@@ -93,7 +75,7 @@ pub(in crate::stat) fn emit_stats(client: &mut StatsdClient) {
     drop(server_stats_map);
 
     let mut listen_stats_map = LISTEN_STATS_MAP.lock().unwrap();
-    listen_stats_map.retain(|_, (stats, snap)| {
+    listen_stats_map.retain(|(stats, snap)| {
         g3_daemon::metrics::emit_listen_stats(client, stats, snap);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1

@@ -1,24 +1,28 @@
 [package]
 name = "g3-ftp-client"
-version = "0.3.0"
+version = "0.5.0"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.75.0"
+rust-version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 thiserror.workspace = true
-tokio = { workspace = true, features = ["rt", "io-util"] }
+tokio = { workspace = true, features = ["rt", "io-util", "macros"] }
 async-trait.workspace = true
 memchr.workspace = true
 chrono.workspace = true
 mime.workspace = true
 log.workspace = true
+anyhow = { workspace = true, optional = true }
+yaml-rust = { workspace = true, optional = true }
 g3-types.workspace = true
 g3-io-ext.workspace = true
 g3-datetime.workspace = true
+g3-yaml = { workspace = true, optional = true }
 
 [features]
 default = []
+yaml = ["dep:g3-yaml", "dep:yaml-rust", "dep:anyhow"]
 log-raw-io = []

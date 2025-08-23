@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
@@ -25,7 +14,7 @@ use chrono::Utc;
 use log::{info, warn};
 use tokio::sync::{mpsc, oneshot};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use crate::config::auth::UserGroupConfig;
 
@@ -104,7 +93,7 @@ impl UserGroup {
         }
     }
 
-    fn new_no_config(name: &MetricsName) -> Arc<Self> {
+    fn new_no_config(name: &NodeName) -> Arc<Self> {
         let config = UserGroupConfig::empty(name);
         Arc::new(Self::new_without_users(config))
     }
@@ -234,11 +223,9 @@ impl UserGroup {
             return Some((Arc::clone(user), UserType::Static));
         }
 
-        if self.config.dynamic_source.is_some() {
-            let dynamic_users = self.dynamic_users.load();
-            if let Some(user) = dynamic_users.get(username) {
-                return Some((Arc::clone(user), UserType::Dynamic));
-            }
+        let dynamic_users = self.dynamic_users.load();
+        if let Some(user) = dynamic_users.get(username) {
+            return Some((Arc::clone(user), UserType::Dynamic));
         }
 
         self.get_anonymous_user()
@@ -288,20 +275,21 @@ impl UserGroup {
 
     pub(crate) async fn publish_dynamic_users(&self, contents: &str) -> anyhow::Result<()> {
         let doc = serde_json::Value::from_str(contents)
-            .map_err(|e| anyhow!("the published contents is not valid json: {e}",))?;
+            .map_err(|e| anyhow!("the published contents is not valid json: {e}"))?;
         let user_config = crate::config::auth::source::cache::parse_json(&doc)?;
 
         // we should avoid corrupt write at process exit
-        if !self.config.dynamic_cache.as_os_str().is_empty() {
-            if let Some(Err(e)) = crate::control::run_protected_io(tokio::fs::write(
+        if !self.config.dynamic_cache.as_os_str().is_empty()
+            && let Some(Err(e)) = crate::control::run_protected_io(tokio::fs::write(
                 &self.config.dynamic_cache,
                 contents,
             ))
             .await
-            {
-                warn!("failed to cache dynamic users to file {} ({e:?}), this may lead to auth error during restart",
-                    self.config.dynamic_cache.display());
-            }
+        {
+            warn!(
+                "failed to cache dynamic users to file {} ({e:?}), this may lead to auth error during restart",
+                self.config.dynamic_cache.display()
+            );
         }
 
         source::publish_dynamic_users(self.config.as_ref(), user_config, &self.dynamic_users)

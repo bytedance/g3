@@ -8,5 +8,6 @@ Homepage: https://github.com/bytedance/g3
 
 Package: g3keymess
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, systemd
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: systemd
 Description: Keyless server for G3 Project

@@ -1,17 +1,6 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::IpAddr;
@@ -25,7 +14,7 @@ use tokio::time::Instant;
 use g3_dpi::SmtpInterceptionConfig;
 use g3_icap_client::reqmod::mail::{ReqmodAdaptationEndState, ReqmodAdaptationRunState};
 use g3_icap_client::reqmod::smtp::SmtpMessageAdapter;
-use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt};
+use g3_io_ext::{LimitedWriteExt, StreamCopy, StreamCopyError};
 use g3_slog_types::LtUuid;
 use g3_smtp_proto::command::{Command, MailParam, RecipientParam};
 use g3_smtp_proto::io::TextDataReader;
@@ -38,13 +27,15 @@ use crate::serve::{ServerIdleChecker, ServerTaskError, ServerTaskResult};
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
-        slog_info!($obj.ctx.intercept_logger(), $($args)+;
-            "intercept_type" => "SmtpTransaction",
-            "task_id" => LtUuid($obj.ctx.server_task_id()),
-            "depth" => $obj.ctx.inspection_depth,
-            "transaction_id" => $obj.transaction_id,
-            "mail_from" => $obj.mail_from.reverse_path(),
-        )
+        if let Some(logger) = $obj.ctx.intercept_logger() {
+            slog_info!(logger, $($args)+;
+                "intercept_type" => "SmtpTransaction",
+                "task_id" => LtUuid($obj.ctx.server_task_id()),
+                "depth" => $obj.ctx.inspection_depth,
+                "transaction_id" => $obj.transaction_id,
+                "mail_from" => $obj.mail_from.reverse_path(),
+            );
+        }
     };
 }
 
@@ -366,7 +357,7 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
                     let mut body_reader = body.body_reader();
                     let mut sinker = tokio::io::sink();
                     let _ = tokio::io::copy(&mut body_reader, &mut sinker).await;
-                    if body_reader.finished() {
+                    if body_reader.trailer(128).await.is_ok() {
                         body.save_connection().await;
                     }
                 }
@@ -424,13 +415,10 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
         UW: AsyncWrite + Unpin,
     {
         let mut clt_to_ups =
-            LimitedCopy::new(clt_r, ups_w, &self.ctx.server_config.limited_copy_config());
+            StreamCopy::new(clt_r, ups_w, &self.ctx.server_config.limited_copy_config());
 
-        let idle_duration = self.ctx.server_config.task_idle_check_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.register();
         let mut idle_count = 0;
-        let max_idle_count = self.ctx.task_max_idle_count();
 
         loop {
             tokio::select! {
@@ -442,17 +430,17 @@ impl<'a, SC: ServerConfig> Transaction<'a, SC> {
                             // ups_w is already flushed
                             Ok(())
                         }
-                        Err(LimitedCopyError::ReadFailed(e)) => {
+                        Err(StreamCopyError::ReadFailed(e)) => {
                             let _ = clt_to_ups.write_flush().await;
                             Err(ServerTaskError::ClientTcpReadFailed(e))
                         }
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if clt_to_ups.is_idle() {
-                        idle_count += 1;
-                        if idle_count >= max_idle_count {
+                        idle_count += n;
+                        if idle_count >= self.ctx.max_idle_count {
                             return if clt_to_ups.no_cached_data() {
                                 Err(ServerTaskError::ClientAppTimeout("idle while reading BDAT data"))
                             } else {

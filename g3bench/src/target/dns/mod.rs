@@ -1,19 +1,9 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::process::ExitCode;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -59,7 +49,7 @@ pub fn command() -> Command {
     opts::add_dns_args(Command::new(COMMAND))
 }
 
-pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Result<()> {
+pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Result<ExitCode> {
     let dns_args = opts::parse_dns_args(cmd_args)?;
 
     let (histogram, histogram_recorder) = DnsHistogram::new();
@@ -84,8 +74,9 @@ impl DnsRequest {
         let parts = s.split(',').collect::<Vec<&str>>();
         match parts.len() {
             1 => {
-                let name = Name::from_utf8(parts[0])
+                let mut name = Name::from_utf8(parts[0])
                     .map_err(|e| anyhow!("invalid domain name {}: {e}", parts[0]))?;
+                name.set_fqdn(true);
                 Ok(DnsRequest {
                     name,
                     class: DNSClass::IN,
@@ -93,8 +84,9 @@ impl DnsRequest {
                 })
             }
             2 => {
-                let name = Name::from_utf8(parts[0])
+                let mut name = Name::from_utf8(parts[0])
                     .map_err(|e| anyhow!("invalid domain name: {}: {e}", parts[0]))?;
+                name.set_fqdn(true);
                 let rtype = RecordType::from_str(parts[1])
                     .map_err(|e| anyhow!("invalid record type {}: {e}", parts[1]))?;
                 Ok(DnsRequest {
@@ -104,8 +96,9 @@ impl DnsRequest {
                 })
             }
             3 => {
-                let name = Name::from_utf8(parts[0])
+                let mut name = Name::from_utf8(parts[0])
                     .map_err(|e| anyhow!("invalid domain name {}: {e}", parts[0]))?;
+                name.set_fqdn(true);
                 let class = DNSClass::from_str(parts[1])
                     .map_err(|e| anyhow!("invalid class type {}: {e}", parts[1]))?;
                 let rtype = RecordType::from_str(parts[2])

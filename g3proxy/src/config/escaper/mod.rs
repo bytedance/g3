@@ -1,33 +1,23 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use indexmap::IndexSet;
 use slog::Logger;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
-use g3_daemon::config::sort_nodes_in_dependency_graph;
-use g3_types::metrics::MetricsName;
+use g3_daemon::config::TopoMap;
+use g3_macros::AnyConfig;
+use g3_types::metrics::NodeName;
 use g3_types::net::{TcpConnectConfig, TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig};
 use g3_yaml::{HybridParser, YamlDocPosition};
 
+pub(crate) mod comply_audit;
 pub(crate) mod direct_fixed;
 pub(crate) mod direct_float;
 pub(crate) mod divert_tcp;
@@ -36,6 +26,7 @@ pub(crate) mod proxy_float;
 pub(crate) mod proxy_http;
 pub(crate) mod proxy_https;
 pub(crate) mod proxy_socks5;
+pub(crate) mod proxy_socks5s;
 pub(crate) mod route_client;
 pub(crate) mod route_failover;
 pub(crate) mod route_geoip;
@@ -59,29 +50,27 @@ pub(crate) enum EscaperConfigDiffAction {
     NoAction,
     SpawnNew,
     Reload,
-    #[allow(unused)]
-    UpdateInPlace(u64), // to support escaper custom hot update, take a flags param
 }
 
 pub(crate) trait EscaperConfig {
-    fn name(&self) -> &MetricsName;
+    fn name(&self) -> &NodeName;
     fn position(&self) -> Option<YamlDocPosition>;
-    fn escaper_type(&self) -> &str;
-    fn resolver(&self) -> &MetricsName;
+    fn r#type(&self) -> &str;
+    fn resolver(&self) -> &NodeName;
 
     fn diff_action(&self, new: &AnyEscaperConfig) -> EscaperConfigDiffAction;
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         None
     }
     fn shared_logger(&self) -> Option<&str> {
         None
     }
-    fn get_escape_logger(&self) -> Logger {
+    fn get_escape_logger(&self) -> Option<Logger> {
         if let Some(shared_logger) = self.shared_logger() {
-            crate::log::escape::get_shared_logger(shared_logger, self.escaper_type(), self.name())
+            crate::log::escape::get_shared_logger(shared_logger, self.r#type(), self.name())
         } else {
-            crate::log::escape::get_logger(self.escaper_type(), self.name())
+            crate::log::escape::get_logger(self.r#type(), self.name())
         }
     }
 }
@@ -93,16 +82,23 @@ pub(crate) struct GeneralEscaperConfig {
     pub(crate) tcp_connect: TcpConnectConfig,
 }
 
-#[derive(Clone)]
+#[derive(Clone, AnyConfig)]
+#[def_fn(name, &NodeName)]
+#[def_fn(position, Option<YamlDocPosition>)]
+#[def_fn(dependent_escaper, Option<BTreeSet<NodeName>>)]
+#[def_fn(resolver, &NodeName)]
+#[def_fn(diff_action, &Self, EscaperConfigDiffAction)]
 pub(crate) enum AnyEscaperConfig {
-    DirectFixed(Box<direct_fixed::DirectFixedEscaperConfig>),
-    DirectFloat(Box<direct_float::DirectFloatEscaperConfig>),
+    ComplyAudit(comply_audit::ComplyAuditEscaperConfig),
+    DirectFixed(direct_fixed::DirectFixedEscaperConfig),
+    DirectFloat(direct_float::DirectFloatEscaperConfig),
     DivertTcp(divert_tcp::DivertTcpEscaperConfig),
     DummyDeny(dummy_deny::DummyDenyEscaperConfig),
     ProxyFloat(proxy_float::ProxyFloatEscaperConfig),
-    ProxyHttp(Box<proxy_http::ProxyHttpEscaperConfig>),
-    ProxyHttps(Box<proxy_https::ProxyHttpsEscaperConfig>),
+    ProxyHttp(proxy_http::ProxyHttpEscaperConfig),
+    ProxyHttps(proxy_https::ProxyHttpsEscaperConfig),
     ProxySocks5(proxy_socks5::ProxySocks5EscaperConfig),
+    ProxySocks5s(proxy_socks5s::ProxySocks5sEscaperConfig),
     RouteFailover(route_failover::RouteFailoverEscaperConfig),
     RouteResolved(route_resolved::RouteResolvedEscaperConfig),
     RouteGeoIp(route_geoip::RouteGeoIpEscaperConfig),
@@ -112,67 +108,6 @@ pub(crate) enum AnyEscaperConfig {
     RouteUpstream(route_upstream::RouteUpstreamEscaperConfig),
     RouteClient(route_client::RouteClientEscaperConfig),
     TrickFloat(trick_float::TrickFloatEscaperConfig),
-}
-
-macro_rules! impl_transparent0 {
-    ($f:tt, $v:ty) => {
-        pub(crate) fn $f(&self) -> $v {
-            match self {
-                AnyEscaperConfig::DirectFixed(s) => s.$f(),
-                AnyEscaperConfig::DirectFloat(s) => s.$f(),
-                AnyEscaperConfig::DivertTcp(s) => s.$f(),
-                AnyEscaperConfig::DummyDeny(s) => s.$f(),
-                AnyEscaperConfig::ProxyFloat(s) => s.$f(),
-                AnyEscaperConfig::ProxyHttp(s) => s.$f(),
-                AnyEscaperConfig::ProxyHttps(s) => s.$f(),
-                AnyEscaperConfig::ProxySocks5(s) => s.$f(),
-                AnyEscaperConfig::RouteFailover(s) => s.$f(),
-                AnyEscaperConfig::RouteResolved(s) => s.$f(),
-                AnyEscaperConfig::RouteGeoIp(s) => s.$f(),
-                AnyEscaperConfig::RouteMapping(s) => s.$f(),
-                AnyEscaperConfig::RouteQuery(s) => s.$f(),
-                AnyEscaperConfig::RouteSelect(s) => s.$f(),
-                AnyEscaperConfig::RouteUpstream(s) => s.$f(),
-                AnyEscaperConfig::RouteClient(s) => s.$f(),
-                AnyEscaperConfig::TrickFloat(s) => s.$f(),
-            }
-        }
-    };
-}
-
-macro_rules! impl_transparent1 {
-    ($f:tt, $v:ty, $p:ty) => {
-        pub(crate) fn $f(&self, p: $p) -> $v {
-            match self {
-                AnyEscaperConfig::DirectFixed(s) => s.$f(p),
-                AnyEscaperConfig::DirectFloat(s) => s.$f(p),
-                AnyEscaperConfig::DivertTcp(s) => s.$f(p),
-                AnyEscaperConfig::DummyDeny(s) => s.$f(p),
-                AnyEscaperConfig::ProxyFloat(s) => s.$f(p),
-                AnyEscaperConfig::ProxyHttp(s) => s.$f(p),
-                AnyEscaperConfig::ProxyHttps(s) => s.$f(p),
-                AnyEscaperConfig::ProxySocks5(s) => s.$f(p),
-                AnyEscaperConfig::RouteFailover(s) => s.$f(p),
-                AnyEscaperConfig::RouteResolved(s) => s.$f(p),
-                AnyEscaperConfig::RouteGeoIp(s) => s.$f(p),
-                AnyEscaperConfig::RouteMapping(s) => s.$f(p),
-                AnyEscaperConfig::RouteQuery(s) => s.$f(p),
-                AnyEscaperConfig::RouteSelect(s) => s.$f(p),
-                AnyEscaperConfig::RouteUpstream(s) => s.$f(p),
-                AnyEscaperConfig::RouteClient(s) => s.$f(p),
-                AnyEscaperConfig::TrickFloat(s) => s.$f(p),
-            }
-        }
-    };
-}
-
-impl AnyEscaperConfig {
-    impl_transparent0!(name, &MetricsName);
-    impl_transparent0!(position, Option<YamlDocPosition>);
-    impl_transparent0!(dependent_escaper, Option<BTreeSet<MetricsName>>);
-    impl_transparent0!(resolver, &MetricsName);
-
-    impl_transparent1!(diff_action, EscaperConfigDiffAction, &Self);
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
@@ -188,7 +123,7 @@ pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
             Ok(())
         }
     })?;
-    check_dependency()?;
+    build_topology_map()?;
     Ok(())
 }
 
@@ -197,7 +132,7 @@ pub(crate) fn load_at_position(position: &YamlDocPosition) -> anyhow::Result<Any
     if let Yaml::Hash(map) = doc {
         let escaper = load_escaper(&map, Some(position.clone()))?;
         let old_escaper = registry::add(escaper.clone());
-        if let Err(e) = check_dependency() {
+        if let Err(e) = build_topology_map() {
             // rollback
             match old_escaper {
                 Some(escaper) => {
@@ -220,13 +155,17 @@ fn load_escaper(
 ) -> anyhow::Result<AnyEscaperConfig> {
     let escaper_type = g3_yaml::hash_get_required_str(map, CONFIG_KEY_ESCAPER_TYPE)?;
     match g3_yaml::key::normalize(escaper_type).as_str() {
+        "comply_audit" | "complyaudit" => {
+            let config = comply_audit::ComplyAuditEscaperConfig::parse(map, position)?;
+            Ok(AnyEscaperConfig::ComplyAudit(config))
+        }
         "direct_fixed" | "directfixed" => {
             let config = direct_fixed::DirectFixedEscaperConfig::parse(map, position)?;
-            Ok(AnyEscaperConfig::DirectFixed(Box::new(config)))
+            Ok(AnyEscaperConfig::DirectFixed(config))
         }
         "direct_float" | "directfloat" | "direct_dynamic" | "directdynamic" => {
             let config = direct_float::DirectFloatEscaperConfig::parse(map, position)?;
-            Ok(AnyEscaperConfig::DirectFloat(Box::new(config)))
+            Ok(AnyEscaperConfig::DirectFloat(config))
         }
         "divert_tcp" | "diverttcp" => {
             let config = divert_tcp::DivertTcpEscaperConfig::parse(map, position)?;
@@ -238,15 +177,19 @@ fn load_escaper(
         }
         "proxy_http" | "proxyhttp" => {
             let config = proxy_http::ProxyHttpEscaperConfig::parse(map, position)?;
-            Ok(AnyEscaperConfig::ProxyHttp(Box::new(config)))
+            Ok(AnyEscaperConfig::ProxyHttp(config))
         }
         "proxy_https" | "proxyhttps" => {
             let config = proxy_https::ProxyHttpsEscaperConfig::parse(map, position)?;
-            Ok(AnyEscaperConfig::ProxyHttps(Box::new(config)))
+            Ok(AnyEscaperConfig::ProxyHttps(config))
         }
         "proxy_socks5" | "proxysocks5" => {
             let config = proxy_socks5::ProxySocks5EscaperConfig::parse(map, position)?;
             Ok(AnyEscaperConfig::ProxySocks5(config))
+        }
+        "proxy_socks5s" | "proxysocks5s" => {
+            let config = proxy_socks5s::ProxySocks5sEscaperConfig::parse(map, position)?;
+            Ok(AnyEscaperConfig::ProxySocks5s(config))
         }
         "proxy_float" | "proxyfloat" | "proxy_dynamic" | "proxydynamic" => {
             let config = proxy_float::ProxyFloatEscaperConfig::parse(map, position)?;
@@ -292,85 +235,28 @@ fn load_escaper(
     }
 }
 
-fn get_edges_for_dependency_graph(
-    all_config: &[Arc<AnyEscaperConfig>],
-    all_names: &IndexSet<MetricsName>,
-) -> anyhow::Result<Vec<(usize, usize)>> {
-    let mut edges: Vec<(usize, usize)> = Vec::with_capacity(all_config.len());
+fn build_topology_map() -> anyhow::Result<TopoMap> {
+    let mut topo_map = TopoMap::default();
 
-    // the isolated nodes is not added in edges
-    for conf in all_config.iter() {
-        let this_name = conf.name();
-        let this_index = all_names.get_full(this_name).map(|x| x.0).unwrap();
-        if let Some(names) = conf.dependent_escaper() {
-            for peer_name in names {
-                if let Some(r) = all_names.get_full(&peer_name) {
-                    let peer_index = r.0;
-                    edges.push((this_index, peer_index));
-                } else {
-                    return Err(anyhow!(
-                        "escaper {this_name} dependent on {peer_name}, which is not existed"
-                    ));
-                }
-            }
-        }
+    for name in registry::get_all_names() {
+        topo_map.add_node(&name, &|name| {
+            let conf = registry::get(name)?;
+            conf.dependent_escaper()
+        })?;
     }
 
-    Ok(edges)
+    Ok(topo_map)
 }
 
 pub(crate) fn get_all_sorted() -> anyhow::Result<Vec<Arc<AnyEscaperConfig>>> {
-    let all_config = registry::get_all();
-    let mut all_names = IndexSet::<MetricsName>::new();
-    let mut map_config = BTreeMap::<usize, Arc<AnyEscaperConfig>>::new();
-
-    for conf in all_config.iter() {
-        let (index, ok) = all_names.insert_full(conf.name().clone());
-        assert!(ok);
-        map_config.insert(index, Arc::clone(conf));
+    let topo_map = build_topology_map()?;
+    let sorted_nodes = topo_map.sorted_nodes();
+    let mut sorted_conf = Vec::with_capacity(sorted_nodes.len());
+    for node in sorted_nodes {
+        let Some(conf) = registry::get(node.name()) else {
+            continue;
+        };
+        sorted_conf.push(conf);
     }
-
-    let edges = get_edges_for_dependency_graph(&all_config, &all_names)?;
-    let mut nodes = sort_nodes_in_dependency_graph(edges).map_err(|node_index| {
-        let name = all_names
-            .get_index(node_index)
-            .map(|x| x.to_string())
-            .unwrap_or_else(|| "invalid node".to_string());
-        anyhow!("Cycle detected in dependency for escaper {name}")
-    })?;
-    nodes.reverse();
-
-    let mut all_config = Vec::<Arc<AnyEscaperConfig>>::new();
-    for node_index in 0usize..all_names.len() {
-        // add isolated nodes first
-        if !nodes.contains(&node_index) {
-            all_config.push(map_config.remove(&node_index).unwrap());
-        }
-    }
-    for node_index in nodes {
-        // add connected nodes in order
-        all_config.push(map_config.remove(&node_index).unwrap());
-    }
-    Ok(all_config)
-}
-
-fn check_dependency() -> anyhow::Result<()> {
-    let all_config = registry::get_all();
-    let mut all_names = IndexSet::<MetricsName>::new();
-
-    for conf in all_config.iter() {
-        all_names.insert(conf.name().clone());
-    }
-
-    let edges = get_edges_for_dependency_graph(&all_config, &all_names)?;
-
-    if let Err(node_index) = sort_nodes_in_dependency_graph(edges) {
-        let name = all_names
-            .get_index(node_index)
-            .map(|x| x.to_string())
-            .unwrap_or_else(|| "invalid node".to_string());
-        Err(anyhow!("Cycle detected in dependency for escaper {name}"))
-    } else {
-        Ok(())
-    }
+    Ok(sorted_conf)
 }

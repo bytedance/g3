@@ -1,17 +1,6 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Mutex;
@@ -26,6 +15,7 @@ use crate::metrics::TAG_KEY_STAT_ID;
 const TAG_KEY_RUNTIME_ID: &str = "runtime_id";
 
 const METRIC_NAME_RUNTIME_TOKIO_ALIVE_TASKS: &str = "runtime.tokio.alive_tasks";
+const METRIC_NAME_RUNTIME_TOKIO_GLOBAL_QUEUE_DEPTH: &str = "runtime.tokio.global_queue_depth";
 
 static TOKIO_STATS_VEC: Mutex<Vec<TokioStatsValue>> = Mutex::new(Vec::new());
 
@@ -37,7 +27,7 @@ struct TokioStatsValue {
 
 pub fn add_tokio_stats(stats: RuntimeMetrics, id: String) {
     let value = TokioStatsValue {
-        stat_id: StatId::new(),
+        stat_id: StatId::new_unique(),
         runtime_id: id,
         stats,
     };
@@ -63,6 +53,13 @@ fn emit_tokio_stats(client: &mut StatsdClient, v: &mut TokioStatsValue) {
         .gauge_with_tags(
             METRIC_NAME_RUNTIME_TOKIO_ALIVE_TASKS,
             v.stats.num_alive_tasks(),
+            &common_tags,
+        )
+        .send();
+    client
+        .gauge_with_tags(
+            METRIC_NAME_RUNTIME_TOKIO_GLOBAL_QUEUE_DEPTH,
+            v.stats.global_queue_depth(),
             &common_tags,
         )
         .send();

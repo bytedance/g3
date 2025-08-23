@@ -1,17 +1,6 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
@@ -22,7 +11,7 @@ use tokio::sync::{broadcast, oneshot};
 use tokio::time::Interval;
 
 use g3_io_ext::LimitedBufReadExt;
-use g3_types::ext::DurationExt;
+use g3_std_ext::time::DurationExt;
 
 use super::StreamSharedState;
 use crate::module::keyless::{
@@ -94,14 +83,14 @@ impl KeylessUpstreamRecvTask {
                 _ = self.quit_notifier.recv() => {
                     return tokio::time::timeout(self.rsp_recv_timeout, self.recv_all_pending(buf_reader))
                         .await
-                        .unwrap_or_else(|_| Ok(()));
+                        .unwrap_or(Ok(()));
                 }
                 _ = self.reader_close_sender.closed() => {
                     return self.run_offline(buf_reader, timeout_interval).await;
                 }
                 _ = timeout_interval.tick() => {
                     self.shared_state.rotate_timeout(|_id, v| {
-                        self.stats.add_request_drop();
+                        self.stats.add_request_timeout();
                         v.send_internal_error();
                     });
                 }
@@ -138,11 +127,11 @@ impl KeylessUpstreamRecvTask {
                 _ = self.quit_notifier.recv() => {
                     return tokio::time::timeout(self.rsp_recv_timeout, self.recv_all_pending(buf_reader))
                         .await
-                        .unwrap_or_else(|_| Ok(()));
+                        .unwrap_or(Ok(()));
                 }
                 _ = timeout_interval.tick() => {
                     self.shared_state.rotate_timeout(|_id, v| {
-                        self.stats.add_request_drop();
+                        self.stats.add_request_timeout();
                         v.send_internal_error();
                     });
                 }

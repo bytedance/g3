@@ -1,9 +1,9 @@
 [package]
 name = "g3tiles"
-version = "0.3.4"
+version = "0.4.0"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.80.0"
+rust-version.workspace = true
 description = "G3 generic reverse proxy"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -15,17 +15,17 @@ async-trait.workspace = true
 yaml-rust.workspace = true
 serde_json.workspace = true
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
-slog = { workspace = true, features = ["nested-values", "max_level_trace", "release_max_level_debug"] }
-rand.workspace = true
+slog = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 clap.workspace = true
 clap_complete.workspace = true
-indexmap.workspace = true
 arc-swap.workspace = true
 ahash.workspace = true
+foldhash.workspace = true
 itoa.workspace = true
 ascii.workspace = true
 capnp.workspace = true
 capnp-rpc.workspace = true
+bytes.workspace = true
 tokio = { workspace = true, features = ["net", "sync", "time"] }
 futures-util.workspace = true
 openssl.workspace = true
@@ -34,31 +34,38 @@ rustls.workspace = true
 rustls-pki-types.workspace = true
 quinn = { workspace = true, optional = true, features = ["rustls"] }
 tokio-rustls.workspace = true
-governor = { workspace = true, features = ["std", "jitter"] }
 chrono = { workspace = true, features = ["clock"] }
 uuid.workspace = true
 bitflags.workspace = true
-flume.workspace = true
+kanal = { workspace = true, features = ["async"] }
 rustc-hash.workspace = true
-g3-daemon.workspace = true
+g3-macros.workspace = true
+g3-daemon = { workspace = true, features = ["event-log"] }
+g3-dpi.workspace = true
 g3-yaml = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls", "histogram"] }
+g3-std-ext.workspace = true
 g3-types = { workspace = true, features = ["acl-rule", "route", "openssl", "rustls"] }
 g3-socket.workspace = true
-g3-io-ext.workspace = true
+g3-io-ext = { workspace = true, features = ["openssl", "rustls"] }
 g3-openssl.workspace = true
 g3-statsd-client.workspace = true
 g3-histogram.workspace = true
 g3-slog-types.workspace = true
+g3-tls-ticket = { workspace = true, features = ["yaml"] }
 g3tiles-proto = { path = "proto" }
 
 [build-dependencies]
 g3-build-env.workspace = true
 
 [features]
-default = ["quic"]
-quic = ["g3-daemon/quic", "g3-types/quinn", "dep:quinn"]
-rustls-aws-lc = ["rustls/aws-lc-rs"]
+default = ["quic", "rustls-ring"]
+quic = ["g3-daemon/quic", "g3-yaml/quinn", "g3-types/quinn", "dep:quinn"]
+rustls-ring = ["g3-types/rustls-ring", "rustls/ring", "quinn?/rustls-ring"]
+rustls-aws-lc = ["g3-types/rustls-aws-lc", "rustls/aws-lc-rs", "quinn?/rustls-aws-lc-rs"]
+rustls-aws-lc-fips = ["g3-types/rustls-aws-lc-fips", "rustls/fips", "quinn?/rustls-aws-lc-rs-fips"]
 vendored-openssl = ["openssl/vendored", "openssl-probe"]
-vendored-tongsuo = ["openssl/tongsuo", "openssl-probe", "g3-yaml/tongsuo", "g3-types/tongsuo"]
-vendored-aws-lc = ["rustls-aws-lc", "openssl/aws-lc", "openssl-probe", "g3-types/aws-lc", "g3-openssl/aws-lc"]
-vendored-boringssl = ["openssl/boringssl", "openssl-probe", "g3-types/boringssl", "g3-openssl/boringssl"]
+vendored-tongsuo = ["openssl/tongsuo", "openssl-probe"]
+vendored-boringssl = ["openssl/boringssl", "openssl-probe"]
+vendored-aws-lc = ["openssl/aws-lc", "openssl-probe"]
+vendored-aws-lc-fips = ["openssl/aws-lc-fips", "openssl-probe"]
+openssl-async-job = ["g3-openssl/async-job", "g3-daemon/openssl-async-job"]

@@ -1,4 +1,34 @@
 
+v0.9.7:
+ - Feature: allow to set more flexible rate limit value
+
+v0.9.6:
+ - BUG FIX: fix wake in cloudflare keyless multiplex task
+ - Feature: add support for thrift tcp target
+
+v0.9.5:
+ - Feature: support DELETE/OPTIONS/TRACE method in h1/h2/h3 target
+ - Feature: support to set headers in h1/h2/h3 target
+ - Feature: restore support for aws-lc
+ - Feature: add support for aws-lc-fips
+
+v0.9.4:
+ - BUG FIX: fix https proxy support for h2 target
+ - Feature: allow to set max openssl async job size for each worker thread
+ - Feature: allow to bind to interface in dns target
+ - Feature: support multi-threaded worker
+ - Feature: allow to verify all keyless action result
+ - Feature: add global no summary cli arg
+ - Feature: return non-zero error code if there are failed requests
+ - Feature: wait h1 connection shutdown synchronously
+
+v0.9.3:
+ - Feature: add openssl variant info to version message
+ - Feature: support use aws-lc-rs as rustls crypto backend
+ - Feature: allow to set tls version for openssl client
+ - Feature: allow to bind to interface for various targets
+ - Feature: add tls session resumption data in summary output
+
 v0.9.2:
  - Compatibility: support windows
  - Compatibility: update build dependencies

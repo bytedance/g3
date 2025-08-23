@@ -1,17 +1,6 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
@@ -40,7 +29,7 @@ impl Sinker {
                 break;
             }
 
-            if let Err(e) = self.send_udp(&buf[0..nr]).await {
+            if let Err(e) = self.send_udp(&buf).await {
                 trace!("stream dump udp send error: {e}");
             }
             buf.clear();
@@ -53,9 +42,11 @@ impl Sinker {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "solaris",
     ))]
     async fn send_udp(&self, packets: &[Vec<u8>]) -> io::Result<()> {
-        use g3_io_ext::{SendMsgHdr, UdpSocketExt};
+        use g3_io_ext::UdpSocketExt;
+        use g3_io_sys::udp::SendMsgHdr;
         use std::future::poll_fn;
         use std::io::IoSlice;
 
@@ -70,7 +61,26 @@ impl Sinker {
         Ok(())
     }
 
-    #[cfg(any(windows, target_os = "macos", target_os = "dragonfly"))]
+    #[cfg(target_os = "macos")]
+    async fn send_udp(&self, packets: &[Vec<u8>]) -> io::Result<()> {
+        use g3_io_ext::UdpSocketExt;
+        use g3_io_sys::udp::SendMsgHdr;
+        use std::future::poll_fn;
+        use std::io::IoSlice;
+
+        let mut msgs: Vec<_> = packets
+            .iter()
+            .map(|v| SendMsgHdr::new([IoSlice::new(v.as_slice())], None))
+            .collect();
+        let mut offset = 0;
+        while offset < msgs.len() {
+            offset +=
+                poll_fn(|cx| self.socket.poll_batch_sendmsg_x(cx, &mut msgs[offset..])).await?;
+        }
+        Ok(())
+    }
+
+    #[cfg(any(windows, target_os = "dragonfly", target_os = "illumos"))]
     async fn send_udp(&self, packets: &[Vec<u8>]) -> io::Result<()> {
         for pkt in packets {
             self.socket.send(pkt.as_slice()).await?;

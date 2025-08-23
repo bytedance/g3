@@ -1,23 +1,29 @@
 name: MacOS-CI
+permissions: { }
 
 on:
   push:
     paths-ignore:
       - 'ansible/**'
       - 'doc/**'
-      - 'demo/**'
+      - 'sphinx/**'
       - 'scripts/**'
-      - 'g3proxy/doc/**'
-      - 'g3tiles/doc/**'
     branches:
       - 'master'
-      - 'rel/**'
       - 'lts/**'
   pull_request:
+    paths-ignore:
+      - 'ansible/**'
+      - 'doc/**'
+      - 'sphinx/**'
+      - 'scripts/**'
     branches:
       - 'master'
-      - 'rel/**'
       - 'lts/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -28,12 +34,13 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
       - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
         with:
+          toolchain: stable
           components: clippy
       - name: Install dependencies
         run: |
@@ -43,8 +50,42 @@ jobs:
       - name: Cargo clippy
         run: cargo clippy --tests -- --deny warnings
       - name: Cargo test
-        run: cargo test
-  build-vendored:
+        run: cargo test --workspace --exclude g3-journal
+  build-vendored-g1:
+    name: Build vendored
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        feature:
+          - vendored-openssl,rustls-ring
+          - vendored-tongsuo,rustls-ring
+          - vendored-boringssl,rustls-ring
+          - vendored-aws-lc,rustls-aws-lc
+        component:
+          - g3proxy
+          - g3bench
+          - g3tiles
+        include:
+          - feature: vendored-c-ares,rustls-ring
+            component: g3proxy
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Install dependencies
+        run: |
+          brew install capnp openssl c-ares lua
+      - name: Cargo build
+        run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
+      - name: Cargo clippy
+        run: cargo clippy --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }} -- --deny warnings
+  build-vendored-g2:
     name: Build vendored
     runs-on: macos-latest
     strategy:
@@ -52,30 +93,25 @@ jobs:
         feature:
           - vendored-openssl
           - vendored-tongsuo
-          - vendored-aws-lc
           - vendored-boringssl
+          - vendored-aws-lc
         component:
-          - g3proxy
-          - g3bench
-          - g3tiles
           - g3fcgen
           - g3mkcert
           - g3keymess
-        include:
-          - feature: vendored-c-ares
-            component: g3proxy
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
       - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
         with:
+          toolchain: stable
           components: clippy
       - name: Install dependencies
         run: |
-          brew install capnp openssl c-ares lua
+          brew install capnp openssl
       - name: Cargo build
         run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
       - name: Cargo clippy

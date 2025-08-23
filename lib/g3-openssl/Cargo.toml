@@ -1,23 +1,21 @@
 [package]
 name = "g3-openssl"
-version = "0.2.0"
+version = "0.4.0"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.80.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow.workspace = true
 thiserror.workspace = true
+bitflags.workspace = true
 libc.workspace = true
 openssl-sys.workspace = true
 openssl.workspace = true
-tokio = { workspace = true, features = ["net", "rt"] }
+tokio = { workspace = true, features = ["net", "rt", "time"] }
 atomic-waker.workspace = true
 
 [features]
 default = []
 async-job = []
-aws-lc = ["openssl/aws-lc"]
-boringssl = ["openssl/boringssl"]

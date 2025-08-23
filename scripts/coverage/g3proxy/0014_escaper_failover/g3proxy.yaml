@@ -1,0 +1,74 @@
+---
+
+log: journal
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+resolver:
+  - name: cares1
+    type: c-ares
+    server:
+      - 127.0.0.1
+  - name: cares2
+    type: c-ares
+    server: 127.0.0.1
+  - name: main
+    type: fail_over
+    primary: cares1
+    standby: cares2
+
+escaper:
+  - name: direct1
+    type: direct_fixed
+    resolver: main
+    bind_interface: lo
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.1
+  - name: direct2
+    type: direct_fixed
+    resolver: main
+    bind_ip: 127.0.0.1
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.1
+  - name: failover
+    type: route_failover
+    primary: direct1
+    standby: direct2
+    delay: 10ms
+
+server:
+  - name: rss
+    type: http_rproxy
+    listen: 127.0.0.1:9443
+    escaper: direct1
+    enable_tls_server: true
+    global_tls_server:
+      cert_pairs:
+        certificate: ../httpbin.local.pem
+        private-key: ../httpbin.local-key.pem
+    hosts:
+      - exact_match: httpbin.local
+        upstream: 127.0.0.1:80
+        tls_server:
+          cert_pairs:
+            certificate: ../httpbin.local.pem
+            private-key: ../httpbin.local-key.pem
+  - name: http
+    type: http_proxy
+    listen: 127.0.0.1:8080
+    escaper: failover
+    tls_client:
+      ca_certificate: ../rootCA.pem
+  - name: socks1
+    type: socks_proxy
+    listen: 127.0.0.1:1080
+    escaper: failover
+  - name: socks2
+    type: socks_proxy
+    listen: 127.0.0.1:1081
+    escaper: failover
+    use-udp-associate: true

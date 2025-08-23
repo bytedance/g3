@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use anyhow::Context;
@@ -23,17 +12,25 @@ use g3proxy::opts::ProcArgs;
 
 fn main() -> anyhow::Result<()> {
     #[cfg(feature = "openssl-probe")]
-    openssl_probe::init_ssl_cert_env_vars();
+    unsafe {
+        openssl_probe::init_openssl_env_vars();
+    }
     openssl::init();
 
-    #[cfg(feature = "rustls-aws-lc")]
+    #[cfg(any(feature = "rustls-aws-lc", feature = "rustls-aws-lc-fips"))]
     rustls::crypto::aws_lc_rs::default_provider()
         .install_default()
         .unwrap();
-    #[cfg(not(feature = "rustls-aws-lc"))]
+    #[cfg(feature = "rustls-ring")]
     rustls::crypto::ring::default_provider()
         .install_default()
         .unwrap();
+    #[cfg(not(any(
+        feature = "rustls-aws-lc",
+        feature = "rustls-aws-lc-fips",
+        feature = "rustls-ring"
+    )))]
+    compile_error!("either rustls-aws-lc or rustls-ring should be enabled");
 
     let Some(proc_args) =
         g3proxy::opts::parse_clap().context("failed to parse command line options")?
@@ -89,6 +86,8 @@ fn main() -> anyhow::Result<()> {
         None
     };
 
+    let _workers_guard =
+        g3_daemon::runtime::worker::spawn_workers().context("failed to spawn workers")?;
     let ret = tokio_run(&proc_args);
 
     if let Some(handlers) = stat_join {
@@ -101,7 +100,7 @@ fn main() -> anyhow::Result<()> {
     match ret {
         Ok(_) => Ok(()),
         Err(e) => {
-            error!("{:?}", e);
+            error!("{e:?}");
             Err(e)
         }
     }
@@ -112,8 +111,6 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         .start()
         .context("failed to start runtime")?;
     rt.block_on(async {
-        let ret: anyhow::Result<()> = Ok(());
-
         g3_daemon::runtime::set_main_handle();
 
         let ctl_thread_handler = g3proxy::control::capnp::spawn_working_thread().await?;
@@ -131,6 +128,7 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         g3proxy::control::QuitActor::tokio_spawn_run();
 
         g3proxy::signal::register().context("failed to setup signal handler")?;
+        g3_daemon::control::panic::set_hook(&args.daemon_config);
 
         if let Some(stats) = g3_io_ext::spawn_limit_schedule_runtime().await {
             g3_daemon::runtime::metrics::add_tokio_stats(stats, "limit-schedule".to_string());
@@ -142,9 +140,6 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
             g3_daemon::runtime::metrics::add_tokio_stats(stats, "ip-locate".to_string());
         }
 
-        let _workers_guard = g3_daemon::runtime::worker::spawn_workers()
-            .await
-            .context("failed to spawn workers")?;
         match load_and_spawn().await {
             Ok(_) => g3_daemon::control::upgrade::finish(),
             Err(e) => {
@@ -161,10 +156,8 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         g3proxy::control::capnp::stop_working_thread();
         let _ = ctl_thread_handler.join();
 
-        ret
-    })?;
-
-    Ok(())
+        Ok(())
+    })
 }
 
 async fn load_and_spawn() -> anyhow::Result<()> {

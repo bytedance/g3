@@ -1,19 +1,9 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::ffi::CString;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -23,12 +13,14 @@ use log::warn;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 
-use crate::config::auth::source::python::UserDynamicPythonSource;
 use crate::config::auth::UserConfig;
+use crate::config::auth::source::python::UserDynamicPythonSource;
 
 const FN_NAME_FETCH_USERS: &str = "fetch_users";
 const FN_NAME_REPORT_OK: &str = "report_ok";
 const FN_NAME_REPORT_ERR: &str = "report_err";
+
+const VAR_NAME_FILE: &str = "__file__";
 
 pub(super) async fn fetch_records(
     source: &Arc<UserDynamicPythonSource>,
@@ -131,15 +123,24 @@ async fn call_python_fetch(script: PathBuf) -> anyhow::Result<String> {
             script.display(),
         )
     })?;
+    let code = unsafe { CString::from_vec_unchecked(code.into_bytes()) };
 
     tokio::task::spawn_blocking(move || {
         Python::with_gil(|py| {
-            let code = PyModule::from_code_bound(py, code.as_str(), "", "").map_err(|e| {
+            let code = PyModule::from_code(py, &code, c"", c"").map_err(|e| {
                 anyhow!(
                     "failed to load code from script file {}: {e:?}",
                     script.display(),
                 )
             })?;
+            code.setattr(VAR_NAME_FILE, script.display().to_string())
+                .map_err(|e| {
+                    anyhow!(
+                        "failed to set {} to {}: {e}",
+                        VAR_NAME_FILE,
+                        script.display()
+                    )
+                })?;
 
             let fetch_users = code.getattr(FN_NAME_FETCH_USERS).map_err(|e| {
                 anyhow!(
@@ -178,15 +179,24 @@ async fn call_python_report_ok(script: PathBuf) -> anyhow::Result<()> {
             script.display(),
         )
     })?;
+    let code = unsafe { CString::from_vec_unchecked(code.into_bytes()) };
 
     tokio::task::spawn_blocking(move || {
         Python::with_gil(|py| {
-            let code = PyModule::from_code_bound(py, code.as_str(), "", "").map_err(|e| {
+            let code = PyModule::from_code(py, &code, c"", c"").map_err(|e| {
                 anyhow!(
                     "failed to load code from script file {}: {e:?}",
                     script.display(),
                 )
             })?;
+            code.setattr(VAR_NAME_FILE, script.display().to_string())
+                .map_err(|e| {
+                    anyhow!(
+                        "failed to set {} to {}: {e}",
+                        VAR_NAME_FILE,
+                        script.display()
+                    )
+                })?;
 
             if let Ok(report_ok) = code.getattr(FN_NAME_REPORT_OK) {
                 report_ok.call0().map_err(|e| {
@@ -211,18 +221,28 @@ async fn call_python_report_err(script: PathBuf, e: String) -> anyhow::Result<()
             script.display(),
         )
     })?;
+    let code = unsafe { CString::from_vec_unchecked(code.into_bytes()) };
 
     tokio::task::spawn_blocking(move || {
         Python::with_gil(|py| {
-            let code = PyModule::from_code_bound(py, code.as_str(), "", "").map_err(|e| {
+            let code = PyModule::from_code(py, &code, c"", c"").map_err(|e| {
                 anyhow!(
                     "failed to load code from script file {}: {e:?}",
                     script.display(),
                 )
             })?;
+            code.setattr(VAR_NAME_FILE, script.display().to_string())
+                .map_err(|e| {
+                    anyhow!(
+                        "failed to set {} to {}: {e}",
+                        VAR_NAME_FILE,
+                        script.display()
+                    )
+                })?;
 
             if let Ok(report_ok) = code.getattr(FN_NAME_REPORT_ERR) {
-                let tup = PyTuple::new_bound(py, [e]);
+                let tup = PyTuple::new(py, [e])
+                    .map_err(|e| anyhow!("failed to construct param tuple: {e}"))?;
                 report_ok.call1(tup).map_err(|e| {
                     anyhow!(
                         "failed to call {}::{FN_NAME_REPORT_ERR}(err_msg): {e:?}",

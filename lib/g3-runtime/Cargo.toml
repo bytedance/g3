@@ -1,9 +1,9 @@
 [package]
 name = "g3-runtime"
-version = "0.3.0"
+version = "0.5.0"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.70.0"
+rust-version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -11,9 +11,12 @@ rust-version = "1.70.0"
 anyhow.workspace = true
 log.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "rt", "sync", "net"] }
+yaml-rust = { workspace = true, optional = true }
 g3-compat.workspace = true
 g3-openssl = { workspace = true, optional = true }
+g3-yaml = { workspace = true, optional = true, features = ["sched"] }
 
 [features]
 default = []
 openssl-async-job = ["g3-openssl/async-job"]
+yaml = ["dep:g3-yaml", "dep:yaml-rust"]

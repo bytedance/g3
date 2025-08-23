@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
@@ -105,12 +94,16 @@ impl BenchTaskContext for OpensslTaskContext {
                 let total_time = time_started.elapsed();
                 self.histogram_recorder.record_total_time(total_time);
 
-                let runtime_stats = self.runtime_stats.clone();
+                self.runtime_stats.session.add_total();
+                if tls_stream.ssl().session_reused() {
+                    self.runtime_stats.session.add_reused();
+                }
+
                 // make sure the tls ticket will be reused
                 match tokio::time::timeout(Duration::from_secs(4), tls_stream.shutdown()).await {
                     Ok(Ok(_)) => {}
-                    Ok(Err(_e)) => runtime_stats.add_conn_close_fail(),
-                    Err(_) => runtime_stats.add_conn_close_timeout(),
+                    Ok(Err(_e)) => self.runtime_stats.add_conn_close_fail(),
+                    Err(_) => self.runtime_stats.add_conn_close_timeout(),
                 }
 
                 Ok(())

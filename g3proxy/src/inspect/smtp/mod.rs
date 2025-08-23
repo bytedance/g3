@@ -1,35 +1,29 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
+
+use std::time::Duration;
 
 use anyhow::anyhow;
 use slog::slog_info;
 use tokio::io::AsyncWriteExt;
 
-use g3_dpi::ProtocolInspectPolicy;
-use g3_io_ext::{LineRecvBuf, OnceBufReader};
+use g3_daemon::server::ServerQuitPolicy;
+use g3_dpi::ProtocolInspectAction;
+use g3_io_ext::{IdleInterval, LineRecvBuf, OnceBufReader, StreamCopyConfig};
 use g3_slog_types::{LtHost, LtUpstreamAddr, LtUuid};
 use g3_smtp_proto::command::Command;
 use g3_smtp_proto::response::{ReplyCode, ResponseEncoder, ResponseParser};
 use g3_types::net::{Host, UpstreamAddr};
 
-use super::StartTlsProtocol;
+use super::{StartTlsProtocol, StreamTransitTask};
 #[cfg(feature = "quic")]
-use crate::audit::StreamDetourContext;
+use crate::audit::DetourAction;
+use crate::auth::User;
 use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};
+use crate::log::task::TaskEvent;
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
 mod ext;
@@ -58,14 +52,16 @@ struct SmtpRelayBuf {
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
-        slog_info!($obj.ctx.intercept_logger(), $($args)+;
-            "intercept_type" => "SmtpConnection",
-            "task_id" => LtUuid($obj.ctx.server_task_id()),
-            "depth" => $obj.ctx.inspection_depth,
-            "upstream" => LtUpstreamAddr(&$obj.upstream),
-            "client_host" => $obj.client_host.as_ref().map(LtHost),
-            "transaction_count" => $obj.transaction_count,
-        )
+        if let Some(logger) = $obj.ctx.intercept_logger() {
+            slog_info!(logger, $($args)+;
+                "intercept_type" => "SmtpConnection",
+                "task_id" => LtUuid($obj.ctx.server_task_id()),
+                "depth" => $obj.ctx.inspection_depth,
+                "upstream" => LtUpstreamAddr(&$obj.upstream),
+                "client_host" => $obj.client_host.as_ref().map(LtHost),
+                "transaction_count" => $obj.transaction_count,
+            );
+        }
     };
 }
 
@@ -85,10 +81,7 @@ pub(crate) struct SmtpInterceptObject<SC: ServerConfig> {
     transaction_count: usize,
 }
 
-impl<SC> SmtpInterceptObject<SC>
-where
-    SC: ServerConfig + Send + Sync + 'static,
-{
+impl<SC: ServerConfig> SmtpInterceptObject<SC> {
     pub(crate) fn new(ctx: StreamInspectContext<SC>, upstream: UpstreamAddr) -> Self {
         SmtpInterceptObject {
             io: None,
@@ -120,30 +113,78 @@ where
         self.io = Some(io);
     }
 
+    fn log_partial_shutdown(&self, task_event: TaskEvent) {
+        if let Some(logger) = self.ctx.intercept_logger() {
+            slog_info!(logger, "";
+                "intercept_type" => "SmtpConnection",
+                "task_id" => LtUuid(self.ctx.server_task_id()),
+                "task_event" => task_event.as_str(),
+                "depth" => self.ctx.inspection_depth,
+                "upstream" => LtUpstreamAddr(&self.upstream),
+                "client_host" => self.client_host.as_ref().map(LtHost),
+            );
+        }
+    }
+}
+
+impl<SC: ServerConfig> StreamTransitTask for SmtpInterceptObject<SC> {
+    fn copy_config(&self) -> StreamCopyConfig {
+        self.ctx.server_config.limited_copy_config()
+    }
+
+    fn idle_check_interval(&self) -> IdleInterval {
+        self.ctx.idle_wheel.register()
+    }
+
+    fn max_idle_count(&self) -> usize {
+        self.ctx.max_idle_count
+    }
+
+    fn log_client_shutdown(&self) {
+        self.log_partial_shutdown(TaskEvent::ClientShutdown);
+    }
+
+    fn log_upstream_shutdown(&self) {
+        self.log_partial_shutdown(TaskEvent::UpstreamShutdown);
+    }
+
+    fn log_periodic(&self) {
+        // TODO
+    }
+
+    fn log_flush_interval(&self) -> Option<Duration> {
+        self.ctx.server_config.task_log_flush_interval()
+    }
+
+    fn quit_policy(&self) -> &ServerQuitPolicy {
+        self.ctx.server_quit_policy.as_ref()
+    }
+
+    fn user(&self) -> Option<&User> {
+        self.ctx.user()
+    }
+}
+
+impl<SC> SmtpInterceptObject<SC>
+where
+    SC: ServerConfig + Send + Sync + 'static,
+{
     pub(crate) async fn intercept(mut self) -> ServerTaskResult<Option<StreamInspection<SC>>> {
-        match self.ctx.smtp_inspect_policy() {
-            ProtocolInspectPolicy::Intercept => match self.do_intercept().await {
-                Ok(obj) => {
-                    intercept_log!(self, "finished");
-                    Ok(obj)
-                }
-                Err(e) => {
-                    intercept_log!(self, "{e}");
-                    Err(e)
-                }
-            },
+        let r = match self.ctx.smtp_inspect_action(self.upstream.host()) {
+            ProtocolInspectAction::Intercept => self.do_intercept().await,
             #[cfg(feature = "quic")]
-            ProtocolInspectPolicy::Detour => {
-                self.do_detour().await?;
-                Ok(None)
+            ProtocolInspectAction::Detour => self.do_detour().await.map(|_| None),
+            ProtocolInspectAction::Bypass => self.do_bypass().await.map(|_| None),
+            ProtocolInspectAction::Block => self.do_block().await.map(|_| None),
+        };
+        match r {
+            Ok(obj) => {
+                intercept_log!(self, "finished");
+                Ok(obj)
             }
-            ProtocolInspectPolicy::Bypass => {
-                self.do_bypass().await?;
-                Ok(None)
-            }
-            ProtocolInspectPolicy::Block => {
-                self.do_block().await?;
-                Ok(None)
+            Err(e) => {
+                intercept_log!(self, "{e}");
+                Err(e)
             }
         }
     }
@@ -154,22 +195,80 @@ where
             return self.do_bypass().await;
         };
 
-        let SmtpIo {
-            clt_r,
-            clt_w,
-            ups_r,
-            ups_w,
-        } = self.io.take().unwrap();
+        let mut detour_stream = match client.open_detour_stream().await {
+            Ok(s) => s,
+            Err(e) => {
+                self.close_on_detour_error().await;
+                return Err(ServerTaskError::InternalAdapterError(e));
+            }
+        };
 
-        let ctx = StreamDetourContext::new(
+        let detour_ctx = client.build_context(
             &self.ctx.server_config,
             &self.ctx.server_quit_policy,
+            &self.ctx.idle_wheel,
             &self.ctx.task_notes,
             &self.upstream,
             g3_dpi::Protocol::Smtp,
         );
 
-        client.detour_relay(clt_r, clt_w, ups_r, ups_w, ctx).await
+        match detour_ctx.check_detour_action(&mut detour_stream).await {
+            Ok(DetourAction::Continue) => {
+                let SmtpIo {
+                    clt_r,
+                    clt_w,
+                    ups_r,
+                    ups_w,
+                } = self.io.take().unwrap();
+
+                detour_ctx
+                    .relay(clt_r, clt_w, ups_r, ups_w, detour_stream)
+                    .await
+            }
+            Ok(DetourAction::Bypass) => {
+                detour_stream.finish();
+                self.do_bypass().await
+            }
+            Ok(DetourAction::Block) => {
+                detour_stream.finish();
+                self.do_block().await
+            }
+            Err(e) => {
+                detour_stream.finish();
+                self.close_on_detour_error().await;
+                Err(ServerTaskError::InternalAdapterError(e))
+            }
+        }
+    }
+
+    #[cfg(feature = "quic")]
+    async fn close_on_detour_error(&mut self) {
+        let SmtpIo {
+            clt_r,
+            mut clt_w,
+            ups_r: _,
+            mut ups_w,
+        } = self.io.take().unwrap();
+
+        tokio::spawn(async move {
+            let _ = ups_w.shutdown().await;
+        });
+
+        let local_ip = self.ctx.task_notes.server_addr.ip();
+
+        if ResponseEncoder::internal_server_error(local_ip)
+            .write(&mut clt_w)
+            .await
+            .is_ok()
+        {
+            let _ = EndWaitClient::new(local_ip)
+                .run_to_end(
+                    clt_r,
+                    clt_w,
+                    self.ctx.smtp_interception().command_wait_timeout,
+                )
+                .await;
+        }
     }
 
     async fn do_bypass(&mut self) -> ServerTaskResult<()> {
@@ -180,16 +279,7 @@ where
             ups_w,
         } = self.io.take().unwrap();
 
-        crate::inspect::stream::transit_transparent(
-            clt_r,
-            clt_w,
-            ups_r,
-            ups_w,
-            &self.ctx.server_config,
-            &self.ctx.server_quit_policy,
-            self.ctx.user(),
-        )
-        .await
+        self.transit_transparent(clt_r, clt_w, ups_r, ups_w).await
     }
 
     async fn do_block(&mut self) -> ServerTaskResult<()> {
@@ -218,7 +308,7 @@ where
             )
             .await?;
         Err(ServerTaskError::InternalAdapterError(anyhow!(
-            "blocked by inspection policy"
+            "smtp blocked by inspection policy"
         )))
     }
 
@@ -300,7 +390,11 @@ where
                 )
                 .await?;
             match next_action {
-                ForwardNextAction::Quit => return Ok(None),
+                ForwardNextAction::Quit => {
+                    let _ = ups_w.shutdown().await;
+                    let _ = clt_w.shutdown().await;
+                    return Ok(None);
+                }
                 ForwardNextAction::StartTls => {
                     return if let Some(tls_interception) = self.ctx.tls_interception() {
                         let mut start_tls_obj =
@@ -313,31 +407,16 @@ where
                         start_tls_obj.set_io(clt_r, clt_w, ups_r, ups_w);
                         Ok(Some(StreamInspection::StartTls(start_tls_obj)))
                     } else {
-                        crate::inspect::stream::transit_transparent(
-                            clt_r,
-                            clt_w,
-                            ups_r,
-                            ups_w,
-                            &self.ctx.server_config,
-                            &self.ctx.server_quit_policy,
-                            self.ctx.user(),
-                        )
-                        .await
-                        .map(|_| None)
-                    }
+                        self.transit_transparent(clt_r, clt_w, ups_r, ups_w)
+                            .await
+                            .map(|_| None)
+                    };
                 }
                 ForwardNextAction::ReverseConnection => {
-                    return crate::inspect::stream::transit_transparent(
-                        clt_r,
-                        clt_w,
-                        ups_r,
-                        ups_w,
-                        &self.ctx.server_config,
-                        &self.ctx.server_quit_policy,
-                        self.ctx.user(),
-                    )
-                    .await
-                    .map(|_| None);
+                    return self
+                        .transit_transparent(clt_r, clt_w, ups_r, ups_w)
+                        .await
+                        .map(|_| None);
                 }
                 ForwardNextAction::SetExtensions(ext) => server_ext = ext,
                 ForwardNextAction::MailTransport(param) => {
@@ -364,6 +443,8 @@ where
                         )
                         .await?;
                     if transaction.quit() {
+                        let _ = ups_w.shutdown().await;
+                        let _ = clt_w.shutdown().await;
                         return Ok(None);
                     }
                 }

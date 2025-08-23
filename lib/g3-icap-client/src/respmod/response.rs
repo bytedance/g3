@@ -1,35 +1,20 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
-
-use std::str::FromStr;
 
 use tokio::io::AsyncBufRead;
 
 use g3_io_ext::LimitedBufReadExt;
-use g3_types::net::HttpHeaderValue;
 
 use super::{IcapRespmodParseError, IcapRespmodResponsePayload};
-use crate::parse::{HeaderLine, IcapLineParseError, StatusLine};
+use crate::parse::{HeaderLine, StatusLine};
 
 pub(crate) struct RespmodResponse {
     pub(crate) code: u16,
     pub(crate) reason: String,
     pub(crate) keep_alive: bool,
     pub(crate) payload: IcapRespmodResponsePayload,
-    trailers: Vec<HttpHeaderValue>,
 }
 
 impl RespmodResponse {
@@ -39,12 +24,7 @@ impl RespmodResponse {
             reason,
             keep_alive: true,
             payload: IcapRespmodResponsePayload::NoPayload,
-            trailers: Vec::new(),
         }
-    }
-
-    pub(crate) fn take_trailers(&mut self) -> Vec<HttpHeaderValue> {
-        self.trailers.drain(..).collect()
     }
 
     pub(crate) async fn parse<R>(
@@ -136,14 +116,6 @@ impl RespmodResponse {
                         _ => {} // ignore other custom hop-by-hop headers
                     }
                 }
-            }
-            "trailer" => {
-                let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
-                    IcapRespmodParseError::InvalidHeaderLine(
-                        IcapLineParseError::InvalidTrailerValue,
-                    )
-                })?;
-                self.trailers.push(value);
             }
             "encapsulated" => self.payload = IcapRespmodResponsePayload::parse(header.value)?,
             _ => {}

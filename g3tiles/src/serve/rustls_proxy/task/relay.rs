@@ -1,36 +1,25 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
 use std::time::Duration;
 
-use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
-use tokio::time::Instant;
 use tokio_rustls::server::TlsStream;
 
+use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::{TcpStreamConnectionStats, TcpStreamTaskStats};
-use g3_io_ext::{LimitedCopy, LimitedCopyConfig, LimitedCopyError, LimitedStream};
+use g3_io_ext::{AsyncStream, IdleInterval, LimitedStream, StreamCopyConfig};
 use g3_types::limit::GaugeSemaphorePermit;
 
 use super::CommonTaskContext;
 use crate::backend::ArcBackend;
-use crate::config::server::ServerConfig;
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
-use crate::module::stream::StreamRelayTaskCltWrapperStats;
+use crate::module::stream::{
+    StreamRelayTaskCltWrapperStats, StreamServerAliveTaskGuard, StreamTransitTask,
+};
 use crate::serve::rustls_proxy::RustlsHost;
 use crate::serve::{ServerTaskError, ServerTaskNotes, ServerTaskResult, ServerTaskStage};
 
@@ -40,7 +29,8 @@ pub(crate) struct RustlsRelayTask {
     backend: ArcBackend,
     task_notes: ServerTaskNotes,
     task_stats: Arc<TcpStreamTaskStats>,
-    alive_permit: Option<GaugeSemaphorePermit>,
+    _alive_permit: Option<GaugeSemaphorePermit>,
+    _alive_guard: Option<StreamServerAliveTaskGuard>,
 }
 
 impl RustlsRelayTask {
@@ -61,18 +51,23 @@ impl RustlsRelayTask {
             task_stats: Arc::new(TcpStreamTaskStats::with_clt_stats(
                 pre_handshake_stats.as_ref().clone(),
             )),
-            alive_permit,
+            _alive_permit: alive_permit,
+            _alive_guard: None,
         }
     }
 
-    fn get_log_context(&self) -> TaskLogForTcpConnect {
-        TaskLogForTcpConnect {
-            task_notes: &self.task_notes,
-            client_rd_bytes: self.task_stats.clt.read.get_bytes(),
-            client_wr_bytes: self.task_stats.clt.write.get_bytes(),
-            remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
-            remote_wr_bytes: self.task_stats.ups.write.get_bytes(),
-        }
+    fn get_log_context(&self) -> Option<TaskLogForTcpConnect<'_>> {
+        self.ctx
+            .task_logger
+            .as_ref()
+            .map(|logger| TaskLogForTcpConnect {
+                logger,
+                task_notes: &self.task_notes,
+                client_rd_bytes: self.task_stats.clt.read.get_bytes(),
+                client_wr_bytes: self.task_stats.clt.write.get_bytes(),
+                remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
+                remote_wr_bytes: self.task_stats.ups.write.get_bytes(),
+            })
     }
 
     pub(crate) async fn into_running<S>(mut self, tls_stream: TlsStream<LimitedStream<S>>)
@@ -80,28 +75,21 @@ impl RustlsRelayTask {
         S: AsyncRead + AsyncWrite + Unpin,
     {
         self.pre_start();
-        if let Err(e) = self.run(tls_stream).await {
-            self.get_log_context().log(&self.ctx.task_logger, &e)
+        if let Err(e) = self.run(tls_stream).await
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log(e);
         }
-        self.pre_stop();
     }
 
-    fn pre_start(&self) {
-        debug!(
-            "RustlsProxy: new client from {} to {} server {}",
-            self.ctx.client_addr(),
-            self.ctx.server_config.server_type(),
-            self.ctx.server_config.name(),
-        );
-        self.ctx.server_stats.add_task();
-        self.ctx.server_stats.inc_alive_task();
-    }
+    fn pre_start(&mut self) {
+        self._alive_guard = Some(self.ctx.server_stats.add_task());
 
-    fn pre_stop(&mut self) {
-        if let Some(permit) = self.alive_permit.take() {
-            drop(permit);
+        if self.ctx.server_config.flush_task_log_on_created
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log_created();
         }
-        self.ctx.server_stats.dec_alive_task();
     }
 
     async fn run<S>(&mut self, tls_stream: TlsStream<LimitedStream<S>>) -> ServerTaskResult<()>
@@ -138,6 +126,12 @@ impl RustlsRelayTask {
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
+        if self.ctx.server_config.flush_task_log_on_connected
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log_connected();
+        }
+
         self.task_notes.mark_relaying();
         self.relay(tls_stream, ups_r, ups_w).await
     }
@@ -145,8 +139,8 @@ impl RustlsRelayTask {
     async fn relay<S, UR, UW>(
         &mut self,
         mut tls_stream: TlsStream<LimitedStream<S>>,
-        mut ups_r: UR,
-        mut ups_w: UW,
+        ups_r: UR,
+        ups_w: UW,
     ) -> ServerTaskResult<()>
     where
         S: AsyncRead + AsyncWrite + Unpin,
@@ -154,61 +148,9 @@ impl RustlsRelayTask {
         UW: AsyncWrite + Unpin,
     {
         self.reset_clt_limit_and_stats(&mut tls_stream);
-        let (mut clt_r, mut clt_w) = tokio::io::split(tls_stream);
+        let (clt_r, clt_w) = tls_stream.into_split();
 
-        let copy_config = LimitedCopyConfig::default();
-        let mut clt_to_ups = LimitedCopy::new(&mut clt_r, &mut ups_w, &copy_config);
-        let mut ups_to_clt = LimitedCopy::new(&mut ups_r, &mut clt_w, &copy_config);
-
-        let idle_duration = self.ctx.server_config.task_idle_check_duration;
-        let task_idle_max_count = self
-            .host
-            .config
-            .task_idle_max_count
-            .unwrap_or(self.ctx.server_config.task_idle_max_count);
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
-        let mut idle_count = 0;
-        loop {
-            tokio::select! {
-                biased;
-
-                r = &mut clt_to_ups => {
-                    let _ = ups_to_clt.write_flush().await;
-                    return match r {
-                        Ok(_) => Err(ServerTaskError::ClosedByClient),
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::ClientTcpReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
-                    };
-                }
-                r = &mut ups_to_clt => {
-                    let _ = clt_to_ups.write_flush().await;
-                    return match r {
-                        Ok(_) => Err(ServerTaskError::ClosedByUpstream),
-                        Err(LimitedCopyError::ReadFailed(e)) => Err(ServerTaskError::UpstreamReadFailed(e)),
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
-                    };
-                }
-                _ = idle_interval.tick() => {
-                    if clt_to_ups.is_idle() && ups_to_clt.is_idle() {
-                        idle_count += 1;
-
-                        if idle_count >= task_idle_max_count {
-                            return Err(ServerTaskError::Idle(idle_duration, idle_count));
-                        }
-                    } else {
-                        idle_count = 0;
-
-                        clt_to_ups.reset_active();
-                        ups_to_clt.reset_active();
-                    }
-
-                    if self.ctx.server_quit_policy.force_quit() {
-                        return Err(ServerTaskError::CanceledAsServerQuit)
-                    }
-                }
-            };
-        }
+        self.transit_transparent(clt_r, clt_w, ups_r, ups_w).await
     }
 
     fn reset_clt_limit_and_stats<S>(&self, tls_stream: &mut TlsStream<LimitedStream<S>>)
@@ -237,5 +179,48 @@ impl RustlsRelayTask {
             .get_mut()
             .0
             .reset_stats(Arc::new(clt_wrapper_stats));
+    }
+}
+
+impl StreamTransitTask for RustlsRelayTask {
+    fn copy_config(&self) -> StreamCopyConfig {
+        self.ctx.server_config.tcp_copy
+    }
+
+    fn idle_check_interval(&self) -> IdleInterval {
+        self.ctx.idle_wheel.register()
+    }
+
+    fn max_idle_count(&self) -> usize {
+        self.host
+            .config
+            .task_idle_max_count
+            .unwrap_or(self.ctx.server_config.task_idle_max_count)
+    }
+
+    fn log_client_shutdown(&self) {
+        if let Some(log_ctx) = self.get_log_context() {
+            log_ctx.log_client_shutdown();
+        }
+    }
+
+    fn log_upstream_shutdown(&self) {
+        if let Some(log_ctx) = self.get_log_context() {
+            log_ctx.log_upstream_shutdown();
+        }
+    }
+
+    fn log_periodic(&self) {
+        if let Some(log_ctx) = self.get_log_context() {
+            log_ctx.log_periodic();
+        }
+    }
+
+    fn log_flush_interval(&self) -> Option<Duration> {
+        self.ctx.log_flush_interval()
+    }
+
+    fn quit_policy(&self) -> &ServerQuitPolicy {
+        self.ctx.server_quit_policy.as_ref()
     }
 }

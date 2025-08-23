@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -21,7 +10,7 @@ use anyhow::anyhow;
 use async_trait::async_trait;
 
 use g3_resolver::{ResolveError, ResolveLocalError};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::{
     ArcIntegratedResolverHandle, BoxLoggedResolveJob, ErrorResolveJob, IntegratedResolverHandle,
@@ -29,7 +18,7 @@ use super::{
 };
 use crate::config::resolver::deny_all::DenyAllResolverConfig;
 use crate::config::resolver::{AnyResolverConfig, ResolverConfig};
-use crate::resolve::{BoxResolver, ResolverStats};
+use crate::resolve::{BoxResolverInternal, ResolverStats};
 
 pub(super) struct DenyAllResolver {
     config: Arc<DenyAllResolverConfig>,
@@ -37,7 +26,7 @@ pub(super) struct DenyAllResolver {
 }
 
 impl DenyAllResolver {
-    pub(super) fn new_obj(config: DenyAllResolverConfig) -> anyhow::Result<BoxResolver> {
+    pub(super) fn new_obj(config: DenyAllResolverConfig) -> anyhow::Result<BoxResolverInternal> {
         let stats = g3_resolver::ResolverStats::default();
         let stats = ResolverStats::new(config.name(), Arc::new(stats));
         Ok(Box::new(DenyAllResolver {
@@ -49,7 +38,7 @@ impl DenyAllResolver {
 
 #[async_trait]
 impl ResolverInternal for DenyAllResolver {
-    fn _dependent_resolver(&self) -> Option<BTreeSet<MetricsName>> {
+    fn _dependent_resolver(&self) -> Option<BTreeSet<NodeName>> {
         None
     }
 
@@ -60,7 +49,7 @@ impl ResolverInternal for DenyAllResolver {
     fn _update_config(
         &mut self,
         config: AnyResolverConfig,
-        _dep_table: BTreeMap<MetricsName, ArcIntegratedResolverHandle>,
+        _dep_table: BTreeMap<NodeName, ArcIntegratedResolverHandle>,
     ) -> anyhow::Result<()> {
         match config {
             AnyResolverConfig::DenyAll(config) => {
@@ -73,7 +62,7 @@ impl ResolverInternal for DenyAllResolver {
 
     fn _update_dependent_handle(
         &mut self,
-        _target: &MetricsName,
+        _target: &NodeName,
         _handle: ArcIntegratedResolverHandle,
     ) -> anyhow::Result<()> {
         Ok(())
@@ -105,7 +94,7 @@ impl DenyAllResolverHandle {
 }
 
 impl IntegratedResolverHandle for DenyAllResolverHandle {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 

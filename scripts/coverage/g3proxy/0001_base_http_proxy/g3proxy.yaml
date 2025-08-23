@@ -1,0 +1,59 @@
+---
+
+log: fluentd
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+resolver:
+  - name: default
+    type: c-ares
+    server:
+      - 127.0.0.1
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: default
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.1
+
+server:
+  - name: http
+    type: http_proxy
+    listen: 127.0.0.1:8080
+    escaper: default
+    flush_task_log_on_created: true
+    flush_task_log_on_connected: true
+    task_log_flush_interval: 1s
+    tcp_sock_speed_limit: 500K
+  - name: tcp
+    type: plain_tcp_port
+    listen: '[::1]:8080'
+    server: http
+  - name: tls1
+    type: native_tls_port
+    listen: 127.0.0.1:8443
+    server: http
+    tls_server:
+      cert_pairs:
+        certificate: ../g3proxy.local.pem
+        private-key: ../g3proxy.local-key.pem
+  - name: tls2
+    type: plain_tls_port
+    listen: 127.0.0.1:8444
+    server: http
+    tls_server:
+      cert_pairs:
+        certificate: ../g3proxy.local.pem
+        private-key: ../g3proxy.local-key.pem
+  - name: https
+    type: http_proxy
+    listen: 127.0.0.1:9443
+    escaper: default
+    tls_server:
+      cert_pairs:
+        certificate: ../g3proxy.local.pem
+        private-key: ../g3proxy.local-key.pem

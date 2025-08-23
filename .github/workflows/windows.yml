@@ -1,28 +1,35 @@
 name: Windows-CI
+permissions: { }
 
 on:
   push:
     paths-ignore:
       - 'ansible/**'
       - 'doc/**'
-      - 'demo/**'
+      - 'sphinx/**'
       - 'scripts/**'
-      - 'g3proxy/doc/**'
-      - 'g3tiles/doc/**'
     branches:
       - 'master'
-      - 'rel/**'
       - 'lts/**'
   pull_request:
+    paths-ignore:
+      - 'ansible/**'
+      - 'doc/**'
+      - 'sphinx/**'
+      - 'scripts/**'
     branches:
       - 'master'
-      - 'rel/**'
       - 'lts/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
   VCPKG_ROOT: C:\vcpkg
-  WIN_FEATURES: quic,vendored-c-ares,hickory
+  WIN_FEATURES: rustls-ring,quic,vendored-c-ares
+  AWS_LC_SYS_PREBUILT_NASM: 1
 
 jobs:
   build:
@@ -30,12 +37,13 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
       - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
         with:
+          toolchain: stable
           components: clippy
       - name: Install tools (choco)
         run: choco install capnproto
@@ -46,9 +54,43 @@ jobs:
       - name: Cargo clippy
         run: cargo clippy --no-default-features --features $env:WIN_FEATURES --tests -- --deny warnings
       - name: Cargo test
-        run: cargo test --no-default-features --features $env:WIN_FEATURES
+        run: cargo test --no-default-features --features $env:WIN_FEATURES --workspace --exclude g3-journal
 
-  build-vendored:
+  build-vendored-g1:
+    name: Build vendored
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        feature:
+          - vendored-openssl,rustls-ring
+          - vendored-tongsuo,rustls-ring
+          - vendored-boringssl,rustls-ring
+          - vendored-aws-lc,rustls-aws-lc
+        component:
+          - g3proxy
+          - g3bench
+          - g3tiles
+    steps:
+      - name: Install common tools
+        run: choco install capnproto
+      - name: Install nasm and ninja for BoringSSL
+        if: contains(matrix.feature, 'vendored-boringssl')
+        run: choco install nasm ninja
+      - name: Checkout sources
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
+        with:
+          toolchain: stable
+          components: clippy
+      - name: Cargo build
+        run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
+      - name: Cargo clippy
+        run: cargo clippy --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }} -- --deny warnings
+
+  build-vendored-g2:
     name: Build vendored
     runs-on: windows-latest
     strategy:
@@ -56,12 +98,9 @@ jobs:
         feature:
           - vendored-openssl
           - vendored-tongsuo
-          - vendored-aws-lc
           - vendored-boringssl
+          - vendored-aws-lc
         component:
-          - g3proxy
-          - g3bench
-          - g3tiles
           - g3fcgen
           - g3mkcert
           - g3keymess
@@ -69,18 +108,16 @@ jobs:
       - name: Install common tools
         run: choco install capnproto
       - name: Install nasm and ninja for BoringSSL
-        if: matrix.feature == 'vendored-boringssl'
+        if: contains(matrix.feature, 'vendored-boringssl')
         run: choco install nasm ninja
-      - name: Install nasm for AWS-LC
-        if: matrix.feature == 'vendored-aws-lc'
-        uses: ilammy/setup-nasm@v1
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
       - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
         with:
+          toolchain: stable
           components: clippy
       - name: Cargo build
         run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}

@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::fmt;
@@ -25,51 +14,54 @@ mod fx_hash;
 mod network;
 mod proxy_request;
 mod radix_trie;
+mod regex_domain;
 mod regex_set;
 mod user_agent;
 
 use self::radix_trie::{AclRadixTrieRule, AclRadixTrieRuleBuilder};
 use a_hash::AclAHashRule;
 use fx_hash::AclFxHashRule;
+use regex_set::{RegexSetBuilder, RegexSetMatch};
 
 pub use child_domain::{AclChildDomainRule, AclChildDomainRuleBuilder};
 pub use exact_host::AclExactHostRule;
 pub use exact_port::AclExactPortRule;
 pub use network::{AclNetworkRule, AclNetworkRuleBuilder};
 pub use proxy_request::AclProxyRequestRule;
+pub use regex_domain::{AclRegexDomainRule, AclRegexDomainRuleBuilder};
 pub use regex_set::{AclRegexSetRule, AclRegexSetRuleBuilder};
 pub use user_agent::AclUserAgentRule;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd)]
+pub trait ActionContract: Copy {}
+pub trait OrderedActionContract: ActionContract + Ord {}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum AclAction {
-    Permit,
-    PermitAndLog,
-    Forbid,
     ForbidAndLog,
+    Forbid,
+    PermitAndLog,
+    Permit,
 }
 
 impl AclAction {
-    #[must_use]
     pub fn restrict(self, other: AclAction) -> AclAction {
-        if other > self {
-            other
-        } else {
-            self
-        }
+        other.min(self)
     }
 
-    pub fn strict_than(&self, other: AclAction) -> bool {
-        self.gt(&other)
+    pub fn strict_than(self, other: AclAction) -> bool {
+        self.le(&other)
     }
 
-    pub const fn forbid_early(&self) -> bool {
+    pub fn forbid_early(&self) -> bool {
         match self {
             AclAction::ForbidAndLog | AclAction::Forbid => true,
             AclAction::PermitAndLog | AclAction::Permit => false,
         }
     }
+}
 
-    pub const fn as_str(&self) -> &'static str {
+impl AclAction {
+    fn as_str(&self) -> &'static str {
         match self {
             AclAction::Permit => "Permit",
             AclAction::PermitAndLog => "PermitAndLog",
@@ -78,6 +70,9 @@ impl AclAction {
         }
     }
 }
+
+impl ActionContract for AclAction {}
+impl OrderedActionContract for AclAction {}
 
 impl fmt::Display for AclAction {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

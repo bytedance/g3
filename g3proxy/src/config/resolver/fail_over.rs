@@ -1,27 +1,16 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::BTreeSet;
 
 use anyhow::anyhow;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
-use g3_resolver::driver::fail_over::FailOverDriverStaticConfig;
 use g3_resolver::ResolverRuntimeConfig;
-use g3_types::metrics::MetricsName;
+use g3_resolver::driver::fail_over::FailOverDriverStaticConfig;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::{AnyResolverConfig, ResolverConfig, ResolverConfigDiffAction};
@@ -31,21 +20,21 @@ const RESOLVER_CONFIG_TYPE: &str = "fail-over";
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct FailOverResolverConfig {
     position: Option<YamlDocPosition>,
-    name: MetricsName,
+    name: NodeName,
     pub(crate) runtime: ResolverRuntimeConfig,
-    pub(crate) primary: MetricsName,
-    pub(crate) standby: MetricsName,
+    pub(crate) primary: NodeName,
+    pub(crate) standby: NodeName,
     pub(crate) static_conf: FailOverDriverStaticConfig,
 }
 
 impl FailOverResolverConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         FailOverResolverConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             runtime: Default::default(),
-            primary: MetricsName::default(),
-            standby: MetricsName::default(),
+            primary: NodeName::default(),
+            standby: NodeName::default(),
             static_conf: FailOverDriverStaticConfig::default(),
         }
     }
@@ -66,15 +55,15 @@ impl FailOverResolverConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_RESOLVER_TYPE => Ok(()),
             super::CONFIG_KEY_RESOLVER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "primary" => {
-                self.primary = g3_yaml::value::as_metrics_name(v)?;
+                self.primary = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "standby" => {
-                self.standby = g3_yaml::value::as_metrics_name(v)?;
+                self.standby = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "fallback_delay" | "delay" | "fallback_timeout" | "timeout" => {
@@ -125,7 +114,7 @@ impl FailOverResolverConfig {
 }
 
 impl ResolverConfig for FailOverResolverConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -133,7 +122,7 @@ impl ResolverConfig for FailOverResolverConfig {
         self.position.clone()
     }
 
-    fn resolver_type(&self) -> &'static str {
+    fn r#type(&self) -> &'static str {
         RESOLVER_CONFIG_TYPE
     }
 
@@ -149,7 +138,7 @@ impl ResolverConfig for FailOverResolverConfig {
         ResolverConfigDiffAction::Update
     }
 
-    fn dependent_resolver(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_resolver(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         set.insert(self.primary.clone());
         set.insert(self.standby.clone());

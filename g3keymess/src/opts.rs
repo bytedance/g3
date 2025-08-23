@@ -1,27 +1,30 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::path::PathBuf;
-#[cfg(unix)]
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "dragonfly",
+    target_os = "netbsd",
+    windows,
+))]
 use std::str::FromStr;
 use std::sync::OnceLock;
 
-use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgAction, Command, ValueHint};
-#[cfg(unix)]
+use anyhow::{Context, anyhow};
+use clap::{Arg, ArgAction, Command, ValueHint, value_parser};
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "freebsd",
+    target_os = "dragonfly",
+    target_os = "netbsd",
+    windows,
+))]
 use log::info;
 
 use g3_compat::CpuAffinity;
@@ -126,6 +129,7 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
     } else {
         return Err(anyhow!("no config file given"));
     }
+    #[cfg(unix)]
     if let Some(control_dir) = args.get_one::<PathBuf>(ARGS_CONTROL_DIR) {
         g3_daemon::opts::validate_and_set_control_dir(control_dir)
             .context(format!("invalid control dir: {}", control_dir.display()))?;
@@ -141,22 +145,13 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
             target_os = "freebsd",
             target_os = "dragonfly",
             target_os = "netbsd",
+            windows,
         ))]
         if let Some(s) = group_name.strip_prefix("core") {
             let mut cpu = CpuAffinity::default();
-            if let Ok(id) = usize::from_str(s) {
-                if cpu.add_id(id).is_ok() {
-                    info!("will try to bind to cpu core {id}");
-                    proc_args.core_affinity = Some(cpu);
-                }
-            }
-        }
-        #[cfg(target_os = "macos")]
-        if let Some(s) = group_name.strip_prefix("core") {
-            use std::num::NonZeroI32;
-
-            if let Ok(id) = NonZeroI32::from_str(s) {
-                let cpu = CpuAffinity::new(id);
+            if let Ok(id) = usize::from_str(s)
+                && cpu.add_id(id).is_ok()
+            {
                 info!("will try to bind to cpu core {id}");
                 proc_args.core_affinity = Some(cpu);
             }

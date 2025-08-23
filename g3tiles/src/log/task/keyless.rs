@@ -1,20 +1,9 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use slog::{slog_info, Logger};
+use slog::{Logger, slog_info};
 
 use g3_slog_types::{LtDateTime, LtDuration, LtUuid};
 
@@ -22,13 +11,14 @@ use crate::module::keyless::KeylessRelaySnapshot;
 use crate::serve::{ServerTaskError, ServerTaskNotes};
 
 pub(crate) struct TaskLogForKeyless<'a> {
+    pub(crate) logger: &'a Logger,
     pub(crate) task_notes: &'a ServerTaskNotes,
     pub(crate) task_stats: KeylessRelaySnapshot,
 }
 
 impl TaskLogForKeyless<'_> {
-    pub(crate) fn log(&self, logger: &Logger, e: &ServerTaskError) {
-        slog_info!(logger, "{}", e;
+    pub(crate) fn log(&self, e: ServerTaskError) {
+        slog_info!(self.logger, "{}", e;
             "task_type" => "Keyless",
             "task_id" => LtUuid(&self.task_notes.id),
             "stage" => self.task_notes.stage.brief(),

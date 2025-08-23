@@ -1,20 +1,8 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::future::Future;
 use std::sync::Arc;
 
 use anyhow::anyhow;
@@ -32,9 +20,7 @@ trait FetchJob {
     fn fetch_records(&self) -> impl Future<Output = anyhow::Result<Vec<serde_json::Value>>> + Send;
 }
 
-pub(super) async fn load_cached_peers(
-    config: &Arc<ProxyFloatEscaperConfig>,
-) -> anyhow::Result<PeerSet> {
+pub(super) async fn load_cached_peers(config: &ProxyFloatEscaperConfig) -> anyhow::Result<PeerSet> {
     if let Some(cache_file) = &config.cache_file {
         let records = file::load_peers_from_cache(cache_file).await?;
         super::peer::parse_peers(config, &records)
@@ -44,7 +30,7 @@ pub(super) async fn load_cached_peers(
 }
 
 async fn parse_and_save_peers(
-    config: &Arc<ProxyFloatEscaperConfig>,
+    config: &ProxyFloatEscaperConfig,
     container: &Arc<ArcSwap<PeerSet>>,
     records: Vec<serde_json::Value>,
 ) -> anyhow::Result<()> {
@@ -61,7 +47,7 @@ async fn parse_and_save_peers(
 }
 
 pub(super) async fn publish_peers(
-    config: &Arc<ProxyFloatEscaperConfig>,
+    config: &ProxyFloatEscaperConfig,
     peers_container: &Arc<ArcSwap<PeerSet>>,
     data: String,
 ) -> anyhow::Result<()> {

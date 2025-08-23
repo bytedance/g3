@@ -1,5 +1,12 @@
+[resolver]
+incompatible-rust-versions = "allow"
 
 [target.'cfg(target_arch = "x86_64")']
 rustflags = [
     "-C", "target-cpu=x86-64-v2",
+]
+
+[target.'cfg(target_arch = "aarch64")']
+rustflags = [
+    "-C", "target-feature=+neon,+aes",
 ]

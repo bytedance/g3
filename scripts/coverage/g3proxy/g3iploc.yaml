@@ -1,0 +1,8 @@
+---
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+geoip_db:
+  country: ip_location.csv

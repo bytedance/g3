@@ -1,25 +1,14 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use http::header::{AsHeaderName, GetAll};
+use http::header::{AsHeaderName, Drain, GetAll};
 use http::{HeaderMap, HeaderName};
 
 use super::HttpHeaderValue;
 
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct HttpHeaderMap {
     inner: HeaderMap<HttpHeaderValue>,
 }
@@ -56,6 +45,11 @@ impl HttpHeaderMap {
     }
 
     #[inline]
+    pub fn get_mut<K: AsHeaderName>(&mut self, name: K) -> Option<&mut HttpHeaderValue> {
+        self.inner.get_mut(name)
+    }
+
+    #[inline]
     pub fn get_all<K: AsHeaderName>(&self, name: K) -> GetAll<'_, HttpHeaderValue> {
         self.inner.get_all(name)
     }
@@ -69,32 +63,40 @@ impl HttpHeaderMap {
             .for_each(|(name, value)| call(name, value));
     }
 
-    pub fn to_h2_map(&self) -> HeaderMap {
-        let mut h2_map = HeaderMap::new();
-        self.for_each(|name, value| {
-            h2_map.append(name, value.into());
-        });
-        h2_map
+    pub fn drain(&mut self) -> Drain<'_, HttpHeaderValue> {
+        self.inner.drain()
     }
+}
 
-    pub fn into_h2_map(mut self) -> HeaderMap {
-        let mut h2_map = HeaderMap::new();
+impl From<HttpHeaderMap> for HeaderMap {
+    fn from(mut value: HttpHeaderMap) -> Self {
+        let mut new_map = HeaderMap::with_capacity(value.inner.capacity());
 
         let mut last_name: Option<HeaderName> = None;
-        for (name, value) in self.inner.drain() {
+        for (name, value) in value.inner.drain() {
             match name {
                 Some(name) => {
                     last_name = Some(name.clone());
-                    h2_map.append(name, value.into());
+                    new_map.append(name, value.into_inner());
                 }
                 None => {
                     let Some(name) = &last_name else {
                         break;
                     };
-                    h2_map.append(name, value.into());
+                    new_map.append(name, value.into_inner());
                 }
             }
         }
-        h2_map
+        new_map
+    }
+}
+
+impl From<&HttpHeaderMap> for HeaderMap {
+    fn from(value: &HttpHeaderMap) -> Self {
+        let mut new_map = HeaderMap::with_capacity(value.inner.capacity());
+        value.for_each(|name, value| {
+            new_map.append(name, value.inner().clone());
+        });
+        new_map
     }
 }

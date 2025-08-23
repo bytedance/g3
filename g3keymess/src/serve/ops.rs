@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::HashSet;
@@ -22,9 +11,9 @@ use anyhow::anyhow;
 use log::debug;
 use tokio::sync::Mutex;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
-use super::{registry, KeyServer};
+use super::{KeyServer, registry};
 use crate::config::server::KeyServerConfig;
 
 static SERVER_OPS_LOCK: Mutex<()> = Mutex::const_new(());
@@ -40,16 +29,17 @@ pub fn spawn_offline_clean() {
     });
 }
 
-pub async fn create_all_stopped() {
+pub async fn create_all_stopped() -> anyhow::Result<()> {
     let _guard = SERVER_OPS_LOCK.lock().await;
 
     let all_config = crate::config::server::get_all();
     for config in all_config {
         let name = config.name();
         debug!("creating server {name}");
-        spawn_new_lazy_unlocked(config.as_ref().clone());
+        spawn_new_lazy_unlocked(config.as_ref().clone())?;
         debug!("server {name} create OK");
     }
+    Ok(())
 }
 
 pub async fn start_all_stopped() -> anyhow::Result<()> {
@@ -59,7 +49,7 @@ pub async fn start_all_stopped() -> anyhow::Result<()> {
 pub async fn spawn_all() -> anyhow::Result<()> {
     let _guard = SERVER_OPS_LOCK.lock().await;
 
-    let mut new_names = HashSet::<MetricsName>::new();
+    let mut new_names = HashSet::<NodeName>::new();
 
     let all_config = crate::config::server::get_all();
     for config in all_config {
@@ -99,7 +89,7 @@ pub async fn stop_all() {
     });
 }
 
-pub(crate) fn get_server(name: &MetricsName) -> anyhow::Result<Arc<KeyServer>> {
+pub(crate) fn get_server(name: &NodeName) -> anyhow::Result<Arc<KeyServer>> {
     match registry::get_server(name) {
         Some(server) => Ok(server),
         None => Err(anyhow!("no server named {name} found")),
@@ -115,21 +105,22 @@ fn reload_old_unlocked(old: &KeyServerConfig, new: KeyServerConfig) -> anyhow::R
 // use async fn to allow tokio schedule
 fn spawn_new_unlocked(config: KeyServerConfig) -> anyhow::Result<()> {
     let name = config.name().clone();
-    let server = KeyServer::prepare_initial(config);
+    let server = KeyServer::prepare_initial(config)?;
     registry::add(name, Arc::new(server))?;
     Ok(())
 }
 
 // use async fn to allow tokio schedule
-fn spawn_new_lazy_unlocked(config: KeyServerConfig) {
+fn spawn_new_lazy_unlocked(config: KeyServerConfig) -> anyhow::Result<()> {
     let name = config.name().clone();
-    let server = KeyServer::prepare_initial(config);
+    let server = KeyServer::prepare_initial(config)?;
     registry::add_lazy(name, Arc::new(server));
+    Ok(())
 }
 
 pub(crate) async fn wait_all_tasks<F>(wait_timeout: Duration, quit_timeout: Duration, on_timeout: F)
 where
-    F: Fn(&MetricsName, i32),
+    F: Fn(&NodeName, i32),
 {
     let loop_wait = async {
         loop {
@@ -144,7 +135,7 @@ where
             if !has_pending {
                 if let Some(stat_config) = g3_daemon::stat::config::get_global_stat_config() {
                     // sleep more time for flushing metrics
-                    tokio::time::sleep(stat_config.emit_duration * 2).await;
+                    tokio::time::sleep(stat_config.emit_interval * 2).await;
                 }
                 break;
             }

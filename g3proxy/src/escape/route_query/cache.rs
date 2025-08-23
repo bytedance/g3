@@ -1,38 +1,27 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::hash::Hash;
 use std::net::IpAddr;
 use std::sync::Arc;
 
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use tokio::net::UdpSocket;
 
 use g3_io_ext::EffectiveCacheHandle;
 use g3_types::collection::{SelectivePickPolicy, SelectiveVec, WeightedValue};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::UpstreamAddr;
 
-use super::query::QueryRuntime;
 use super::RouteQueryEscaperConfig;
+use super::query::QueryRuntime;
 use crate::serve::ServerTaskNotes;
 
 #[derive(Clone, Debug, Hash, PartialEq, PartialOrd, Ord, Eq)]
 pub(super) struct CacheQueryKey {
-    pub(super) user: String,
+    pub(super) user: Arc<str>,
     pub(super) host: String,
     pub(super) client_ip: Option<String>,
 }
@@ -43,7 +32,7 @@ struct CacheQueryConsistentKey {
 }
 
 pub(super) struct CacheHandle {
-    inner: EffectiveCacheHandle<CacheQueryKey, SelectiveVec<WeightedValue<MetricsName>>>,
+    inner: EffectiveCacheHandle<CacheQueryKey, SelectiveVec<WeightedValue<NodeName>>>,
 }
 
 impl CacheHandle {
@@ -52,17 +41,14 @@ impl CacheHandle {
         config: &RouteQueryEscaperConfig,
         task_notes: &ServerTaskNotes,
         upstream: &UpstreamAddr,
-    ) -> Option<MetricsName> {
+    ) -> Option<NodeName> {
         let client_ip = if config.query_pass_client_ip {
             Some(task_notes.client_ip().to_string())
         } else {
             None
         };
         let query_key = CacheQueryKey {
-            user: task_notes
-                .raw_user_name()
-                .map(|s| s.to_string())
-                .unwrap_or_default(),
+            user: task_notes.raw_user_name().cloned().unwrap_or_default(),
             host: upstream.host().to_string(),
             client_ip,
         };
@@ -103,12 +89,10 @@ impl CacheHandle {
     }
 }
 
-pub(super) async fn spawn(config: &Arc<RouteQueryEscaperConfig>) -> anyhow::Result<CacheHandle> {
-    use anyhow::Context;
-
+pub(super) fn spawn(config: &Arc<RouteQueryEscaperConfig>) -> anyhow::Result<CacheHandle> {
     let socket = g3_socket::udp::new_std_socket_to(
         config.query_peer_addr,
-        None,
+        &Default::default(),
         config.query_socket_buffer,
         Default::default(),
     )

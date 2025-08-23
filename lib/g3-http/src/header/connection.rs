@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use bytes::BufMut;
@@ -64,5 +53,66 @@ impl Connection {
             buf.put_slice(h.as_str().as_bytes());
         }
         buf.put_slice(b"\r\n");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn t_connection_as_bytes() {
+        assert_eq!(connection_as_bytes(true), b"Connection: Close\r\n");
+        assert_eq!(connection_as_bytes(false), b"Connection: Keep-Alive\r\n");
+    }
+
+    #[test]
+    fn connection_from_original() {
+        assert!(matches!(
+            Connection::from_original("Connection"),
+            Connection::CamelCase
+        ));
+        assert!(matches!(
+            Connection::from_original("connection"),
+            Connection::LowerCase
+        ));
+        assert!(matches!(
+            Connection::from_original("CONNECTION"),
+            Connection::UpperCase
+        ));
+        assert!(matches!(
+            Connection::from_original("invalid"),
+            Connection::CamelCase
+        ));
+    }
+
+    #[test]
+    fn connection_as_str() {
+        assert_eq!(Connection::CamelCase.as_str(), "Connection");
+        assert_eq!(Connection::LowerCase.as_str(), "connection");
+        assert_eq!(Connection::UpperCase.as_str(), "CONNECTION");
+    }
+
+    #[test]
+    fn connection_write_to_buf() {
+        let mut buf = Vec::new();
+        let headers = [
+            HeaderName::from_static("upgrade"),
+            HeaderName::from_static("content-length"),
+        ];
+
+        // close=true and headers
+        Connection::CamelCase.write_to_buf(true, &headers, &mut buf);
+        assert_eq!(buf, b"Connection: Close, upgrade, content-length\r\n");
+        buf.clear();
+
+        // close=false and no headers
+        Connection::LowerCase.write_to_buf(false, &[], &mut buf);
+        assert_eq!(buf, b"connection: Keep-Alive\r\n");
+        buf.clear();
+
+        // close=false and headers (uppercase variant)
+        Connection::UpperCase.write_to_buf(false, &headers, &mut buf);
+        assert_eq!(buf, b"CONNECTION: Keep-Alive, upgrade, content-length\r\n");
     }
 }

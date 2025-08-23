@@ -1,35 +1,24 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicI32, AtomicIsize, AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI32, AtomicIsize, AtomicU64, Ordering};
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::stats::{StatId, TcpIoSnapshot, TcpIoStats};
 
 use crate::serve::{ServerForbiddenSnapshot, ServerForbiddenStats, ServerStats};
 
 pub(crate) struct TcpStreamServerStats {
-    name: MetricsName,
+    name: NodeName,
     id: StatId,
 
-    extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
+    extra_metrics_tags: Arc<ArcSwapOption<MetricTagMap>>,
 
     online: AtomicIsize,
     conn_total: AtomicU64,
@@ -42,10 +31,10 @@ pub(crate) struct TcpStreamServerStats {
 }
 
 impl TcpStreamServerStats {
-    pub(crate) fn new(name: &MetricsName) -> Self {
+    pub(crate) fn new(name: &NodeName) -> Self {
         TcpStreamServerStats {
             name: name.clone(),
-            id: StatId::new(),
+            id: StatId::new_unique(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             online: AtomicIsize::new(0),
             conn_total: AtomicU64::new(0),
@@ -64,16 +53,12 @@ impl TcpStreamServerStats {
         self.online.fetch_sub(1, Ordering::Relaxed);
     }
 
-    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<StaticMetricsTags>>) {
+    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<MetricTagMap>>) {
         self.extra_metrics_tags.store(tags);
     }
 
     pub(crate) fn add_conn(&self, _addr: SocketAddr) {
         self.conn_total.fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn add_task(&self) {
-        self.task_total.fetch_add(1, Ordering::Relaxed);
     }
 
     #[inline]
@@ -86,18 +71,25 @@ impl TcpStreamServerStats {
         self.tcp.add_out_bytes(size);
     }
 
-    pub(crate) fn inc_alive_task(&self) {
+    #[must_use]
+    pub(crate) fn add_task(self: &Arc<Self>) -> TcpStreamServerAliveTaskGuard {
+        self.task_total.fetch_add(1, Ordering::Relaxed);
         self.task_alive_count.fetch_add(1, Ordering::Relaxed);
+        TcpStreamServerAliveTaskGuard(self.clone())
     }
+}
 
-    pub(crate) fn dec_alive_task(&self) {
-        self.task_alive_count.fetch_sub(1, Ordering::Relaxed);
+pub(crate) struct TcpStreamServerAliveTaskGuard(Arc<TcpStreamServerStats>);
+
+impl Drop for TcpStreamServerAliveTaskGuard {
+    fn drop(&mut self) {
+        self.0.task_alive_count.fetch_sub(1, Ordering::Relaxed);
     }
 }
 
 impl ServerStats for TcpStreamServerStats {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -107,12 +99,12 @@ impl ServerStats for TcpStreamServerStats {
     }
 
     #[inline]
-    fn load_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
+    fn load_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
         self.extra_metrics_tags.load_full()
     }
 
     #[inline]
-    fn share_extra_tags(&self) -> &Arc<ArcSwapOption<StaticMetricsTags>> {
+    fn share_extra_tags(&self) -> &Arc<ArcSwapOption<MetricTagMap>> {
         &self.extra_metrics_tags
     }
 

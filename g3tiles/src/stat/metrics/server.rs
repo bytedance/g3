@@ -1,22 +1,12 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::{Arc, LazyLock, Mutex};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
-use ahash::AHashMap;
+use foldhash::fast::FixedState;
 
 use g3_daemon::listen::{ListenSnapshot, ListenStats};
 use g3_daemon::metrics::{
@@ -38,10 +28,10 @@ const METRIC_NAME_SERVER_IO_OUT_PACKETS: &str = "server.traffic.out.packets";
 type ServerStatsValue = (ArcServerStats, ServerSnapshot);
 type ListenStatsValue = (Arc<ListenStats>, ListenSnapshot);
 
-static SERVER_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, ServerStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static LISTEN_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, ListenStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
+static SERVER_STATS_MAP: Mutex<HashMap<StatId, ServerStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
+static LISTEN_STATS_MAP: Mutex<HashMap<StatId, ListenStatsValue, FixedState>> =
+    Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 #[derive(Default)]
 struct ServerSnapshot {

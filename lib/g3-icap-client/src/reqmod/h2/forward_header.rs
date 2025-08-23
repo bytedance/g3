@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io::{IoSlice, Write};
@@ -28,14 +17,19 @@ use super::{
     H2ReqmodAdaptationError, H2RequestAdapter, ReqmodAdaptationEndState, ReqmodAdaptationMidState,
     ReqmodAdaptationRunState,
 };
+use crate::reason::IcapErrorReason;
 use crate::reqmod::response::ReqmodResponse;
 use crate::reqmod::{IcapReqmodParseError, IcapReqmodResponsePayload};
 
 impl<I: IdleCheck> H2RequestAdapter<I> {
-    fn build_header_only_request(&self, http_header_len: usize) -> Vec<u8> {
+    fn build_header_only_request(
+        &self,
+        http_header_len: usize,
+        http_request: &Request<()>,
+    ) -> Vec<u8> {
         let mut header = Vec::with_capacity(self.icap_client.partial_request_header.len() + 64);
         header.extend_from_slice(&self.icap_client.partial_request_header);
-        self.push_extended_headers(&mut header);
+        self.push_extended_headers(&mut header, Some(http_request.extensions()));
         if self.icap_options.support_204 {
             header.put_slice(b"Allow: 204\r\n");
         }
@@ -54,9 +48,9 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         ups_send_request: SendRequest<Bytes>,
     ) -> Result<ReqmodAdaptationEndState, H2ReqmodAdaptationError> {
         let http_header = http_request.serialize_for_adapter();
-        let icap_header = self.build_header_only_request(http_header.len());
+        let icap_header = self.build_header_only_request(http_header.len(), &http_request);
 
-        let icap_w = &mut self.icap_connection.0;
+        let icap_w = &mut self.icap_connection.writer;
         icap_w
             .write_all_vectored([IoSlice::new(&icap_header), IoSlice::new(&http_header)])
             .await
@@ -65,9 +59,10 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             .flush()
             .await
             .map_err(H2ReqmodAdaptationError::IcapServerWriteFailed)?;
+        self.icap_connection.mark_writer_finished();
 
         let mut rsp = ReqmodResponse::parse(
-            &mut self.icap_connection.1,
+            &mut self.icap_connection.reader,
             self.icap_client.config.icap_max_header_size,
             &self.icap_client.config.respond_shared_names,
         )
@@ -79,6 +74,9 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
 
         match rsp.code {
             204 => {
+                if rsp.payload == IcapReqmodResponsePayload::NoPayload {
+                    self.icap_connection.mark_reader_finished();
+                }
                 self.handle_original_http_request_without_body(
                     state,
                     rsp,
@@ -89,6 +87,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             }
             n if (200..300).contains(&n) => match rsp.payload {
                 IcapReqmodResponsePayload::NoPayload => {
+                    self.icap_connection.mark_reader_finished();
                     self.handle_icap_ok_without_payload(rsp).await
                 }
                 IcapReqmodResponsePayload::HttpRequestWithoutBody(header_size) => {
@@ -121,11 +120,16 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     .map(|(rsp, body)| ReqmodAdaptationEndState::HttpErrResponse(rsp, Some(body))),
             },
             _ => {
-                if rsp.keep_alive && rsp.payload == IcapReqmodResponsePayload::NoPayload {
-                    self.icap_client.save_connection(self.icap_connection).await;
+                if rsp.payload == IcapReqmodResponsePayload::NoPayload {
+                    self.icap_connection.mark_reader_finished();
+                    if rsp.keep_alive {
+                        self.icap_client.save_connection(self.icap_connection);
+                    }
                 }
                 Err(H2ReqmodAdaptationError::IcapServerErrorResponse(
-                    rsp.code, rsp.reason,
+                    IcapErrorReason::UnknownResponse,
+                    rsp.code,
+                    rsp.reason,
                 ))
             }
         }
@@ -137,9 +141,9 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         http_request: Request<()>,
     ) -> Result<ReqmodAdaptationMidState, H2ReqmodAdaptationError> {
         let http_header = http_request.serialize_for_adapter();
-        let icap_header = self.build_header_only_request(http_header.len());
+        let icap_header = self.build_header_only_request(http_header.len(), &http_request);
 
-        let icap_w = &mut self.icap_connection.0;
+        let icap_w = &mut self.icap_connection.writer;
         icap_w
             .write_all_vectored([IoSlice::new(&icap_header), IoSlice::new(&http_header)])
             .await
@@ -148,9 +152,10 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
             .flush()
             .await
             .map_err(H2ReqmodAdaptationError::IcapServerWriteFailed)?;
+        self.icap_connection.mark_writer_finished();
 
         let mut rsp = ReqmodResponse::parse(
-            &mut self.icap_connection.1,
+            &mut self.icap_connection.reader,
             self.icap_client.config.icap_max_header_size,
             &self.icap_client.config.respond_shared_names,
         )
@@ -162,13 +167,17 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
 
         match rsp.code {
             204 => {
-                if rsp.keep_alive && rsp.payload == IcapReqmodResponsePayload::NoPayload {
-                    self.icap_client.save_connection(self.icap_connection).await;
+                if rsp.payload == IcapReqmodResponsePayload::NoPayload {
+                    self.icap_connection.mark_reader_finished();
+                    if rsp.keep_alive {
+                        self.icap_client.save_connection(self.icap_connection);
+                    }
                 }
                 Ok(ReqmodAdaptationMidState::OriginalRequest(http_request))
             }
             n if (200..300).contains(&n) => match rsp.payload {
                 IcapReqmodResponsePayload::NoPayload => {
+                    self.icap_connection.mark_reader_finished();
                     let _ = self.handle_icap_ok_without_payload(rsp).await?;
                     Ok(ReqmodAdaptationMidState::OriginalRequest(http_request))
                 }
@@ -194,11 +203,16 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
                     .map(|(rsp, body)| ReqmodAdaptationMidState::HttpErrResponse(rsp, Some(body))),
             },
             _ => {
-                if rsp.keep_alive && rsp.payload == IcapReqmodResponsePayload::NoPayload {
-                    self.icap_client.save_connection(self.icap_connection).await;
+                if rsp.payload == IcapReqmodResponsePayload::NoPayload {
+                    self.icap_connection.mark_reader_finished();
+                    if rsp.keep_alive {
+                        self.icap_client.save_connection(self.icap_connection);
+                    }
                 }
                 Err(H2ReqmodAdaptationError::IcapServerErrorResponse(
-                    rsp.code, rsp.reason,
+                    IcapErrorReason::UnknownResponse,
+                    rsp.code,
+                    rsp.reason,
                 ))
             }
         }

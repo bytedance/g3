@@ -1,24 +1,12 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::io::{BufRead, BufReader};
 use std::path::Path;
 
-use anyhow::{anyhow, Context};
-use rustls_pemfile::Item;
+use anyhow::{Context, anyhow};
+use rustls_pki_types::pem::PemObject;
 use rustls_pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use yaml_rust::Yaml;
 
@@ -44,27 +32,23 @@ fn as_certificates_from_single_element(
     lookup_dir: Option<&Path>,
 ) -> anyhow::Result<Vec<CertificateDer<'static>>> {
     let mut certs = Vec::new();
-    if let Yaml::String(s) = value {
-        if s.trim_start().starts_with("--") {
-            let mut buf_reader = BufReader::new(s.as_bytes());
-            let results = rustls_pemfile::certs(&mut buf_reader);
-            for (i, r) in results.enumerate() {
-                let cert = r.map_err(|e| anyhow!("invalid certificate #{i}: {e}"))?;
-                certs.push(cert);
-            }
-            return if certs.is_empty() {
-                Err(anyhow!("no valid certificate found"))
-            } else {
-                Ok(certs)
-            };
+    if let Yaml::String(s) = value
+        && s.trim_start().starts_with("--")
+    {
+        for (i, r) in CertificateDer::pem_slice_iter(s.as_bytes()).enumerate() {
+            let cert = r.map_err(|e| anyhow!("invalid certificate #{i}: {e:?}"))?;
+            certs.push(cert);
         }
+        return if certs.is_empty() {
+            Err(anyhow!("no valid certificate found"))
+        } else {
+            Ok(certs)
+        };
     }
 
     let (file, path) = crate::value::as_file(value, lookup_dir).context("invalid file")?;
-    let mut buf_reader = BufReader::new(file);
-    let results = rustls_pemfile::certs(&mut buf_reader);
-    for (i, r) in results.enumerate() {
-        let cert = r.map_err(|e| anyhow!("invalid certificate {}#{i}: {e}", path.display()))?;
+    for (i, r) in CertificateDer::pem_reader_iter(file).enumerate() {
+        let cert = r.map_err(|e| anyhow!("invalid certificate {}#{i}: {e:?}", path.display()))?;
         certs.push(cert);
     }
     if certs.is_empty() {
@@ -91,37 +75,20 @@ pub fn as_rustls_certificates(
     }
 }
 
-fn read_first_private_key<R>(reader: &mut R) -> anyhow::Result<PrivateKeyDer<'static>>
-where
-    R: BufRead,
-{
-    loop {
-        match rustls_pemfile::read_one(reader)
-            .map_err(|e| anyhow!("read private key failed: {e:?}"))?
-        {
-            Some(Item::Pkcs1Key(d)) => return Ok(PrivateKeyDer::Pkcs1(d)),
-            Some(Item::Pkcs8Key(d)) => return Ok(PrivateKeyDer::Pkcs8(d)),
-            Some(Item::Sec1Key(d)) => return Ok(PrivateKeyDer::Sec1(d)),
-            Some(_) => continue,
-            None => return Err(anyhow!("no valid private key found")),
-        }
-    }
-}
-
 pub fn as_rustls_private_key(
     value: &Yaml,
     lookup_dir: Option<&Path>,
 ) -> anyhow::Result<PrivateKeyDer<'static>> {
-    if let Yaml::String(s) = value {
-        if s.trim_start().starts_with("--") {
-            return read_first_private_key(&mut BufReader::new(s.as_bytes()))
-                .context("invalid private key string");
-        }
+    if let Yaml::String(s) = value
+        && s.trim_start().starts_with("--")
+    {
+        return PrivateKeyDer::from_pem_slice(s.as_bytes())
+            .map_err(|e| anyhow!("invalid private key string: {e:?}"));
     }
 
     let (file, path) = crate::value::as_file(value, lookup_dir).context("invalid file")?;
-    read_first_private_key(&mut BufReader::new(file))
-        .context(format!("invalid private key file {}", path.display()))
+    PrivateKeyDer::from_pem_reader(file)
+        .map_err(|e| anyhow!("invalid private key file {}: {e:?}", path.display()))
 }
 
 pub fn as_rustls_certificate_pair(
@@ -233,10 +200,10 @@ pub fn as_rustls_client_config_builder(
             _ => Err(anyhow!("invalid key {k}")),
         })?;
 
-        if let Ok(cert_pair) = cert_pair_builder.build() {
-            if builder.set_cert_pair(cert_pair).is_some() {
-                return Err(anyhow!("found duplicate client certificate config"));
-            }
+        if let Ok(cert_pair) = cert_pair_builder.build()
+            && builder.set_cert_pair(cert_pair).is_some()
+        {
+            return Err(anyhow!("found duplicate client certificate config"));
         }
 
         builder.check()?;
@@ -330,5 +297,501 @@ pub fn as_rustls_server_config_builder(
         Err(anyhow!(
             "yaml value type for 'rustls server config builder' should be 'map'"
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::{Path, PathBuf};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::time::Duration;
+    use yaml_rust::YamlLoader;
+
+    const TEST_CERT_PEM: &str = include_str!("./test_data/test_cert1.pem");
+    const TEST_KEY_PEM: &str = include_str!("./test_data/test_key1.pem");
+
+    static TEST_DIR_ID_COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+    struct TempDir {
+        path: PathBuf,
+    }
+
+    impl TempDir {
+        fn new(prefix: &str) -> Self {
+            let id = TEST_DIR_ID_COUNTER.fetch_add(1, Ordering::SeqCst);
+            let path =
+                std::env::temp_dir().join(format!("{}_{}_{}", prefix, std::process::id(), id));
+            fs::create_dir_all(&path).expect("Failed to create test directory");
+            TempDir { path }
+        }
+
+        fn path(&self) -> &Path {
+            &self.path
+        }
+    }
+
+    impl Drop for TempDir {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.path);
+        }
+    }
+
+    #[test]
+    fn as_rustls_server_name_ok() {
+        // valid DNS name
+        let yaml = yaml_str!("example.com");
+        assert_eq!(
+            as_rustls_server_name(&yaml).unwrap(),
+            ServerName::try_from("example.com").unwrap()
+        );
+
+        // valid IP address
+        let yaml = yaml_str!("192.168.0.1");
+        assert_eq!(
+            as_rustls_server_name(&yaml).unwrap(),
+            ServerName::try_from("192.168.0.1").unwrap()
+        );
+    }
+
+    #[test]
+    fn as_rustls_server_name_err() {
+        // non-string YAML
+        let yaml = Yaml::Integer(123);
+        assert!(as_rustls_server_name(&yaml).is_err());
+
+        // empty string
+        let yaml = yaml_str!("");
+        assert!(as_rustls_server_name(&yaml).is_err());
+
+        // invalid DNS name
+        let yaml = yaml_str!("invalid domain");
+        assert!(as_rustls_server_name(&yaml).is_err());
+
+        // invalid IP address
+        let yaml = yaml_str!("192.168.0.256");
+        assert!(as_rustls_server_name(&yaml).is_err());
+    }
+
+    #[test]
+    fn as_rustls_certificates_ok() {
+        let temp_dir = TempDir::new("rustls_cert_ok");
+        let test_dir_path = temp_dir.path();
+        let cert_path = test_dir_path.join("test_cert.pem");
+        fs::write(&cert_path, TEST_CERT_PEM).unwrap();
+
+        // single PEM string
+        let yaml = Yaml::String(TEST_CERT_PEM.to_string());
+        let certs = as_rustls_certificates(&yaml, None).unwrap();
+        assert!(!certs.is_empty());
+
+        // file path
+        let yaml = YamlLoader::load_from_str(&format!("|-\n  {}", cert_path.display())).unwrap();
+        let certs = as_rustls_certificates(&yaml[0], Some(temp_dir.path())).unwrap();
+        assert!(!certs.is_empty());
+
+        // array of PEM strings
+        let yaml = Yaml::Array(vec![
+            Yaml::String(TEST_CERT_PEM.to_string()),
+            Yaml::String(TEST_CERT_PEM.to_string()),
+        ]);
+        let certs = as_rustls_certificates(&yaml, None).unwrap();
+        assert_eq!(certs.len(), 2);
+    }
+
+    #[test]
+    fn as_rustls_certificates_err() {
+        // invalid PEM string
+        let yaml = yaml_str!("invalid cert");
+        assert!(as_rustls_certificates(&yaml, None).is_err());
+
+        // non-existent file
+        let yaml = yaml_str!("non_existent_cert.pem");
+        assert!(as_rustls_certificates(&yaml, Some(Path::new("/non_existent"))).is_err());
+
+        // empty array
+        let yaml = yaml_doc!(r#"- []"#);
+        assert!(as_rustls_certificates(&yaml, None).is_err());
+
+        // array with invalid PEM
+        let yaml = Yaml::Array(vec![
+            Yaml::String("invalid cert".to_string()),
+            Yaml::String(TEST_CERT_PEM.to_string()),
+        ]);
+        assert!(as_rustls_certificates(&yaml, None).is_err());
+
+        // empty certificate
+        let temp_dir = TempDir::new("rustls_cert_err");
+        let test_dir_path = temp_dir.path();
+        let cert_path = test_dir_path.join("test_cert.pem");
+        fs::write(&cert_path, "").unwrap();
+        let yaml = YamlLoader::load_from_str(&format!("|-\n  {}", cert_path.display())).unwrap();
+        assert!(as_rustls_certificates(&yaml[0], Some(temp_dir.path())).is_err());
+
+        // non-string element in array
+        let yaml = Yaml::Array(vec![Yaml::Integer(123)]);
+        assert!(as_rustls_certificates(&yaml, None).is_err());
+    }
+
+    #[test]
+    fn as_rustls_private_key_ok() {
+        let temp_dir = TempDir::new("rustls_key_ok");
+        let test_dir_path = temp_dir.path();
+        let key_path = test_dir_path.join("test_key.pem");
+        fs::write(&key_path, TEST_KEY_PEM).unwrap();
+
+        // single PEM string
+        let yaml = Yaml::String(TEST_KEY_PEM.to_string());
+        let key = as_rustls_private_key(&yaml, None).unwrap();
+        assert!(matches!(key, PrivateKeyDer::Pkcs8(_)));
+
+        // file path
+        let yaml = YamlLoader::load_from_str(&format!("|-\n  {}", key_path.display())).unwrap();
+        let key = as_rustls_private_key(&yaml[0], Some(temp_dir.path())).unwrap();
+        assert!(matches!(key, PrivateKeyDer::Pkcs8(_)));
+    }
+
+    #[test]
+    fn as_rustls_private_key_err() {
+        // invalid PEM string
+        let yaml = yaml_str!("invalid key");
+        assert!(as_rustls_private_key(&yaml, None).is_err());
+
+        // non-existent file
+        let yaml = yaml_str!("non_existent_key.pem");
+        assert!(as_rustls_private_key(&yaml, Some(Path::new("/non_existent"))).is_err());
+
+        // empty string
+        let yaml = yaml_str!("");
+        assert!(as_rustls_private_key(&yaml, None).is_err());
+
+        // null value
+        let yaml = Yaml::Null;
+        assert!(as_rustls_private_key(&yaml, None).is_err());
+    }
+
+    #[test]
+    fn as_rustls_certificate_pair_ok() {
+        let temp_dir = TempDir::new("rustls_cert_pair_ok");
+        let test_dir_path = temp_dir.path();
+        let cert_path = test_dir_path.join("test_cert.pem");
+        fs::write(&cert_path, TEST_CERT_PEM).unwrap();
+        let key_path = test_dir_path.join("test_key.pem");
+        fs::write(&key_path, TEST_KEY_PEM).unwrap();
+
+        let yaml = YamlLoader::load_from_str(&format!(
+            r#"
+                certificate: |-
+                    {}
+                private_key: |-
+                    {}
+            "#,
+            cert_path.display(),
+            key_path.display()
+        ))
+        .unwrap();
+        let pair = as_rustls_certificate_pair(&yaml[0], None).unwrap();
+        let mut expected = RustlsCertificatePairBuilder::default();
+        expected.set_certs(vec![
+            CertificateDer::from_pem_slice(TEST_CERT_PEM.as_bytes()).unwrap(),
+        ]);
+        expected.set_key(PrivateKeyDer::from_pem_slice(TEST_KEY_PEM.as_bytes()).unwrap());
+        assert_eq!(pair, expected.build().unwrap());
+    }
+
+    #[test]
+    fn as_rustls_certificate_pair_err() {
+        // non-map YAML
+        let yaml = Yaml::Integer(123);
+        assert!(as_rustls_certificate_pair(&yaml, None).is_err());
+
+        let yaml = yaml_str!("invalid");
+        assert!(as_rustls_certificate_pair(&yaml, None).is_err());
+
+        // empty map
+        let yaml = yaml_doc!(r#"{}"#);
+        assert!(as_rustls_certificate_pair(&yaml, None).is_err());
+
+        // invalid certificate
+        let yaml = yaml_doc!(
+            r#"
+                certificate: "invalid cert"
+            "#
+        );
+        assert!(as_rustls_certificate_pair(&yaml[0], None).is_err());
+
+        // invalid private key
+        let yaml = yaml_doc!(
+            r#"
+                private_key: "invalid key"
+            "#
+        );
+        assert!(as_rustls_certificate_pair(&yaml[0], None).is_err());
+
+        // unknown key
+        let yaml = yaml_doc!(
+            r#"
+                unknown_key: "value"
+            "#
+        );
+        assert!(as_rustls_certificate_pair(&yaml[0], None).is_err());
+    }
+
+    #[test]
+    fn as_rustls_client_config_builder_ok() {
+        let temp_dir = TempDir::new("rustls_client_config_builder_ok");
+        let test_dir_path = temp_dir.path();
+        let cert_path = test_dir_path.join("test_cert.pem");
+        fs::write(&cert_path, TEST_CERT_PEM).unwrap();
+        let key_path = test_dir_path.join("test_key.pem");
+        fs::write(&key_path, TEST_KEY_PEM).unwrap();
+        let yaml = YamlLoader::load_from_str(&format!(
+            r#"
+                cert: |-
+                    {}
+                key: |-
+                    {}
+            "#,
+            cert_path.display(),
+            key_path.display()
+        ))
+        .unwrap();
+        let cert_pair1 = as_rustls_certificate_pair(&yaml[0], Some(test_dir_path)).unwrap();
+        let cert_pair2 = as_rustls_certificate_pair(&yaml[0], Some(test_dir_path)).unwrap();
+
+        let yaml = YamlLoader::load_from_str(&format!(
+            r#"
+                no_session_cache: true
+                disable_sni: true
+                max_fragment_size: 1400
+                certificate: |-
+                    {}
+                private_key: |-
+                    {}
+                ca_certificate: |-
+                    {}
+                no_default_ca_certificate: true
+                use_builtin_ca_certificate: true
+                handshake_timeout: "10s"
+            "#,
+            cert_path.display(),
+            key_path.display(),
+            cert_path.display()
+        ))
+        .unwrap();
+        let builder = as_rustls_client_config_builder(&yaml[0], None).unwrap();
+        let mut expected = RustlsClientConfigBuilder::default();
+        expected.set_no_session_cache();
+        expected.set_disable_sni();
+        expected.set_max_fragment_size(1400);
+        expected.set_cert_pair(cert_pair1);
+        let ca_cert = CertificateDer::from_pem_slice(TEST_CERT_PEM.as_bytes()).unwrap();
+        expected.set_ca_certificates(vec![ca_cert]);
+        expected.set_no_default_ca_certificates();
+        expected.set_use_builtin_ca_certificates();
+        expected.set_negotiation_timeout(Duration::from_secs(10));
+        assert_eq!(builder, expected);
+
+        // cert_pair field
+        let yaml = YamlLoader::load_from_str(&format!(
+            r#"
+                cert_pair:
+                    certificate: |-
+                        {}
+                    private_key: |-
+                        {}
+            "#,
+            cert_path.display(),
+            key_path.display()
+        ))
+        .unwrap();
+        let builder = as_rustls_client_config_builder(&yaml[0], None).unwrap();
+        let mut expected = RustlsClientConfigBuilder::default();
+        expected.set_cert_pair(cert_pair2);
+        assert_eq!(builder, expected);
+    }
+
+    #[test]
+    fn as_rustls_client_config_builder_err() {
+        // non-map YAML
+        let yaml = Yaml::Integer(123);
+        assert!(as_rustls_client_config_builder(&yaml, None).is_err());
+
+        let yaml = yaml_str!("invalid");
+        assert!(as_rustls_client_config_builder(&yaml, None).is_err());
+
+        // invalid boolean value
+        let yaml = yaml_doc!(r#"no_session_cache: "not_a_bool""#);
+        assert!(as_rustls_client_config_builder(&yaml[0], None).is_err());
+
+        // invalid max_fragment_size
+        let yaml = yaml_doc!(r#"max_fragment_size: "invalid""#);
+        assert!(as_rustls_client_config_builder(&yaml[0], None).is_err());
+
+        // duplicate certificate config
+        let temp_dir = TempDir::new("rustls_client_config_builder_err");
+        let test_dir_path = temp_dir.path();
+        let cert_path = test_dir_path.join("test_cert.pem");
+        fs::write(&cert_path, TEST_CERT_PEM).unwrap();
+        let key_path = test_dir_path.join("test_key.pem");
+        fs::write(&key_path, TEST_KEY_PEM).unwrap();
+        let yaml = YamlLoader::load_from_str(&format!(
+            r#"
+                cert: |-
+                    {}
+                key: |-
+                    {}
+                cert_pair:
+                    certificate: |-
+                        {}
+                    private_key: |-
+                        {}
+            "#,
+            cert_path.display(),
+            key_path.display(),
+            cert_path.display(),
+            key_path.display()
+        ))
+        .unwrap();
+        assert!(as_rustls_client_config_builder(&yaml[0], None).is_err());
+
+        // unknown key
+        let yaml = yaml_doc!(
+            r#"
+                unknown_key: "value"
+            "#
+        );
+        assert!(as_rustls_client_config_builder(&yaml[0], None).is_err());
+    }
+
+    #[test]
+    fn as_rustls_server_config_builder_ok() {
+        let temp_dir = TempDir::new("rustls_server_config_builder_ok");
+        let test_dir_path = temp_dir.path();
+        let cert_path = test_dir_path.join("test_cert.pem");
+        fs::write(&cert_path, TEST_CERT_PEM).unwrap();
+        let key_path = test_dir_path.join("test_key.pem");
+        fs::write(&key_path, TEST_KEY_PEM).unwrap();
+        let yaml = YamlLoader::load_from_str(&format!(
+            r#"
+                cert: |-
+                    {}
+                key: |-
+                    {}
+            "#,
+            cert_path.display(),
+            key_path.display()
+        ))
+        .unwrap();
+        let cert_pair1 = as_rustls_certificate_pair(&yaml[0], Some(test_dir_path)).unwrap();
+        let cert_pair2 = as_rustls_certificate_pair(&yaml[0], Some(test_dir_path)).unwrap();
+        let cert_pair3 = as_rustls_certificate_pair(&yaml[0], Some(test_dir_path)).unwrap();
+
+        let yaml = YamlLoader::load_from_str(&format!(
+            r#"
+                cert_pairs:
+                  - certificate: |-
+                        {}
+                    private_key: |-
+                        {}
+                enable_client_auth: true
+                use_session_ticket: false
+                no_session_cache: true
+                ca_certificate: |-
+                    {}
+                handshake_timeout: "10s"
+            "#,
+            cert_path.display(),
+            key_path.display(),
+            cert_path.display()
+        ))
+        .unwrap();
+        let builder = as_rustls_server_config_builder(&yaml[0], None).unwrap();
+        let mut expected = RustlsServerConfigBuilder::empty();
+        expected.push_cert_pair(cert_pair1);
+        expected.enable_client_auth();
+        expected.set_use_session_ticket(false);
+        expected.set_disable_session_cache(true);
+        let ca_cert = CertificateDer::from_pem_slice(TEST_CERT_PEM.as_bytes()).unwrap();
+        expected.set_client_auth_certificates(vec![ca_cert]);
+        expected.set_accept_timeout(Duration::from_secs(10));
+        assert_eq!(builder, expected);
+
+        // cert_pair without array
+        let yaml = YamlLoader::load_from_str(&format!(
+            r#"
+                cert_pairs:
+                    certificate: |-
+                        {}
+                    private_key: |-
+                        {}
+                no_session_ticket: true
+            "#,
+            cert_path.display(),
+            key_path.display()
+        ))
+        .unwrap();
+        let builder = as_rustls_server_config_builder(&yaml[0], None).unwrap();
+        let mut expected = RustlsServerConfigBuilder::empty();
+        expected.push_cert_pair(cert_pair2);
+        expected.set_disable_session_ticket(true);
+        assert_eq!(builder, expected);
+
+        // certificate and private_key fields
+        let yaml = YamlLoader::load_from_str(&format!(
+            r#"
+                certificate: |-
+                    {}
+                private_key: |-
+                    {}
+            "#,
+            cert_path.display(),
+            key_path.display()
+        ))
+        .unwrap();
+        let builder = as_rustls_server_config_builder(&yaml[0], None).unwrap();
+        let mut expected = RustlsServerConfigBuilder::empty();
+        expected.push_cert_pair(cert_pair3);
+        assert_eq!(builder, expected);
+    }
+
+    #[test]
+    fn as_rustls_server_config_builder_err() {
+        // non-map YAML
+        let yaml = Yaml::Integer(123);
+        assert!(as_rustls_server_config_builder(&yaml, None).is_err());
+
+        let yaml = yaml_str!("invalid");
+        assert!(as_rustls_server_config_builder(&yaml, None).is_err());
+
+        // empty config (no cert_pairs)
+        let yaml = yaml_doc!(r#"enable_client_auth: true"#);
+        assert!(as_rustls_server_config_builder(&yaml, None).is_err());
+
+        // invalid cert_pairs array element
+        let yaml = yaml_doc!(
+            r#"
+                cert_pairs:
+                  - invalid
+            "#
+        );
+        assert!(as_rustls_server_config_builder(&yaml[0], None).is_err());
+
+        // invalid boolean value
+        let yaml = yaml_doc!(
+            r#"
+                no_session_cache: "not_a_bool"
+            "#
+        );
+        assert!(as_rustls_server_config_builder(&yaml[0], None).is_err());
+
+        // unknown key
+        let yaml = yaml_doc!(
+            r#"
+                unknown_key: "value"
+            "#
+        );
+        assert!(as_rustls_server_config_builder(&yaml[0], None).is_err());
     }
 }

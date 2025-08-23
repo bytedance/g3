@@ -1,23 +1,12 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use capnp::capability::Promise;
 use capnp_rpc::pry;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use g3proxy_proto::escaper_capnp::escaper_control;
 use g3proxy_proto::proc_capnp::proc_control;
@@ -275,7 +264,7 @@ impl proc_control::Server for ProcControlImpl {
         mut results: proc_control::ForceQuitOfflineServerResults,
     ) -> Promise<(), capnp::Error> {
         let server = pry!(pry!(pry!(params.get()).get_name()).to_str());
-        let server = unsafe { MetricsName::new_unchecked(server) };
+        let server = unsafe { NodeName::new_unchecked(server) };
         crate::serve::force_quit_offline_server(&server);
         results.get().init_result().set_ok("success");
         Promise::ok(())

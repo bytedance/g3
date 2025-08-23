@@ -1,33 +1,22 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
 
 use log::debug;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, BufReader};
-use tokio::net::TcpStream;
 use tokio::time::Instant;
 
-use g3_io_ext::{LimitedReader, LimitedWriter};
-use g3_socks::{v4a, v5, SocksAuthMethod, SocksCommand, SocksVersion};
+use g3_io_ext::{AsyncStream, LimitedReader, LimitedWriter};
+use g3_socks::{SocksAuthMethod, SocksCommand, SocksVersion, v4a, v5};
 
 use super::tcp_connect::SocksProxyTcpConnectTask;
 use super::udp_associate::SocksProxyUdpAssociateTask;
 use super::udp_connect::SocksProxyUdpConnectTask;
 use super::{CommonTaskContext, SocksProxyCltWrapperStats};
+use crate::audit::AuditContext;
 use crate::auth::{UserContext, UserGroup};
 use crate::config::server::ServerConfig;
 use crate::serve::{
@@ -36,20 +25,31 @@ use crate::serve::{
 
 pub(crate) struct SocksProxyNegotiationTask {
     pub(crate) ctx: CommonTaskContext,
+    audit_ctx: AuditContext,
     user_group: Option<Arc<UserGroup>>,
     time_accepted: Instant,
 }
 
 impl SocksProxyNegotiationTask {
-    pub(crate) fn new(ctx: CommonTaskContext, user_group: Option<Arc<UserGroup>>) -> Self {
+    pub(crate) fn new(
+        ctx: CommonTaskContext,
+        audit_ctx: AuditContext,
+        user_group: Option<Arc<UserGroup>>,
+    ) -> Self {
         SocksProxyNegotiationTask {
             ctx,
+            audit_ctx,
             user_group,
             time_accepted: Instant::now(),
         }
     }
 
-    pub(crate) async fn into_running(self, stream: TcpStream) {
+    pub(crate) async fn into_running<S>(self, stream: S)
+    where
+        S: AsyncStream,
+        S::R: AsyncRead + Send + Sync + Unpin + 'static,
+        S::W: AsyncWrite + Send + Sync + Unpin + 'static,
+    {
         self.pre_start();
 
         let (clt_r_stats, clt_w_stats) =
@@ -80,7 +80,7 @@ impl SocksProxyNegotiationTask {
         debug!(
             "new client from {} to {} server {}, using escaper {}",
             self.ctx.client_addr(),
-            self.ctx.server_config.server_type(),
+            self.ctx.server_config.r#type(),
             self.ctx.server_config.name(),
             self.ctx.server_config.escaper
         );
@@ -124,18 +124,37 @@ impl SocksProxyNegotiationTask {
         CDR: AsyncRead + Send + Sync + Unpin + 'static,
         CDW: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        if self.user_group.is_some() {
+        if let Some(user_group) = &self.user_group
+            && !user_group.allow_anonymous(self.ctx.client_addr())
+        {
             // socks4(a) doesn't support auth
             self.ctx.server_stats.forbidden.add_auth_failed();
             return Err(ServerTaskError::InvalidClientProtocol(
                 "socks4 does not support auth",
             ));
-        }
+        };
 
         let req = v4a::SocksV4aRequest::recv(&mut clt_r).await?;
 
-        let task_notes =
-            ServerTaskNotes::new(self.ctx.cc_info.clone(), None, self.time_accepted.elapsed());
+        let user_ctx = self.user_group.map(|user_group| {
+            let (user, user_type) = user_group.get_anonymous_user().unwrap();
+            let user_ctx = UserContext::new(
+                None,
+                user,
+                user_type,
+                self.ctx.server_config.name(),
+                self.ctx.server_stats.share_extra_tags(),
+            );
+            // no need to check user level client addr ACL again here
+            user_ctx.req_stats().conn_total.add_socks();
+            user_ctx
+        });
+
+        let task_notes = ServerTaskNotes::new(
+            self.ctx.cc_info.clone(),
+            user_ctx,
+            self.time_accepted.elapsed(),
+        );
         match req.command {
             SocksCommand::TcpConnect => {
                 let task = SocksProxyTcpConnectTask::new(
@@ -143,6 +162,7 @@ impl SocksProxyNegotiationTask {
                     self.ctx,
                     task_notes,
                     req.upstream,
+                    self.audit_ctx,
                 );
                 task.into_running(clt_r.into_inner(), clt_w);
                 Ok(())
@@ -274,6 +294,7 @@ impl SocksProxyNegotiationTask {
                     self.ctx,
                     task_notes,
                     req.upstream,
+                    self.audit_ctx,
                 );
                 task.into_running(clt_r.into_inner(), clt_w);
                 Ok(())

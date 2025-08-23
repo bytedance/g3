@@ -1,36 +1,26 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::hash::Hash;
-use std::io::{stderr, IsTerminal};
+use std::io::{IsTerminal, stderr};
 use std::net::{IpAddr, SocketAddr};
+use std::num::NonZeroUsize;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::time::Duration;
 
 use ahash::AHashMap;
-use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgAction, ArgMatches, Command, ValueHint};
+use anyhow::{Context, anyhow};
+use clap::{Arg, ArgAction, ArgMatches, Command, ValueHint, value_parser};
 
 use g3_runtime::blended::BlendedRuntimeConfig;
 use g3_runtime::unaided::UnaidedRuntimeConfig;
 use g3_statsd_client::{StatsdBackend, StatsdClient, StatsdClientConfig};
 use g3_types::collection::{SelectivePickPolicy, SelectiveVec, SelectiveVecBuilder, WeightedValue};
-use g3_types::limit::RateLimitQuotaConfig;
-use g3_types::metrics::MetricsName;
+use g3_types::limit::RateLimitQuota;
+use g3_types::metrics::NodeName;
 use g3_types::net::{TcpSockSpeedLimitConfig, UdpSockSpeedLimitConfig, UpstreamAddr};
 
 use super::progress::BenchProgress;
@@ -39,7 +29,8 @@ const GLOBAL_ARG_UNAIDED: &str = "unaided";
 const GLOBAL_ARG_UNCONSTRAINED: &str = "unconstrained";
 const GLOBAL_ARG_THREADS: &str = "threads";
 const GLOBAL_ARG_THREAD_STACK_SIZE: &str = "thread-stack-size";
-const GLOBAL_ARG_OPENSSL_ASYNC_JOBS: &str = "openssl-async-jobs";
+const GLOBAL_ARG_OPENSSL_ASYNC_JOB_INIT_SIZE: &str = "openssl-async-job-init-size";
+const GLOBAL_ARG_OPENSSL_ASYNC_JOB_MAX_SIZE: &str = "openssl-async-job-max-size";
 const GLOBAL_ARG_CONCURRENCY: &str = "concurrency";
 const GLOBAL_ARG_LATENCY: &str = "latency";
 const GLOBAL_ARG_TIME_LIMIT: &str = "time-limit";
@@ -52,6 +43,7 @@ const GLOBAL_ARG_EMIT_METRICS: &str = "emit-metrics";
 const GLOBAL_ARG_STATSD_TARGET_UDP: &str = "statsd-target-udp";
 const GLOBAL_ARG_STATSD_TARGET_UNIX: &str = "statsd-target-unix";
 const GLOBAL_ARG_NO_PROGRESS_BAR: &str = "no-progress-bar";
+const GLOBAL_ARG_NO_SUMMARY: &str = "no-summary";
 
 const GLOBAL_ARG_PEER_PICK_POLICY: &str = "peer-pick-policy";
 const GLOBAL_ARG_TCP_LIMIT_SHIFT: &str = "tcp-limit-shift";
@@ -61,23 +53,22 @@ const GLOBAL_ARG_UDP_LIMIT_BYTES: &str = "udp-limit-bytes";
 const GLOBAL_ARG_UDP_LIMIT_PACKETS: &str = "udp-limit-packets";
 
 pub struct ProcArgs {
-    pub(super) concurrency: usize,
+    pub(super) concurrency: NonZeroUsize,
     pub(super) latency: Option<Duration>,
     pub(super) requests: Option<usize>,
     pub(super) time_limit: Option<Duration>,
-    pub(super) rate_limit: Option<RateLimitQuotaConfig>,
+    pub(super) rate_limit: Option<RateLimitQuota>,
     pub(super) log_error_count: usize,
     pub(super) ignore_fatal_error: bool,
     pub(super) task_unconstrained: bool,
     resolver: AHashMap<UpstreamAddr, IpAddr>,
     pub(super) use_unaided_worker: bool,
-    thread_number: Option<usize>,
-    thread_stack_size: Option<usize>,
-    #[cfg(feature = "openssl-async-job")]
-    pub(super) openssl_async_job_size: usize,
+    worker_runtime: UnaidedRuntimeConfig,
+    main_runtime: BlendedRuntimeConfig,
 
     statsd_client_config: Option<StatsdClientConfig>,
     no_progress_bar: bool,
+    pub(super) no_summary: bool,
 
     peer_pick_policy: SelectivePickPolicy,
     pub(super) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
@@ -87,7 +78,7 @@ pub struct ProcArgs {
 impl Default for ProcArgs {
     fn default() -> Self {
         ProcArgs {
-            concurrency: 1,
+            concurrency: NonZeroUsize::MIN,
             latency: None,
             requests: None,
             time_limit: None,
@@ -97,12 +88,11 @@ impl Default for ProcArgs {
             task_unconstrained: false,
             resolver: AHashMap::new(),
             use_unaided_worker: false,
-            thread_number: None,
-            thread_stack_size: None,
-            #[cfg(feature = "openssl-async-job")]
-            openssl_async_job_size: 0,
+            worker_runtime: UnaidedRuntimeConfig::default(),
+            main_runtime: BlendedRuntimeConfig::default(),
             statsd_client_config: None,
             no_progress_bar: false,
+            no_summary: false,
             peer_pick_policy: SelectivePickPolicy::RoundRobin,
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
             udp_sock_speed_limit: UdpSockSpeedLimitConfig::default(),
@@ -112,6 +102,10 @@ impl Default for ProcArgs {
 
 impl ProcArgs {
     pub fn summary(&self) {
+        if self.no_summary {
+            return;
+        }
+
         println!("Concurrency Level: {}", self.concurrency);
         println!();
     }
@@ -133,7 +127,7 @@ impl ProcArgs {
                     let pid = std::process::id();
                     let mut buffer = itoa::Buffer::new();
                     let client = client.with_tag("pid", buffer.format(pid));
-                    Some((client, config.emit_duration))
+                    Some((client, config.emit_interval))
                 }
                 Err(e) => {
                     eprintln!("unable to build statsd client: {e}");
@@ -199,29 +193,13 @@ impl ProcArgs {
             main_runtime.set_thread_number(0);
             main_runtime
         } else {
-            let mut runtime = BlendedRuntimeConfig::new();
-            if let Some(thread_number) = self.thread_number {
-                runtime.set_thread_number(thread_number);
-            }
-            if let Some(thread_stack_size) = self.thread_stack_size {
-                runtime.set_thread_stack_size(thread_stack_size);
-            }
-            runtime
+            self.main_runtime.clone()
         }
     }
 
-    pub fn worker_runtime(&self) -> Option<UnaidedRuntimeConfig> {
+    pub fn worker_runtime(&self) -> Option<&UnaidedRuntimeConfig> {
         if self.use_unaided_worker {
-            let mut runtime = UnaidedRuntimeConfig::new();
-            #[cfg(feature = "openssl-async-job")]
-            runtime.set_openssl_async_job_size(self.openssl_async_job_size);
-            if let Some(thread_number) = self.thread_number {
-                runtime.set_thread_number(thread_number);
-            }
-            if let Some(thread_stack_size) = self.thread_stack_size {
-                runtime.set_thread_stack_size(thread_stack_size);
-            }
-            Some(runtime)
+            Some(&self.worker_runtime)
         } else {
             None
         }
@@ -309,7 +287,7 @@ pub fn add_global_args(app: Command) -> Command {
             .long(GLOBAL_ARG_THREADS)
             .global(true)
             .num_args(1)
-            .value_parser(value_parser!(usize)),
+            .value_parser(value_parser!(NonZeroUsize)),
     )
     .arg(
         Arg::new(GLOBAL_ARG_THREAD_STACK_SIZE)
@@ -319,11 +297,20 @@ pub fn add_global_args(app: Command) -> Command {
             .num_args(1),
     )
     .arg(
-        Arg::new(GLOBAL_ARG_OPENSSL_ASYNC_JOBS)
-            .help("Use OpenSSL async jobs and set max size")
+        Arg::new(GLOBAL_ARG_OPENSSL_ASYNC_JOB_INIT_SIZE)
+            .help("Set OpenSSL async job init size")
+            .value_name("INIT SIZE")
+            .global(true)
+            .long(GLOBAL_ARG_OPENSSL_ASYNC_JOB_INIT_SIZE)
+            .num_args(1)
+            .value_parser(value_parser!(usize)),
+    )
+    .arg(
+        Arg::new(GLOBAL_ARG_OPENSSL_ASYNC_JOB_MAX_SIZE)
+            .help("Set OpenSSL async job max size")
             .value_name("MAX SIZE")
             .global(true)
-            .long(GLOBAL_ARG_OPENSSL_ASYNC_JOBS)
+            .long(GLOBAL_ARG_OPENSSL_ASYNC_JOB_MAX_SIZE)
             .num_args(1)
             .value_parser(value_parser!(usize)),
     )
@@ -374,6 +361,13 @@ pub fn add_global_args(app: Command) -> Command {
             .help("Disable progress bar")
             .action(ArgAction::SetTrue)
             .long(GLOBAL_ARG_NO_PROGRESS_BAR)
+            .global(true),
+    )
+    .arg(
+        Arg::new(GLOBAL_ARG_NO_SUMMARY)
+            .help("Disable summary output")
+            .action(ArgAction::SetTrue)
+            .long(GLOBAL_ARG_NO_SUMMARY)
             .global(true),
     )
     .arg(
@@ -439,7 +433,7 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
     let mut proc_args = ProcArgs::default();
 
     if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_CONCURRENCY) {
-        proc_args.concurrency = *n;
+        proc_args.concurrency = NonZeroUsize::new(*n).unwrap_or(NonZeroUsize::MIN);
     }
 
     if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_LATENCY) {
@@ -459,12 +453,7 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
     }
 
     proc_args.time_limit = g3_clap::humanize::get_duration(args, GLOBAL_ARG_TIME_LIMIT)?;
-
-    if let Some(v) = args.get_one::<String>(GLOBAL_ARG_RATE_LIMIT) {
-        let rate_limit =
-            RateLimitQuotaConfig::from_str(v).context("invalid request rate limit value")?;
-        proc_args.rate_limit = Some(rate_limit);
-    }
+    proc_args.rate_limit = g3_clap::limit::get_rate_limit(args, GLOBAL_ARG_RATE_LIMIT)?;
 
     if args.get_flag(GLOBAL_ARG_UNAIDED) {
         proc_args.use_unaided_worker = true;
@@ -472,20 +461,29 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
     if args.get_flag(GLOBAL_ARG_UNCONSTRAINED) {
         proc_args.task_unconstrained = true;
     }
-    if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_THREADS) {
-        proc_args.thread_number = Some(*n);
+    if let Some(n) = args.get_one::<NonZeroUsize>(GLOBAL_ARG_THREADS) {
+        proc_args.main_runtime.set_thread_number((*n).get());
+        proc_args.worker_runtime.set_thread_number_total(*n);
     }
-    if let Some(stack_size) = g3_clap::humanize::get_usize(args, GLOBAL_ARG_THREAD_STACK_SIZE)? {
-        if stack_size > 0 {
-            proc_args.thread_stack_size = Some(stack_size);
-        }
+    if let Some(stack_size) = g3_clap::humanize::get_usize(args, GLOBAL_ARG_THREAD_STACK_SIZE)?
+        && stack_size > 0
+    {
+        proc_args.main_runtime.set_thread_stack_size(stack_size);
+        proc_args.worker_runtime.set_thread_stack_size(stack_size);
     }
     #[cfg(feature = "openssl-async-job")]
-    if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_OPENSSL_ASYNC_JOBS) {
+    if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_OPENSSL_ASYNC_JOB_INIT_SIZE) {
         if *n > 0 && !g3_openssl::async_job::async_is_capable() {
             return Err(anyhow!("openssl async job is not supported"));
         }
-        proc_args.openssl_async_job_size = *n;
+        proc_args.worker_runtime.set_openssl_async_job_init_size(*n);
+    }
+    #[cfg(feature = "openssl-async-job")]
+    if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_OPENSSL_ASYNC_JOB_MAX_SIZE) {
+        if *n > 0 && !g3_openssl::async_job::async_is_capable() {
+            return Err(anyhow!("openssl async job is not supported"));
+        }
+        proc_args.worker_runtime.set_openssl_async_job_max_size(*n);
     }
 
     if let Some(n) = args.get_one::<usize>(GLOBAL_ARG_LOG_ERROR) {
@@ -497,7 +495,7 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
 
     if args.get_flag(GLOBAL_ARG_EMIT_METRICS) {
         let mut config =
-            StatsdClientConfig::with_prefix(MetricsName::from_str(crate::build::PKG_NAME).unwrap());
+            StatsdClientConfig::with_prefix(NodeName::from_str(crate::build::PKG_NAME).unwrap());
 
         if let Some(addr) = args.get_one::<SocketAddr>(GLOBAL_ARG_STATSD_TARGET_UDP) {
             config.set_backend(StatsdBackend::Udp(*addr, None));
@@ -513,6 +511,7 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
     if args.get_flag(GLOBAL_ARG_NO_PROGRESS_BAR) || !stderr().is_terminal() {
         proc_args.no_progress_bar = true;
     }
+    proc_args.no_summary = args.get_flag(GLOBAL_ARG_NO_SUMMARY);
 
     if let Some(s) = args.get_one::<String>(GLOBAL_ARG_PEER_PICK_POLICY) {
         proc_args.peer_pick_policy = SelectivePickPolicy::from_str(s).unwrap();
@@ -547,5 +546,9 @@ pub fn parse_global_args(args: &ArgMatches) -> anyhow::Result<ProcArgs> {
         proc_args.requests = Some(1);
     }
 
+    proc_args
+        .worker_runtime
+        .check()
+        .context("invalid worker runtime config")?;
     Ok(proc_args)
 }

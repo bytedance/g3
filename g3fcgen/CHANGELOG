@@ -1,4 +1,22 @@
 
+v0.9.0:
+ - Compatibility: bump MSRV to 1.88.0
+
+v0.8.4:
+ - Feature: restore support for aws-lc
+ - Feature: add support for aws-lc-fips
+ - Compatibility: bump MSRV to 1.86.0
+ - Deprecated: the following config options are deprecated:
+     - emit_duration in statsd config, use emit_interval instead
+
+v0.8.3:
+ - Feature: listen to Ctrl-C event and shutdown gracefully
+ - Compatibility: drop AWS-LC support to reduce outdated dependencies
+
+v0.8.2:
+ - Feature: emit tokio runtime metrics
+ - Feature: allow to show debug logs in release build
+
 v0.8.1:
  - Feature: add openssl variant info to version message
  - Optimization: don't probe for openssl default ca certificate path
@@ -43,7 +61,7 @@ v0.4.1:
  - BUG FIX: init openssl properly
 
 v0.4.0:
- - Feature: use openssl instead if rcgen, and rename to g3fcgen
+ - Feature: use openssl instead of rcgen, and rename to g3fcgen
 
 v0.3.0:
  - Feature: use rcgen backend instead of squid, and rename to g3rcgen

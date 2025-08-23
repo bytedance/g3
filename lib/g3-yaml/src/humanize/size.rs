@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use anyhow::anyhow;
@@ -62,22 +51,25 @@ mod tests {
     use super::*;
 
     #[test]
-    fn t_usize() {
-        let v = Yaml::String("1000".to_string());
+    fn as_usize_ok() {
+        let v = yaml_str!("1000");
         assert_eq!(as_usize(&v).unwrap(), 1000);
 
-        let v = Yaml::String("1K".to_string());
+        let v = yaml_str!("1K");
         assert_eq!(as_usize(&v).unwrap(), 1000);
 
-        let v = Yaml::String("1KB".to_string());
+        let v = yaml_str!("1KB");
         assert_eq!(as_usize(&v).unwrap(), 1000);
 
-        let v = Yaml::String("1KiB".to_string());
+        let v = yaml_str!("1KiB");
         assert_eq!(as_usize(&v).unwrap(), 1024);
 
         let v = Yaml::Integer(1024);
         assert_eq!(as_usize(&v).unwrap(), 1024);
+    }
 
+    #[test]
+    fn as_usize_err() {
         let v = Yaml::Integer(-1024);
         assert!(as_usize(&v).is_err());
 
@@ -86,5 +78,47 @@ mod tests {
 
         let v = Yaml::Array(vec![Yaml::Integer(1)]);
         assert!(as_usize(&v).is_err());
+    }
+
+    #[test]
+    fn as_u64_ok() {
+        let v = yaml_str!("2000");
+        assert_eq!(as_u64(&v).unwrap(), 2000);
+
+        let v = Yaml::Integer(2048);
+        assert_eq!(as_u64(&v).unwrap(), 2048);
+    }
+
+    #[test]
+    fn as_u64_err() {
+        let v = Yaml::Integer(-2048);
+        assert!(as_u64(&v).is_err());
+
+        let v = Yaml::Real("2.02".to_string());
+        assert!(as_u64(&v).is_err());
+
+        let v = Yaml::Boolean(true);
+        assert!(as_u64(&v).is_err());
+    }
+
+    #[test]
+    fn as_u32_ok() {
+        let v = yaml_str!("4000");
+        assert_eq!(as_u32(&v).unwrap(), 4000);
+
+        let v = Yaml::Integer(4096);
+        assert_eq!(as_u32(&v).unwrap(), 4096);
+    }
+
+    #[test]
+    fn as_u32_err() {
+        let v = Yaml::Integer(-4096);
+        assert!(as_u32(&v).is_err());
+
+        let v = Yaml::Real("4.04".to_string());
+        assert!(as_u32(&v).is_err());
+
+        let v = Yaml::Null;
+        assert!(as_u32(&v).is_err());
     }
 }

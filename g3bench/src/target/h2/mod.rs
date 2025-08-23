@@ -1,24 +1,12 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::process::ExitCode;
 use std::sync::Arc;
 
-use anyhow::anyhow;
 use clap::{ArgMatches, Command};
-use http::{HeaderValue, Method, Request, Uri, Version};
 
 use super::{BenchTarget, BenchTaskContext, ProcArgs};
 use crate::module::http::{HttpHistogram, HttpHistogramRecorder, HttpRuntimeStats};
@@ -71,7 +59,7 @@ pub fn command() -> Command {
     opts::add_h2_args(Command::new(COMMAND))
 }
 
-pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Result<()> {
+pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Result<ExitCode> {
     let mut h2_args = opts::parse_h2_args(cmd_args)?;
     h2_args.resolve_target_address(proc_args).await?;
     let h2_args = Arc::new(h2_args);
@@ -99,26 +87,4 @@ pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Re
     };
 
     super::run(target, proc_args).await
-}
-
-struct H2PreRequest {
-    method: Method,
-    uri: Uri,
-    auth: Option<HeaderValue>,
-}
-
-impl H2PreRequest {
-    fn build_request(&self) -> anyhow::Result<Request<()>> {
-        let mut req = Request::builder()
-            .version(Version::HTTP_2)
-            .method(self.method.clone())
-            .uri(self.uri.clone())
-            .body(())
-            .map_err(|e| anyhow!("failed to build request: {e:?}"))?;
-        if let Some(v) = &self.auth {
-            req.headers_mut()
-                .insert(http::header::AUTHORIZATION, v.clone());
-        }
-        Ok(req)
-    }
 }

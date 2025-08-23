@@ -3,6 +3,20 @@ OpenSSL Variants
 
 There are many forks of OpenSSL available, this doc will show you how to build with them.
 
+# Vendored OpenSSL
+
+You can use `--features vendored-openssl` cargo build option to always use the latest stable OpenSSL version.
+
+It is also recommended to set the following C compile options:
+
+- x86-64
+
+  ```-march=x86-64-v2```
+
+- aarch64
+
+  ```-march=armv8-a+aes```
+
 # Tongsuo
 
 See [Tongsuo](https://github.com/Tongsuo-Project/Tongsuo) for more introduction.
@@ -22,10 +36,6 @@ then you need to use Tongsuo.
 
 Use `--features vendored-tongsuo` cargo build option.
 
-### Package
-
-Switch to branch `rel/tlcp-tongsuo`, then run the build script or create the release tarball as usual.
-
 # BoringSSL
 
 See [BoringSSL](https://boringssl.googlesource.com/boringssl/) for more introduction.
@@ -37,17 +47,11 @@ As an alternative, you can switch to use BoringSSl as a solution.
 
 ## How
 
-BoringSSL is supported in branch `rel/boringssl`.
-
 ### Build
 
 - Make sure you have `cmake`, `pkg-config`installed
 
 - Build with `--features vendored-boringssl` cargo option
-
-### Package
-
-Switch to branch `rel/boringssl`, then run the build script or create the release tarball as usual.
 
 # AWS-LC
 
@@ -60,16 +64,26 @@ As an alternative, you can switch to use AWS-LC as a solution on AWS EC2 hosts.
 
 ## How
 
-AWS-LC is supported in branch `rel/aws-lc`.
-
 ### Build
 
 - Make sure you have `cmake`, `pkg-config` installed
 
 - Install a recent version of [go](https://go.dev/dl/) if you want to do AWS-LC code generation.
 
-- Build with `--features vendored-aws-lc` cargo build option.
+- Build with `--no-default-features --features vendored-aws-lc,rustls-aws-lc,<other features>` cargo build option.
 
-### Package
+# AWS-LC-FIPS
 
-Switch to branch `rel/aws-lc`, then run the build script or create the release tarball as usual.
+See [AWS-LC](https://github.com/aws/aws-lc)
+and [AWS-LC FIPS 140-3](https://github.com/aws/aws-lc/blob/main/crypto/fipsmodule/FIPS.md) for more introduction.
+
+## How
+
+### Build
+
+- Make sure you have `cmake`, `pkg-config` installed
+
+- Install a recent version of [go](https://go.dev/dl/).
+
+- Build with `--no-default-features --features vendored-aws-lc-fips,rustls-aws-lc-fips,<other features>` cargo build
+  option.

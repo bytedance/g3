@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
@@ -19,6 +8,7 @@ use std::sync::Arc;
 use tokio::net::UdpSocket;
 
 use g3_io_ext::{LimitedUdpRecv, LimitedUdpSend};
+use g3_socket::BindAddr;
 use g3_socket::util::AddressFamily;
 use g3_types::acl::AclAction;
 
@@ -28,15 +18,15 @@ use crate::escape::direct_fixed::udp_connect::{
 };
 use crate::module::udp_connect::{
     ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectRemoteWrapperStats, UdpConnectResult,
-    UdpConnectTaskNotes,
+    UdpConnectTaskConf, UdpConnectTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
 impl DirectFloatEscaper {
-    fn handle_udp_target_ip_acl_action<'a>(
-        &'a self,
+    fn handle_udp_target_ip_acl_action(
+        &self,
         action: AclAction,
-        task_notes: &'a ServerTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> Result<(), UdpConnectError> {
         let forbid = match action {
             AclAction::Permit => false,
@@ -61,18 +51,19 @@ impl DirectFloatEscaper {
         }
     }
 
-    pub(super) async fn udp_connect_to<'a>(
-        &'a self,
-        udp_notes: &'a mut UdpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    pub(super) async fn udp_connect_to(
+        &self,
+        task_conf: &UdpConnectTaskConf<'_>,
+        udp_notes: &mut UdpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
-        let upstream = udp_notes
-            .upstream
-            .as_ref()
-            .ok_or(UdpConnectError::NoUpstreamSupplied)?;
         let peer_addr = self
-            .select_upstream_addr(upstream, self.get_resolve_strategy(task_notes), task_notes)
+            .select_upstream_addr(
+                task_conf.upstream,
+                self.get_resolve_strategy(task_notes),
+                task_notes,
+            )
             .await?;
         udp_notes.next = Some(peer_addr);
 
@@ -83,7 +74,7 @@ impl DirectFloatEscaper {
         let bind = self
             .select_bind(family, task_notes)
             .map_err(UdpConnectError::EscaperNotUsable)?;
-        udp_notes.bind = Some(bind.ip);
+        udp_notes.bind = BindAddr::Ip(bind.ip);
 
         let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {
             user_ctx
@@ -95,8 +86,8 @@ impl DirectFloatEscaper {
 
         let socket = g3_socket::udp::new_std_socket_to(
             peer_addr,
-            udp_notes.bind,
-            udp_notes.buf_conf,
+            &udp_notes.bind,
+            task_conf.sock_buf,
             misc_opts,
         )
         .map_err(UdpConnectError::SetupSocketFailed)?;
@@ -109,7 +100,7 @@ impl DirectFloatEscaper {
             .map_err(UdpConnectError::SetupSocketFailed)?;
         udp_notes.local = Some(bind_addr);
 
-        let mut wrapper_stats = UdpConnectRemoteWrapperStats::new(&self.stats, task_stats);
+        let mut wrapper_stats = UdpConnectRemoteWrapperStats::new(self.stats.clone(), task_stats);
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 

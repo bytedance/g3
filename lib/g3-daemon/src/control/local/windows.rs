@@ -1,17 +1,6 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use anyhow::anyhow;
@@ -54,12 +43,12 @@ impl LocalControllerImpl {
     pub(super) async fn connect_to_daemon(
         daemon_name: &str,
         daemon_group: &str,
-    ) -> anyhow::Result<impl AsyncRead + AsyncWrite> {
-        let pipe_name = format!(r"\\.\pipe\{daemon_name}@{}", daemon_group);
+    ) -> anyhow::Result<impl AsyncRead + AsyncWrite + use<>> {
+        let pipe_name = format!(r"\\.\pipe\{daemon_name}@{daemon_group}");
 
         tokio::net::windows::named_pipe::ClientOptions::new()
             .open(&pipe_name)
-            .map_err(|e| anyhow!("failed to open connection to pipe {}: {e:?}", pipe_name))
+            .map_err(|e| anyhow!("failed to open connection to pipe {pipe_name}: {e:?}"))
     }
 
     pub(super) async fn into_running(
@@ -88,7 +77,6 @@ impl LocalControllerImpl {
                         }
                         Err(e) => {
                             warn!("controller {} accept: {e}", self.pipe_name);
-                            break;
                         }
                     }
                 }

@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
@@ -25,19 +14,22 @@ use uuid::Uuid;
 use g3_daemon::server::ServerQuitPolicy;
 use g3_dpi::{
     H1InterceptionConfig, H2InterceptionConfig, ImapInterceptionConfig, MaybeProtocol,
-    ProtocolInspectPolicy, ProtocolInspector, SmtpInterceptionConfig,
+    ProtocolInspectAction, ProtocolInspector, SmtpInterceptionConfig,
 };
-use g3_types::net::OpensslClientConfig;
+use g3_io_ext::IdleWheel;
+use g3_types::net::{Host, OpensslClientConfig};
 
 use crate::audit::AuditHandle;
 use crate::auth::{User, UserForbiddenStats, UserSite};
 use crate::config::server::ServerConfig;
+use crate::module::tcp_connect::TcpConnectTaskNotes;
 use crate::serve::{ArcServerStats, ServerIdleChecker, ServerTaskNotes};
 
 mod error;
 pub(crate) use error::InterceptionError;
 
 pub(crate) mod stream;
+pub(crate) use stream::StreamTransitTask;
 
 pub(crate) mod tls;
 use tls::TlsInterceptionContext;
@@ -111,15 +103,32 @@ impl From<&ServerTaskNotes> for StreamInspectTaskNotes {
     }
 }
 
+#[derive(Clone, Copy)]
+pub(crate) struct StreamInspectConnectNotes {
+    pub(crate) client_addr: SocketAddr,
+    pub(crate) server_addr: SocketAddr,
+}
+
+impl From<&TcpConnectTaskNotes> for StreamInspectConnectNotes {
+    fn from(tcp_notes: &TcpConnectTaskNotes) -> Self {
+        StreamInspectConnectNotes {
+            client_addr: tcp_notes.local.unwrap(),
+            server_addr: tcp_notes.next.unwrap(),
+        }
+    }
+}
+
 pub(crate) struct StreamInspectContext<SC: ServerConfig> {
     audit_handle: Arc<AuditHandle>,
     server_config: Arc<SC>,
     server_stats: ArcServerStats,
     server_quit_policy: Arc<ServerQuitPolicy>,
+    idle_wheel: Arc<IdleWheel>,
     task_notes: StreamInspectTaskNotes,
+    connect_notes: StreamInspectConnectNotes,
     inspection_depth: usize,
 
-    task_max_idle_count: i32,
+    max_idle_count: usize,
 }
 
 impl<SC: ServerConfig> Clone for StreamInspectContext<SC> {
@@ -129,9 +138,11 @@ impl<SC: ServerConfig> Clone for StreamInspectContext<SC> {
             server_config: self.server_config.clone(),
             server_stats: self.server_stats.clone(),
             server_quit_policy: self.server_quit_policy.clone(),
+            idle_wheel: self.idle_wheel.clone(),
             task_notes: self.task_notes.clone(),
+            connect_notes: self.connect_notes,
             inspection_depth: self.inspection_depth,
-            task_max_idle_count: self.task_max_idle_count,
+            max_idle_count: self.max_idle_count,
         }
     }
 }
@@ -142,27 +153,35 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
         server_config: Arc<SC>,
         server_stats: ArcServerStats,
         server_quit_policy: Arc<ServerQuitPolicy>,
+        idle_wheel: Arc<IdleWheel>,
         task_notes: &ServerTaskNotes,
+        tcp_notes: &TcpConnectTaskNotes,
     ) -> Self {
-        let mut task_max_idle_count = server_config.task_max_idle_count();
-        if let Some(user_ctx) = task_notes.user_ctx() {
-            task_max_idle_count = user_ctx.user().task_max_idle_count();
-        }
+        let max_idle_count = task_notes
+            .user_ctx()
+            .and_then(|c| c.user().task_max_idle_count())
+            .unwrap_or(server_config.task_max_idle_count());
 
         StreamInspectContext {
             audit_handle,
             server_config,
             server_stats,
             server_quit_policy,
+            idle_wheel,
             task_notes: StreamInspectTaskNotes::from(task_notes),
+            connect_notes: StreamInspectConnectNotes::from(tcp_notes),
             inspection_depth: 0,
-            task_max_idle_count,
+            max_idle_count,
         }
     }
 
     #[inline]
-    fn user(&self) -> Option<&Arc<User>> {
-        self.task_notes.user()
+    fn user(&self) -> Option<&User> {
+        self.task_notes.user().map(|u| u.as_ref())
+    }
+
+    fn user_cloned(&self) -> Option<Arc<User>> {
+        self.task_notes.user().cloned()
     }
 
     #[inline]
@@ -186,22 +205,22 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     }
 
     #[inline]
-    pub(crate) fn inspect_logger(&self) -> &Logger {
+    pub(crate) fn inspect_logger(&self) -> Option<&Logger> {
         self.audit_handle.inspect_logger()
     }
 
     #[inline]
-    pub(crate) fn intercept_logger(&self) -> &Logger {
+    pub(crate) fn intercept_logger(&self) -> Option<&Logger> {
         self.audit_handle.intercept_logger()
     }
 
     pub(crate) fn idle_checker(&self) -> ServerIdleChecker {
-        ServerIdleChecker {
-            idle_duration: self.server_config.task_idle_check_duration(),
-            user: self.user().cloned(),
-            task_max_idle_count: self.task_max_idle_count,
-            server_quit_policy: self.server_quit_policy.clone(),
-        }
+        ServerIdleChecker::new(
+            self.idle_wheel.clone(),
+            self.user_cloned(),
+            self.max_idle_count,
+            self.server_quit_policy.clone(),
+        )
     }
 
     pub(crate) fn protocol_inspector(
@@ -263,8 +282,11 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     }
 
     #[inline]
-    fn h2_inspect_policy(&self) -> ProtocolInspectPolicy {
-        self.audit_handle.h2_inspect_policy()
+    fn h2_inspect_action(&self, host: &Host) -> ProtocolInspectAction {
+        match self.audit_handle.h2_inspect_policy.check(host) {
+            (true, policy_action) => policy_action,
+            (false, missing_policy_action) => missing_policy_action,
+        }
     }
 
     #[inline]
@@ -281,8 +303,19 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     }
 
     #[inline]
-    fn smtp_inspect_policy(&self) -> ProtocolInspectPolicy {
-        self.audit_handle.smtp_inspect_policy()
+    fn websocket_inspect_action(&self, host: &Host) -> ProtocolInspectAction {
+        match self.audit_handle.websocket_inspect_policy.check(host) {
+            (true, policy_action) => policy_action,
+            (false, missing_policy_action) => missing_policy_action,
+        }
+    }
+
+    #[inline]
+    fn smtp_inspect_action(&self, host: &Host) -> ProtocolInspectAction {
+        match self.audit_handle.smtp_inspect_policy.check(host) {
+            (true, policy_action) => policy_action,
+            (false, missing_policy_action) => missing_policy_action,
+        }
     }
 
     #[inline]
@@ -291,18 +324,16 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     }
 
     #[inline]
-    fn imap_inspect_policy(&self) -> ProtocolInspectPolicy {
-        self.audit_handle.imap_inspect_policy()
+    fn imap_inspect_action(&self, host: &Host) -> ProtocolInspectAction {
+        match self.audit_handle.imap_inspect_policy.check(host) {
+            (true, policy_action) => policy_action,
+            (false, missing_policy_action) => missing_policy_action,
+        }
     }
 
     #[inline]
     fn imap_interception(&self) -> &ImapInterceptionConfig {
         self.audit_handle.imap_interception()
-    }
-
-    #[inline]
-    fn task_max_idle_count(&self) -> i32 {
-        self.task_max_idle_count
     }
 
     fn belongs_to_blocked_user(&self) -> bool {
@@ -329,5 +360,5 @@ pub(crate) enum StreamInspection<SC: ServerConfig> {
     Imap(imap::ImapInterceptObject<SC>),
 }
 
-type BoxAsyncRead = Box<dyn AsyncRead + Send + Unpin + 'static>;
-type BoxAsyncWrite = Box<dyn AsyncWrite + Send + Unpin + 'static>;
+type BoxAsyncRead = Box<dyn AsyncRead + Send + Sync + Unpin + 'static>;
+type BoxAsyncWrite = Box<dyn AsyncWrite + Send + Sync + Unpin + 'static>;

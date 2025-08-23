@@ -1,9 +1,9 @@
 [package]
 name = "g3proxy"
-version = "1.9.7"
+version = "1.13.0"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.80.0"
+rust-version.workspace = true
 description = "G3 generic proxy"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -20,7 +20,6 @@ futures-util.workspace = true
 rand.workspace = true
 fastrand.workspace = true
 tokio = { workspace = true, features = ["rt-multi-thread", "rt", "signal", "sync", "time", "io-util", "net", "fs"] }
-tokio-util = { workspace = true, features = ["time"] }
 tokio-rustls.workspace = true
 rustls.workspace = true
 quinn = { workspace = true, optional = true, features = ["rustls"] }
@@ -31,7 +30,7 @@ bytes.workspace = true
 chrono = { workspace = true, features = ["clock"] }
 uuid = { workspace = true, features = ["v4"] }
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
-slog = { workspace = true, features = ["nested-values", "max_level_trace", "release_max_level_debug"] }
+slog = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 percent-encoding.workspace = true
 url.workspace = true
 http.workspace = true
@@ -51,65 +50,72 @@ itoa.workspace = true
 redis = { workspace = true, features = ["aio", "tokio-comp"] }
 ascii.workspace = true
 ahash.workspace = true
+foldhash.workspace = true
 bitflags.workspace = true
 fixedbitset.workspace = true
 rustc-hash.workspace = true
 fnv.workspace = true
-governor = { workspace = true, features = ["std", "jitter"] }
 rmpv.workspace = true
-flume.workspace = true
+kanal = { workspace = true, features = ["async"] }
+lru.workspace = true
+regex.workspace = true
 mlua = { workspace = true, features = ["send"], optional = true }
 pyo3 = { workspace = true, features = ["auto-initialize"], optional = true }
-g3-cert-agent.workspace = true
-g3-daemon.workspace = true
+g3-cert-agent = { workspace = true, features = ["yaml"] }
+g3-daemon = { workspace = true, features = ["event-log"] }
 g3-datetime.workspace = true
 g3-dpi.workspace = true
-g3-ftp-client.workspace = true
+g3-ftp-client = { workspace = true, features = ["yaml"] }
 g3-geoip-types.workspace = true
 g3-h2.workspace = true
 g3-histogram.workspace = true
 g3-http.workspace = true
-g3-icap-client.workspace = true
+g3-icap-client = { workspace = true, features = ["yaml"] }
 g3-imap-proto.workspace = true
-g3-io-ext = { workspace = true, features = ["resolver"] }
-g3-ip-locate.workspace = true
+g3-io-ext = { workspace = true, features = ["resolver", "openssl", "rustls"] }
+g3-io-sys.workspace = true
+g3-ip-locate = { workspace = true, features = ["yaml"] }
 g3-json = { workspace = true, features = ["acl-rule", "resolve", "http", "rustls", "openssl", "histogram"] }
+g3-macros.workspace = true
 g3-msgpack.workspace = true
 g3-openssl.workspace = true
-g3-redis-client.workspace = true
-g3-resolver.workspace = true
-g3-slog-types = { workspace = true, features = ["http"] }
+g3-redis-client = { workspace = true, features = ["yaml"] }
+g3-resolver = { workspace = true, features = ["yaml", "hickory"] }
+g3-slog-types = { workspace = true, features = ["http", "openssl", "socket"] }
 g3-smtp-proto.workspace = true
 g3-socket.workspace = true
 g3-socks.workspace = true
 g3-statsd-client.workspace = true
-g3-types = { workspace = true, features = ["auth-crypt", "rustls", "openssl", "acl-rule", "http", "route", "async-log"] }
-g3-udpdump.workspace = true
+g3-std-ext.workspace = true
+g3-types = { workspace = true, features = ["auth-crypt", "openssl", "rustls", "acl-rule", "http", "route", "async-log"] }
+g3-tls-ticket = { workspace = true, features = ["yaml"] }
+g3-udpdump = { workspace = true, features = ["yaml"] }
 g3-xcrypt.workspace = true
-g3-yaml = { workspace = true, features = ["resolve", "rustls", "openssl", "acl-rule", "http", "ftp-client", "route", "dpi", "audit", "histogram", "geoip"] }
+g3-yaml = { workspace = true, features = ["resolve", "rustls", "openssl", "acl-rule", "http", "route", "dpi", "histogram", "geoip"] }
 g3proxy-proto = { path = "proto" }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "io-util"] }
-tokio-util = { workspace = true, features = ["io"] }
+tokio-test.workspace = true
 
 [build-dependencies]
 g3-build-env.workspace = true
 
 [features]
-default = ["lua54", "python", "c-ares", "hickory", "quic"]
+default = ["lua54", "python", "c-ares", "quic", "rustls-ring"]
 lua = ["mlua"]
 luajit = ["lua", "mlua/luajit"]
-lua51 = ["lua", "mlua/lua51"]
 lua53 = ["lua", "mlua/lua53"]
 lua54 = ["lua", "mlua/lua54"]
 python = ["pyo3"]
 c-ares = ["g3-resolver/c-ares"]
-hickory = ["g3-resolver/hickory"]
-quic = ["g3-daemon/quic", "g3-resolver/quic", "g3-types/quinn", "g3-dpi/quic", "dep:quinn"]
-rustls-aws-lc = ["rustls/aws-lc-rs"]
+quic = ["g3-daemon/quic", "g3-resolver/quic", "g3-yaml/quinn", "g3-types/quinn", "g3-dpi/quic", "dep:quinn"]
+rustls-ring = ["g3-types/rustls-ring", "rustls/ring", "quinn?/rustls-ring"]
+rustls-aws-lc = ["g3-types/rustls-aws-lc", "rustls/aws-lc-rs", "quinn?/rustls-aws-lc-rs"]
+rustls-aws-lc-fips = ["g3-types/rustls-aws-lc-fips", "rustls/fips", "quinn?/rustls-aws-lc-rs-fips"]
 vendored-openssl = ["openssl/vendored", "openssl-probe"]
-vendored-tongsuo = ["openssl/tongsuo", "openssl-probe", "g3-yaml/tongsuo", "g3-json/tongsuo", "g3-cert-agent/tongsuo"]
-vendored-aws-lc = ["rustls-aws-lc", "openssl/aws-lc", "openssl-probe", "g3-types/aws-lc", "g3-openssl/aws-lc"]
-vendored-boringssl = ["openssl/boringssl", "openssl-probe", "g3-types/boringssl", "g3-openssl/boringssl"]
+vendored-tongsuo = ["openssl/tongsuo", "openssl-probe", "g3-cert-agent/tongsuo"]
+vendored-boringssl = ["openssl/boringssl", "openssl-probe"]
+vendored-aws-lc = ["openssl/aws-lc", "openssl-probe"]
+vendored-aws-lc-fips = ["openssl/aws-lc-fips", "openssl-probe"]
 vendored-c-ares = ["c-ares", "g3-resolver/vendored-c-ares"]

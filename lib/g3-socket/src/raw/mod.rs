@@ -1,24 +1,16 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
+use std::net::SocketAddr;
 
 use socket2::Socket;
 
 use g3_types::net::{SocketBufferConfig, TcpMiscSockOpts, UdpMiscSockOpts};
+
+use crate::util::AddressFamily;
 
 #[cfg(unix)]
 mod unix;
@@ -50,24 +42,47 @@ impl RawSocket {
 
     pub fn set_tcp_misc_opts(
         &self,
+        family: AddressFamily,
         misc_opts: &TcpMiscSockOpts,
         default_set_nodelay: bool,
     ) -> io::Result<()> {
         let socket = self.get_inner()?;
         if let Some(no_delay) = misc_opts.no_delay {
-            socket.set_nodelay(no_delay)?;
+            socket.set_tcp_nodelay(no_delay)?;
         } else if default_set_nodelay {
-            socket.set_nodelay(true)?;
+            socket.set_tcp_nodelay(true)?;
         }
         #[cfg(unix)]
         if let Some(mss) = misc_opts.max_segment_size {
-            socket.set_mss(mss)?;
+            socket.set_tcp_mss(mss)?;
         }
-        if let Some(ttl) = misc_opts.time_to_live {
-            socket.set_ttl(ttl)?;
+        match family {
+            AddressFamily::Ipv4 => {
+                if let Some(ttl) = misc_opts.time_to_live {
+                    socket.set_ttl_v4(ttl)?;
+                }
+                if let Some(tos) = misc_opts.type_of_service {
+                    crate::sockopt::set_tos_v4(socket, tos)?;
+                }
+            }
+            AddressFamily::Ipv6 => {
+                if let Some(hops) = misc_opts.hop_limit {
+                    socket.set_unicast_hops_v6(hops)?;
+                }
+                #[cfg(not(windows))]
+                if let Some(class) = misc_opts.traffic_class {
+                    crate::sockopt::set_tclass_v6(socket, class)?;
+                }
+            }
         }
-        if let Some(tos) = misc_opts.type_of_service {
-            socket.set_tos(tos as u32)?;
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "freebsd",
+            target_os = "solaris",
+            target_os = "illumos"
+        ))]
+        if let Some(ca) = misc_opts.congestion_control() {
+            crate::sockopt::set_tcp_congestion(socket, ca)?;
         }
         #[cfg(target_os = "linux")]
         if let Some(mark) = misc_opts.netfilter_mark {
@@ -76,20 +91,59 @@ impl RawSocket {
         Ok(())
     }
 
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(any(target_os = "linux", target_os = "android", target_os = "illumos"))]
     pub fn trigger_tcp_quick_ack(&self) -> io::Result<()> {
         let socket = self.get_inner()?;
-        socket.set_quickack(true)
+        crate::sockopt::set_tcp_quick_ack(socket, true)
     }
 
-    pub fn set_udp_misc_opts(&self, misc_opts: UdpMiscSockOpts) -> io::Result<()> {
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    pub fn tcp_incoming_cpu(&self) -> io::Result<usize> {
         let socket = self.get_inner()?;
-        if let Some(ttl) = misc_opts.time_to_live {
-            socket.set_ttl(ttl)?;
+        super::sockopt::get_incoming_cpu(socket)
+    }
+
+    pub fn set_udp_misc_opts(
+        &self,
+        local_addr: SocketAddr,
+        misc_opts: UdpMiscSockOpts,
+    ) -> io::Result<()> {
+        let socket = self.get_inner()?;
+        match local_addr {
+            SocketAddr::V4(_) => {
+                if let Some(ttl) = misc_opts.time_to_live {
+                    socket.set_ttl_v4(ttl)?;
+                }
+                if let Some(tos) = misc_opts.type_of_service {
+                    crate::sockopt::set_tos_v4(socket, tos)?;
+                }
+            }
+            SocketAddr::V6(s6) => {
+                if let Some(hops) = misc_opts.hop_limit {
+                    socket.set_unicast_hops_v6(hops)?;
+                }
+                #[cfg(not(windows))]
+                if let Some(class) = misc_opts.traffic_class {
+                    crate::sockopt::set_tclass_v6(socket, class)?;
+                }
+                #[cfg(not(target_os = "openbsd"))]
+                if s6.ip().is_unspecified()
+                    && (misc_opts.time_to_live.is_some() || misc_opts.type_of_service.is_some())
+                {
+                    // workaround for https://github.com/rust-lang/socket2/pull/603
+                    let v6only = super::sockopt::ipv6_only(socket)?;
+                    if !v6only {
+                        if let Some(ttl) = misc_opts.time_to_live {
+                            socket.set_ttl_v4(ttl)?;
+                        }
+                        if let Some(tos) = misc_opts.type_of_service {
+                            crate::sockopt::set_tos_v4(socket, tos)?;
+                        }
+                    }
+                }
+            }
         }
-        if let Some(tos) = misc_opts.type_of_service {
-            socket.set_tos(tos as u32)?;
-        }
+
         #[cfg(target_os = "linux")]
         if let Some(mark) = misc_opts.netfilter_mark {
             socket.set_mark(mark)?;

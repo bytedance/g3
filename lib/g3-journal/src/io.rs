@@ -1,32 +1,22 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::ffi::CStr;
 use std::fs::File;
 use std::io::Write;
+use std::mem::MaybeUninit;
 use std::os::fd::AsFd;
 use std::os::unix::net::UnixDatagram;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use once_cell::sync::OnceCell;
 use rustix::cmsg_space;
-use rustix::fs::{fcntl_add_seals, memfd_create, MemfdFlags, SealFlags};
+use rustix::fs::{MemfdFlags, SealFlags, fcntl_add_seals, memfd_create};
 use rustix::io::Errno;
 use rustix::net::{
-    sendmsg_unix, SendAncillaryBuffer, SendAncillaryMessage, SendFlags, SocketAddrUnix,
+    SendAncillaryBuffer, SendAncillaryMessage, SendFlags, SocketAddrUnix, sendmsg_addr,
 };
 
 /// Default path of the systemd-journald `AF_UNIX` datagram socket.
@@ -81,12 +71,12 @@ fn send_memfd_payload(sock: &UnixDatagram, data: &[u8]) -> anyhow::Result<()> {
         .map_err(|e| anyhow!("unable to seal memfd: {e}"))?;
 
     let fds = &[mem_file.as_fd()];
-    let mut space = [0; cmsg_space!(ScmRights(1))];
+    let mut space = [MaybeUninit::uninit(); cmsg_space!(ScmRights(1))];
     let mut control = SendAncillaryBuffer::new(&mut space);
     control.push(SendAncillaryMessage::ScmRights(fds));
     let addr = SocketAddrUnix::new(SD_JOURNAL_SOCK_PATH)
         .map_err(|e| anyhow!("unable to create new unix address: {e}"))?;
-    sendmsg_unix(sock.as_fd(), &addr, &[], &mut control, SendFlags::empty())
+    sendmsg_addr(sock.as_fd(), &addr, &[], &mut control, SendFlags::empty())
         .map_err(|e| anyhow!("sendmsg failed: {e}"))?;
 
     // Close our side of the memfd after we send it to systemd.

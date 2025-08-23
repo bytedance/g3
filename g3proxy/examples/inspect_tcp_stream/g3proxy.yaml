@@ -9,8 +9,8 @@ controller:
 
 auditor:
   - name: default
-    protocol_inspection: {}
-    tls_cert_generator: {}
+    protocol_inspection: { }
+    tls_cert_generator: { }
 
 server:
   - name: http_ipip
@@ -38,7 +38,6 @@ server:
 resolver:
   - name: default
     type: c-ares
-    server: 127.0.0.1
 
 escaper:
   - name: default

@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::str::FromStr;
@@ -24,13 +13,14 @@ use tokio::sync::mpsc;
 
 use g3_io_ext::{ArcLimitedWriterStats, LimitedWriter};
 use g3_types::auth::UserAuthError;
-use g3_types::net::{HttpAuth, HttpBasicAuth, HttpHeaderMap};
+use g3_types::net::{HttpAuth, HttpBasicAuth, HttpHeaderMap, HttpProxySubProtocol};
 
-use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest, HttpProxySubProtocol};
+use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest};
 use super::{
     CommonTaskContext, FtpOverHttpTask, HttpProxyCltWrapperStats, HttpProxyConnectTask,
     HttpProxyForwardTask, HttpProxyPipelineStats, HttpProxyUntrustedTask,
 };
+use crate::audit::AuditContext;
 use crate::auth::{UserContext, UserGroup, UserRequestStats};
 use crate::config::server::ServerConfig;
 use crate::escape::EgressPathSelection;
@@ -74,6 +64,7 @@ impl Default for RequestCount {
 
 pub(crate) struct HttpProxyPipelineWriterTask<CDR, CDW> {
     ctx: Arc<CommonTaskContext>,
+    audit_ctx: AuditContext,
     user_group: Option<Arc<UserGroup>>,
     task_queue: mpsc::Receiver<Result<HttpProxyRequest<CDR>, HttpProxyClientResponse>>,
     stream_writer: Option<HttpClientWriter<CDW>>,
@@ -95,6 +86,7 @@ where
 {
     pub(crate) fn new(
         ctx: &Arc<CommonTaskContext>,
+        audit_ctx: AuditContext,
         user_group: Option<Arc<UserGroup>>,
         task_receiver: mpsc::Receiver<Result<HttpProxyRequest<CDR>, HttpProxyClientResponse>>,
         write_half: CDW,
@@ -113,6 +105,7 @@ where
         );
         HttpProxyPipelineWriterTask {
             ctx: Arc::clone(ctx),
+            audit_ctx,
             user_group,
             task_queue: task_receiver,
             stream_writer: Some(clt_w),
@@ -220,10 +213,10 @@ where
                 Some(Err(rsp)) => {
                     // the response will always be `Connection: Close`
                     self.req_count.invalid += 1;
-                    if !self.ctx.server_config.no_early_error_reply {
-                        if let Some(stream_w) = &mut self.stream_writer {
-                            let _ = rsp.reply_err_to_request(stream_w).await;
-                        }
+                    if !self.ctx.server_config.no_early_error_reply
+                        && let Some(stream_w) = &mut self.stream_writer
+                    {
+                        let _ = rsp.reply_err_to_request(stream_w).await;
                     }
 
                     self.notify_reader_to_close();
@@ -246,10 +239,10 @@ where
     ) -> Option<EgressPathSelection> {
         if let Some(header) = &self.ctx.server_config.egress_path_selection_header {
             // check and remove the custom header
-            if let Some(value) = headers.remove(header) {
-                if let Ok(egress) = EgressPathSelection::from_str(value.to_str()) {
-                    return Some(egress);
-                }
+            if let Some(value) = headers.remove(header)
+                && let Ok(egress) = EgressPathSelection::from_str(value.to_str())
+            {
+                return Some(egress);
             }
         }
         None
@@ -268,19 +261,20 @@ where
             path_selection,
         );
 
+        let mut audit_ctx = self.audit_ctx.clone();
         let remote_protocol = match req.client_protocol {
             HttpProxySubProtocol::TcpConnect => HttpProxySubProtocol::TcpConnect,
             HttpProxySubProtocol::HttpForward => {
                 let _ = self
                     .forward_context
-                    .check_in_final_escaper(&task_notes, &req.upstream)
+                    .check_in_final_escaper(&task_notes, &req.upstream, &mut audit_ctx)
                     .await;
                 HttpProxySubProtocol::HttpForward
             }
             HttpProxySubProtocol::HttpsForward => {
                 let forward_capability = self
                     .forward_context
-                    .check_in_final_escaper(&task_notes, &req.upstream)
+                    .check_in_final_escaper(&task_notes, &req.upstream, &mut audit_ctx)
                     .await;
                 if forward_capability.forward_https() {
                     HttpProxySubProtocol::HttpForward
@@ -291,7 +285,7 @@ where
             HttpProxySubProtocol::FtpOverHttp => {
                 let forward_capability = self
                     .forward_context
-                    .check_in_final_escaper(&task_notes, &req.upstream)
+                    .check_in_final_escaper(&task_notes, &req.upstream, &mut audit_ctx)
                     .await;
                 if forward_capability.forward_ftp(&req.inner.method) {
                     HttpProxySubProtocol::HttpForward
@@ -306,13 +300,14 @@ where
                 if let (Some(mut stream_w), Some(stream_r)) =
                     (self.stream_writer.take(), req.body_reader.take())
                 {
-                    let mut connect_task = HttpProxyConnectTask::new(&self.ctx, &req, task_notes);
+                    let mut connect_task =
+                        HttpProxyConnectTask::new(&self.ctx, audit_ctx, &req, task_notes);
                     connect_task.connect_to_upstream(&mut stream_w).await;
                     if connect_task.back_to_http() {
                         // reopen write end
                         self.stream_writer = Some(stream_w);
                         // reopen read end
-                        if req.stream_sender.send(Some(stream_r)).await.is_err() {
+                        if req.stream_sender.try_send(Some(stream_r)).is_err() {
                             // read end has closed, impossible as reader should be waiting this channel
                             LoopAction::Break
                         } else {
@@ -320,7 +315,7 @@ where
                         }
                     } else {
                         // close read end
-                        let _ = req.stream_sender.send(None).await;
+                        let _ = req.stream_sender.try_send(None);
                         connect_task.into_running(stream_r.into_inner(), stream_w);
                         LoopAction::Break
                     }
@@ -331,7 +326,7 @@ where
             HttpProxySubProtocol::HttpForward | HttpProxySubProtocol::HttpsForward => {
                 if let Some(mut stream_w) = self.stream_writer.take() {
                     match self
-                        .run_forward(&mut stream_w, req, task_notes, remote_protocol)
+                        .run_forward(&mut stream_w, req, task_notes, audit_ctx, remote_protocol)
                         .await
                     {
                         LoopAction::Continue => {
@@ -431,11 +426,11 @@ where
                     untrusted_task.run(&mut clt_r, clt_w).await;
                     if untrusted_task.should_close() {
                         // close read end
-                        let _ = req.stream_sender.send(None).await;
+                        let _ = req.stream_sender.try_send(None);
                         LoopAction::Break
                     } else {
                         // reopen read end
-                        if req.stream_sender.send(clt_r).await.is_err() {
+                        if req.stream_sender.try_send(clt_r).is_err() {
                             // read end has closed, impossible as reader should be waiting this channel
                             LoopAction::Break
                         } else {
@@ -470,11 +465,22 @@ where
         clt_w: &mut HttpClientWriter<CDW>,
         mut req: HttpProxyRequest<CDR>,
         task_notes: ServerTaskNotes,
+        audit_ctx: AuditContext,
         remote_protocol: HttpProxySubProtocol,
     ) -> LoopAction {
         let is_https = match remote_protocol {
-            HttpProxySubProtocol::HttpForward => false,
-            HttpProxySubProtocol::HttpsForward => true,
+            HttpProxySubProtocol::HttpForward => {
+                if self.ctx.server_config.drop_default_port_in_host && req.upstream.port() == 80 {
+                    req.drop_default_port_in_host();
+                }
+                false
+            }
+            HttpProxySubProtocol::HttpsForward => {
+                if self.ctx.server_config.drop_default_port_in_host && req.upstream.port() == 443 {
+                    req.drop_default_port_in_host();
+                }
+                true
+            }
             _ => unreachable!(),
         };
 
@@ -483,18 +489,18 @@ where
                 // we have a body, or we need to close the connection
                 // we may need to send stream_r back if we have a body
                 let mut forward_task =
-                    HttpProxyForwardTask::new(&self.ctx, &req, is_https, task_notes);
+                    HttpProxyForwardTask::new(&self.ctx, audit_ctx, &req, is_https, task_notes);
                 let mut clt_r = Some(stream_r);
                 forward_task
                     .run(&mut clt_r, clt_w, &mut self.forward_context)
                     .await;
                 if forward_task.should_close() {
                     // close read end
-                    let _ = req.stream_sender.send(None).await;
+                    let _ = req.stream_sender.try_send(None);
                     LoopAction::Break
                 } else {
                     // reopen read end
-                    if req.stream_sender.send(clt_r).await.is_err() {
+                    if req.stream_sender.try_send(clt_r).is_err() {
                         // read end has closed, impossible as reader should be waiting this channel
                         LoopAction::Break
                     } else {
@@ -505,7 +511,7 @@ where
             None => {
                 // no body, and the connection is expected to keep alive from the client side
                 let mut forward_task =
-                    HttpProxyForwardTask::new(&self.ctx, &req, is_https, task_notes);
+                    HttpProxyForwardTask::new(&self.ctx, audit_ctx, &req, is_https, task_notes);
                 let mut clt_r = None;
                 forward_task
                     .run::<CDR, CDW>(&mut clt_r, clt_w, &mut self.forward_context)
@@ -532,11 +538,11 @@ where
         ftp_task.run(&mut clt_r, clt_w).await;
         if ftp_task.should_close() {
             // close read end
-            let _ = req.stream_sender.send(None).await;
+            let _ = req.stream_sender.try_send(None);
             LoopAction::Break
         } else {
             // reopen read end
-            if req.stream_sender.send(Some(clt_r)).await.is_err() {
+            if req.stream_sender.try_send(Some(clt_r)).is_err() {
                 // read end has closed, impossible as reader should be waiting this channel
                 LoopAction::Break
             } else {

@@ -1,0 +1,35 @@
+---
+
+log: syslog
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+runtime:
+  thread_number: 2
+
+worker: { }
+
+resolver:
+  - name: default
+    type: c-ares
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: default
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.1
+
+server:
+  - name: http
+    type: http_proxy
+    listen: 127.0.0.1:8080
+    escaper: default
+  - name: socks
+    type: socks_proxy
+    listen: 127.0.0.1:1080
+    escaper: default
+    use-udp-associate: true

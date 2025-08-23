@@ -1,21 +1,12 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use digest::Digest;
-use md5::Md5;
+use constant_time_eq::constant_time_eq_16;
+use openssl::error::ErrorStack;
+use openssl::md::Md;
+use openssl::md_ctx::MdCtx;
 
 use super::{B64CryptDecoder, XCryptParseError, XCryptParseResult};
 
@@ -35,99 +26,89 @@ pub struct Md5Crypt {
     hash_bin: [u8; HASH_BIN_LEN],
 }
 
-fn do_md5_hash(phrase: &[u8], salt: &str) -> [u8; HASH_BIN_LEN] {
+fn do_md5_hash(phrase: &[u8], salt: &str) -> Result<[u8; HASH_BIN_LEN], ErrorStack> {
     /*
       Compute alternate MD5 sum with input PHRASE, SALT, and PHRASE.  The
       final result will be added to the first context.
     */
-    let mut digest = Md5::new();
+    let mut md = MdCtx::new()?;
+    md.digest_init(Md::md5())?;
 
-    digest.update(phrase);
-    digest.update(salt.as_bytes());
-    digest.update(phrase);
+    md.digest_update(phrase)?;
+    md.digest_update(salt.as_bytes())?;
+    md.digest_update(phrase)?;
 
-    let hash = digest.finalize(); // the results should be of HASH_BIN_LEN bytes
+    let mut hash = [0u8; HASH_BIN_LEN];
+    md.digest_final(&mut hash)?;
 
     /* Prepare for the real work.  */
-    let mut digest = Md5::new();
+    md.digest_init(Md::md5())?;
 
-    digest.update(phrase);
-    digest.update(PREFIX.as_bytes());
-    digest.update(salt.as_bytes());
+    md.digest_update(phrase)?;
+    md.digest_update(PREFIX.as_bytes())?;
+    md.digest_update(salt.as_bytes())?;
 
     /* Add for any character in the phrase one byte of the alternate sum.  */
     let mut plen = phrase.len();
     while plen > HASH_BIN_LEN {
-        digest.update(hash);
+        md.digest_update(&hash)?;
         plen -= HASH_BIN_LEN;
     }
     if plen > 0 {
-        digest.update(&hash[0..plen]);
+        md.digest_update(&hash[0..plen])?;
     }
 
     /*
       The original implementation now does something weird: for every 1
       bit in the phrase the first 0 is added to the buffer, for every 0
       bit the first character of the phrase.  This does not seem to be
-      what was intended but we have to follow this to be compatible.
+      what was intended, but we have to follow this to be compatible.
     */
     plen = phrase.len();
     while plen > 0 {
         if (plen & 1) == 0 {
-            digest.update(&phrase[..1]);
+            md.digest_update(&phrase[..1])?;
         } else {
-            digest.update([0u8]);
+            md.digest_update(&[0u8])?;
         }
         plen >>= 1;
     }
 
     /* Create intermediate result.  */
-    let mut hash = digest.finalize();
+    md.digest_final(&mut hash)?;
 
     for r in 0..1000 {
-        let mut digest = Md5::new();
+        md.digest_init(Md::md5())?;
 
         /* Add phrase or last result.  */
         if (r & 1) == 0 {
-            digest.update(hash);
+            md.digest_update(&hash)?;
         } else {
-            digest.update(phrase);
+            md.digest_update(phrase)?;
         }
 
         /* Add salt for numbers not divisible by 3.  */
         if (r % 3) != 0 {
-            digest.update(salt.as_bytes());
+            md.digest_update(salt.as_bytes())?;
         }
 
         /* Add phrase for numbers not divisible by 7.  */
         if (r % 7) != 0 {
-            digest.update(phrase);
+            md.digest_update(phrase)?;
         }
 
         /* Add phrase or last result.  */
         if (r & 1) == 0 {
-            digest.update(phrase);
+            md.digest_update(phrase)?;
         } else {
-            digest.update(hash);
+            md.digest_update(&hash)?;
         }
 
         /* Create intermediate result.  */
-        hash = digest.finalize();
+        md.digest_final(&mut hash)?;
     }
 
-    hash.into()
-
-    /*
-    let mut encoder = B64CryptEncoder::new(HASH_STR_LEN);
-    encoder.push::<4>(hash[0], hash[6], hash[12]);
-    encoder.push::<4>(hash[1], hash[7], hash[13]);
-    encoder.push::<4>(hash[2], hash[8], hash[14]);
-    encoder.push::<4>(hash[3], hash[9], hash[15]);
-    encoder.push::<4>(hash[4], hash[10], hash[5]);
-    encoder.push::<2>(0, 0, hash[11]);
-
-    encoder.into()
-    */
+    Ok(hash)
 }
 
 impl Md5Crypt {
@@ -169,8 +150,7 @@ impl Md5Crypt {
         }
     }
 
-    pub(super) fn verify(&self, phrase: &[u8]) -> bool {
-        let hash = do_md5_hash(phrase, &self.salt);
-        self.hash_bin.eq(&hash)
+    pub(super) fn verify(&self, phrase: &[u8]) -> Result<bool, ErrorStack> {
+        do_md5_hash(phrase, &self.salt).map(|hash| constant_time_eq_16(&hash, &self.hash_bin))
     }
 }

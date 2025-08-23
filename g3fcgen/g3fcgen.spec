@@ -1,17 +1,9 @@
-%if 0%{?rhel} > 7
+
 %undefine _debugsource_packages
-%define pkgconfig_real pkgconf
-%endif
-
-%if 0%{?rhel} == 7
-%global debug_package %{nil}
-%define pkgconfig_real pkgconfig
-%endif
-
 %define build_profile release-lto
 
 Name:           g3fcgen
-Version:        0.8.1
+Version:        0.8.4
 Release:        1%{?dist}
 Summary:        Fake Certificate Generator for G3 Project
 
@@ -19,7 +11,7 @@ License:        Apache-2.0
 URL:            https://github.com/bytedance/g3
 Source0:        %{name}-%{version}.tar.xz
 
-BuildRequires:  gcc, make, %{pkgconfig_real}
+BuildRequires:  gcc, make, pkgconf
 BuildRequires:  openssl-devel
 
 %description
@@ -52,5 +44,5 @@ install -m 644 -D %{name}/service/g3fcgen@.service %{buildroot}/lib/systemd/syst
 
 
 %changelog
-* Tue Jun 18 2024 G3fcgen Maintainers <g3fcgen-maintainers@devel.machine> - 0.8.1-1
+* Sat Aug 09 2025 G3fcgen Maintainers <g3fcgen-maintainers@devel.machine> - 0.8.4-1
 - New upstream release

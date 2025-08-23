@@ -1,24 +1,13 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 
 use ahash::AHashMap;
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 #[cfg(feature = "quic")]
 use quinn::Connection;
@@ -28,8 +17,10 @@ use tokio::sync::broadcast;
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
+use g3_io_ext::IdleWheel;
 use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
+use g3_types::net::{OpensslTicketKey, RollingTicketer};
 use g3_types::route::HostMatch;
 
 use super::{CommonTaskContext, RustlsAcceptTask, RustlsHost};
@@ -37,7 +28,8 @@ use crate::config::server::rustls_proxy::RustlsProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::module::stream::StreamServerStats;
 use crate::serve::{
-    ArcServer, ArcServerStats, Server, ServerInternal, ServerQuitPolicy, ServerStats, WrapArcServer,
+    ArcServer, ArcServerInternal, ArcServerStats, Server, ServerInternal, ServerQuitPolicy,
+    ServerRegistry, ServerStats, WrapArcServer,
 };
 
 pub(crate) struct RustlsProxyServer {
@@ -45,11 +37,13 @@ pub(crate) struct RustlsProxyServer {
     server_stats: Arc<StreamServerStats>,
     listen_stats: Arc<ListenStats>,
     ingress_net_filter: Option<AclNetworkRule>,
+    tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
-    task_logger: Logger,
+    task_logger: Option<Logger>,
     hosts: HostMatch<Arc<RustlsHost>>,
 
     quit_policy: Arc<ServerQuitPolicy>,
+    idle_wheel: Arc<IdleWheel>,
     reload_version: usize,
 }
 
@@ -59,6 +53,7 @@ impl RustlsProxyServer {
         server_stats: Arc<StreamServerStats>,
         listen_stats: Arc<ListenStats>,
         hosts: HostMatch<Arc<RustlsHost>>,
+        tls_rolling_ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
         version: usize,
     ) -> Self {
         let reload_sender = crate::serve::new_reload_notify_channel();
@@ -69,6 +64,7 @@ impl RustlsProxyServer {
             .map(|builder| builder.build());
 
         let task_logger = config.get_task_logger();
+        let idle_wheel = IdleWheel::spawn(config.task_idle_check_duration);
 
         // always update extra metrics tags
         server_stats.set_extra_tags(config.extra_metrics_tags.clone());
@@ -78,22 +74,44 @@ impl RustlsProxyServer {
             server_stats,
             listen_stats,
             ingress_net_filter,
+            tls_rolling_ticketer,
             reload_sender,
             task_logger,
             hosts,
             quit_policy: Arc::new(ServerQuitPolicy::default()),
+            idle_wheel,
             reload_version: version,
         }
     }
 
-    pub(crate) fn prepare_initial(config: RustlsProxyServerConfig) -> anyhow::Result<ArcServer> {
+    pub(crate) fn prepare_initial(
+        config: RustlsProxyServerConfig,
+    ) -> anyhow::Result<ArcServerInternal> {
         let config = Arc::new(config);
         let server_stats = Arc::new(StreamServerStats::new(config.name()));
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
-        let hosts = config.hosts.try_build_arc(RustlsHost::try_build)?;
+        let tls_rolling_ticketer = if let Some(c) = &config.tls_ticketer {
+            let ticketer = c
+                .build_and_spawn_updater()
+                .context("failed to create tls rolling ticketer")?;
+            Some(ticketer)
+        } else {
+            None
+        };
 
-        let server = RustlsProxyServer::new(config, server_stats, listen_stats, hosts, 1);
+        let hosts = config
+            .hosts
+            .try_build_arc(|c| RustlsHost::try_build(c, tls_rolling_ticketer.clone()))?;
+
+        let server = RustlsProxyServer::new(
+            config,
+            server_stats,
+            listen_stats,
+            hosts,
+            tls_rolling_ticketer,
+            1,
+        );
         Ok(Arc::new(server))
     }
 
@@ -103,14 +121,25 @@ impl RustlsProxyServer {
             let server_stats = Arc::clone(&self.server_stats);
             let listen_stats = Arc::clone(&self.listen_stats);
 
+            let tls_rolling_ticketer = if self.config.tls_ticketer.eq(&config.tls_ticketer) {
+                self.tls_rolling_ticketer.clone()
+            } else if let Some(c) = &config.tls_ticketer {
+                let ticketer = c
+                    .build_and_spawn_updater()
+                    .context("failed to create tls rolling ticketer")?;
+                Some(ticketer)
+            } else {
+                None
+            };
+
             let old_hosts_map = self.hosts.get_all_values();
             let new_conf_map = config.hosts.get_all_values();
             let mut new_hosts_map = AHashMap::with_capacity(new_conf_map.len());
             for (name, conf) in new_conf_map {
                 let host = if let Some(old_host) = old_hosts_map.get(&name) {
-                    old_host.new_for_reload(conf)?
+                    old_host.new_for_reload(conf, tls_rolling_ticketer.clone())?
                 } else {
-                    RustlsHost::try_build(&conf)?
+                    RustlsHost::try_build(&conf, tls_rolling_ticketer.clone())?
                 };
                 new_hosts_map.insert(name, Arc::new(host));
             }
@@ -121,14 +150,15 @@ impl RustlsProxyServer {
                 server_stats,
                 listen_stats,
                 hosts,
+                tls_rolling_ticketer,
                 self.reload_version + 1,
             );
             Ok(server)
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
-                self.config.server_type(),
-                config.server_type()
+                self.config.r#type(),
+                config.r#type()
             ))
         }
     }
@@ -152,9 +182,10 @@ impl RustlsProxyServer {
 
     async fn run_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
         let ctx = CommonTaskContext {
-            server_config: Arc::clone(&self.config),
-            server_stats: Arc::clone(&self.server_stats),
-            server_quit_policy: Arc::clone(&self.quit_policy),
+            server_config: self.config.clone(),
+            server_stats: self.server_stats.clone(),
+            server_quit_policy: self.quit_policy.clone(),
+            idle_wheel: self.idle_wheel.clone(),
             cc_info,
             task_logger: self.task_logger.clone(),
         };
@@ -175,11 +206,7 @@ impl ServerInternal for RustlsProxyServer {
         AnyServerConfig::RustlsProxy(self.config.as_ref().clone())
     }
 
-    fn _update_config_in_place(&self, _flags: u64, _config: AnyServerConfig) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn _depend_on_server(&self, _name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, _name: &NodeName) -> bool {
         false
     }
 
@@ -190,20 +217,28 @@ impl ServerInternal for RustlsProxyServer {
 
     fn _update_next_servers_in_place(&self) {}
 
-    fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyServerConfig,
+        _registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServerInternal> {
         let mut server = self.prepare_reload(config)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyServerConfig,
+        _registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServerInternal> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }
 
-    fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()> {
-        let runtime =
-            ListenTcpRuntime::new(WrapArcServer(server.clone()), server.get_listen_stats());
+    fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {
+        let listen_stats = server.get_listen_stats();
+        let runtime = ListenTcpRuntime::new(WrapArcServer(server), listen_stats);
         runtime
             .run_all_instances(
                 &self.config.listen,
@@ -221,13 +256,13 @@ impl ServerInternal for RustlsProxyServer {
 
 impl BaseServer for RustlsProxyServer {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
     #[inline]
-    fn server_type(&self) -> &'static str {
-        self.config.server_type()
+    fn r#type(&self) -> &'static str {
+        self.config.r#type()
     }
 
     #[inline]
@@ -274,7 +309,7 @@ impl Server for RustlsProxyServer {
         &self.quit_policy
     }
 
-    fn update_backend(&self, name: &MetricsName) {
+    fn update_backend(&self, name: &NodeName) {
         let host_map = self.hosts.get_all_values();
         for host in host_map.values() {
             if host.use_backend(name) {

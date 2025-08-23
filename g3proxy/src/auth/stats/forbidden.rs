@@ -1,36 +1,25 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::stats::StatId;
 
 use crate::auth::UserType;
 
 pub(crate) struct UserForbiddenStats {
     id: StatId,
-    user_group: MetricsName,
+    user_group: NodeName,
     user: Arc<str>,
     user_type: UserType,
-    server: MetricsName,
-    server_extra_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
+    server: NodeName,
+    server_extra_tags: Arc<ArcSwapOption<MetricTagMap>>,
     auth_failed: AtomicU64,
     user_expired: AtomicU64,
     user_blocked: AtomicU64,
@@ -61,14 +50,14 @@ pub(crate) struct UserForbiddenSnapshot {
 
 impl UserForbiddenStats {
     pub(crate) fn new(
-        user_group: &MetricsName,
+        user_group: &NodeName,
         user: Arc<str>,
         user_type: UserType,
-        server: &MetricsName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server: &NodeName,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Self {
         UserForbiddenStats {
-            id: StatId::new(),
+            id: StatId::new_unique(),
             user_group: user_group.clone(),
             user,
             user_type,
@@ -94,7 +83,7 @@ impl UserForbiddenStats {
     }
 
     #[inline]
-    pub(crate) fn user_group(&self) -> &MetricsName {
+    pub(crate) fn user_group(&self) -> &NodeName {
         &self.user_group
     }
 
@@ -109,12 +98,12 @@ impl UserForbiddenStats {
     }
 
     #[inline]
-    pub(crate) fn server(&self) -> &MetricsName {
+    pub(crate) fn server(&self) -> &NodeName {
         &self.server
     }
 
     #[inline]
-    pub(crate) fn server_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
+    pub(crate) fn server_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
         self.server_extra_tags.load_full()
     }
 

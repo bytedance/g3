@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use anyhow::Context;
@@ -45,12 +34,14 @@ fn main() -> anyhow::Result<()> {
     #[cfg(unix)]
     g3_daemon::daemonize::check_enter(&proc_args.daemon_config)?;
 
+    let _workers_guard =
+        g3_daemon::runtime::worker::spawn_workers().context("failed to spawn workers")?;
     let ret = tokio_run(&proc_args);
 
     match ret {
         Ok(_) => Ok(()),
         Err(e) => {
-            error!("{:?}", e);
+            error!("{e:?}");
             Err(e)
         }
     }
@@ -62,12 +53,6 @@ fn tokio_run(args: &ProcArgs) -> anyhow::Result<()> {
         .context("failed to start runtime")?;
     rt.block_on(async {
         g3_daemon::runtime::set_main_handle();
-
-        // TODO setup signal handler
-
-        let _workers_guard = g3_daemon::runtime::worker::spawn_workers()
-            .await
-            .context("failed to spawn workers")?;
 
         g3fcgen::run(args).await
     })

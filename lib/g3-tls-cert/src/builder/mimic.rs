@@ -1,17 +1,6 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use anyhow::anyhow;
@@ -20,7 +9,7 @@ use openssl::hash::MessageDigest;
 use openssl::nid::Nid;
 use openssl::pkey::{Id, PKey, Private};
 use openssl::x509::extension::{AuthorityKeyIdentifier, KeyUsage, SubjectKeyIdentifier};
-use openssl::x509::{X509Builder, X509Extension, X509ExtensionRef, X509Ref, X509};
+use openssl::x509::{X509, X509Builder, X509Extension, X509ExtensionRef, X509Ref};
 
 use super::KeyUsageBuilder;
 use crate::ext::X509BuilderExt;
@@ -39,10 +28,12 @@ impl<'a> MimicCertBuilder<'a> {
         let pkey = match pkey.id() {
             Id::RSA => super::pkey::new_rsa(2048)?,
             Id::EC => super::pkey::new_ec256()?,
-            #[cfg(not(feature = "no-sm2"))]
+            #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
             Id::SM2 => super::pkey::new_sm2()?,
+            #[cfg(not(any(libressl, boringssl, awslc)))]
             Id::ED448 => super::pkey::new_ed448()?,
             Id::ED25519 => super::pkey::new_ed25519()?,
+            #[cfg(not(any(libressl, boringssl, awslc)))]
             Id::X448 => super::pkey::new_x448()?,
             Id::X25519 => super::pkey::new_x25519()?,
             id => return Err(anyhow!("unsupported pkey ID: {id:?}")),
@@ -226,10 +217,14 @@ impl<'a> MimicCertBuilder<'a> {
             .map_err(|e| anyhow!("failed to get key for the mimic cert: {e}"))?;
         let key_usage_builder = match pkey.id() {
             Id::RSA | Id::EC => KeyUsageBuilder::tls_general(),
-            #[cfg(not(feature = "no-sm2"))]
+            #[cfg(not(osslconf = "OPENSSL_NO_SM2"))]
             Id::SM2 => KeyUsageBuilder::tls_general(),
-            Id::ED448 | Id::ED25519 => KeyUsageBuilder::ed_dsa(),
-            Id::X448 | Id::X25519 => KeyUsageBuilder::x_dh(),
+            Id::ED25519 => KeyUsageBuilder::ed_dsa(),
+            #[cfg(not(any(libressl, boringssl, awslc)))]
+            Id::ED448 => KeyUsageBuilder::ed_dsa(),
+            Id::X25519 => KeyUsageBuilder::x_dh(),
+            #[cfg(not(any(libressl, boringssl, awslc)))]
+            Id::X448 => KeyUsageBuilder::x_dh(),
             _ => return self.build_tls_cert(ca_cert, ca_key, sign_digest),
         };
         let key_usage = key_usage_builder

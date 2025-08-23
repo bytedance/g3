@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
@@ -25,10 +14,13 @@ use std::rc::Rc;
 #[cfg(test)]
 use std::sync::Mutex;
 
-#[cfg(test)]
 mod buf;
+use buf::SinkBuf;
+
 #[cfg(test)]
-use buf::BufMetricsSink;
+mod test;
+#[cfg(test)]
+use test::TestMetricsSink;
 
 mod udp;
 use udp::UdpMetricsSink;
@@ -40,37 +32,38 @@ use unix::UnixMetricsSink;
 
 enum MetricsSinkIo {
     #[cfg(test)]
-    Buf(BufMetricsSink),
+    Buf(TestMetricsSink),
     Udp(UdpMetricsSink),
     #[cfg(unix)]
     Unix(UnixMetricsSink),
 }
 
 impl MetricsSinkIo {
-    fn send_msg(&self, buf: &[u8]) -> io::Result<usize> {
+    fn send_batch(&self, buf: &mut SinkBuf) -> io::Result<()> {
         match self {
             #[cfg(test)]
-            MetricsSinkIo::Buf(b) => b.send_msg(buf),
-            MetricsSinkIo::Udp(s) => s.send_msg(buf),
+            MetricsSinkIo::Buf(b) => {
+                b.send_batch(buf);
+                Ok(())
+            }
+            MetricsSinkIo::Udp(s) => s.send_batch(buf),
             #[cfg(unix)]
-            MetricsSinkIo::Unix(s) => s.send_msg(buf),
+            MetricsSinkIo::Unix(s) => s.send_batch(buf),
         }
     }
 }
 
 pub(crate) struct StatsdMetricsSink {
-    cache_size: usize,
-    buf: Vec<u8>,
+    buf: SinkBuf,
     io: MetricsSinkIo,
 }
 
 impl StatsdMetricsSink {
     #[cfg(test)]
-    pub(crate) fn buf_with_capacity(buf: Rc<Mutex<Vec<u8>>>, cache_size: usize) -> Self {
+    pub(crate) fn test_with_capacity(buf: Rc<Mutex<Vec<u8>>>, cache_size: usize) -> Self {
         StatsdMetricsSink {
-            cache_size,
-            buf: Vec::with_capacity(cache_size),
-            io: MetricsSinkIo::Buf(BufMetricsSink::new(buf)),
+            buf: SinkBuf::new(cache_size),
+            io: MetricsSinkIo::Buf(TestMetricsSink::new(buf)),
         }
     }
 
@@ -78,11 +71,11 @@ impl StatsdMetricsSink {
         addr: SocketAddr,
         socket: UdpSocket,
         cache_size: usize,
+        max_segment_size: Option<usize>,
     ) -> Self {
         StatsdMetricsSink {
-            cache_size,
-            buf: Vec::with_capacity(cache_size),
-            io: MetricsSinkIo::Udp(UdpMetricsSink::new(addr, socket)),
+            buf: SinkBuf::new(cache_size),
+            io: MetricsSinkIo::Udp(UdpMetricsSink::new(addr, socket, max_segment_size)),
         }
     }
 
@@ -91,26 +84,21 @@ impl StatsdMetricsSink {
         path: PathBuf,
         socket: UnixDatagram,
         cache_size: usize,
+        max_segment_size: Option<usize>,
     ) -> Self {
         StatsdMetricsSink {
-            cache_size,
-            buf: Vec::with_capacity(cache_size),
-            io: MetricsSinkIo::Unix(UnixMetricsSink::new(path, socket)),
+            buf: SinkBuf::new(cache_size),
+            io: MetricsSinkIo::Unix(UnixMetricsSink::new(path, socket, max_segment_size)),
         }
     }
 
-    pub(super) fn emit<F>(&mut self, msg_len: usize, format: F) -> io::Result<()>
+    pub(super) fn emit<F>(&mut self, format: F) -> io::Result<()>
     where
         F: Fn(&mut Vec<u8>),
     {
-        if self.buf.is_empty() {
-            format(&mut self.buf);
-        } else if self.buf.len() + 1 + msg_len > self.cache_size {
+        self.buf.receive(format);
+        if self.buf.buf_full() {
             self.flush_buf()?;
-            format(&mut self.buf);
-        } else {
-            self.buf.push(b'\n');
-            format(&mut self.buf);
         }
         Ok(())
     }
@@ -123,8 +111,8 @@ impl StatsdMetricsSink {
     }
 
     fn flush_buf(&mut self) -> io::Result<()> {
-        self.io.send_msg(&self.buf)?;
-        self.buf.clear();
-        Ok(())
+        let r = self.io.send_batch(&mut self.buf);
+        self.buf.reset();
+        r
     }
 }

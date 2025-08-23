@@ -1,24 +1,13 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io::Write;
 use std::str::FromStr;
 
 use bytes::BufMut;
-use http::{HeaderName, Method, Version};
+use http::{HeaderName, Method, Version, header};
 use tokio::io::AsyncBufRead;
 
 use g3_io_ext::LimitedBufReadExt;
@@ -42,7 +31,6 @@ pub struct HttpForwardRemoteResponse {
     chunked_transfer: bool,
     has_transfer_encoding: bool,
     has_content_length: bool,
-    has_trailer: bool,
     has_keep_alive: bool,
 }
 
@@ -62,33 +50,89 @@ impl HttpForwardRemoteResponse {
             chunked_transfer: false,
             has_transfer_encoding: false,
             has_content_length: false,
-            has_trailer: false,
             has_keep_alive: false,
         }
     }
 
-    pub fn clone_by_adaptation(&self, adapted: HttpAdaptedResponse) -> Self {
+    pub fn adapt_with_body(&self, adapted: HttpAdaptedResponse) -> Self {
         let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
-        hop_by_hop_headers.remove(http::header::TRAILER);
-        for v in adapted.trailer() {
-            hop_by_hop_headers.append(http::header::TRAILER, v.clone());
+        match adapted.content_length {
+            Some(content_length) => {
+                hop_by_hop_headers.remove(header::TRANSFER_ENCODING);
+                HttpForwardRemoteResponse {
+                    version: adapted.version,
+                    code: adapted.status.as_u16(),
+                    reason: adapted.reason,
+                    end_to_end_headers: adapted.headers,
+                    hop_by_hop_headers,
+                    original_connection_name: self.original_connection_name.clone(),
+                    extra_connection_headers: self.extra_connection_headers.clone(),
+                    origin_header_size: self.origin_header_size,
+                    keep_alive: self.keep_alive,
+                    content_length,
+                    chunked_transfer: false,
+                    has_transfer_encoding: false,
+                    has_content_length: true,
+                    has_keep_alive: self.has_keep_alive,
+                }
+            }
+            None => {
+                if !self.chunked_transfer {
+                    if let Some(mut v) = hop_by_hop_headers.remove(header::TRANSFER_ENCODING) {
+                        v.set_static_value("chunked");
+                        hop_by_hop_headers.insert(header::TRANSFER_ENCODING, v);
+                    } else {
+                        hop_by_hop_headers.insert(
+                            header::TRANSFER_ENCODING,
+                            HttpHeaderValue::from_static("chunked"),
+                        );
+                    }
+                }
+                HttpForwardRemoteResponse {
+                    version: adapted.version,
+                    code: adapted.status.as_u16(),
+                    reason: adapted.reason,
+                    end_to_end_headers: adapted.headers,
+                    hop_by_hop_headers,
+                    original_connection_name: self.original_connection_name.clone(),
+                    extra_connection_headers: self.extra_connection_headers.clone(),
+                    origin_header_size: self.origin_header_size,
+                    keep_alive: self.keep_alive,
+                    content_length: 0,
+                    chunked_transfer: true,
+                    has_transfer_encoding: true,
+                    has_content_length: false,
+                    has_keep_alive: self.has_keep_alive,
+                }
+            }
+        }
+    }
+
+    pub fn adapt_without_body(&self, adapted: HttpAdaptedResponse) -> Self {
+        let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
+        hop_by_hop_headers.remove(header::TRANSFER_ENCODING);
+        let mut end_to_end_headers = adapted.headers;
+        if let Some(mut v) = end_to_end_headers.remove(header::CONTENT_LENGTH) {
+            v.set_static_value("0");
+            end_to_end_headers.insert(header::CONTENT_LENGTH, v);
+        } else {
+            end_to_end_headers.insert(header::CONTENT_LENGTH, HttpHeaderValue::from_static("0"));
         }
         HttpForwardRemoteResponse {
             version: adapted.version,
             code: adapted.status.as_u16(),
             reason: adapted.reason,
-            end_to_end_headers: adapted.headers,
+            end_to_end_headers,
             hop_by_hop_headers,
             original_connection_name: self.original_connection_name.clone(),
             extra_connection_headers: self.extra_connection_headers.clone(),
             origin_header_size: self.origin_header_size,
             keep_alive: self.keep_alive,
-            content_length: self.content_length,
-            chunked_transfer: true,
+            content_length: 0,
+            chunked_transfer: false,
             has_transfer_encoding: false,
-            has_content_length: false,
-            has_trailer: false,
-            has_keep_alive: false,
+            has_content_length: true,
+            has_keep_alive: self.has_keep_alive,
         }
     }
 
@@ -200,10 +244,6 @@ impl HttpForwardRemoteResponse {
     /// do some necessary check and fix
     fn post_check_and_fix(&mut self, method: &Method) {
         if !self.chunked_transfer {
-            if self.has_trailer {
-                self.hop_by_hop_headers.remove(http::header::TRAILER);
-            }
-
             if self.expect_no_body(method) {
                 // ignore the check of content-length as body is unexpected
             } else if !self.has_content_length {
@@ -251,6 +291,10 @@ impl HttpForwardRemoteResponse {
         Ok(())
     }
 
+    pub fn append_trailer_header(&mut self, name: HeaderName, value: HttpHeaderValue) {
+        self.end_to_end_headers.append(name, value);
+    }
+
     fn handle_header(&mut self, header: HttpHeaderLine) -> Result<(), HttpResponseParseError> {
         let name = HeaderName::from_str(header.name).map_err(|_| {
             HttpResponseParseError::InvalidHeaderLine(HttpLineParseError::InvalidHeaderName)
@@ -292,16 +336,12 @@ impl HttpForwardRemoteResponse {
                 self.has_keep_alive = true;
                 return self.insert_hop_by_hop_header(name, &header);
             }
-            "trailer" => {
-                self.has_trailer = true;
-                return self.insert_hop_by_hop_header(name, &header);
-            }
             "transfer-encoding" => {
                 // it's a hop-by-hop option, but we just pass it
                 self.has_transfer_encoding = true;
                 if self.has_content_length {
                     // delete content-length
-                    self.end_to_end_headers.remove(http::header::CONTENT_LENGTH);
+                    self.end_to_end_headers.remove(header::CONTENT_LENGTH);
                     self.content_length = 0;
                     self.keep_alive = false; // according to rfc9112 Section 6.1
                 }
@@ -380,9 +420,7 @@ impl HttpForwardRemoteResponse {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::Bytes;
-    use tokio::io::{BufReader, Result};
-    use tokio_util::io::StreamReader;
+    use tokio::io::BufReader;
 
     #[tokio::test]
     async fn read_get() {
@@ -391,8 +429,7 @@ mod tests {
             Content-Type: text/plain; charset=utf-8\r\n\
             Content-Length: 4\r\n\
             Connection: keep-alive\r\n\r\n";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let method = Method::GET;
         let rsp = HttpForwardRemoteResponse::parse(&mut buf_stream, &method, true, 4096)
@@ -409,8 +446,7 @@ mod tests {
             Date: Fri, 11 Nov 2022 03:22:03 GMT\r\n\
             Content-Type: text/plain; charset=utf-8\r\n\
             Connection: close\r\n\r\n";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let method = Method::GET;
         let rsp = HttpForwardRemoteResponse::parse(&mut buf_stream, &method, true, 4096)

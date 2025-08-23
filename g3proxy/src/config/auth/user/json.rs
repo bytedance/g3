@@ -1,26 +1,16 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::str::FromStr;
 
 use ahash::AHashMap;
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
+use log::warn;
 use serde_json::{Map, Value};
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::{PasswordToken, UserConfig, UserSiteConfig};
 use crate::escape::EgressPathSelection;
@@ -66,15 +56,23 @@ impl UserConfig {
                 self.tcp_connect = Some(config);
                 Ok(())
             }
-            "tcp_sock_speed_limit" | "tcp_conn_speed_limit" | "tcp_conn_limit" => {
+            "tcp_sock_speed_limit" => {
                 self.tcp_sock_speed_limit = g3_json::value::as_tcp_sock_speed_limit(v)
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 Ok(())
             }
-            "udp_sock_speed_limit" | "udp_relay_speed_limit" | "udp_relay_limit" => {
+            "tcp_conn_speed_limit" | "tcp_conn_limit" => {
+                warn!("deprecated config key {k}, please use 'tcp_sock_speed_limit' instead");
+                self.set_json("tcp_sock_speed_limit", v)
+            }
+            "udp_sock_speed_limit" => {
                 self.udp_sock_speed_limit = g3_json::value::as_udp_sock_speed_limit(v)
                     .context(format!("invalid udp socket speed limit value for key {k}"))?;
                 Ok(())
+            }
+            "udp_relay_speed_limit" | "udp_relay_limit" => {
+                warn!("deprecated config key {k}, please use 'udp_sock_speed_limit' instead");
+                self.set_json("udp_sock_speed_limit", v)
             }
             "tcp_all_upload_speed_limit" => {
                 let limit = g3_json::value::as_global_stream_speed_limit(v).context(format!(
@@ -145,9 +143,13 @@ impl UserConfig {
                 Ok(())
             }
             "tcp_conn_rate_limit" | "tcp_conn_limit_quota" => {
+                warn!("deprecated config key {k}, please use 'connection_rate_limit' instead");
+                self.set_json("connection_rate_limit", v)
+            }
+            "connection_rate_limit" => {
                 let quota = g3_json::value::as_rate_limit_quota(v)
                     .context(format!("invalid request quota value for key {k}"))?;
-                self.tcp_conn_rate_limit = Some(quota);
+                self.connection_rate_limit = Some(quota);
                 Ok(())
             }
             "request_rate_limit" | "request_limit_quota" => {
@@ -217,8 +219,9 @@ impl UserConfig {
                 Ok(())
             }
             "task_idle_max_count" => {
-                self.task_idle_max_count =
-                    g3_json::value::as_i32(v).context(format!("invalid i32 value for key {k}"))?;
+                let count = g3_json::value::as_usize(v)
+                    .context(format!("invalid usize value for key {k}"))?;
+                self.task_idle_max_count = Some(count);
                 Ok(())
             }
             "socks_use_udp_associate" => {
@@ -247,7 +250,7 @@ impl UserConfig {
             "egress_path_id_map" => {
                 let id_map = g3_json::value::as_hashmap(
                     v,
-                    |v| MetricsName::from_str(v).map_err(|e| anyhow!("invalid metrics name: {e}")),
+                    |v| NodeName::from_str(v).map_err(|e| anyhow!("invalid metrics name: {e}")),
                     g3_json::value::as_string,
                 )
                 .context(format!("invalid egress path id map value for key {k}"))?;
@@ -259,7 +262,7 @@ impl UserConfig {
             "egress_path_value_map" => {
                 let value_map = g3_json::value::as_hashmap(
                     v,
-                    |v| MetricsName::from_str(v).map_err(|e| anyhow!("invalid metrics name: {e}")),
+                    |v| NodeName::from_str(v).map_err(|e| anyhow!("invalid metrics name: {e}")),
                     |v| Ok(v.clone()),
                 )
                 .context(format!("invalid egress path value map value for key {k}"))?;

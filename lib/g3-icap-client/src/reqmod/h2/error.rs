@@ -1,27 +1,18 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
 
 use thiserror::Error;
 
+use g3_h2::H2PreviewError;
 use g3_http::client::HttpResponseParseError;
 use g3_http::server::HttpRequestParseError;
 use g3_io_ext::IdleForceQuitReason;
 
+use crate::reason::IcapErrorReason;
 use crate::reqmod::IcapReqmodParseError;
 
 #[derive(Debug, Error)]
@@ -38,8 +29,8 @@ pub enum H2ReqmodAdaptationError {
     InvalidIcapServerHttpResponse(#[from] HttpResponseParseError),
     #[error("invalid http request from icap server: {0}")]
     InvalidIcapServerHttpRequest(#[from] HttpRequestParseError),
-    #[error("error response from icap server: {0} {1}")]
-    IcapServerErrorResponse(u16, String),
+    #[error("error response from icap server: {0} ({1} {2})")]
+    IcapServerErrorResponse(IcapErrorReason, u16, String),
     #[error("recv data from http client failed: {0}")]
     HttpClientRecvDataFailed(h2::Error),
     #[error("recv trailer from http client failed: {0}")]
@@ -70,4 +61,16 @@ pub enum H2ReqmodAdaptationError {
     IcapServerWriteIdle,
     #[error("not implemented feature: {0}")]
     NotImplemented(&'static str),
+}
+
+impl From<H2PreviewError> for H2ReqmodAdaptationError {
+    fn from(value: H2PreviewError) -> Self {
+        match value {
+            H2PreviewError::ReadDataFailed(e) => {
+                H2ReqmodAdaptationError::HttpClientRecvDataFailed(e)
+            }
+            H2PreviewError::ReadIdle => H2ReqmodAdaptationError::HttpClientReadIdle,
+            H2PreviewError::IdleForceQuit(r) => H2ReqmodAdaptationError::IdleForceQuit(r),
+        }
+    }
 }

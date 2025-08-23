@@ -1,41 +1,31 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgAction, ArgMatches, Command};
+use anyhow::{Context, anyhow};
+use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 
+use g3_io_ext::AsyncStream;
 use g3_openssl::SslStream;
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{OpensslClientConfig, OpensslClientConfigBuilder, UpstreamAddr};
 
-use super::{MultiplexTransfer, SimplexTransfer};
+use super::{KeylessRuntimeStats, MultiplexTransfer, SimplexTransfer};
 use crate::module::openssl::{AppendOpensslArgs, OpensslTlsClientArgs};
 use crate::module::proxy_protocol::{AppendProxyProtocolArgs, ProxyProtocolArgs};
+use crate::module::socket::{AppendSocketArgs, SocketArgs};
 use crate::opts::ProcArgs;
 use crate::target::keyless::{AppendKeylessArgs, KeylessGlobalArgs};
 
 const ARG_CONNECTION_POOL: &str = "connection-pool";
 const ARG_TARGET: &str = "target";
 const ARG_NO_TLS: &str = "no-tls";
-const ARG_LOCAL_ADDRESS: &str = "local-address";
 const ARG_CONNECT_TIMEOUT: &str = "connect-timeout";
 const ARG_TIMEOUT: &str = "timeout";
 const ARG_NO_MULTIPLEX: &str = "no-multiplex";
@@ -44,10 +34,11 @@ pub(super) struct KeylessCloudflareArgs {
     pub(super) global: KeylessGlobalArgs,
     pub(super) pool_size: Option<usize>,
     target: UpstreamAddr,
-    bind: Option<IpAddr>,
     pub(super) no_multiplex: bool,
     pub(super) timeout: Duration,
     pub(super) connect_timeout: Duration,
+
+    socket: SocketArgs,
     pub(super) tls: OpensslTlsClientArgs,
     proxy_protocol: ProxyProtocolArgs,
 
@@ -68,10 +59,10 @@ impl KeylessCloudflareArgs {
             global: global_args,
             pool_size: None,
             target,
-            bind: None,
             no_multiplex: false,
             timeout: Duration::from_secs(5),
             connect_timeout: Duration::from_secs(10),
+            socket: SocketArgs::default(),
             tls,
             proxy_protocol: ProxyProtocolArgs::default(),
             target_addrs: None,
@@ -89,6 +80,7 @@ impl KeylessCloudflareArgs {
 
     pub(super) async fn new_multiplex_keyless_connection(
         &self,
+        stats: &KeylessRuntimeStats,
         proc_args: &ProcArgs,
     ) -> anyhow::Result<MultiplexTransfer> {
         let tcp_stream = self.new_tcp_connection(proc_args).await?;
@@ -96,8 +88,10 @@ impl KeylessCloudflareArgs {
             .local_addr()
             .map_err(|e| anyhow!("failed to get local address: {e:?}"))?;
         if let Some(tls_client) = &self.tls.client {
-            let ssl_stream = self.tls_connect_to_target(tls_client, tcp_stream).await?;
-            let (r, w) = tokio::io::split(ssl_stream);
+            let ssl_stream = self
+                .tls_connect_to_target(tls_client, tcp_stream, stats)
+                .await?;
+            let (r, w) = ssl_stream.into_split();
             Ok(MultiplexTransfer::start(r, w, local_addr, self.timeout))
         } else {
             let (r, w) = tcp_stream.into_split();
@@ -107,6 +101,7 @@ impl KeylessCloudflareArgs {
 
     pub(super) async fn new_simplex_keyless_connection(
         &self,
+        stats: &KeylessRuntimeStats,
         proc_args: &ProcArgs,
     ) -> anyhow::Result<SimplexTransfer> {
         let tcp_stream = self.new_tcp_connection(proc_args).await?;
@@ -114,8 +109,10 @@ impl KeylessCloudflareArgs {
             .local_addr()
             .map_err(|e| anyhow!("failed to get local address: {e:?}"))?;
         if let Some(tls_client) = &self.tls.client {
-            let ssl_stream = self.tls_connect_to_target(tls_client, tcp_stream).await?;
-            let (r, w) = tokio::io::split(ssl_stream);
+            let ssl_stream = self
+                .tls_connect_to_target(tls_client, tcp_stream, stats)
+                .await?;
+            let (r, w) = ssl_stream.into_split();
             Ok(SimplexTransfer::new(r, w, local_addr))
         } else {
             let (r, w) = tcp_stream.into_split();
@@ -130,18 +127,7 @@ impl KeylessCloudflareArgs {
             .ok_or_else(|| anyhow!("no target addr set"))?;
         let peer = *proc_args.select_peer(addrs);
 
-        let socket = g3_socket::tcp::new_socket_to(
-            peer.ip(),
-            self.bind,
-            &Default::default(),
-            &Default::default(),
-            true,
-        )
-        .map_err(|e| anyhow!("failed to setup socket to peer {peer}: {e:?}"))?;
-        let mut stream = socket
-            .connect(peer)
-            .await
-            .map_err(|e| anyhow!("connect to {peer} error: {e:?}"))?;
+        let mut stream = self.socket.tcp_connect_to(peer).await?;
 
         if let Some(data) = self.proxy_protocol.data() {
             stream
@@ -157,13 +143,22 @@ impl KeylessCloudflareArgs {
         &self,
         tls_client: &OpensslClientConfig,
         stream: S,
+        stats: &KeylessRuntimeStats,
     ) -> anyhow::Result<SslStream<S>>
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
-        self.tls
+        let tls_stream = self
+            .tls
             .connect_target(tls_client, stream, &self.target)
-            .await
+            .await?;
+
+        stats.ssl_session.add_total();
+        if tls_stream.ssl().session_reused() {
+            stats.ssl_session.add_reused();
+        }
+
+        Ok(tls_stream)
     }
 }
 
@@ -198,14 +193,6 @@ pub(super) fn add_cloudflare_args(app: Command) -> Command {
             .conflicts_with(ARG_NO_MULTIPLEX),
     )
     .arg(
-        Arg::new(ARG_LOCAL_ADDRESS)
-            .value_name("LOCAL IP ADDRESS")
-            .short('B')
-            .long(ARG_LOCAL_ADDRESS)
-            .num_args(1)
-            .value_parser(value_parser!(IpAddr)),
-    )
-    .arg(
         Arg::new(ARG_CONNECT_TIMEOUT)
             .value_name("TIMEOUT DURATION")
             .help("Timeout for connection to next peer")
@@ -229,6 +216,7 @@ pub(super) fn add_cloudflare_args(app: Command) -> Command {
             .num_args(0)
             .conflicts_with(ARG_CONNECTION_POOL),
     )
+    .append_socket_args()
     .append_keyless_args()
     .append_openssl_args()
     .append_proxy_protocol_args()
@@ -247,14 +235,10 @@ pub(super) fn parse_cloudflare_args(args: &ArgMatches) -> anyhow::Result<Keyless
 
     let mut cf_args = KeylessCloudflareArgs::new(global_args, target, no_tls);
 
-    if let Some(c) = args.get_one::<usize>(ARG_CONNECTION_POOL) {
-        if *c > 0 {
-            cf_args.pool_size = Some(*c);
-        }
-    }
-
-    if let Some(ip) = args.get_one::<IpAddr>(ARG_LOCAL_ADDRESS) {
-        cf_args.bind = Some(*ip);
+    if let Some(c) = args.get_one::<usize>(ARG_CONNECTION_POOL)
+        && *c > 0
+    {
+        cf_args.pool_size = Some(*c);
     }
 
     if let Some(timeout) = g3_clap::humanize::get_duration(args, ARG_CONNECT_TIMEOUT)? {
@@ -268,6 +252,10 @@ pub(super) fn parse_cloudflare_args(args: &ArgMatches) -> anyhow::Result<Keyless
         cf_args.no_multiplex = true;
     }
 
+    cf_args
+        .socket
+        .parse_args(args)
+        .context("invalid socket config")?;
     cf_args
         .tls
         .parse_tls_args(args)

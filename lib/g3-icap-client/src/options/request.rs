@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
@@ -51,11 +40,16 @@ impl<'a> IcapOptionsRequest<'a> {
         conn: &mut IcapClientConnection,
         max_header_size: usize,
     ) -> Result<IcapServiceOptions, IcapOptionsParseError> {
-        self.send(&mut conn.0)
+        self.send(&mut conn.writer)
             .await
             .map_err(IcapOptionsParseError::IoFailed)?;
+        conn.mark_writer_finished();
+
         let mut options =
-            IcapServiceOptions::parse(&mut conn.1, self.config.method, max_header_size).await?;
+            IcapServiceOptions::parse(&mut conn.reader, self.config.method, max_header_size)
+                .await?;
+        conn.mark_reader_finished();
+
         if !self.config.icap_206_enable {
             options.support_206 = false;
         }

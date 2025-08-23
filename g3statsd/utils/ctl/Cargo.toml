@@ -1,0 +1,16 @@
+[package]
+name = "g3statsd-ctl"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+tokio = { workspace = true, features = ["rt", "macros", "io-util", "fs"] }
+futures-util.workspace = true
+capnp.workspace = true
+hex.workspace = true
+openssl.workspace = true
+g3-ctl.workspace = true
+g3statsd-proto = { path = "../../proto" }

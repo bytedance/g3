@@ -2,6 +2,22 @@
 
 Benchmark tool for HTTP 1.x / HTTP 2 / HTTP 3 / TLS Handshake / DNS / Cloudflare Keyless.
 
+## How to build
+
+To build debug binaries:
+
+```shell
+cargo build -p g3bench
+```
+
+To build release binaries:
+
+```shell
+cargo build --profile release-lto -p g3bench
+```
+
+See [Build and Package](../doc/build_and_package.md) if you want to build binary packages or docker images.
+
 ## Features
 
 ### General

@@ -1,29 +1,21 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ascii::AsciiString;
-use yaml_rust::{yaml, Yaml};
+use log::warn;
+use yaml_rust::{Yaml, yaml};
 
-use g3_io_ext::LimitedCopyConfig;
+use g3_io_ext::StreamCopyConfig;
+use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{
     HttpForwardedHeaderType, HttpKeepAliveConfig, HttpServerId, RustlsServerConfigBuilder,
     TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig,
@@ -32,8 +24,8 @@ use g3_types::route::HostMatch;
 use g3_yaml::YamlDocPosition;
 
 use super::{
-    AnyServerConfig, ServerConfig, ServerConfigDiffAction, IDLE_CHECK_DEFAULT_DURATION,
-    IDLE_CHECK_MAXIMUM_DURATION,
+    AnyServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT,
+    IDLE_CHECK_MAXIMUM_DURATION, ServerConfig, ServerConfigDiffAction,
 };
 
 mod host;
@@ -61,10 +53,10 @@ impl Default for HttpRProxyServerTimeoutConfig {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct HttpRProxyServerConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) escaper: MetricsName,
-    pub(crate) user_group: MetricsName,
+    pub(crate) escaper: NodeName,
+    pub(crate) user_group: NodeName,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: Option<TcpListenConfig>,
     pub(crate) listen_in_worker: bool,
@@ -74,33 +66,37 @@ pub(crate) struct HttpRProxyServerConfig {
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
     pub(crate) timeout: HttpRProxyServerTimeoutConfig,
     pub(crate) task_idle_check_duration: Duration,
-    pub(crate) task_idle_max_count: i32,
-    pub(crate) tcp_copy: LimitedCopyConfig,
+    pub(crate) task_idle_max_count: usize,
+    pub(crate) flush_task_log_on_created: bool,
+    pub(crate) flush_task_log_on_connected: bool,
+    pub(crate) task_log_flush_interval: Option<Duration>,
+    pub(crate) tcp_copy: StreamCopyConfig,
     pub(crate) tcp_misc_opts: TcpMiscSockOpts,
     pub(crate) req_hdr_max_size: usize,
     pub(crate) rsp_hdr_max_size: usize,
     pub(crate) log_uri_max_chars: usize,
-    pub(crate) pipeline_size: usize,
+    pub(crate) pipeline_size: NonZeroUsize,
     pub(crate) pipeline_read_idle_timeout: Duration,
     pub(crate) no_early_error_reply: bool,
     pub(crate) body_line_max_len: usize,
     pub(crate) http_forward_upstream_keepalive: HttpKeepAliveConfig,
     pub(crate) untrusted_read_limit: Option<TcpSockSpeedLimitConfig>,
     pub(crate) append_forwarded_for: HttpForwardedHeaderType,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
     pub(crate) hosts: HostMatch<Arc<HttpHostConfig>>,
     pub(crate) enable_tls_server: bool,
     pub(crate) global_tls_server: Option<RustlsServerConfigBuilder>,
+    pub(crate) tls_ticketer: Option<TlsTicketConfig>,
     pub(crate) client_hello_recv_timeout: Duration,
 }
 
 impl HttpRProxyServerConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         HttpRProxyServerConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
-            escaper: MetricsName::default(),
-            user_group: MetricsName::default(),
+            escaper: NodeName::default(),
+            user_group: NodeName::default(),
             shared_logger: None,
             listen: None,
             listen_in_worker: false,
@@ -110,13 +106,16 @@ impl HttpRProxyServerConfig {
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
             timeout: HttpRProxyServerTimeoutConfig::default(),
             task_idle_check_duration: IDLE_CHECK_DEFAULT_DURATION,
-            task_idle_max_count: 1,
+            task_idle_max_count: IDLE_CHECK_DEFAULT_MAX_COUNT,
+            flush_task_log_on_created: false,
+            flush_task_log_on_connected: false,
+            task_log_flush_interval: None,
             tcp_copy: Default::default(),
             tcp_misc_opts: Default::default(),
             req_hdr_max_size: 65536, // 64KiB
             rsp_hdr_max_size: 65536, // 64KiB
             log_uri_max_chars: 1024,
-            pipeline_size: 10,
+            pipeline_size: NonZeroUsize::new(10).unwrap(),
             pipeline_read_idle_timeout: Duration::from_secs(300),
             no_early_error_reply: false,
             body_line_max_len: 8192,
@@ -127,6 +126,7 @@ impl HttpRProxyServerConfig {
             hosts: Default::default(),
             enable_tls_server: false,
             global_tls_server: None,
+            tls_ticketer: None,
             client_hello_recv_timeout: Duration::from_secs(1),
         }
     }
@@ -147,15 +147,15 @@ impl HttpRProxyServerConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "escaper" => {
-                self.escaper = g3_yaml::value::as_metrics_name(v)?;
+                self.escaper = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "user_group" => {
-                self.user_group = g3_yaml::value::as_metrics_name(v)?;
+                self.user_group = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "shared_logger" => {
@@ -197,10 +197,14 @@ impl HttpRProxyServerConfig {
                     .context(format!("invalid ascii string value for key {k}"))?;
                 Ok(())
             }
-            "tcp_sock_speed_limit" | "tcp_conn_speed_limit" | "tcp_conn_limit" | "conn_limit" => {
+            "tcp_sock_speed_limit" => {
                 self.tcp_sock_speed_limit = g3_yaml::value::as_tcp_sock_speed_limit(v)
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 Ok(())
+            }
+            "tcp_conn_speed_limit" | "tcp_conn_limit" | "conn_limit" => {
+                warn!("deprecated config key '{k}', please use 'tcp_sock_speed_limit' instead");
+                self.set("tcp_sock_speed_limit", v)
             }
             "tcp_copy_buffer_size" => {
                 let buffer_size = g3_yaml::humanize::as_usize(v)
@@ -225,8 +229,22 @@ impl HttpRProxyServerConfig {
                 Ok(())
             }
             "task_idle_max_count" => {
-                self.task_idle_max_count =
-                    g3_yaml::value::as_i32(v).context(format!("invalid i32 value for key {k}"))?;
+                self.task_idle_max_count = g3_yaml::value::as_usize(v)
+                    .context(format!("invalid usize value for key {k}"))?;
+                Ok(())
+            }
+            "flush_task_log_on_created" => {
+                self.flush_task_log_on_created = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            "flush_task_log_on_connected" => {
+                self.flush_task_log_on_connected = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            "task_log_flush_interval" => {
+                let interval = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                self.task_log_flush_interval = Some(interval);
                 Ok(())
             }
             "req_header_recv_timeout" => {
@@ -255,8 +273,8 @@ impl HttpRProxyServerConfig {
                 Ok(())
             }
             "pipeline_size" => {
-                self.pipeline_size = g3_yaml::value::as_usize(v)
-                    .context(format!("invalid usize value for key {k}"))?;
+                self.pipeline_size = g3_yaml::value::as_nonzero_usize(v)
+                    .context(format!("invalid nonzero usize value for key {k}"))?;
                 Ok(())
             }
             "pipeline_read_idle_timeout" => {
@@ -279,11 +297,17 @@ impl HttpRProxyServerConfig {
                     .context(format!("invalid http keepalive config value for key {k}"))?;
                 Ok(())
             }
-            "untrusted_read_speed_limit" | "untrusted_read_limit" => {
+            "untrusted_read_speed_limit" => {
                 let limit = g3_yaml::value::as_tcp_sock_speed_limit(v)
                     .context(format!("invalid tcp socket speed limit value for key {k}"))?;
                 self.untrusted_read_limit = Some(limit);
                 Ok(())
+            }
+            "untrusted_read_limit" => {
+                warn!(
+                    "deprecated config key '{k}', please use 'untrusted_read_speed_limit' instead"
+                );
+                self.set("untrusted_read_speed_limit", v)
             }
             "append_forwarded_for" => {
                 self.append_forwarded_for = g3_yaml::value::as_http_forwarded_header_type(v)
@@ -311,6 +335,13 @@ impl HttpRProxyServerConfig {
                         "invalid tls server config builder value for key {k}"
                     ))?;
                 self.global_tls_server = Some(builder);
+                Ok(())
+            }
+            "tls_ticketer" => {
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let ticketer = TlsTicketConfig::parse_yaml(v, Some(lookup_dir))
+                    .context(format!("invalid tls ticket config value for key {k}"))?;
+                self.tls_ticketer = Some(ticketer);
                 Ok(())
             }
             "client_hello_recv_timeout" => {
@@ -342,7 +373,7 @@ impl HttpRProxyServerConfig {
 }
 
 impl ServerConfig for HttpRProxyServerConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -350,19 +381,19 @@ impl ServerConfig for HttpRProxyServerConfig {
         self.position.clone()
     }
 
-    fn server_type(&self) -> &'static str {
+    fn r#type(&self) -> &'static str {
         SERVER_CONFIG_TYPE
     }
 
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         &self.escaper
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         &self.user_group
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         Default::default()
     }
 
@@ -379,23 +410,24 @@ impl ServerConfig for HttpRProxyServerConfig {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
 
-        ServerConfigDiffAction::ReloadOnlyConfig
+        ServerConfigDiffAction::ReloadNoRespawn
     }
 
     fn shared_logger(&self) -> Option<&str> {
         self.shared_logger.as_ref().map(|s| s.as_str())
     }
 
+    fn task_log_flush_interval(&self) -> Option<Duration> {
+        self.task_log_flush_interval
+    }
+
     #[inline]
-    fn limited_copy_config(&self) -> LimitedCopyConfig {
+    fn limited_copy_config(&self) -> StreamCopyConfig {
         self.tcp_copy
     }
+
     #[inline]
-    fn task_idle_check_duration(&self) -> Duration {
-        self.task_idle_check_duration
-    }
-    #[inline]
-    fn task_max_idle_count(&self) -> i32 {
+    fn task_max_idle_count(&self) -> usize {
         self.task_idle_max_count
     }
 }

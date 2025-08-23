@@ -1,49 +1,52 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use http::uri::PathAndQuery;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::StaticMetricsTags;
+use g3_types::metrics::MetricTagMap;
 use g3_types::net::UpstreamAddr;
 
 pub struct RegisterConfig {
     pub(crate) upstream: UpstreamAddr,
+    pub(crate) startup_retry: usize,
+    pub(crate) retry_interval: Duration,
     pub(crate) register_path: PathAndQuery,
     pub(crate) ping_path: PathAndQuery,
     pub(crate) ping_interval: Duration,
-    pub(crate) extra_data: StaticMetricsTags,
+    pub(crate) extra_data: MetricTagMap,
 }
 
 impl Default for RegisterConfig {
     fn default() -> Self {
         RegisterConfig {
             upstream: UpstreamAddr::empty(),
+            startup_retry: 3,
+            retry_interval: Duration::from_secs(1),
             register_path: PathAndQuery::from_static("/register"),
             ping_path: PathAndQuery::from_static("/ping"),
             ping_interval: Duration::from_secs(60),
-            extra_data: StaticMetricsTags::default(),
+            extra_data: MetricTagMap::default(),
         }
     }
 }
 
 impl RegisterConfig {
+    #[inline]
+    pub fn startup_retry(&self) -> usize {
+        self.startup_retry
+    }
+
+    #[inline]
+    pub fn retry_interval(&self) -> Duration {
+        self.retry_interval
+    }
+
     pub(crate) fn parse(&mut self, v: &Yaml) -> anyhow::Result<()> {
         match v {
             Yaml::Hash(map) => self.parse_map(map),
@@ -61,6 +64,15 @@ impl RegisterConfig {
             "upstream" => {
                 self.upstream = g3_yaml::value::as_upstream_addr(v, 0)
                     .context(format!("invalid upstream address value for key {k}"))?;
+                Ok(())
+            }
+            "startup_retry" => {
+                self.startup_retry = g3_yaml::value::as_usize(v)?;
+                Ok(())
+            }
+            "retry_interval" => {
+                self.retry_interval = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
             "register_path" => {

@@ -1,26 +1,19 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::borrow::Cow;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::anyhow;
 use log::{debug, trace};
-use quinn::{ClientConfig, Connection, ConnectionError, Endpoint, TokioRuntime, VarInt};
+use quinn::{
+    ClientConfig, Connection, ConnectionError, Endpoint, TokioRuntime, TransportConfig, VarInt,
+};
 use tokio::sync::{mpsc, oneshot};
+use tokio::time::Instant;
 
 use g3_types::net::RustlsQuicClientConfig;
 
@@ -32,12 +25,18 @@ pub(super) struct StreamDetourRequest(pub(super) oneshot::Sender<StreamDetourStr
 pub(super) struct StreamDetourConnector {
     config: Arc<AuditStreamDetourConfig>,
     tls_client: RustlsQuicClientConfig,
+    quic_transport: Arc<TransportConfig>,
 }
 
 impl StreamDetourConnector {
     pub(super) fn new(config: Arc<AuditStreamDetourConfig>) -> anyhow::Result<Self> {
         let tls_client = config.tls_client.build_quic()?;
-        Ok(StreamDetourConnector { config, tls_client })
+        let quic_transport = config.quic_transport.build_for_client();
+        Ok(StreamDetourConnector {
+            config,
+            tls_client,
+            quic_transport: Arc::new(quic_transport),
+        })
     }
 
     async fn new_connection(&self) -> anyhow::Result<Connection> {
@@ -51,7 +50,7 @@ impl StreamDetourConnector {
 
         let socket = g3_socket::udp::new_std_socket_to(
             peer,
-            None,
+            &Default::default(),
             self.config.socket_buffer,
             Default::default(),
         )
@@ -63,7 +62,8 @@ impl StreamDetourConnector {
         let endpoint = Endpoint::new(Default::default(), None, socket, Arc::new(TokioRuntime))
             .map_err(|e| anyhow!("failed to create quic endpoint: {e}"))?;
 
-        let client_config = ClientConfig::new(self.tls_client.driver.clone());
+        let mut client_config = ClientConfig::new(self.tls_client.driver.clone());
+        client_config.transport_config(self.quic_transport.clone());
         let tls_name = self
             .config
             .tls_name
@@ -82,7 +82,8 @@ impl StreamDetourConnector {
 
     pub(super) async fn run_new_connection(
         &self,
-        req_receiver: flume::Receiver<StreamDetourRequest>,
+        req_receiver: kanal::AsyncReceiver<StreamDetourRequest>,
+        idle_timeout: Duration,
     ) {
         let mut connection = match self.new_connection().await {
             Ok(c) => c,
@@ -94,15 +95,17 @@ impl StreamDetourConnector {
 
         let mut count = 0;
         let (force_quit_sender, mut force_quit_receiver) =
-            mpsc::channel(self.config.connection_reuse_limit);
+            mpsc::channel(self.config.connection_reuse_limit.get());
 
-        while count < self.config.connection_reuse_limit {
+        let mut idle_sleep = Box::pin(tokio::time::sleep(idle_timeout));
+        while count < self.config.connection_reuse_limit.get() {
             tokio::select! {
                 e = connection.closed() => {
                     debug!("detour connection closed unexpectedly: {e}");
                     return;
                 }
-                r = req_receiver.recv_async() => {
+                r = req_receiver.recv() => {
+                    idle_sleep.as_mut().reset(Instant::now() + idle_timeout);
                     match r {
                         Ok(req) => {
                             let match_id = (count & 0xFFFF) as u16;
@@ -114,6 +117,10 @@ impl StreamDetourConnector {
                         }
                         Err(_) => break,
                     }
+                }
+                _ = &mut idle_sleep => {
+                    drop(req_receiver);
+                    break;
                 }
             }
         }

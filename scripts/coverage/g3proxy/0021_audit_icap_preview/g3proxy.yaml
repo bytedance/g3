@@ -1,0 +1,69 @@
+---
+
+log: stdout
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+resolver:
+  - name: default
+    type: c-ares
+    server:
+      - 127.0.0.1
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: default
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.1
+
+auditor:
+  - name: default
+    protocol_inspection: { }
+    tls_cert_generator: { }
+    tls_interception_client:
+      ca-certificate: ../rootCA.pem
+    tls_ticketer: { }
+    icap_reqmod_service:
+      url: icap://127.0.0.1:1344/echo
+      pool:
+        max_idle_count: 50
+    icap_respmod_service:
+      url: icap://127.0.0.1:1344/echo
+      pool:
+        max_idle_count: 50
+
+server:
+  - name: rss
+    type: http_rproxy
+    listen: 127.0.0.1:9443
+    escaper: default
+    enable_tls_server: true
+    global_tls_server:
+      cert_pairs:
+        certificate: ../httpbin.local.pem
+        private-key: ../httpbin.local-key.pem
+    hosts:
+      - exact_match: httpbin.local
+        upstream: 127.0.0.1:80
+        tls_server:
+          cert_pairs:
+            certificate: ../httpbin.local.pem
+            private-key: ../httpbin.local-key.pem
+  - name: http
+    type: http_proxy
+    escaper: default
+    auditor: default
+    listen:
+      address: "[::]:8080"
+    tls_client:
+      ca_certificate: ../rootCA.pem
+  - name: socks
+    type: socks_proxy
+    escaper: default
+    auditor: default
+    listen:
+      address: "[::]:1080"

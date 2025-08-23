@@ -1,31 +1,20 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::str::FromStr;
 
 use anyhow::anyhow;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum OpensslProtocol {
     Ssl3,
     Tls1,
     Tls11,
     Tls12,
     Tls13,
-    #[cfg(feature = "tongsuo")]
+    #[cfg(tongsuo)]
     Tlcp11,
 }
 
@@ -39,9 +28,9 @@ impl FromStr for OpensslProtocol {
             "tls11" | "tls1.1" | "tls1_1" => Ok(OpensslProtocol::Tls11),
             "tls12" | "tls1.2" | "tls1_2" => Ok(OpensslProtocol::Tls12),
             "tls13" | "tls1.3" | "tls1_3" => Ok(OpensslProtocol::Tls13),
-            #[cfg(feature = "tongsuo")]
+            #[cfg(tongsuo)]
             "tlcp" | "tlcp1.1" | "tlcp1_1" => Ok(OpensslProtocol::Tlcp11),
-            _ => Err(anyhow!("")),
+            _ => Err(anyhow!("unknown openssl protocol {s}")),
         }
     }
 }

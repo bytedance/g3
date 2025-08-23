@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use anyhow::Context;
@@ -41,7 +30,7 @@ fn mermaid_auditor(content: &mut String) {
     let _ = content.write_str("  subgraph Auditor\n");
     for config in crate::config::audit::get_all() {
         let name = config.name();
-        let _ = writeln!(content, "    auditor_{name}[{name}]",);
+        let _ = writeln!(content, "    auditor_{name}[{name}]");
     }
     let _ = content.write_str("  end\n");
 }
@@ -50,7 +39,7 @@ fn mermaid_user_group(content: &mut String) {
     let _ = content.write_str("  subgraph UserGroup\n");
     for config in crate::config::auth::get_all() {
         let name = config.name();
-        let _ = writeln!(content, "    user_group_{name}[{name}]",);
+        let _ = writeln!(content, "    user_group_{name}[{name}]");
     }
     let _ = content.write_str("  end\n");
 }
@@ -83,13 +72,13 @@ fn mermaid_escaper(content: &mut String) -> anyhow::Result<()> {
     let _ = content.write_str("  subgraph Escaper\n");
     for c in &all_escaper {
         let name = c.name();
-        let _ = writeln!(content, "    escaper_{name}[{name}]",);
+        let _ = writeln!(content, "    escaper_{name}[{name}]");
     }
     for c in &all_escaper {
         if let Some(d) = c.dependent_escaper() {
             let s_name = c.name();
             for v in d {
-                let _ = writeln!(content, "    escaper_{s_name} --> escaper_{v}",);
+                let _ = writeln!(content, "    escaper_{s_name} --> escaper_{v}");
             }
         }
     }
@@ -98,7 +87,7 @@ fn mermaid_escaper(content: &mut String) -> anyhow::Result<()> {
     for c in &all_escaper {
         let r = c.resolver();
         if !r.is_empty() {
-            let _ = writeln!(content, "  escaper_{} -. dns .-> resolver_{r}", c.name(),);
+            let _ = writeln!(content, "  escaper_{} -. dns .-> resolver_{r}", c.name());
         }
     }
 
@@ -112,13 +101,13 @@ fn mermaid_server(content: &mut String) -> anyhow::Result<()> {
     let _ = content.write_str("  subgraph Server\n");
     for c in &all_server {
         let name = c.name();
-        let _ = writeln!(content, "    server_{name}[{name}]",);
+        let _ = writeln!(content, "    server_{name}[{name}]");
     }
     for c in &all_server {
         if let Some(d) = c.dependent_server() {
             let s_name = c.name();
             for v in d {
-                let _ = writeln!(content, "    server_{s_name} --> server_{v}",);
+                let _ = writeln!(content, "    server_{s_name} --> server_{v}");
             }
         }
     }
@@ -134,7 +123,7 @@ fn mermaid_server(content: &mut String) -> anyhow::Result<()> {
 
         let u = c.user_group();
         if !u.is_empty() {
-            let _ = writeln!(content, "  server_{s_name} o-. auth .-o user_group_{u}",);
+            let _ = writeln!(content, "  server_{s_name} o-. auth .-o user_group_{u}");
         }
 
         let a = c.auditor();

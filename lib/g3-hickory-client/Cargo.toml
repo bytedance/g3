@@ -1,19 +1,19 @@
 [package]
 name = "g3-hickory-client"
-version = "0.1.0"
+version = "0.3.0"
 license.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-hickory-client.workspace = true
-hickory-proto = { workspace  = true, features = ["tokio-runtime"] }
+hickory-proto = { workspace = true, features = ["tokio"] }
 futures-util.workspace = true
 http.workspace = true
 h2.workspace = true
 bytes.workspace = true
-thiserror.workspace = true
+fastrand.workspace = true
 tokio = { workspace = true, features = ["net", "time"] }
 rustls.workspace = true
 rustls-pki-types.workspace = true
@@ -21,6 +21,7 @@ tokio-rustls.workspace = true
 quinn = { workspace = true, optional = true, features = ["rustls"] }
 h3 = { workspace = true, optional = true }
 h3-quinn = { workspace = true, optional = true }
+g3-socket.workspace = true
 
 [features]
 default = []

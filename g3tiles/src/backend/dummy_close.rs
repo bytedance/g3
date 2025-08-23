@@ -1,17 +1,6 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
@@ -19,9 +8,9 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use async_trait::async_trait;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
-use super::{ArcBackend, Backend};
+use super::{ArcBackendInternal, Backend, BackendInternal, BackendRegistry};
 use crate::config::backend::dummy_close::DummyCloseBackendConfig;
 use crate::config::backend::{AnyBackendConfig, BackendConfig};
 use crate::module::stream::{StreamConnectError, StreamConnectResult};
@@ -32,26 +21,50 @@ pub(crate) struct DummyCloseBackend {
 }
 
 impl DummyCloseBackend {
-    fn new_obj(config: DummyCloseBackendConfig) -> ArcBackend {
+    fn new_obj(config: DummyCloseBackendConfig) -> ArcBackendInternal {
         Arc::new(DummyCloseBackend { config })
     }
 
-    pub(super) fn prepare_initial(config: DummyCloseBackendConfig) -> anyhow::Result<ArcBackend> {
+    pub(super) fn prepare_initial(
+        config: DummyCloseBackendConfig,
+    ) -> anyhow::Result<ArcBackendInternal> {
         Ok(DummyCloseBackend::new_obj(config))
     }
 
-    pub(super) fn prepare_default(name: &MetricsName) -> ArcBackend {
+    pub(super) fn prepare_default(name: &NodeName) -> ArcBackendInternal {
         let config = DummyCloseBackendConfig::new(name, None);
         DummyCloseBackend::new_obj(config)
     }
 
-    fn prepare_reload(config: DummyCloseBackendConfig) -> anyhow::Result<ArcBackend> {
+    fn prepare_reload(config: DummyCloseBackendConfig) -> anyhow::Result<ArcBackendInternal> {
         Ok(DummyCloseBackend::new_obj(config))
     }
 }
 
 #[async_trait]
 impl Backend for DummyCloseBackend {
+    #[inline]
+    fn name(&self) -> &NodeName {
+        self.config.name()
+    }
+
+    fn discover(&self) -> &NodeName {
+        Default::default()
+    }
+    fn update_discover(&self) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn alive_connection(&self) -> u64 {
+        0
+    }
+
+    async fn stream_connect(&self, _task_notes: &ServerTaskNotes) -> StreamConnectResult {
+        Err(StreamConnectError::UpstreamNotResolved)
+    }
+}
+
+impl BackendInternal for DummyCloseBackend {
     fn _clone_config(&self) -> AnyBackendConfig {
         AnyBackendConfig::DummyClose(self.config.clone())
     }
@@ -64,28 +77,16 @@ impl Backend for DummyCloseBackend {
         Ok(())
     }
 
-    async fn _lock_safe_reload(&self, config: AnyBackendConfig) -> anyhow::Result<ArcBackend> {
+    fn _reload(
+        &self,
+        config: AnyBackendConfig,
+        _registry: &mut BackendRegistry,
+    ) -> anyhow::Result<ArcBackendInternal> {
         if let AnyBackendConfig::DummyClose(c) = config {
             // TODO add stats
             DummyCloseBackend::prepare_reload(c)
         } else {
             Err(anyhow!("invalid backend config type"))
         }
-    }
-
-    #[inline]
-    fn name(&self) -> &MetricsName {
-        self.config.name()
-    }
-
-    fn discover(&self) -> &MetricsName {
-        Default::default()
-    }
-    fn update_discover(&self) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn stream_connect(&self, _task_notes: &ServerTaskNotes) -> StreamConnectResult {
-        Err(StreamConnectError::UpstreamNotResolved)
     }
 }

@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::IpAddr;
@@ -21,7 +10,6 @@ use std::time::Duration;
 use c_ares::{AAAAResults, AResults};
 use c_ares_resolver::{CAresFuture, FutureResolver};
 use tokio::sync::mpsc;
-use tokio::time::Instant;
 
 use crate::config::ResolverRuntimeConfig;
 use crate::message::ResolveDriverResponse;
@@ -93,35 +81,22 @@ async fn resolve<T>(
 where
     T: ResultConverter,
 {
-    let created = Instant::now();
     match query_future.await {
         Ok(results) => {
             let (ttl, addrs) = results.finalize();
-            let ttl = ttl.clamp(config.positive_min_ttl, config.positive_max_ttl);
-            let expire = created.checked_add(Duration::from_secs(ttl as u64));
-            ResolvedRecord {
+            ResolvedRecord::resolved(
                 domain,
-                created,
-                expire,
-                result: Ok(addrs),
-            }
+                ttl,
+                config.positive_min_ttl,
+                config.positive_max_ttl,
+                addrs,
+            )
         }
         Err(e) => {
-            let expire = created.checked_add(Duration::from_secs(config.negative_ttl as u64));
             if let Some(e) = ResolveError::from_cares_error(e) {
-                ResolvedRecord {
-                    domain,
-                    created,
-                    expire,
-                    result: Err(e),
-                }
+                ResolvedRecord::failed(domain, config.negative_ttl, e)
             } else {
-                ResolvedRecord {
-                    domain,
-                    created,
-                    expire,
-                    result: Ok(Vec::new()),
-                }
+                ResolvedRecord::empty(domain, config.negative_ttl)
             }
         }
     }

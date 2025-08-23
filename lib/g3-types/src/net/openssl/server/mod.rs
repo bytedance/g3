@@ -1,40 +1,30 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use bytes::BufMut;
+use openssl::ex_data::Index;
 use openssl::ssl::{
     SslAcceptor, SslAcceptorBuilder, SslContext, SslOptions, SslSessionCacheMode, SslVerifyMode,
+    TicketKeyStatus,
 };
 use openssl::stack::Stack;
-use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
+use openssl::x509::store::X509StoreBuilder;
 
-use super::OpensslCertificatePair;
-#[cfg(feature = "tongsuo")]
-use super::OpensslTlcpCertificatePair;
-use crate::net::AlpnProtocol;
+use super::{OpensslCertificatePair, OpensslTlcpCertificatePair};
+use crate::net::{AlpnProtocol, RollingTicketer};
 
 mod intercept;
 pub use intercept::{OpensslInterceptionServerConfig, OpensslInterceptionServerConfigBuilder};
 
 mod ticket_key;
-pub use ticket_key::OpensslTicketKey;
+pub use ticket_key::{OpensslTicketKey, OpensslTicketKeyBuilder};
 
 mod ticketer;
 
@@ -53,7 +43,6 @@ pub struct OpensslServerConfig {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OpensslServerConfigBuilder {
     cert_pairs: Vec<OpensslCertificatePair>,
-    #[cfg(feature = "tongsuo")]
     tlcp_cert_pairs: Vec<OpensslTlcpCertificatePair>,
     client_auth: bool,
     client_auth_certs: Vec<Vec<u8>>,
@@ -67,7 +56,6 @@ impl OpensslServerConfigBuilder {
     pub fn empty() -> Self {
         OpensslServerConfigBuilder {
             cert_pairs: Vec::with_capacity(1),
-            #[cfg(feature = "tongsuo")]
             tlcp_cert_pairs: Vec::with_capacity(1),
             client_auth: false,
             client_auth_certs: Vec::new(),
@@ -78,7 +66,7 @@ impl OpensslServerConfigBuilder {
         }
     }
 
-    #[cfg(not(feature = "tongsuo"))]
+    #[cfg(not(tongsuo))]
     pub fn check(&self) -> anyhow::Result<()> {
         if self.cert_pairs.is_empty() {
             return Err(anyhow!("no cert pair is set"));
@@ -87,7 +75,7 @@ impl OpensslServerConfigBuilder {
         Ok(())
     }
 
-    #[cfg(feature = "tongsuo")]
+    #[cfg(tongsuo)]
     pub fn check(&self) -> anyhow::Result<()> {
         if self.cert_pairs.is_empty() && self.tlcp_cert_pairs.is_empty() {
             return Err(anyhow!("no cert pair is set"));
@@ -128,7 +116,6 @@ impl OpensslServerConfigBuilder {
         Ok(())
     }
 
-    #[cfg(feature = "tongsuo")]
     pub fn push_tlcp_cert_pair(
         &mut self,
         cert_pair: OpensslTlcpCertificatePair,
@@ -142,7 +129,7 @@ impl OpensslServerConfigBuilder {
         self.accept_timeout = timeout;
     }
 
-    #[cfg(not(feature = "tongsuo"))]
+    #[cfg(not(tongsuo))]
     fn build_tls_acceptor(
         &self,
         id_ctx: &mut OpensslSessionIdContext,
@@ -160,7 +147,7 @@ impl OpensslServerConfigBuilder {
         Ok(ssl_builder)
     }
 
-    #[cfg(feature = "tongsuo")]
+    #[cfg(tongsuo)]
     fn build_tls_acceptor(
         &self,
         id_ctx: &mut OpensslSessionIdContext,
@@ -176,7 +163,7 @@ impl OpensslServerConfigBuilder {
         Ok(ssl_builder)
     }
 
-    #[cfg(feature = "tongsuo")]
+    #[cfg(tongsuo)]
     fn build_tlcp_acceptor(
         &self,
         id_ctx: &mut OpensslSessionIdContext,
@@ -192,7 +179,7 @@ impl OpensslServerConfigBuilder {
         Ok(ssl_builder)
     }
 
-    #[cfg(feature = "tongsuo")]
+    #[cfg(tongsuo)]
     fn build_acceptor(
         &self,
         id_ctx: &mut OpensslSessionIdContext,
@@ -220,7 +207,7 @@ impl OpensslServerConfigBuilder {
         Ok(ssl_builder)
     }
 
-    #[cfg(not(feature = "tongsuo"))]
+    #[cfg(not(tongsuo))]
     fn build_acceptor(
         &self,
         id_ctx: &mut OpensslSessionIdContext,
@@ -231,6 +218,7 @@ impl OpensslServerConfigBuilder {
     pub fn build_with_alpn_protocols(
         &self,
         alpn_protocols: Option<Vec<AlpnProtocol>>,
+        ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
     ) -> anyhow::Result<OpensslServerConfig> {
         let mut id_ctx = OpensslSessionIdContext::new()
             .map_err(|e| anyhow!("failed to create session id context builder: {e}"))?;
@@ -249,6 +237,11 @@ impl OpensslServerConfigBuilder {
         }
         if self.no_session_ticket {
             ssl_builder.set_options(SslOptions::NO_TICKET);
+        } else if let Some(ticketer) = ticketer {
+            let ticket_key_index = SslContext::new_ex_index()
+                .map_err(|e| anyhow!("failed to create ex index: {e}"))?;
+            ssl_builder.set_ex_data(ticket_key_index, ticketer);
+            set_ticket_key_callback(&mut ssl_builder, ticket_key_index)?;
         }
 
         if self.client_auth {
@@ -281,13 +274,12 @@ impl OpensslServerConfigBuilder {
                         .map_err(|e| anyhow!("[#{i}] failed to push to ca name stack: {e}"))?;
                 }
             }
-            let store = store_builder.build();
-            #[cfg(not(feature = "boringssl"))]
+            #[cfg(not(libressl))]
             ssl_builder
-                .set_verify_cert_store(store)
-                .map_err(|e| anyhow!("failed to set ca certs: {e}"))?;
-            #[cfg(feature = "boringssl")]
-            ssl_builder.set_cert_store(store);
+                .set_verify_cert_store(store_builder.build())
+                .map_err(|e| anyhow!("failed to set verify ca certs: {e}"))?;
+            #[cfg(libressl)]
+            ssl_builder.set_cert_store(store_builder.build());
             if !subject_stack.is_empty() {
                 ssl_builder.set_client_ca_list(subject_stack);
             }
@@ -323,7 +315,35 @@ impl OpensslServerConfigBuilder {
     }
 
     #[inline]
-    pub fn build(&self) -> anyhow::Result<OpensslServerConfig> {
-        self.build_with_alpn_protocols(None)
+    pub fn build_with_ticketer(
+        &self,
+        ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
+    ) -> anyhow::Result<OpensslServerConfig> {
+        self.build_with_alpn_protocols(None, ticketer)
     }
+
+    #[inline]
+    pub fn build(&self) -> anyhow::Result<OpensslServerConfig> {
+        self.build_with_alpn_protocols(None, None)
+    }
+}
+
+fn set_ticket_key_callback(
+    builder: &mut SslAcceptorBuilder,
+    ticket_key_index: Index<SslContext, Arc<RollingTicketer<OpensslTicketKey>>>,
+) -> anyhow::Result<()> {
+    builder
+        .set_ticket_key_callback(move |ssl, name, iv, cipher_ctx, hmac_ctx, is_enc| {
+            match ssl.ssl_context().ex_data(ticket_key_index) {
+                Some(ticketer) => {
+                    if is_enc {
+                        ticketer.encrypt_init(name, iv, cipher_ctx, hmac_ctx)
+                    } else {
+                        ticketer.decrypt_init(name, iv, cipher_ctx, hmac_ctx)
+                    }
+                }
+                None => Ok(TicketKeyStatus::FAILED),
+            }
+        })
+        .map_err(|e| anyhow!("failed to set ticket key callback: {e}"))
 }

@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use anyhow::Context;
@@ -41,7 +30,7 @@ fn plantuml_auditor(content: &mut String) {
     let _ = content.write_str("package Auditor {\n");
     for config in crate::config::audit::get_all() {
         let name = config.name();
-        let _ = writeln!(content, "  component [{name}] as auditor_{name}",);
+        let _ = writeln!(content, "  component [{name}] as auditor_{name}");
     }
     let _ = content.write_str("}\n");
 }
@@ -50,7 +39,7 @@ fn plantuml_user_group(content: &mut String) {
     let _ = content.write_str("package UserGroup {\n");
     for config in crate::config::auth::get_all() {
         let name = config.name();
-        let _ = writeln!(content, "  component [{name}] as user_group_{name}",);
+        let _ = writeln!(content, "  component [{name}] as user_group_{name}");
     }
     let _ = content.write_str("}\n");
 }
@@ -62,13 +51,13 @@ fn plantuml_resolver(content: &mut String) -> anyhow::Result<()> {
     let _ = content.write_str("package Resolver {\n");
     for c in &all_resolver {
         let name = c.name();
-        let _ = writeln!(content, "  component [{name}] as resolver_{name}",);
+        let _ = writeln!(content, "  component [{name}] as resolver_{name}");
     }
     for c in &all_resolver {
         if let Some(d) = c.dependent_resolver() {
             let s_name = c.name();
             for v in d {
-                let _ = writeln!(content, "  resolver_{s_name} --> resolver_{v}",);
+                let _ = writeln!(content, "  resolver_{s_name} --> resolver_{v}");
             }
         }
     }
@@ -83,13 +72,13 @@ fn plantuml_escaper(content: &mut String) -> anyhow::Result<()> {
     let _ = content.write_str("package Escaper {\n");
     for c in &all_escaper {
         let name = c.name();
-        let _ = writeln!(content, "  component [{name}] as escaper_{name}",);
+        let _ = writeln!(content, "  component [{name}] as escaper_{name}");
     }
     for c in &all_escaper {
         if let Some(d) = c.dependent_escaper() {
             let s_name = c.name();
             for v in d {
-                let _ = writeln!(content, "  escaper_{s_name} --> escaper_{v}",);
+                let _ = writeln!(content, "  escaper_{s_name} --> escaper_{v}");
             }
         }
     }
@@ -112,13 +101,13 @@ fn plantuml_server(content: &mut String) -> anyhow::Result<()> {
     let _ = content.write_str("package Server {\n");
     for c in &all_server {
         let name = c.name();
-        let _ = writeln!(content, "  component [{name}] as server_{name}",);
+        let _ = writeln!(content, "  component [{name}] as server_{name}");
     }
     for c in &all_server {
         if let Some(d) = c.dependent_server() {
             for v in d {
                 let s_name = c.name();
-                let _ = writeln!(content, "  server_{s_name} --> server_{v}",);
+                let _ = writeln!(content, "  server_{s_name} --> server_{v}");
             }
         }
     }

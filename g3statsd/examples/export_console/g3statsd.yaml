@@ -1,0 +1,25 @@
+importer:
+  - name: statsd_udp
+    type: statsd_udp
+    collector: aggregate_4s
+    listen: 127.0.0.1:8125
+  - name: statsd_unix
+    type: statsd_unix
+    collector: aggregate_4s
+    listen: /tmp/g3statsd.sock
+
+collector:
+  - name: aggregate_4s
+    type: aggregate
+    next: regulate_4s
+    emit_interval: 4s
+    join_tags:
+      - stat_id
+  - name: regulate_4s
+    type: regulate
+    exporter: print
+    prefix: test
+
+exporter:
+  - name: print
+    type: console

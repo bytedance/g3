@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::IpAddr;
@@ -21,10 +10,12 @@ use std::time::Duration;
 use ahash::AHashMap;
 use anyhow::Context;
 use arc_swap::ArcSwapOption;
+use foldhash::HashMap;
 use ip_network_table::IpNetworkTable;
 use radix_trie::Trie;
+use rustc_hash::FxHashMap;
 
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
 use g3_types::resolve::ResolveStrategy;
 
@@ -41,7 +32,7 @@ struct DurationValue {
 pub(crate) struct UserSite {
     config: Arc<UserSiteConfig>,
     stats: Arc<UserSiteStats>,
-    duration_recorder: Arc<Mutex<AHashMap<String, DurationValue>>>,
+    duration_recorder: Arc<Mutex<HashMap<NodeName, DurationValue>>>,
     tls_client: Option<OpensslClientConfig>,
 }
 
@@ -49,7 +40,7 @@ impl UserSite {
     fn new(
         config: &Arc<UserSiteConfig>,
         user: Arc<str>,
-        user_group: &MetricsName,
+        user_group: &NodeName,
     ) -> anyhow::Result<Self> {
         let tls_client = match &config.tls_client {
             Some(builder) => {
@@ -63,7 +54,7 @@ impl UserSite {
         Ok(UserSite {
             config: Arc::clone(config),
             stats: Arc::new(UserSiteStats::new(user, user_group, &config.id)),
-            duration_recorder: Arc::new(Mutex::new(AHashMap::new())),
+            duration_recorder: Arc::new(Mutex::new(HashMap::default())),
             tls_client,
         })
     }
@@ -82,7 +73,7 @@ impl UserSite {
             UserSite {
                 config: Arc::clone(config),
                 stats: self.stats.clone(),
-                duration_recorder: Arc::new(Mutex::new(AHashMap::new())),
+                duration_recorder: Arc::new(Mutex::new(HashMap::default())),
                 tls_client,
             }
         } else {
@@ -124,14 +115,14 @@ impl UserSite {
     pub(crate) fn fetch_duration_recorder(
         &self,
         user_type: UserType,
-        server: &MetricsName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server: &NodeName,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Arc<UserSiteDurationRecorder> {
         let mut new_stats = None;
 
         let mut map = self.duration_recorder.lock().unwrap();
         let recorder = map
-            .entry(server.to_string())
+            .entry(server.clone())
             .or_insert_with(|| {
                 let (recorder, stats) = UserSiteDurationRecorder::new(
                     self.stats.user_group(),
@@ -161,9 +152,9 @@ impl UserSite {
 
 #[derive(Default)]
 pub(super) struct UserSites {
-    all_sites: AHashMap<MetricsName, Arc<UserSite>>,
-    exact_match_ipaddr: Option<AHashMap<IpAddr, Arc<UserSite>>>,
-    exact_match_domain: Option<AHashMap<String, Arc<UserSite>>>,
+    all_sites: HashMap<NodeName, Arc<UserSite>>,
+    exact_match_ipaddr: Option<FxHashMap<IpAddr, Arc<UserSite>>>,
+    exact_match_domain: Option<AHashMap<Arc<str>, Arc<UserSite>>>,
     child_match_domain: Option<Trie<String, Arc<UserSite>>>,
     subnet_match_ipaddr: Option<IpNetworkTable<Arc<UserSite>>>,
 }
@@ -176,8 +167,8 @@ impl UserSites {
     where
         F: Fn(&Arc<UserSiteConfig>) -> anyhow::Result<UserSite>,
     {
-        let mut all_sites = AHashMap::new();
-        let mut exact_match_ipaddr = AHashMap::new();
+        let mut all_sites = HashMap::default();
+        let mut exact_match_ipaddr = FxHashMap::default();
         let mut exact_match_domain = AHashMap::new();
         let mut child_match_domain = Trie::new();
         let mut child_match_domain_count = 0usize;
@@ -193,7 +184,7 @@ impl UserSites {
                 exact_match_ipaddr.insert(*ip, site.clone());
             }
             for domain in &site_config.exact_match_domain {
-                exact_match_domain.insert(domain.to_string(), site.clone());
+                exact_match_domain.insert(domain.clone(), site.clone());
             }
             for domain in &site_config.child_match_domain {
                 let domain = g3_types::resolve::reverse_idna_domain(domain);
@@ -239,7 +230,7 @@ impl UserSites {
     pub(super) fn new<'a, T: Iterator<Item = &'a Arc<UserSiteConfig>>>(
         sites: T,
         user: &Arc<str>,
-        user_group: &MetricsName,
+        user_group: &NodeName,
     ) -> anyhow::Result<Self> {
         Self::build(sites, |site_config| {
             UserSite::new(site_config, user.clone(), user_group)
@@ -250,7 +241,7 @@ impl UserSites {
         &self,
         sites: T,
         user: &Arc<str>,
-        user_group: &MetricsName,
+        user_group: &NodeName,
     ) -> anyhow::Result<Self> {
         Self::build(sites, |site_config| {
             if let Some(old) = self.all_sites.get(&site_config.id) {
@@ -264,23 +255,23 @@ impl UserSites {
     pub(super) fn fetch_site(&self, ups: &UpstreamAddr) -> Option<Arc<UserSite>> {
         match ups.host() {
             Host::Ip(ip) => {
-                if let Some(ht) = &self.exact_match_ipaddr {
-                    if let Some(r) = ht.get(ip) {
-                        return Some(r.clone());
-                    }
+                if let Some(ht) = &self.exact_match_ipaddr
+                    && let Some(r) = ht.get(ip)
+                {
+                    return Some(r.clone());
                 }
 
-                if let Some(tb) = &self.subnet_match_ipaddr {
-                    if let Some((_n, r)) = tb.longest_match(*ip) {
-                        return Some(r.clone());
-                    }
+                if let Some(tb) = &self.subnet_match_ipaddr
+                    && let Some((_n, r)) = tb.longest_match(*ip)
+                {
+                    return Some(r.clone());
                 }
             }
             Host::Domain(domain) => {
-                if let Some(ht) = &self.exact_match_domain {
-                    if let Some(r) = ht.get(domain) {
-                        return Some(r.clone());
-                    }
+                if let Some(ht) = &self.exact_match_domain
+                    && let Some(r) = ht.get(domain)
+                {
+                    return Some(r.clone());
                 }
 
                 if let Some(trie) = &self.child_match_domain {

@@ -1,35 +1,26 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::anyhow;
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
 use rustls_pki_types::ServerName;
 use tokio::io::{ReadHalf, WriteHalf};
-use tokio::net::{tcp, TcpStream};
+use tokio::net::{TcpStream, tcp};
 use tokio::sync::broadcast;
 use tokio::time::Instant;
-use tokio_rustls::client::TlsStream;
 use tokio_rustls::TlsConnector;
+use tokio_rustls::client::TlsStream;
 
+use g3_io_ext::AsyncStream;
+use g3_std_ext::time::DurationExt;
 use g3_types::collection::{SelectiveVec, WeightedValue};
-use g3_types::ext::DurationExt;
 use g3_types::net::RustlsClientConfig;
 
 use crate::config::backend::keyless_tcp::KeylessTcpBackendConfig;
@@ -72,7 +63,7 @@ impl KeylessTcpUpstreamConnector {
 
         let sock = g3_socket::tcp::new_socket_to(
             peer.ip(),
-            None,
+            &Default::default(),
             &self.config.tcp_keepalive,
             &Default::default(),
             true,
@@ -94,8 +85,9 @@ impl KeylessUpstreamConnect for KeylessTcpUpstreamConnector {
 
     async fn new_connection(
         &self,
-        req_receiver: flume::Receiver<KeylessForwardRequest>,
+        req_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
         quit_notifier: broadcast::Receiver<()>,
+        _idle_timeout: Duration,
     ) -> anyhow::Result<Self::Connection> {
         let start = Instant::now();
         let (stream, _peer) = self.connect().await?;
@@ -137,8 +129,9 @@ impl KeylessUpstreamConnect for KeylessTlsUpstreamConnector {
 
     async fn new_connection(
         &self,
-        req_receiver: flume::Receiver<KeylessForwardRequest>,
+        req_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
         quit_notifier: broadcast::Receiver<()>,
+        _idle_timeout: Duration,
     ) -> anyhow::Result<Self::Connection> {
         let start = Instant::now();
         let (tcp_stream, peer) = self.tcp.connect().await?;
@@ -162,7 +155,7 @@ impl KeylessUpstreamConnect for KeylessTlsUpstreamConnector {
                     .duration_recorder
                     .connect
                     .record(start.elapsed().as_nanos_u64());
-                let (clt_r, clt_w) = tokio::io::split(tls_stream);
+                let (clt_r, clt_w) = tls_stream.into_split();
 
                 Ok(MultiplexedUpstreamConnection::new(
                     self.tcp.config.connection_config,

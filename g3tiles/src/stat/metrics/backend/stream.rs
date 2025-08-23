@@ -1,27 +1,14 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::{Arc, LazyLock, Mutex};
-
-use ahash::AHashMap;
+use std::sync::{Arc, Mutex};
 
 use g3_daemon::metrics::TAG_KEY_QUANTILE;
 use g3_histogram::HistogramStats;
 use g3_statsd_client::{StatsdClient, StatsdTagGroup};
-use g3_types::stats::StatId;
+use g3_types::stats::GlobalStatsMap;
 
 use super::BackendMetricExt;
 use crate::module::stream::{StreamBackendDurationStats, StreamBackendStats};
@@ -33,16 +20,14 @@ const METRIC_NAME_STREAM_CONNECT_DURATION: &str = "backend.stream.connect.durati
 
 type StreamBackendStatsValue = (Arc<StreamBackendStats>, StreamBackendSnapshot);
 
-static STORE_STREAM_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, StreamBackendStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static STREAM_STATS_MAP: LazyLock<Mutex<AHashMap<StatId, StreamBackendStatsValue>>> =
-    LazyLock::new(|| Mutex::new(AHashMap::new()));
-static STORE_STREAM_DURATION_STATS_MAP: LazyLock<
-    Mutex<AHashMap<StatId, Arc<StreamBackendDurationStats>>>,
-> = LazyLock::new(|| Mutex::new(AHashMap::new()));
-static STREAM_DURATION_STATS_MAP: LazyLock<
-    Mutex<AHashMap<StatId, Arc<StreamBackendDurationStats>>>,
-> = LazyLock::new(|| Mutex::new(AHashMap::new()));
+static STORE_STREAM_STATS_MAP: Mutex<GlobalStatsMap<StreamBackendStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static STREAM_STATS_MAP: Mutex<GlobalStatsMap<StreamBackendStatsValue>> =
+    Mutex::new(GlobalStatsMap::new());
+static STORE_STREAM_DURATION_STATS_MAP: Mutex<GlobalStatsMap<Arc<StreamBackendDurationStats>>> =
+    Mutex::new(GlobalStatsMap::new());
+static STREAM_DURATION_STATS_MAP: Mutex<GlobalStatsMap<Arc<StreamBackendDurationStats>>> =
+    Mutex::new(GlobalStatsMap::new());
 
 #[derive(Default)]
 struct StreamBackendSnapshot {
@@ -71,7 +56,7 @@ pub(super) fn sync_stats() {
 
 pub(super) fn emit_stats(client: &mut StatsdClient) {
     let mut backend_stats_map = STREAM_STATS_MAP.lock().unwrap();
-    backend_stats_map.retain(|_, (stats, snap)| {
+    backend_stats_map.retain(|(stats, snap)| {
         emit_stream_stats(client, stats, snap);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1
@@ -79,7 +64,7 @@ pub(super) fn emit_stats(client: &mut StatsdClient) {
     drop(backend_stats_map);
 
     let mut duration_stats_map = STREAM_DURATION_STATS_MAP.lock().unwrap();
-    duration_stats_map.retain(|_, stats| {
+    duration_stats_map.retain(|stats| {
         emit_stream_duration_stats(client, stats);
         // use Arc instead of Weak here, as we should emit the final metrics before drop it
         Arc::strong_count(stats) > 1

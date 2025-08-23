@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::str::FromStr;
@@ -30,5 +19,67 @@ pub fn as_selective_pick_policy(value: &Yaml) -> anyhow::Result<SelectivePickPol
         Err(anyhow!(
             "yaml value type for 'selective pick policy' should be 'string'"
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn as_selective_pick_policy_ok() {
+        // valid pick policy
+        let value = yaml_str!("random");
+        assert_eq!(
+            as_selective_pick_policy(&value).unwrap(),
+            SelectivePickPolicy::Random
+        );
+
+        let value = yaml_str!("serial");
+        assert_eq!(
+            as_selective_pick_policy(&value).unwrap(),
+            SelectivePickPolicy::Serial
+        );
+
+        let value = yaml_str!("roundrobin");
+        assert_eq!(
+            as_selective_pick_policy(&value).unwrap(),
+            SelectivePickPolicy::RoundRobin
+        );
+
+        let value = yaml_str!("ketama");
+        assert_eq!(
+            as_selective_pick_policy(&value).unwrap(),
+            SelectivePickPolicy::Ketama
+        );
+
+        let value = yaml_str!("rendezvous");
+        assert_eq!(
+            as_selective_pick_policy(&value).unwrap(),
+            SelectivePickPolicy::Rendezvous
+        );
+
+        let value = yaml_str!("jump");
+        assert_eq!(
+            as_selective_pick_policy(&value).unwrap(),
+            SelectivePickPolicy::JumpHash
+        )
+    }
+
+    #[test]
+    fn as_selective_pick_policy_err() {
+        // invalid pick policy
+        let value = yaml_str!("invalid");
+        assert!(as_selective_pick_policy(&value).is_err());
+
+        let value = yaml_str!("");
+        assert!(as_selective_pick_policy(&value).is_err());
+
+        // non-string value
+        let value = Yaml::Integer(1);
+        assert!(as_selective_pick_policy(&value).is_err());
+
+        let value = Yaml::Boolean(true);
+        assert!(as_selective_pick_policy(&value).is_err());
     }
 }

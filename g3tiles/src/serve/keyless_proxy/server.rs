@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
@@ -30,16 +19,17 @@ use tokio::sync::broadcast;
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo};
+use g3_io_ext::IdleWheel;
 use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::{CommonTaskContext, KeylessForwardTask, KeylessProxyServerStats};
 use crate::backend::ArcBackend;
 use crate::config::server::keyless_proxy::KeylessProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::serve::{
-    ArcServer, ArcServerStats, Server, ServerInternal, ServerQuitPolicy, ServerReloadCommand,
-    ServerStats,
+    ArcServer, ArcServerInternal, ArcServerStats, Server, ServerInternal, ServerQuitPolicy,
+    ServerRegistry, ServerReloadCommand, ServerStats,
 };
 
 pub(crate) struct KeylessProxyServer {
@@ -48,10 +38,11 @@ pub(crate) struct KeylessProxyServer {
     listen_stats: Arc<ListenStats>,
     ingress_net_filter: Option<Arc<AclNetworkRule>>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
-    task_logger: Logger,
+    task_logger: Option<Logger>,
 
     backend_selector: Arc<ArcSwap<ArcBackend>>,
     quit_policy: Arc<ServerQuitPolicy>,
+    idle_wheel: Arc<IdleWheel>,
     reload_version: usize,
 }
 
@@ -72,6 +63,7 @@ impl KeylessProxyServer {
         let backend = crate::backend::get_or_insert_default(&config.backend);
 
         let task_logger = config.get_task_logger();
+        let idle_wheel = IdleWheel::spawn(config.task_idle_check_duration);
 
         // always update extra metrics tags
         server_stats.set_extra_tags(config.extra_metrics_tags.clone());
@@ -83,13 +75,16 @@ impl KeylessProxyServer {
             ingress_net_filter,
             reload_sender,
             task_logger,
-            backend_selector: Arc::new(ArcSwap::new(Arc::new(backend))),
+            backend_selector: Arc::new(ArcSwap::from_pointee(backend)),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
+            idle_wheel,
             reload_version: version,
         })
     }
 
-    pub(crate) fn prepare_initial(config: KeylessProxyServerConfig) -> anyhow::Result<ArcServer> {
+    pub(crate) fn prepare_initial(
+        config: KeylessProxyServerConfig,
+    ) -> anyhow::Result<ArcServerInternal> {
         let config = Arc::new(config);
         let server_stats = Arc::new(KeylessProxyServerStats::new(config.name()));
         let listen_stats = Arc::new(ListenStats::new(config.name()));
@@ -109,8 +104,8 @@ impl KeylessProxyServer {
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
-                self.config.server_type(),
-                config.server_type()
+                self.config.r#type(),
+                config.r#type()
             ))
         }
     }
@@ -134,9 +129,10 @@ impl KeylessProxyServer {
 
     async fn run_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
         let ctx = CommonTaskContext {
-            server_config: Arc::clone(&self.config),
-            server_stats: Arc::clone(&self.server_stats),
-            server_quit_policy: Arc::clone(&self.quit_policy),
+            server_config: self.config.clone(),
+            server_stats: self.server_stats.clone(),
+            server_quit_policy: self.quit_policy.clone(),
+            idle_wheel: self.idle_wheel.clone(),
             cc_info,
             task_logger: self.task_logger.clone(),
             backend_selector: self.backend_selector.clone(),
@@ -158,9 +154,10 @@ impl KeylessProxyServer {
         W: AsyncWrite + Send + Unpin + 'static,
     {
         let ctx = CommonTaskContext {
-            server_config: Arc::clone(&self.config),
-            server_stats: Arc::clone(&self.server_stats),
-            server_quit_policy: Arc::clone(&self.quit_policy),
+            server_config: self.config.clone(),
+            server_stats: self.server_stats.clone(),
+            server_quit_policy: self.quit_policy.clone(),
+            idle_wheel: self.idle_wheel.clone(),
             cc_info,
             task_logger: self.task_logger.clone(),
             backend_selector: self.backend_selector.clone(),
@@ -182,11 +179,7 @@ impl ServerInternal for KeylessProxyServer {
         AnyServerConfig::KeylessProxy(self.config.as_ref().clone())
     }
 
-    fn _update_config_in_place(&self, _flags: u64, _config: AnyServerConfig) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn _depend_on_server(&self, _name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, _name: &NodeName) -> bool {
         false
     }
 
@@ -197,18 +190,26 @@ impl ServerInternal for KeylessProxyServer {
 
     fn _update_next_servers_in_place(&self) {}
 
-    fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyServerConfig,
+        _registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServerInternal> {
         let mut server = self.prepare_reload(config)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyServerConfig,
+        _registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServerInternal> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }
 
-    fn _start_runtime(&self, _server: &ArcServer) -> anyhow::Result<()> {
+    fn _start_runtime(&self, _server: ArcServer) -> anyhow::Result<()> {
         self.server_stats.set_online();
         Ok(())
     }
@@ -220,12 +221,12 @@ impl ServerInternal for KeylessProxyServer {
 
 impl BaseServer for KeylessProxyServer {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
-    fn server_type(&self) -> &'static str {
-        self.config.server_type()
+    fn r#type(&self) -> &'static str {
+        self.config.r#type()
     }
 
     #[inline]
@@ -282,7 +283,7 @@ impl Server for KeylessProxyServer {
         &self.quit_policy
     }
 
-    fn update_backend(&self, name: &MetricsName) {
+    fn update_backend(&self, name: &NodeName) {
         if self.config.backend.eq(name) {
             let backend = crate::backend::get_or_insert_default(name);
             self.backend_selector.store(Arc::new(backend));

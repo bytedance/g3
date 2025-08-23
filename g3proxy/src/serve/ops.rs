@@ -1,33 +1,22 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use log::{debug, warn};
 use tokio::sync::Mutex;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use crate::config::server::{AnyServerConfig, ServerConfigDiffAction};
 
-use super::{registry, ArcServer};
+use super::{ArcServer, ArcServerInternal, Server, registry};
 
 use super::dummy_close::DummyCloseServer;
 use super::intelli_proxy::IntelliProxy;
@@ -67,7 +56,7 @@ pub fn spawn_offline_clean() {
 pub async fn spawn_all() -> anyhow::Result<()> {
     let _guard = SERVER_OPS_LOCK.lock().await;
 
-    let mut new_names = HashSet::<MetricsName>::new();
+    let mut new_names = HashSet::<NodeName>::new();
 
     let all_config = crate::config::server::get_all_sorted()?;
     for config in all_config {
@@ -107,15 +96,22 @@ pub async fn stop_all() {
     });
 }
 
-pub(crate) fn get_server(name: &MetricsName) -> anyhow::Result<ArcServer> {
+pub(crate) fn get_server(name: &NodeName) -> anyhow::Result<ArcServer> {
     match registry::get_server(name) {
         Some(server) => Ok(server),
         None => Err(anyhow!("no server named {name} found")),
     }
 }
 
+pub(crate) fn foreach_server<F>(mut f: F)
+where
+    F: FnMut(&NodeName, &dyn Server),
+{
+    registry::foreach_online(|name, server| f(name, server.as_ref()))
+}
+
 pub(crate) async fn reload(
-    name: &MetricsName,
+    name: &NodeName,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<()> {
     let _guard = SERVER_OPS_LOCK.lock().await;
@@ -156,8 +152,8 @@ pub(crate) async fn reload(
     Ok(())
 }
 
-pub(crate) fn update_dependency_to_server_unlocked(target: &MetricsName, status: &str) {
-    let mut servers = Vec::<ArcServer>::new();
+pub(crate) fn update_dependency_to_server_unlocked(target: &NodeName, status: &str) {
+    let mut servers = Vec::<ArcServerInternal>::new();
 
     registry::foreach_online(|_name, server| {
         if server._depend_on_server(target) {
@@ -182,10 +178,10 @@ pub(crate) fn update_dependency_to_server_unlocked(target: &MetricsName, status:
     }
 }
 
-pub(crate) async fn update_dependency_to_escaper(escaper: &MetricsName, status: &str) {
+pub(crate) async fn update_dependency_to_escaper(escaper: &NodeName, status: &str) {
     let _guard = SERVER_OPS_LOCK.lock().await;
 
-    let mut names = Vec::<MetricsName>::new();
+    let mut names = Vec::<NodeName>::new();
 
     registry::foreach_online(|name, server| {
         if server.escaper().eq(escaper) {
@@ -206,10 +202,10 @@ pub(crate) async fn update_dependency_to_escaper(escaper: &MetricsName, status: 
     }
 }
 
-pub(crate) async fn update_dependency_to_user_group(user_group: &MetricsName, status: &str) {
+pub(crate) async fn update_dependency_to_user_group(user_group: &NodeName, status: &str) {
     let _guard = SERVER_OPS_LOCK.lock().await;
 
-    let mut names = Vec::<MetricsName>::new();
+    let mut names = Vec::<NodeName>::new();
 
     registry::foreach_online(|name, server| {
         if server.user_group().eq(user_group) {
@@ -230,10 +226,10 @@ pub(crate) async fn update_dependency_to_user_group(user_group: &MetricsName, st
     }
 }
 
-pub(crate) async fn update_dependency_to_auditor(auditor: &MetricsName, status: &str) {
+pub(crate) async fn update_dependency_to_auditor(auditor: &NodeName, status: &str) {
     let _guard = SERVER_OPS_LOCK.lock().await;
 
-    let mut names = Vec::<MetricsName>::new();
+    let mut names = Vec::<NodeName>::new();
 
     registry::foreach_online(|name, server| {
         if server.auditor().eq(auditor) {
@@ -265,9 +261,9 @@ fn reload_old_unlocked(old: AnyServerConfig, new: AnyServerConfig) -> anyhow::Re
             debug!("server {name} reload: will create a totally new one");
             spawn_new_unlocked(new)
         }
-        ServerConfigDiffAction::ReloadOnlyConfig => {
-            debug!("server {name} reload: will only reload config");
-            registry::reload_only_config(name, new)?;
+        ServerConfigDiffAction::ReloadNoRespawn => {
+            debug!("server {name} reload: will reload config without respawn");
+            registry::reload_no_respawn(name, new)?;
             update_dependency_to_server_unlocked(name, "reloaded");
             Ok(())
         }
@@ -284,7 +280,7 @@ fn reload_old_unlocked(old: AnyServerConfig, new: AnyServerConfig) -> anyhow::Re
     }
 }
 
-fn delete_existed_unlocked(name: &MetricsName) {
+fn delete_existed_unlocked(name: &NodeName) {
     registry::del(name);
     update_dependency_to_server_unlocked(name, "deleted");
 }
@@ -300,7 +296,7 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
         #[cfg(feature = "quic")]
         AnyServerConfig::PlainQuicPort(c) => PlainQuicPort::prepare_initial(c)?,
         AnyServerConfig::IntelliProxy(c) => IntelliProxy::prepare_initial(c)?,
-        AnyServerConfig::TcpStream(c) => TcpStreamServer::prepare_initial(*c)?,
+        AnyServerConfig::TcpStream(c) => TcpStreamServer::prepare_initial(c)?,
         #[cfg(any(
             target_os = "linux",
             target_os = "freebsd",
@@ -308,11 +304,11 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
             target_os = "openbsd"
         ))]
         AnyServerConfig::TcpTProxy(c) => TcpTProxyServer::prepare_initial(c)?,
-        AnyServerConfig::TlsStream(c) => TlsStreamServer::prepare_initial(*c)?,
-        AnyServerConfig::SniProxy(c) => SniProxyServer::prepare_initial(*c)?,
-        AnyServerConfig::SocksProxy(c) => SocksProxyServer::prepare_initial(*c)?,
-        AnyServerConfig::HttpProxy(c) => HttpProxyServer::prepare_initial(*c)?,
-        AnyServerConfig::HttpRProxy(c) => HttpRProxyServer::prepare_initial(*c)?,
+        AnyServerConfig::TlsStream(c) => TlsStreamServer::prepare_initial(c)?,
+        AnyServerConfig::SniProxy(c) => SniProxyServer::prepare_initial(c)?,
+        AnyServerConfig::SocksProxy(c) => SocksProxyServer::prepare_initial(c)?,
+        AnyServerConfig::HttpProxy(c) => HttpProxyServer::prepare_initial(c)?,
+        AnyServerConfig::HttpRProxy(c) => HttpRProxyServer::prepare_initial(c)?,
     };
     registry::add(name.clone(), server)?;
     update_dependency_to_server_unlocked(&name, "spawned");
@@ -321,7 +317,7 @@ fn spawn_new_unlocked(config: AnyServerConfig) -> anyhow::Result<()> {
 
 pub(crate) async fn wait_all_tasks<F>(wait_timeout: Duration, quit_timeout: Duration, on_timeout: F)
 where
-    F: Fn(&MetricsName, i32),
+    F: Fn(&NodeName, i32),
 {
     let loop_wait = async {
         loop {
@@ -336,7 +332,7 @@ where
             if !has_pending {
                 if let Some(stat_config) = g3_daemon::stat::config::get_global_stat_config() {
                     // sleep more time for flushing metrics
-                    tokio::time::sleep(stat_config.emit_duration * 2).await;
+                    tokio::time::sleep(stat_config.emit_interval * 2).await;
                 }
                 break;
             }
@@ -375,7 +371,7 @@ pub(crate) fn force_quit_offline_servers() {
     });
 }
 
-pub(crate) fn force_quit_offline_server(name: &MetricsName) {
+pub(crate) fn force_quit_offline_server(name: &NodeName) {
     registry::foreach_offline(|server| {
         if server.name() == name {
             server.quit_policy().set_force_quit();

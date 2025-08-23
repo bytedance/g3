@@ -1,27 +1,17 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::BTreeSet;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use bitflags::bitflags;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
+use g3_tls_ticket::TlsTicketConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{RustlsServerConfigBuilder, UdpListenConfig};
 use g3_yaml::YamlDocPosition;
 
@@ -40,26 +30,28 @@ bitflags! {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct PlainQuicPortConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) listen: UdpListenConfig,
     pub(crate) listen_in_worker: bool,
     pub(crate) tls_server: RustlsServerConfigBuilder,
+    pub(crate) tls_ticketer: Option<TlsTicketConfig>,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
-    pub(crate) server: MetricsName,
+    pub(crate) server: NodeName,
     pub(crate) offline_rebind_port: Option<u16>,
 }
 
 impl PlainQuicPortConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         PlainQuicPortConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             listen: UdpListenConfig::default(),
             listen_in_worker: false,
             tls_server: RustlsServerConfigBuilder::empty(),
+            tls_ticketer: None,
             ingress_net_filter: None,
-            server: MetricsName::default(),
+            server: NodeName::default(),
             offline_rebind_port: None,
         }
     }
@@ -80,7 +72,7 @@ impl PlainQuicPortConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "listen" => {
@@ -103,6 +95,13 @@ impl PlainQuicPortConfig {
                     g3_yaml::value::as_rustls_server_config_builder(v, Some(lookup_dir))?;
                 Ok(())
             }
+            "tls_ticketer" => {
+                let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
+                let ticketer = TlsTicketConfig::parse_yaml(v, Some(lookup_dir))
+                    .context(format!("invalid tls ticket config value for key {k}"))?;
+                self.tls_ticketer = Some(ticketer);
+                Ok(())
+            }
             "ingress_network_filter" | "ingress_net_filter" => {
                 let filter = g3_yaml::value::acl::as_ingress_network_rule_builder(v).context(
                     format!("invalid ingress network acl rule value for key {k}"),
@@ -111,7 +110,7 @@ impl PlainQuicPortConfig {
                 Ok(())
             }
             "server" => {
-                self.server = g3_yaml::value::as_metrics_name(v)?;
+                self.server = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
@@ -134,7 +133,7 @@ impl PlainQuicPortConfig {
 }
 
 impl ServerConfig for PlainQuicPortConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -142,19 +141,19 @@ impl ServerConfig for PlainQuicPortConfig {
         self.position.clone()
     }
 
-    fn server_type(&self) -> &'static str {
+    fn r#type(&self) -> &'static str {
         SERVER_CONFIG_TYPE
     }
 
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         Default::default()
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         Default::default()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         Default::default()
     }
 
@@ -185,7 +184,7 @@ impl ServerConfig for PlainQuicPortConfig {
         ServerConfigDiffAction::UpdateInPlace(flags.bits())
     }
 
-    fn dependent_server(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_server(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         set.insert(self.server.clone());
         Some(set)

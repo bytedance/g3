@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
@@ -23,51 +12,100 @@ use tokio::net::TcpStream;
 use tokio::runtime::Handle;
 use tokio::sync::broadcast;
 
+use g3_compat::CpuAffinity;
 use g3_io_ext::LimitedTcpListener;
-use g3_socket::util::native_socket_addr;
 use g3_socket::RawSocket;
+use g3_std_ext::net::SocketAddrExt;
 use g3_types::net::TcpListenConfig;
 
-use crate::listen::ListenStats;
-use crate::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
+use crate::listen::{ListenAliveGuard, ListenStats};
+use crate::server::{BaseServer, ClientConnectionInfo, ReloadServer, ServerReloadCommand};
 
 #[async_trait]
 pub trait AcceptTcpServer: BaseServer {
     async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo);
 }
 
-pub trait ReloadTcpServer: AcceptTcpServer {
-    fn get_reloaded(&self) -> Self;
-}
-
 #[derive(Clone)]
 pub struct ListenTcpRuntime<S> {
     server: S,
-    server_type: &'static str,
-    server_version: usize,
-    worker_id: Option<usize>,
     listen_stats: Arc<ListenStats>,
-    instance_id: usize,
 }
 
 impl<S> ListenTcpRuntime<S>
 where
-    S: ReloadTcpServer + Clone + Send + Sync + 'static,
+    S: AcceptTcpServer + ReloadServer + Clone + Send + Sync + 'static,
 {
     pub fn new(server: S, listen_stats: Arc<ListenStats>) -> Self {
-        let server_type = server.server_type();
-        let server_version = server.version();
         ListenTcpRuntime {
             server,
-            server_type,
-            server_version,
-            worker_id: None,
             listen_stats,
-            instance_id: 0,
         }
     }
 
-    fn pre_start(&self) {
+    fn create_instance(&self) -> ListenTcpRuntimeInstance<S> {
+        let server_type = self.server.r#type();
+        let server_version = self.server.version();
+        ListenTcpRuntimeInstance {
+            server: self.server.clone(),
+            server_type,
+            server_version,
+            worker_id: None,
+            #[cfg(target_os = "linux")]
+            follow_incoming_cpu: false,
+            listen_stats: self.listen_stats.clone(),
+            instance_id: 0,
+            _alive_guard: None,
+        }
+    }
+
+    pub fn run_all_instances(
+        &self,
+        listen_config: &TcpListenConfig,
+        listen_in_worker: bool,
+        server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
+    ) -> anyhow::Result<()> {
+        let mut instance_count = listen_config.instance();
+        if listen_in_worker {
+            let worker_count = crate::runtime::worker::worker_count();
+            if worker_count > 0 {
+                instance_count = worker_count;
+            }
+        }
+
+        for i in 0..instance_count {
+            let mut runtime = self.create_instance();
+            runtime.instance_id = i;
+
+            let listener = g3_socket::tcp::new_std_listener(listen_config)?;
+            runtime.into_running(
+                listener,
+                listen_in_worker,
+                listen_config.follow_cpu_affinity(),
+                server_reload_sender.subscribe(),
+            );
+        }
+        Ok(())
+    }
+}
+
+pub struct ListenTcpRuntimeInstance<S> {
+    server: S,
+    server_type: &'static str,
+    server_version: usize,
+    worker_id: Option<usize>,
+    #[cfg(target_os = "linux")]
+    follow_incoming_cpu: bool,
+    listen_stats: Arc<ListenStats>,
+    instance_id: usize,
+    _alive_guard: Option<ListenAliveGuard>,
+}
+
+impl<S> ListenTcpRuntimeInstance<S>
+where
+    S: AcceptTcpServer + ReloadServer + Clone + Send + Sync + 'static,
+{
+    fn pre_start(&mut self) {
         info!(
             "started {} SRT[{}_v{}#{}]",
             self.server_type,
@@ -75,7 +113,7 @@ where
             self.server_version,
             self.instance_id,
         );
-        self.listen_stats.add_running_runtime();
+        self._alive_guard = Some(self.listen_stats.add_running_runtime());
     }
 
     fn pre_stop(&self) {
@@ -96,7 +134,6 @@ where
             self.server_version,
             self.instance_id,
         );
-        self.listen_stats.del_running_runtime();
     }
 
     async fn run(
@@ -115,7 +152,7 @@ where
                         Ok(ServerReloadCommand::ReloadVersion(version)) => {
                             info!("SRT[{}_v{}#{}] received reload request from v{version}",
                                 self.server.name(), self.server_version, self.instance_id);
-                            let new_server = self.server.get_reloaded();
+                            let new_server = self.server.reload();
                             self.server_version = new_server.version();
                             self.server = new_server;
                             continue;
@@ -148,8 +185,8 @@ where
                                 self.listen_stats.add_accepted();
                                 self.run_task(
                                     stream,
-                                    native_socket_addr(peer_addr),
-                                    native_socket_addr(local_addr),
+                                    peer_addr.to_canonical(),
+                                    local_addr.to_canonical(),
                                 );
                                 Ok(())
                             }
@@ -184,7 +221,20 @@ where
             tokio::spawn(async move {
                 server.run_tcp_task(stream, cc_info).await;
             });
-        } else if let Some(rt) = crate::runtime::worker::select_handle() {
+            return;
+        }
+        #[cfg(target_os = "linux")]
+        if self.follow_incoming_cpu
+            && let Some(cpu_id) = cc_info.tcp_sock_incoming_cpu()
+            && let Some(rt) = crate::runtime::worker::select_handle_by_cpu_id(cpu_id)
+        {
+            cc_info.set_worker_id(Some(rt.id));
+            rt.handle.spawn(async move {
+                server.run_tcp_task(stream, cc_info).await;
+            });
+            return;
+        }
+        if let Some(rt) = crate::runtime::worker::select_handle() {
             cc_info.set_worker_id(Some(rt.id));
             rt.handle.spawn(async move {
                 server.run_tcp_task(stream, cc_info).await;
@@ -196,24 +246,42 @@ where
         }
     }
 
-    fn get_rt_handle(&mut self, listen_in_worker: bool) -> Handle {
-        if listen_in_worker {
-            if let Some(rt) = crate::runtime::worker::select_listen_handle() {
-                self.worker_id = Some(rt.id);
-                return rt.handle;
-            }
+    fn get_rt_handle(&mut self, listen_in_worker: bool) -> (Handle, Option<CpuAffinity>) {
+        if listen_in_worker && let Some(rt) = crate::runtime::worker::select_listen_handle() {
+            self.worker_id = Some(rt.id);
+            return (rt.handle, rt.cpu_affinity);
         }
-        Handle::current()
+        (Handle::current(), None)
     }
 
     fn into_running(
         mut self,
         listener: std::net::TcpListener,
         listen_in_worker: bool,
+        follow_cpu_affinity: bool,
         server_reload_channel: broadcast::Receiver<ServerReloadCommand>,
     ) {
-        let handle = self.get_rt_handle(listen_in_worker);
+        let (handle, cpu_affinity) = self.get_rt_handle(listen_in_worker);
         handle.spawn(async move {
+            #[allow(clippy::collapsible_if)]
+            if follow_cpu_affinity {
+                #[cfg(target_os = "linux")]
+                {
+                    self.follow_incoming_cpu = true;
+                }
+
+                if let Some(cpu_affinity) = cpu_affinity
+                    && let Err(e) =
+                        g3_socket::tcp::try_listen_on_local_cpu(&listener, &cpu_affinity)
+                {
+                    warn!(
+                        "SRT[{}_v{}#{}] failed to set cpu affinity for listen socket: {e}",
+                        self.server.name(),
+                        self.server_version,
+                        self.instance_id
+                    );
+                }
+            }
             // make sure the listen socket associated with the correct reactor
             match tokio::net::TcpListener::from_std(listener) {
                 Ok(listener) => {
@@ -231,29 +299,5 @@ where
                 }
             }
         });
-    }
-
-    pub fn run_all_instances(
-        &self,
-        listen_config: &TcpListenConfig,
-        listen_in_worker: bool,
-        server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
-    ) -> anyhow::Result<()> {
-        let mut instance_count = listen_config.instance();
-        if listen_in_worker {
-            let worker_count = crate::runtime::worker::worker_count();
-            if worker_count > 0 {
-                instance_count = worker_count;
-            }
-        }
-
-        for i in 0..instance_count {
-            let mut runtime = self.clone();
-            runtime.instance_id = i;
-
-            let listener = g3_socket::tcp::new_std_listener(listen_config)?;
-            runtime.into_running(listener, listen_in_worker, server_reload_sender.subscribe());
-        }
-        Ok(())
     }
 }

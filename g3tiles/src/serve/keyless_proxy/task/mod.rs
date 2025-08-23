@@ -1,29 +1,18 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
 use std::time::Duration;
 
 use log::debug;
-use tokio::io::{AsyncRead, AsyncWrite, BufReader};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::sync::mpsc;
-use tokio::time::Instant;
 
 use g3_io_ext::LimitedBufReadExt;
 
+use super::KeylessProxyServerAliveTaskGuard;
 use crate::config::server::ServerConfig;
 use crate::log::task::keyless::TaskLogForKeyless;
 use crate::module::keyless::{KeylessRequest, KeylessResponse};
@@ -39,6 +28,7 @@ pub(super) struct KeylessForwardTask {
     ctx: CommonTaskContext,
     stats: Arc<KeylessTaskStats>,
     task_notes: ServerTaskNotes,
+    _alive_guard: Option<KeylessProxyServerAliveTaskGuard>,
 }
 
 impl KeylessForwardTask {
@@ -48,14 +38,19 @@ impl KeylessForwardTask {
             ctx,
             stats: Arc::new(KeylessTaskStats::default()),
             task_notes,
+            _alive_guard: None,
         }
     }
 
-    fn get_log_context(&self) -> TaskLogForKeyless {
-        TaskLogForKeyless {
-            task_notes: &self.task_notes,
-            task_stats: self.stats.relay.snapshot(),
-        }
+    fn get_log_context(&self) -> Option<TaskLogForKeyless<'_>> {
+        self.ctx
+            .task_logger
+            .as_ref()
+            .map(|logger| TaskLogForKeyless {
+                logger,
+                task_notes: &self.task_notes,
+                task_stats: self.stats.relay.snapshot(),
+            })
     }
 
     pub(super) async fn into_running<R, W>(mut self, clt_r: R, clt_w: W)
@@ -65,26 +60,21 @@ impl KeylessForwardTask {
     {
         self.pre_start();
 
-        if let Err(e) = self.run(clt_r, clt_w).await {
-            self.get_log_context().log(&self.ctx.task_logger, &e);
+        if let Err(e) = self.run(clt_r, clt_w).await
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log(e);
         }
-
-        self.pre_stop();
     }
 
-    fn pre_start(&self) {
+    fn pre_start(&mut self) {
         debug!(
             "KeylessProxy: new client from {} to {} server {}",
             self.ctx.client_addr(),
-            self.ctx.server_config.server_type(),
+            self.ctx.server_config.r#type(),
             self.ctx.server_config.name(),
         );
-        self.ctx.server_stats.add_task();
-        self.ctx.server_stats.inc_alive_task();
-    }
-
-    fn pre_stop(&self) {
-        self.ctx.server_stats.dec_alive_task();
+        self._alive_guard = Some(self.ctx.server_stats.add_task());
     }
 
     pub(super) async fn run<R, W>(&mut self, clt_r: R, mut clt_w: W) -> ServerTaskResult<()>
@@ -97,24 +87,32 @@ impl KeylessForwardTask {
         let task_stats = self.stats.clone();
         let send_task = tokio::spawn(async move {
             // TODO use batch recv
-            while let Some(rsp) = rsp_receiver.recv().await {
-                match rsp.send(&mut clt_w).await {
-                    Ok(_) => {
-                        server_stats.relay.add_rsp_pass();
-                        task_stats.relay.add_rsp_pass();
-                        task_stats.mark_active();
+            loop {
+                match rsp_receiver.recv().await {
+                    Some(rsp) => {
+                        match rsp.send(&mut clt_w).await {
+                            Ok(_) => {
+                                server_stats.relay.add_rsp_pass();
+                                task_stats.relay.add_rsp_pass();
+                                task_stats.mark_active();
+                            }
+                            Err(_e) => {
+                                // TODO log error ?
+                                server_stats.relay.add_rsp_fail();
+                                task_stats.relay.add_rsp_fail();
+                                while let Some(_rsp) = rsp_receiver.recv().await {
+                                    server_stats.relay.add_rsp_drop();
+                                    task_stats.relay.add_rsp_drop();
+                                }
+                                break;
+                            }
+                        }
                     }
-                    Err(_e) => {
-                        // TODO log error ?
-                        server_stats.relay.add_rsp_fail();
-                        task_stats.relay.add_rsp_fail();
+                    None => {
+                        let _ = clt_w.shutdown().await;
                         break;
                     }
                 }
-            }
-            while let Some(_rsp) = rsp_receiver.recv().await {
-                server_stats.relay.add_rsp_drop();
-                task_stats.relay.add_rsp_drop();
             }
         });
 
@@ -132,9 +130,7 @@ impl KeylessForwardTask {
     where
         R: AsyncRead + Unpin,
     {
-        let idle_duration = self.ctx.server_config.task_idle_check_duration;
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.register();
         let mut idle_count = 0;
 
         let mut buf_reader = BufReader::new(clt_r);
@@ -151,12 +147,12 @@ impl KeylessForwardTask {
                         Err(e) => return Err(ServerTaskError::ClientTcpReadFailed(e)),
                     }
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if self.stats.check_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
                         if idle_count >= self.ctx.server_config.task_idle_max_count {
-                            return Err(ServerTaskError::Idle(idle_duration, idle_count));
+                            return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
                         idle_count = 0;

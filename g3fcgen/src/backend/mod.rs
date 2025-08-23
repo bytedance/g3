@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::str::FromStr;
@@ -19,7 +8,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use flume::{Receiver, Sender};
 use log::{debug, error, warn};
 use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
@@ -142,8 +130,8 @@ impl OpensslBackend {
         mut self,
         handle: &Handle,
         id: usize,
-        req_receiver: Receiver<BackendRequest>,
-        rsp_sender: Sender<BackendResponse>,
+        req_receiver: kanal::AsyncReceiver<BackendRequest>,
+        rsp_sender: kanal::AsyncSender<BackendResponse>,
     ) {
         handle.spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(300));
@@ -155,7 +143,7 @@ impl OpensslBackend {
                             warn!("failed to refresh backend: {e:?}");
                         }
                     }
-                    r = req_receiver.recv_async() => {
+                    r = req_receiver.recv() => {
                         let Ok(req) = r else {
                             break
                         };
@@ -165,7 +153,7 @@ impl OpensslBackend {
                         match self.generate(&req.user_req) {
                             Ok(data) => {
                                 debug!("{host} - [#{id}] cert generated");
-                                if let Err(e) = rsp_sender.send_async(req.into_response(data)).await {
+                                if let Err(e) = rsp_sender.send(req.into_response(data)).await {
                                     error!("{host} - [#{id}] failed to send cert to frontend: {e}");
                                     break;
                                 }

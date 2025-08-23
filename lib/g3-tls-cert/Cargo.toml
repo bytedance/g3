@@ -1,8 +1,9 @@
 [package]
 name = "g3-tls-cert"
-version = "0.5.0"
+version = "0.7.0"
 license.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -17,6 +18,3 @@ g3-datetime.workspace = true
 
 [features]
 default = []
-no-sm2 = []
-aws-lc = ["no-sm2", "openssl/aws-lc"]
-boringssl = ["no-sm2", "openssl/boringssl", "g3-types/boringssl"]

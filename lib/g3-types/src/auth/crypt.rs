@@ -1,25 +1,15 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::cell::RefCell;
 
 use anyhow::anyhow;
-use digest::Digest;
-use md5::Md5;
-use sha1::Sha1;
+use constant_time_eq::{constant_time_eq_16, constant_time_eq_n};
+use openssl::error::ErrorStack;
+use openssl::md::Md;
+use openssl::md_ctx::MdCtx;
 
 const SALT_LENGTH: usize = 8;
 const MD5_LENGTH: usize = 16;
@@ -37,25 +27,34 @@ enum HashValue {
 }
 
 impl HashValue {
-    fn hash_match(&self, buf: &[u8]) -> bool {
+    fn hash_match(&self, buf: &[u8]) -> Result<bool, ErrorStack> {
         match self {
             HashValue::Md5(v) => {
-                let md5 = Md5::digest(buf);
-                v.eq(md5.as_slice())
+                let mut md = MdCtx::new()?;
+                md.digest_init(Md::md5())?;
+                md.digest_update(buf)?;
+                let mut hash = [0u8; MD5_LENGTH];
+                md.digest_final(&mut hash)?;
+                Ok(constant_time_eq_16(v, &hash))
             }
             HashValue::Sha1(v) => {
-                let sha1 = Sha1::digest(buf);
-                v.eq(sha1.as_slice())
+                let mut md = MdCtx::new()?;
+                md.digest_init(Md::sha1())?;
+                md.digest_update(buf)?;
+                let mut hash = [0u8; SHA1_LENGTH];
+                md.digest_final(&mut hash)?;
+                Ok(constant_time_eq_n(v, &hash))
             }
             HashValue::Blake3(v) => {
                 let b3 = blake3::hash(buf);
-                v.eq(&b3)
+                Ok(v.eq(&b3))
             }
         }
     }
 }
 
 /// A fast hashed passphrase type which is weak for brute forces but fast to verify
+///
 /// we use dual hash here to reduce the chance of password collision.
 /// Note that the weakness is the same as md5 if the attackers try to brute force it.
 #[derive(Clone)]
@@ -114,20 +113,20 @@ impl FastHashedPassPhrase {
         Ok(())
     }
 
-    pub fn verify(&self, pass: &str) -> bool {
+    pub fn verify(&self, pass: &str) -> Result<bool, ErrorStack> {
         HASH_TL_BUF.with_borrow_mut(|buf| {
             buf.extend_from_slice(pass.as_bytes());
             buf.extend_from_slice(&self.salt);
 
             let mut all_verified = true;
             for hv in self.values.iter() {
-                if !hv.hash_match(buf.as_slice()) {
+                if !hv.hash_match(buf.as_slice())? {
                     all_verified = false;
                     break;
                 }
             }
             buf.clear();
-            all_verified
+            Ok(all_verified)
         })
     }
 
@@ -151,6 +150,104 @@ mod tests {
         p.push_sha1("0b39e984b59251425245e81241aebf7dbe197cc3")
             .unwrap();
 
-        assert!(p.verify("IQ5ZhanWaop2cw"));
+        assert!(p.verify("IQ5ZhanWaop2cw").unwrap());
+    }
+
+    #[test]
+    fn new_invalid_salt_length() {
+        assert!(FastHashedPassPhrase::new("aabbcc").is_err());
+        assert!(FastHashedPassPhrase::new("aabbccddeeff").is_err());
+    }
+
+    #[test]
+    fn new_invalid_hex() {
+        assert!(FastHashedPassPhrase::new("invalid_hex").is_err());
+    }
+
+    #[test]
+    fn push_md5_invalid() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        assert!(p.push_md5("invalid_hex").is_err());
+        assert!(p.push_md5("aabbcc").is_err());
+    }
+
+    #[test]
+    fn push_sha1_invalid() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        assert!(p.push_sha1("invalid_hex").is_err());
+        assert!(p.push_sha1("aabbcc").is_err());
+    }
+
+    #[test]
+    fn push_blake3_invalid() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        assert!(p.push_blake3("invalid_hex").is_err());
+    }
+
+    #[test]
+    fn verify_wrong_password() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        p.push_md5("28cb2d22a1148a2c4c43d2c8eab0a202").unwrap();
+        p.push_sha1("0b39e984b59251425245e81241aebf7dbe197cc3")
+            .unwrap();
+
+        assert!(!p.verify("wrong_password").unwrap());
+    }
+
+    #[test]
+    fn verify_empty_password() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        p.push_md5("28cb2d22a1148a2c4c43d2c8eab0a202").unwrap();
+        p.push_sha1("0b39e984b59251425245e81241aebf7dbe197cc3")
+            .unwrap();
+
+        assert!(!p.verify("").unwrap());
+    }
+
+    #[test]
+    fn verify_partial_failure() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        p.push_md5("28cb2d22a1148a2c4c43d2c8eab0a202").unwrap();
+        p.push_sha1("0000000000000000000000000000000000000000")
+            .unwrap();
+
+        assert!(!p.verify("IQ5ZhanWaop2cw").unwrap());
+    }
+
+    #[test]
+    fn check_config_empty() {
+        let p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        assert!(p.check_config().is_err());
+    }
+
+    #[test]
+    fn single_md5() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        p.push_md5("28cb2d22a1148a2c4c43d2c8eab0a202").unwrap();
+        assert!(p.verify("IQ5ZhanWaop2cw").unwrap());
+    }
+
+    #[test]
+    fn single_sha1() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        p.push_sha1("0b39e984b59251425245e81241aebf7dbe197cc3")
+            .unwrap();
+        assert!(p.verify("IQ5ZhanWaop2cw").unwrap());
+    }
+
+    #[test]
+    fn single_blake3() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        p.push_blake3("2a59640338dbfcdea9d600257ad61efae47a7b93d4815ddef128a6e6f2687d2c")
+            .unwrap();
+        assert!(p.verify("IQ5ZhanWaop2cw").unwrap());
+    }
+
+    #[test]
+    fn multiple_verify_calls() {
+        let mut p = FastHashedPassPhrase::new("d950eeffd53f7189").unwrap();
+        p.push_md5("28cb2d22a1148a2c4c43d2c8eab0a202").unwrap();
+        assert!(p.verify("IQ5ZhanWaop2cw").unwrap());
+        assert!(p.verify("IQ5ZhanWaop2cw").unwrap());
     }
 }

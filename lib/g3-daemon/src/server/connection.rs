@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
@@ -19,6 +8,7 @@ use std::net::{IpAddr, SocketAddr};
 
 use g3_io_ext::haproxy::ProxyAddr;
 use g3_socket::RawSocket;
+use g3_socket::util::AddressFamily;
 use g3_types::net::TcpMiscSockOpts;
 
 #[derive(Clone, Debug)]
@@ -106,19 +96,38 @@ impl ClientConnectionInfo {
         default_set_nodelay: bool,
     ) -> io::Result<()> {
         if let Some(raw_socket) = &self.tcp_raw_socket {
-            raw_socket.set_tcp_misc_opts(opts, default_set_nodelay)
+            raw_socket.set_tcp_misc_opts(
+                AddressFamily::from(&self.client_addr),
+                opts,
+                default_set_nodelay,
+            )
         } else {
             Ok(())
         }
     }
 
-    #[cfg(any(target_os = "linux", target_os = "android"))]
+    #[cfg(any(target_os = "linux", target_os = "android", target_os = "illumos"))]
     pub fn tcp_sock_try_quick_ack(&self) {
         if let Some(raw_socket) = &self.tcp_raw_socket {
             let _ = raw_socket.trigger_tcp_quick_ack();
         }
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "android")))]
+    #[cfg(not(any(target_os = "linux", target_os = "android", target_os = "illumos")))]
     pub fn tcp_sock_try_quick_ack(&self) {}
+
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    pub fn tcp_sock_incoming_cpu(&self) -> Option<usize> {
+        if let Some(raw_socket) = &self.tcp_raw_socket {
+            match raw_socket.tcp_incoming_cpu() {
+                Ok(v) => Some(v),
+                Err(e) => {
+                    log::debug!("failed to get incoming cpu of socket: {e}");
+                    None
+                }
+            }
+        } else {
+            None
+        }
+    }
 }

@@ -1,27 +1,19 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::{IpAddr, Ipv4Addr};
+use std::num::NonZeroUsize;
 use std::str::FromStr;
+use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
 use g3_types::net::{
-    ConnectionPoolConfig, RustlsClientConfigBuilder, SocketBufferConfig, UpstreamAddr,
+    ConnectionPoolConfig, QuinnTransportConfigBuilder, RustlsClientConfigBuilder,
+    SocketBufferConfig, UpstreamAddr,
 };
 use g3_yaml::YamlDocPosition;
 
@@ -32,7 +24,10 @@ pub(crate) struct AuditStreamDetourConfig {
     pub(crate) tls_client: RustlsClientConfigBuilder,
     pub(crate) tls_name: Option<String>,
     pub(crate) connection_pool: ConnectionPoolConfig,
-    pub(crate) connection_reuse_limit: usize,
+    pub(crate) connection_reuse_limit: NonZeroUsize,
+    pub(crate) quic_transport: QuinnTransportConfigBuilder,
+    pub(crate) stream_open_timeout: Duration,
+    pub(crate) request_timeout: Duration,
     pub(crate) socket_buffer: SocketBufferConfig,
 }
 
@@ -46,7 +41,10 @@ impl Default for AuditStreamDetourConfig {
             tls_client: RustlsClientConfigBuilder::default(),
             tls_name: None,
             connection_pool: ConnectionPoolConfig::default(),
-            connection_reuse_limit: 16,
+            connection_reuse_limit: NonZeroUsize::new(16).unwrap(),
+            quic_transport: QuinnTransportConfigBuilder::default(),
+            stream_open_timeout: Duration::from_secs(30),
+            request_timeout: Duration::from_secs(60),
             socket_buffer: SocketBufferConfig::default(),
         }
     }
@@ -84,7 +82,22 @@ impl AuditStreamDetourConfig {
                         Ok(())
                     }
                     "connection_reuse_limit" => {
-                        config.connection_reuse_limit = g3_yaml::value::as_usize(v)?;
+                        config.connection_reuse_limit = g3_yaml::value::as_nonzero_usize(v)?;
+                        Ok(())
+                    }
+                    "quic_transport" => {
+                        config.quic_transport = g3_yaml::value::as_quinn_transport_config(v)
+                            .context(format!("invalid quinn transport config value for key {k}"))?;
+                        Ok(())
+                    }
+                    "stream_open_timeout" => {
+                        config.stream_open_timeout = g3_yaml::humanize::as_duration(v)
+                            .context(format!("invalid humanize duration value for key {k}"))?;
+                        Ok(())
+                    }
+                    "request_timeout" => {
+                        config.request_timeout = g3_yaml::humanize::as_duration(v)
+                            .context(format!("invalid humanize duration value for key {k}"))?;
                         Ok(())
                     }
                     "socket_buffer" => {

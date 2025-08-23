@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
@@ -19,9 +8,9 @@ use std::io;
 use thiserror::Error;
 
 use g3_http::client::HttpResponseParseError;
-use g3_http::PreviewError;
 use g3_io_ext::IdleForceQuitReason;
 
+use crate::reason::IcapErrorReason;
 use crate::respmod::IcapRespmodParseError;
 
 #[derive(Debug, Error)]
@@ -36,8 +25,10 @@ pub enum H1RespmodAdaptationError {
     InvalidIcapServerResponse(#[from] IcapRespmodParseError),
     #[error("invalid http error response from icap server: {0}")]
     InvalidIcapServerHttpResponse(#[from] HttpResponseParseError),
-    #[error("error response from icap server: {0} {1}")]
-    IcapServerErrorResponse(u16, String),
+    #[error("invalid http body from icap server: {0:?}")]
+    InvalidHttpBodyFromIcapServer(anyhow::Error),
+    #[error("error response from icap server: {0} ({1} {2})")]
+    IcapServerErrorResponse(IcapErrorReason, u16, String),
     #[error("read from http upstream failed: {0:?}")]
     HttpUpstreamReadFailed(io::Error),
     #[error("invalid body in http upstream response")]
@@ -58,24 +49,4 @@ pub enum H1RespmodAdaptationError {
     IcapServerWriteIdle,
     #[error("not implemented feature: {0}")]
     NotImplemented(&'static str),
-}
-
-impl From<PreviewError> for H1RespmodAdaptationError {
-    fn from(e: PreviewError) -> Self {
-        match e {
-            PreviewError::ReadError(e) => H1RespmodAdaptationError::HttpUpstreamReadFailed(e),
-            PreviewError::ReaderClosed => {
-                H1RespmodAdaptationError::HttpUpstreamReadFailed(io::Error::new(
-                    io::ErrorKind::UnexpectedEof,
-                    "connection closed while reading preview data",
-                ))
-            }
-            PreviewError::AlreadyPolled => {
-                H1RespmodAdaptationError::InternalServerError("preview data already polled")
-            }
-            PreviewError::InvalidChunkedBody => {
-                H1RespmodAdaptationError::InvalidHttpUpstreamResponseBody
-            }
-        }
-    }
 }

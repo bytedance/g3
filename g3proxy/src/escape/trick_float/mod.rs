@@ -1,47 +1,40 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::collections::BTreeSet;
 use std::sync::Arc;
 
 use anyhow::anyhow;
 use async_trait::async_trait;
-use rand::seq::SliceRandom;
+use rand::seq::IndexedRandom;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::metrics::MetricsName;
-use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
+use g3_types::metrics::NodeName;
+use g3_types::net::UpstreamAddr;
 
-use super::{ArcEscaper, Escaper, EscaperInternal, RouteEscaperStats};
+use super::{ArcEscaper, Escaper, EscaperInternal, EscaperRegistry, RouteEscaperStats};
+use crate::audit::AuditContext;
 use crate::config::escaper::trick_float::TrickFloatEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
 use crate::module::ftp_over_http::{
-    AnyFtpConnectContextParam, ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats,
-    BoxFtpConnectContext, BoxFtpRemoteConnection, DenyFtpConnectContext,
+    ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpConnectContext,
+    BoxFtpRemoteConnection, DenyFtpConnectContext,
 };
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, BoxHttpForwardContext,
     RouteHttpForwardContext,
 };
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
+    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskConf,
+    UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskConf,
+    UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -52,10 +45,17 @@ pub(super) struct TrickFloatEscaper {
 }
 
 impl TrickFloatEscaper {
-    fn new_obj(config: TrickFloatEscaperConfig, stats: Arc<RouteEscaperStats>) -> ArcEscaper {
+    fn new_obj<F>(
+        config: TrickFloatEscaperConfig,
+        stats: Arc<RouteEscaperStats>,
+        mut fetch_escaper: F,
+    ) -> ArcEscaper
+    where
+        F: FnMut(&NodeName) -> ArcEscaper,
+    {
         let mut next_nodes = Vec::with_capacity(config.next_nodes.len());
         for name in &config.next_nodes {
-            let escaper = super::registry::get_or_insert_default(name);
+            let escaper = fetch_escaper(name);
             next_nodes.push(escaper);
         }
 
@@ -70,22 +70,29 @@ impl TrickFloatEscaper {
 
     pub(super) fn prepare_initial(config: TrickFloatEscaperConfig) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::new(RouteEscaperStats::new(config.name()));
-        Ok(TrickFloatEscaper::new_obj(config, stats))
+        Ok(TrickFloatEscaper::new_obj(
+            config,
+            stats,
+            super::registry::get_or_insert_default,
+        ))
     }
 
     fn prepare_reload(
         config: AnyEscaperConfig,
         stats: Arc<RouteEscaperStats>,
+        registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::TrickFloat(config) = config {
-            Ok(TrickFloatEscaper::new_obj(config, stats))
+            Ok(TrickFloatEscaper::new_obj(config, stats, |name| {
+                registry.get_or_insert_default(name)
+            }))
         } else {
             Err(anyhow!("invalid escaper config type"))
         }
     }
 
     fn random_next(&self) -> anyhow::Result<ArcEscaper> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let escaper = self
             .next_nodes
             .choose_weighted(&mut rng, |escaper| escaper._trick_float_weight())
@@ -96,12 +103,8 @@ impl TrickFloatEscaper {
 
 #[async_trait]
 impl Escaper for TrickFloatEscaper {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
-    }
-
-    fn escaper_type(&self) -> &str {
-        self.config.escaper_type()
     }
 
     fn ref_route_stats(&self) -> Option<&Arc<RouteEscaperStats>> {
@@ -112,18 +115,20 @@ impl Escaper for TrickFloatEscaper {
         Err(anyhow!("not implemented"))
     }
 
-    async fn tcp_setup_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn tcp_setup_connection(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
+        audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
         match self.random_next() {
             Ok(escaper) => {
                 self.stats.add_request_passed();
                 escaper
-                    .tcp_setup_connection(tcp_notes, task_notes, task_stats)
+                    .tcp_setup_connection(task_conf, tcp_notes, task_notes, task_stats, audit_ctx)
                     .await
             }
             Err(e) => {
@@ -133,20 +138,20 @@ impl Escaper for TrickFloatEscaper {
         }
     }
 
-    async fn tls_setup_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn tls_setup_connection(
+        &self,
+        task_conf: &TlsConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
+        audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
         match self.random_next() {
             Ok(escaper) => {
                 self.stats.add_request_passed();
                 escaper
-                    .tls_setup_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
+                    .tls_setup_connection(task_conf, tcp_notes, task_notes, task_stats, audit_ctx)
                     .await
             }
             Err(e) => {
@@ -156,10 +161,11 @@ impl Escaper for TrickFloatEscaper {
         }
     }
 
-    async fn udp_setup_connection<'a>(
-        &'a self,
-        udp_notes: &'a mut UdpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn udp_setup_connection(
+        &self,
+        task_conf: &UdpConnectTaskConf<'_>,
+        udp_notes: &mut UdpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         udp_notes.escaper.clone_from(&self.config.name);
@@ -167,7 +173,7 @@ impl Escaper for TrickFloatEscaper {
             Ok(escaper) => {
                 self.stats.add_request_passed();
                 escaper
-                    .udp_setup_connection(udp_notes, task_notes, task_stats)
+                    .udp_setup_connection(task_conf, udp_notes, task_notes, task_stats)
                     .await
             }
             Err(e) => {
@@ -177,10 +183,11 @@ impl Escaper for TrickFloatEscaper {
         }
     }
 
-    async fn udp_setup_relay<'a>(
-        &'a self,
-        udp_notes: &'a mut UdpRelayTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn udp_setup_relay(
+        &self,
+        task_conf: &UdpRelayTaskConf<'_>,
+        udp_notes: &mut UdpRelayTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         udp_notes.escaper.clone_from(&self.config.name);
@@ -188,7 +195,7 @@ impl Escaper for TrickFloatEscaper {
             Ok(escaper) => {
                 self.stats.add_request_passed();
                 escaper
-                    .udp_setup_relay(udp_notes, task_notes, task_stats)
+                    .udp_setup_relay(task_conf, udp_notes, task_notes, task_stats)
                     .await
             }
             Err(e) => {
@@ -203,17 +210,17 @@ impl Escaper for TrickFloatEscaper {
         Box::new(ctx)
     }
 
-    async fn new_ftp_connect_context<'a>(
-        &'a self,
+    async fn new_ftp_connect_context(
+        &self,
         _escaper: ArcEscaper,
-        task_notes: &'a ServerTaskNotes,
-        upstream: &'a UpstreamAddr,
+        task_conf: &TcpConnectTaskConf<'_>,
+        task_notes: &ServerTaskNotes,
     ) -> BoxFtpConnectContext {
         match self.random_next() {
             Ok(escaper) => {
                 self.stats.add_request_passed();
                 escaper
-                    .new_ftp_connect_context(Arc::clone(&escaper), task_notes, upstream)
+                    .new_ftp_connect_context(Arc::clone(&escaper), task_conf, task_notes)
                     .await
             }
             Err(e) => {
@@ -229,29 +236,25 @@ impl Escaper for TrickFloatEscaper {
 
 #[async_trait]
 impl EscaperInternal for TrickFloatEscaper {
-    fn _resolver(&self) -> &MetricsName {
+    fn _resolver(&self) -> &NodeName {
         Default::default()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
-        self.config.dependent_escaper()
+    fn _depend_on_escaper(&self, name: &NodeName) -> bool {
+        self.config.next_nodes.contains(name)
     }
 
     fn _clone_config(&self) -> AnyEscaperConfig {
         AnyEscaperConfig::TrickFloat(self.config.clone())
     }
 
-    fn _update_config_in_place(
+    fn _reload(
         &self,
-        _flags: u64,
-        _config: AnyEscaperConfig,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
+        config: AnyEscaperConfig,
+        registry: &mut EscaperRegistry,
+    ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
-        TrickFloatEscaper::prepare_reload(config, stats)
+        TrickFloatEscaper::prepare_reload(config, stats, registry)
     }
 
     async fn _check_out_next_escaper(
@@ -268,45 +271,47 @@ impl EscaperInternal for TrickFloatEscaper {
         }
     }
 
-    async fn _new_http_forward_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+    async fn _new_http_forward_connection(
+        &self,
+        _task_conf: &TcpConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         tcp_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
 
-    async fn _new_https_forward_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+    async fn _new_https_forward_connection(
+        &self,
+        _task_conf: &TlsConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
-        _tls_config: &'a OpensslClientConfig,
-        _tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         tcp_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
 
-    async fn _new_ftp_control_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+    async fn _new_ftp_control_connection(
+        &self,
+        _task_conf: &TcpConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         tcp_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
 
-    async fn _new_ftp_transfer_connection<'a>(
-        &'a self,
-        transfer_tcp_notes: &'a mut TcpConnectTaskNotes,
-        _control_tcp_notes: &'a TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+    async fn _new_ftp_transfer_connection(
+        &self,
+        _task_conf: &TcpConnectTaskConf<'_>,
+        transfer_tcp_notes: &mut TcpConnectTaskNotes,
+        _control_tcp_notes: &TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteTransferStats,
-        _context: AnyFtpConnectContextParam,
+        _ftp_server: &UpstreamAddr,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         transfer_tcp_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)

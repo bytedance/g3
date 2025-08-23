@@ -1,23 +1,11 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::future::Future;
 use std::io::IoSliceMut;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use thiserror::Error;
 
@@ -135,16 +123,17 @@ trait UdpCopyRecv {
 
 struct ClientRecv<'a, T: UdpCopyClientRecv + ?Sized>(&'a mut T);
 
-impl<'a, T: UdpCopyClientRecv + ?Sized> UdpCopyRecv for ClientRecv<'a, T> {
+impl<T: UdpCopyClientRecv + ?Sized> UdpCopyRecv for ClientRecv<'_, T> {
     fn poll_recv_packet(
         &mut self,
         cx: &mut Context<'_>,
         packet: &mut UdpCopyPacket,
     ) -> Poll<Result<usize, UdpCopyError>> {
-        let (off, nr) = ready!(self
-            .0
-            .poll_recv_packet(cx, &mut packet.buf)
-            .map_err(UdpCopyError::ClientError))?;
+        let (off, nr) = ready!(
+            self.0
+                .poll_recv_packet(cx, &mut packet.buf)
+                .map_err(UdpCopyError::ClientError)
+        )?;
         packet.buf_data_off = off;
         packet.buf_data_end = nr;
         Poll::Ready(Ok(nr))
@@ -156,6 +145,8 @@ impl<'a, T: UdpCopyClientRecv + ?Sized> UdpCopyRecv for ClientRecv<'a, T> {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_recv_packets(
         &mut self,
@@ -170,16 +161,17 @@ impl<'a, T: UdpCopyClientRecv + ?Sized> UdpCopyRecv for ClientRecv<'a, T> {
 
 struct RemoteRecv<'a, T: UdpCopyRemoteRecv + ?Sized>(&'a mut T);
 
-impl<'a, T: UdpCopyRemoteRecv + ?Sized> UdpCopyRecv for RemoteRecv<'a, T> {
+impl<T: UdpCopyRemoteRecv + ?Sized> UdpCopyRecv for RemoteRecv<'_, T> {
     fn poll_recv_packet(
         &mut self,
         cx: &mut Context<'_>,
         packet: &mut UdpCopyPacket,
     ) -> Poll<Result<usize, UdpCopyError>> {
-        let (off, nr) = ready!(self
-            .0
-            .poll_recv_packet(cx, &mut packet.buf)
-            .map_err(UdpCopyError::RemoteError))?;
+        let (off, nr) = ready!(
+            self.0
+                .poll_recv_packet(cx, &mut packet.buf)
+                .map_err(UdpCopyError::RemoteError)
+        )?;
         packet.buf_data_off = off;
         packet.buf_data_end = nr;
         Poll::Ready(Ok(nr))
@@ -191,6 +183,8 @@ impl<'a, T: UdpCopyRemoteRecv + ?Sized> UdpCopyRecv for RemoteRecv<'a, T> {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_recv_packets(
         &mut self,
@@ -235,7 +229,7 @@ trait UdpCopySend {
 
 struct ClientSend<'a, T: UdpCopyClientSend + ?Sized>(&'a mut T);
 
-impl<'a, T: UdpCopyClientSend + ?Sized> UdpCopySend for ClientSend<'a, T> {
+impl<T: UdpCopyClientSend + ?Sized> UdpCopySend for ClientSend<'_, T> {
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,
@@ -252,6 +246,8 @@ impl<'a, T: UdpCopyClientSend + ?Sized> UdpCopySend for ClientSend<'a, T> {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_send_packets(
         &mut self,
@@ -266,7 +262,7 @@ impl<'a, T: UdpCopyClientSend + ?Sized> UdpCopySend for ClientSend<'a, T> {
 
 struct RemoteSend<'a, T: UdpCopyRemoteSend + ?Sized>(&'a mut T);
 
-impl<'a, T: UdpCopyRemoteSend + ?Sized> UdpCopySend for RemoteSend<'a, T> {
+impl<T: UdpCopyRemoteSend + ?Sized> UdpCopySend for RemoteSend<'_, T> {
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,
@@ -283,6 +279,8 @@ impl<'a, T: UdpCopyRemoteSend + ?Sized> UdpCopySend for RemoteSend<'a, T> {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_send_packets(
         &mut self,
@@ -338,6 +336,7 @@ impl UdpCopyBuffer {
                             self.recv_done = true;
                         }
                         self.send_end += count;
+                        self.active = true;
                     }
                     Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
                     Poll::Pending => {
@@ -357,6 +356,7 @@ impl UdpCopyBuffer {
                     .map(|p| p.buf_data_end - p.buf_data_off)
                     .sum::<usize>();
                 self.send_start += count;
+                self.active = true;
             }
             self.send_start = 0;
             self.send_end = 0;
@@ -412,7 +412,7 @@ where
     }
 }
 
-impl<'a, C, R> Future for UdpCopyClientToRemote<'a, C, R>
+impl<C, R> Future for UdpCopyClientToRemote<'_, C, R>
 where
     C: UdpCopyClientRecv + Unpin + ?Sized,
     R: UdpCopyRemoteSend + Unpin + ?Sized,
@@ -457,7 +457,7 @@ where
     }
 }
 
-impl<'a, C, R> Future for UdpCopyRemoteToClient<'a, C, R>
+impl<C, R> Future for UdpCopyRemoteToClient<'_, C, R>
 where
     C: UdpCopyClientSend + Unpin + ?Sized,
     R: UdpCopyRemoteRecv + Unpin + ?Sized,

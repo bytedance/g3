@@ -1,26 +1,12 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
 
 use anyhow::anyhow;
-#[cfg(feature = "aws-lc")]
-use rustls::crypto::aws_lc_rs::sign::any_supported_type;
-#[cfg(not(feature = "aws-lc"))]
-use rustls::crypto::ring::sign::any_supported_type;
+use rustls::crypto::CryptoProvider;
 use rustls::server::{ClientHello, ResolvesServerCert};
 use rustls::sign::CertifiedKey;
 
@@ -39,9 +25,11 @@ impl MultipleCertResolver {
     }
 
     pub fn push_cert_pair(&mut self, pair: &RustlsCertificatePair) -> anyhow::Result<()> {
-        let signing_key = any_supported_type(pair.key_ref())
-            .map_err(|e| anyhow!("failed to add cert pair: {e}"))?;
-        let ck = CertifiedKey::new(pair.certs_owned(), signing_key);
+        let Some(provider) = CryptoProvider::get_default() else {
+            return Err(anyhow!("no rustls provider registered"));
+        };
+        let ck = CertifiedKey::from_der(pair.certs_owned(), pair.key_owned(), provider)
+            .map_err(|e| anyhow!("failed to load cert pair: {e}"))?;
         self.keys.push(Arc::new(ck));
         Ok(())
     }

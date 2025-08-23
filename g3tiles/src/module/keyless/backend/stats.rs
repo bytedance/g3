@@ -1,71 +1,65 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
 
 use arc_swap::ArcSwapOption;
 
 use g3_histogram::{HistogramMetricsConfig, HistogramRecorder, HistogramStats};
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::stats::StatId;
 
 pub(crate) struct KeylessBackendStats {
-    name: MetricsName,
+    name: NodeName,
     id: StatId,
-    extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
+    extra_metrics_tags: Arc<ArcSwapOption<MetricTagMap>>,
 
     conn_attempt: AtomicU64,
     conn_established: AtomicU64,
 
+    alive_channel: AtomicI32,
+
     request_recv: AtomicU64,
     request_send: AtomicU64,
     request_drop: AtomicU64,
+    request_timeout: AtomicU64,
     response_recv: AtomicU64,
     response_send: AtomicU64,
     response_drop: AtomicU64,
 }
 
 impl KeylessBackendStats {
-    pub(crate) fn new(name: &MetricsName) -> Self {
+    pub(crate) fn new(name: &NodeName) -> Self {
         KeylessBackendStats {
             name: name.clone(),
-            id: StatId::new(),
+            id: StatId::new_unique(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             conn_attempt: AtomicU64::new(0),
             conn_established: AtomicU64::new(0),
+            alive_channel: AtomicI32::new(0),
             request_recv: AtomicU64::new(0),
             request_send: AtomicU64::new(0),
             request_drop: AtomicU64::new(0),
+            request_timeout: AtomicU64::new(0),
             response_recv: AtomicU64::new(0),
             response_send: AtomicU64::new(0),
             response_drop: AtomicU64::new(0),
         }
     }
 
-    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<StaticMetricsTags>>) {
+    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<MetricTagMap>>) {
         self.extra_metrics_tags.store(tags);
     }
 
-    pub(crate) fn load_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
+    pub(crate) fn load_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
         self.extra_metrics_tags.load_full()
     }
 
     #[inline]
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -90,6 +84,15 @@ impl KeylessBackendStats {
         self.conn_established.load(Ordering::Relaxed)
     }
 
+    pub(crate) fn inc_alive_channel(self: &Arc<Self>) -> KeylessBackendAliveChannelGuard {
+        self.alive_channel.fetch_add(1, Ordering::Relaxed);
+        KeylessBackendAliveChannelGuard(self.clone())
+    }
+
+    pub(crate) fn alive_channel(&self) -> i32 {
+        self.alive_channel.load(Ordering::Relaxed)
+    }
+
     pub(crate) fn add_request_recv(&self) {
         self.request_recv.fetch_add(1, Ordering::Relaxed);
     }
@@ -112,6 +115,14 @@ impl KeylessBackendStats {
 
     pub(crate) fn request_drop(&self) -> u64 {
         self.request_drop.load(Ordering::Relaxed)
+    }
+
+    pub(crate) fn add_request_timeout(&self) {
+        self.request_timeout.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn request_timeout(&self) -> u64 {
+        self.request_timeout.load(Ordering::Relaxed)
     }
 
     pub(crate) fn add_response_recv(&self) {
@@ -139,10 +150,18 @@ impl KeylessBackendStats {
     }
 }
 
+pub(crate) struct KeylessBackendAliveChannelGuard(Arc<KeylessBackendStats>);
+
+impl Drop for KeylessBackendAliveChannelGuard {
+    fn drop(&mut self) {
+        self.0.alive_channel.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
 pub(crate) struct KeylessUpstreamDurationStats {
-    name: MetricsName,
+    name: NodeName,
     id: StatId,
-    extra_metrics_tags: Arc<ArcSwapOption<StaticMetricsTags>>,
+    extra_metrics_tags: Arc<ArcSwapOption<MetricTagMap>>,
 
     pub(crate) connect: Arc<HistogramStats>,
     pub(crate) wait: Arc<HistogramStats>,
@@ -150,16 +169,16 @@ pub(crate) struct KeylessUpstreamDurationStats {
 }
 
 impl KeylessUpstreamDurationStats {
-    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<StaticMetricsTags>>) {
+    pub(crate) fn set_extra_tags(&self, tags: Option<Arc<MetricTagMap>>) {
         self.extra_metrics_tags.store(tags);
     }
 
-    pub(crate) fn load_extra_tags(&self) -> Option<Arc<StaticMetricsTags>> {
+    pub(crate) fn load_extra_tags(&self) -> Option<Arc<MetricTagMap>> {
         self.extra_metrics_tags.load_full()
     }
 
     #[inline]
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -177,7 +196,7 @@ pub(crate) struct KeylessUpstreamDurationRecorder {
 
 impl KeylessUpstreamDurationRecorder {
     pub(crate) fn new(
-        name: &MetricsName,
+        name: &NodeName,
         config: &HistogramMetricsConfig,
     ) -> (
         KeylessUpstreamDurationRecorder,
@@ -194,7 +213,7 @@ impl KeylessUpstreamDurationRecorder {
         };
         let s = KeylessUpstreamDurationStats {
             name: name.clone(),
-            id: StatId::new(),
+            id: StatId::new_unique(),
             extra_metrics_tags: Arc::new(ArcSwapOption::new(None)),
             connect: connect_s,
             wait: wait_s,

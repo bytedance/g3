@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::str::FromStr;
@@ -30,5 +19,29 @@ pub fn as_proxy_request_type(v: &Yaml) -> anyhow::Result<ProxyRequestType> {
         Err(anyhow!(
             "yaml value type for 'ProxyRequestType' should be 'string'"
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn as_proxy_request_type_ok() {
+        // valid ProxyRequestType string
+        let v = yaml_str!("http_forward");
+        let t = as_proxy_request_type(&v).unwrap();
+        assert_eq!(t, ProxyRequestType::HttpForward);
+    }
+
+    #[test]
+    fn as_proxy_request_type_err() {
+        // invalid ProxyRequestType string
+        let v = yaml_str!("invalid_type");
+        assert!(as_proxy_request_type(&v).is_err());
+
+        // invalid yaml value type for 'ProxyRequestType' should be'string'
+        let v = Yaml::Integer(123);
+        assert!(as_proxy_request_type(&v).is_err());
     }
 }

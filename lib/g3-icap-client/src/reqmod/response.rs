@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::BTreeSet;
@@ -32,7 +21,6 @@ pub(crate) struct ReqmodResponse {
     pub(crate) keep_alive: bool,
     pub(crate) payload: IcapReqmodResponsePayload,
     shared_headers: HttpHeaderMap,
-    trailers: Vec<HttpHeaderValue>,
 }
 
 impl ReqmodResponse {
@@ -43,12 +31,7 @@ impl ReqmodResponse {
             keep_alive: true,
             payload: IcapReqmodResponsePayload::NoPayload,
             shared_headers: HttpHeaderMap::default(),
-            trailers: Vec::new(),
         }
-    }
-
-    pub(crate) fn take_trailers(&mut self) -> Vec<HttpHeaderValue> {
-        self.trailers.drain(..).collect()
     }
 
     pub(crate) fn take_shared_headers(&mut self) -> HttpHeaderMap {
@@ -149,12 +132,6 @@ impl ReqmodResponse {
                         _ => {} // ignore other custom hop-by-hop headers
                     }
                 }
-            }
-            "trailer" => {
-                let value = HttpHeaderValue::from_str(header.value).map_err(|_| {
-                    IcapReqmodParseError::InvalidHeaderLine(IcapLineParseError::InvalidTrailerValue)
-                })?;
-                self.trailers.push(value);
             }
             "encapsulated" => self.payload = IcapReqmodResponsePayload::parse(header.value)?,
             header_name => {

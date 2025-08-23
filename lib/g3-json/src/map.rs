@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use anyhow::anyhow;
@@ -31,5 +20,47 @@ pub fn get_required<'a>(map: &'a Map<String, Value>, k: &str) -> anyhow::Result<
     match map.get(k) {
         Some(v) => Ok(v),
         None => Err(anyhow!("no key {k} found in this map")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn get_required_str_ok() {
+        let mut map = Map::new();
+        map.insert("valid_key".to_string(), json!("test_value"));
+        assert_eq!(get_required_str(&map, "valid_key").unwrap(), "test_value");
+
+        map.insert("empty_key".to_string(), json!(""));
+        assert_eq!(get_required_str(&map, "empty_key").unwrap(), "");
+    }
+
+    #[test]
+    fn get_required_str_err() {
+        let mut map = Map::new();
+        assert!(get_required_str(&map, "missing_key").is_err());
+
+        map.insert("invalid_type_key".to_string(), json!(42));
+        assert!(get_required_str(&map, "invalid_type_key").is_err());
+    }
+
+    #[test]
+    fn get_required_ok() {
+        let mut map = Map::new();
+        map.insert("string_key".to_string(), json!("value"));
+        map.insert("number_key".to_string(), json!(123));
+        map.insert("object_key".to_string(), json!({"field": "data"}));
+        assert!(get_required(&map, "string_key").is_ok());
+        assert!(get_required(&map, "number_key").is_ok());
+        assert!(get_required(&map, "object_key").is_ok());
+    }
+
+    #[test]
+    fn get_required_err() {
+        let map = Map::new();
+        assert!(get_required(&map, "non_existent_key").is_err());
     }
 }

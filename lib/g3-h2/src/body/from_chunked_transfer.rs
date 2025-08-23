@@ -1,23 +1,11 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::future::Future;
 use std::io;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use bytes::Bytes;
 use h2::SendStream;
@@ -25,7 +13,7 @@ use thiserror::Error;
 use tokio::io::AsyncBufRead;
 
 use g3_http::{ChunkedDataDecodeReader, TrailerReadError, TrailerReader};
-use g3_io_ext::LimitedCopyConfig;
+use g3_io_ext::StreamCopyConfig;
 
 use super::{H2StreamBodyEncodeTransferError, ROwnedH2BodyEncodeTransfer};
 
@@ -37,6 +25,8 @@ pub enum H2StreamFromChunkedTransferError {
     SendDataFailed(h2::Error),
     #[error("send trailer failed: {0}")]
     SendTrailerFailed(h2::Error),
+    #[error("sender not in send state")]
+    SenderNotInSendState,
 }
 
 struct TrailerTransfer<'a, R> {
@@ -69,7 +59,7 @@ impl<'a, R> TrailerTransfer<'a, R> {
     }
 }
 
-impl<'a, R> Future for TrailerTransfer<'a, R>
+impl<R> Future for TrailerTransfer<'_, R>
 where
     R: AsyncBufRead + Unpin,
 {
@@ -97,7 +87,7 @@ where
                 .map_err(H2StreamFromChunkedTransferError::SendTrailerFailed)?;
         } else {
             self.send_stream
-                .send_trailers(headers.to_h2_map())
+                .send_trailers(headers.into())
                 .map_err(H2StreamFromChunkedTransferError::SendTrailerFailed)?;
         }
         Poll::Ready(Ok(()))
@@ -120,7 +110,7 @@ impl<'a, R> H2StreamFromChunkedTransfer<'a, R> {
     pub fn new(
         reader: &'a mut R,
         send_stream: &'a mut SendStream<Bytes>,
-        copy_config: &LimitedCopyConfig,
+        copy_config: &StreamCopyConfig,
         body_line_max_size: usize,
         trailer_max_size: usize,
     ) -> Self {
@@ -160,7 +150,7 @@ impl<'a, R> H2StreamFromChunkedTransfer<'a, R> {
     }
 }
 
-impl<'a, R> Future for H2StreamFromChunkedTransfer<'a, R>
+impl<R> Future for H2StreamFromChunkedTransfer<'_, R>
 where
     R: AsyncBufRead + Unpin,
 {
@@ -179,7 +169,7 @@ where
                     }
                     Poll::Ready(Err(e)) => Poll::Ready(Err(e)),
                     Poll::Pending => {
-                        self.active = transfer.is_active();
+                        self.active |= transfer.is_active();
                         Poll::Pending
                     }
                 }
@@ -198,8 +188,13 @@ where
                             e,
                         )));
                     }
+                    Poll::Ready(Err(H2StreamBodyEncodeTransferError::SenderNotInSendState)) => {
+                        return Poll::Ready(Err(
+                            H2StreamFromChunkedTransferError::SenderNotInSendState,
+                        ));
+                    }
                     Poll::Pending => {
-                        self.active = encode.is_active();
+                        self.active |= encode.is_active();
                         return Poll::Pending;
                     }
                 }

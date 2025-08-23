@@ -1,32 +1,23 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use slog::Logger;
+use tokio::time::Instant;
 
 use g3_daemon::server::ClientConnectionInfo;
 use g3_icap_client::reqmod::h1::HttpAdapterErrorResponse;
+use g3_io_ext::{IdleWheel, OptionalInterval};
 use g3_types::acl::AclAction;
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::net::{OpensslClientConfig, UpstreamAddr};
 
 use super::{HttpProxyServerConfig, HttpProxyServerStats};
-use crate::audit::AuditHandle;
 use crate::escape::ArcEscaper;
 use crate::module::http_forward::HttpProxyClientResponse;
 use crate::module::http_header;
@@ -38,11 +29,11 @@ pub(crate) struct CommonTaskContext {
     pub(crate) server_config: Arc<HttpProxyServerConfig>,
     pub(crate) server_stats: Arc<HttpProxyServerStats>,
     pub(crate) server_quit_policy: Arc<ServerQuitPolicy>,
+    pub(crate) idle_wheel: Arc<IdleWheel>,
     pub(crate) escaper: ArcEscaper,
-    pub(crate) audit_handle: Option<Arc<AuditHandle>>,
     pub(crate) cc_info: ClientConnectionInfo,
     pub(crate) tls_client_config: Arc<OpensslClientConfig>,
-    pub(crate) task_logger: Logger,
+    pub(crate) task_logger: Option<Logger>,
 
     pub(crate) dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
 }
@@ -54,12 +45,12 @@ impl CommonTaskContext {
     }
 
     pub(crate) fn idle_checker(&self, task_notes: &ServerTaskNotes) -> ServerIdleChecker {
-        ServerIdleChecker {
-            idle_duration: self.server_config.task_idle_check_duration,
-            user: task_notes.user_ctx().map(|ctx| ctx.user().clone()),
-            task_max_idle_count: self.server_config.task_idle_max_count,
-            server_quit_policy: self.server_quit_policy.clone(),
-        }
+        ServerIdleChecker::new(
+            self.idle_wheel.clone(),
+            task_notes.user_ctx().map(|c| c.user().clone()),
+            self.server_config.task_idle_max_count,
+            self.server_quit_policy.clone(),
+        )
     }
 
     pub(crate) fn check_upstream(&self, upstream: &UpstreamAddr) -> AclAction {
@@ -97,7 +88,7 @@ impl CommonTaskContext {
         if let Some(server_id) = &self.server_config.server_id {
             let line = http_header::remote_connection_info(
                 server_id,
-                tcp_notes.bind,
+                tcp_notes.bind.ip(),
                 tcp_notes.local,
                 tcp_notes.next,
                 &tcp_notes.expire,
@@ -130,7 +121,7 @@ impl CommonTaskContext {
             http_header::set_remote_connection_info(
                 &mut rsp.headers,
                 server_id,
-                tcp_notes.bind,
+                tcp_notes.bind.ip(),
                 tcp_notes.local,
                 tcp_notes.next,
                 &tcp_notes.expire,
@@ -150,5 +141,20 @@ impl CommonTaskContext {
                 http_header::set_outgoing_ip(&mut rsp.headers, addr);
             }
         }
+    }
+
+    pub(super) fn log_flush_interval(&self) -> Option<Duration> {
+        self.task_logger.as_ref()?;
+        self.server_config.task_log_flush_interval
+    }
+
+    pub(super) fn get_log_interval(&self) -> OptionalInterval {
+        self.log_flush_interval()
+            .map(|log_interval| {
+                let log_interval =
+                    tokio::time::interval_at(Instant::now() + log_interval, log_interval);
+                OptionalInterval::with(log_interval)
+            })
+            .unwrap_or_default()
     }
 }

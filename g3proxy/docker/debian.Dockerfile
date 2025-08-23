@@ -3,7 +3,7 @@ WORKDIR /usr/src/g3
 COPY . .
 RUN apt-get update && apt-get install -y libclang-dev cmake capnproto
 RUN cargo build --profile release-lto \
- --no-default-features --features vendored-boringssl,quic,vendored-c-ares,hickory \
+ --no-default-features --features vendored-boringssl,rustls-ring,quic,vendored-c-ares \
  -p g3proxy -p g3proxy-ctl
 
 FROM debian:bookworm-slim

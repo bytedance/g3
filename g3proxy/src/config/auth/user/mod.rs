@@ -1,19 +1,9 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use std::time::Duration;
@@ -26,9 +16,9 @@ use g3_types::acl::{
 };
 use g3_types::acl_set::AclDstHostRuleSetBuilder;
 use g3_types::limit::{
-    GlobalDatagramSpeedLimitConfig, GlobalStreamSpeedLimitConfig, RateLimitQuotaConfig,
+    GlobalDatagramSpeedLimitConfig, GlobalStreamSpeedLimitConfig, RateLimitQuota,
 };
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{
     HttpKeepAliveConfig, TcpConnectConfig, TcpKeepAliveConfig, TcpMiscSockOpts,
     TcpSockSpeedLimitConfig, UdpMiscSockOpts, UdpSockSpeedLimitConfig,
@@ -57,15 +47,15 @@ pub(crate) struct UserConfig {
     pub(crate) http_upstream_keepalive: HttpKeepAliveConfig,
     pub(crate) http_rsp_hdr_recv_timeout: Option<Duration>,
     pub(crate) request_alive_max: usize,
-    pub(crate) request_rate_limit: Option<RateLimitQuotaConfig>,
-    pub(crate) tcp_conn_rate_limit: Option<RateLimitQuotaConfig>,
+    pub(crate) request_rate_limit: Option<RateLimitQuota>,
+    pub(crate) connection_rate_limit: Option<RateLimitQuota>,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
     pub(crate) udp_sock_speed_limit: UdpSockSpeedLimitConfig,
     pub(crate) tcp_all_upload_speed_limit: Option<GlobalStreamSpeedLimitConfig>,
     pub(crate) tcp_all_download_speed_limit: Option<GlobalStreamSpeedLimitConfig>,
     pub(crate) udp_all_upload_speed_limit: Option<GlobalDatagramSpeedLimitConfig>,
     pub(crate) udp_all_download_speed_limit: Option<GlobalDatagramSpeedLimitConfig>,
-    pub(crate) log_rate_limit: Option<RateLimitQuotaConfig>,
+    pub(crate) log_rate_limit: Option<RateLimitQuota>,
     pub(crate) log_uri_max_chars: Option<usize>,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) proxy_request_filter: Option<AclProxyRequestRule>,
@@ -74,10 +64,10 @@ pub(crate) struct UserConfig {
     pub(crate) http_user_agent_filter: Option<AclUserAgentRule>,
     pub(crate) resolve_strategy: Option<ResolveStrategy>,
     pub(crate) resolve_redirection: Option<ResolveRedirectionBuilder>,
-    pub(crate) task_idle_max_count: i32,
+    pub(crate) task_idle_max_count: Option<usize>,
     pub(crate) socks_use_udp_associate: bool,
     pub(crate) egress_path_selection: Option<EgressPathSelection>,
-    pub(crate) explicit_sites: BTreeMap<MetricsName, Arc<UserSiteConfig>>,
+    pub(crate) explicit_sites: BTreeMap<NodeName, Arc<UserSiteConfig>>,
 }
 
 impl Default for UserConfig {
@@ -98,7 +88,7 @@ impl Default for UserConfig {
             http_rsp_hdr_recv_timeout: None,
             request_alive_max: 0,
             request_rate_limit: None,
-            tcp_conn_rate_limit: None,
+            connection_rate_limit: None,
             tcp_sock_speed_limit: Default::default(),
             udp_sock_speed_limit: Default::default(),
             tcp_all_upload_speed_limit: None,
@@ -114,7 +104,7 @@ impl Default for UserConfig {
             http_user_agent_filter: None,
             resolve_strategy: None,
             resolve_redirection: None,
-            task_idle_max_count: 1,
+            task_idle_max_count: None,
             socks_use_udp_associate: false,
             egress_path_selection: None,
             explicit_sites: BTreeMap::new(),
@@ -139,8 +129,8 @@ impl UserConfig {
         match &self.password_token {
             PasswordToken::Forbidden => false,
             PasswordToken::SkipVerify => true,
-            PasswordToken::FastHash(fast_hash) => fast_hash.verify(password),
-            PasswordToken::XCrypt(xcrypt_hash) => xcrypt_hash.verify(password.as_bytes()),
+            PasswordToken::FastHash(fast_hash) => fast_hash.verify(password).unwrap(),
+            PasswordToken::XCrypt(xcrypt_hash) => xcrypt_hash.verify(password.as_bytes()).unwrap(),
         }
     }
 
@@ -207,11 +197,14 @@ impl UserConfig {
         Ok(())
     }
 
-    pub(crate) fn tcp_remote_misc_opts(&self, base_opts: &TcpMiscSockOpts) -> TcpMiscSockOpts {
-        if let Some(user_opts) = self.tcp_remote_misc_opts {
-            user_opts.adjust_to(base_opts)
+    pub(crate) fn tcp_remote_misc_opts<'a>(
+        &self,
+        base_opts: &'a TcpMiscSockOpts,
+    ) -> Cow<'a, TcpMiscSockOpts> {
+        if let Some(user_opts) = &self.tcp_remote_misc_opts {
+            Cow::Owned(user_opts.adjust_to(base_opts))
         } else {
-            *base_opts
+            Cow::Borrowed(base_opts)
         }
     }
 
@@ -223,11 +216,14 @@ impl UserConfig {
         }
     }
 
-    pub(crate) fn tcp_client_misc_opts(&self, base_opts: &TcpMiscSockOpts) -> TcpMiscSockOpts {
-        if let Some(user_opts) = self.tcp_client_misc_opts {
-            user_opts.adjust_to(base_opts)
+    pub(crate) fn tcp_client_misc_opts<'a>(
+        &self,
+        base_opts: &'a TcpMiscSockOpts,
+    ) -> Cow<'a, TcpMiscSockOpts> {
+        if let Some(user_opts) = &self.tcp_client_misc_opts {
+            Cow::Owned(user_opts.adjust_to(base_opts))
         } else {
-            *base_opts
+            Cow::Borrowed(base_opts)
         }
     }
 

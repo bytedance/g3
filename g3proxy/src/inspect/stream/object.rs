@@ -1,30 +1,19 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use bytes::{Buf, BytesMut};
 use tokio::io::{AsyncRead, AsyncReadExt};
 
-use g3_dpi::{Protocol, ProtocolInspector};
+use g3_dpi::{Protocol, ProtocolInspectError, ProtocolInspector};
 use g3_io_ext::{FlexBufReader, OnceBufReader};
 use g3_types::net::UpstreamAddr;
 
 use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};
-use crate::log::inspect::stream::StreamInspectLog;
 use crate::log::inspect::InspectSource;
+use crate::log::inspect::stream::StreamInspectLog;
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
 enum InitialDataSource {
@@ -73,7 +62,7 @@ where
         self.io = Some(io);
     }
 
-    pub(super) async fn transit_unknown(mut self) -> ServerTaskResult<()> {
+    pub(super) async fn transit_inspect_unknown(mut self) -> ServerTaskResult<()> {
         let StreamInspectIo {
             clt_r,
             clt_w,
@@ -81,7 +70,9 @@ where
             ups_w,
         } = self.io.take().unwrap();
 
-        self.ctx.transit_unknown(clt_r, clt_w, ups_r, ups_w).await
+        self.ctx
+            .transit_inspect_unknown(clt_r, clt_w, ups_r, ups_w)
+            .await
     }
 
     pub(super) async fn transit_with_inspection(
@@ -137,7 +128,7 @@ where
         match protocol {
             Protocol::Unknown => {
                 self.ctx
-                    .transit_unknown(
+                    .transit_inspect_unknown(
                         OnceBufReader::new(clt_r, clt_r_buf),
                         clt_w,
                         OnceBufReader::new(ups_r, ups_r_buf),
@@ -148,7 +139,7 @@ where
             }
             Protocol::Timeout => {
                 self.ctx
-                    .transit_unknown_timeout(
+                    .transit_inspect_timeout(
                         OnceBufReader::new(clt_r, clt_r_buf),
                         clt_w,
                         OnceBufReader::new(ups_r, ups_r_buf),
@@ -164,7 +155,7 @@ where
                         self.upstream,
                         tls_interception,
                     );
-                    tls_obj.set_io(OnceBufReader::new(clt_r, clt_r_buf), clt_w, ups_r, ups_w);
+                    tls_obj.set_io(clt_r_buf, clt_r, clt_w, ups_r, ups_w);
                     return Ok(StreamInspection::TlsModern(tls_obj));
                 }
             }
@@ -176,7 +167,7 @@ where
                         self.upstream,
                         tls_interception,
                     );
-                    tls_obj.set_io(OnceBufReader::new(clt_r, clt_r_buf), clt_w, ups_r, ups_w);
+                    tls_obj.set_io(clt_r_buf, clt_r, clt_w, ups_r, ups_w);
                     return Ok(StreamInspection::TlsTlcp(tls_obj));
                 }
             }
@@ -212,7 +203,7 @@ where
         }
 
         self.ctx
-            .transit_transparent(
+            .transit_inspect_bypass(
                 OnceBufReader::new(clt_r, clt_r_buf),
                 clt_w,
                 OnceBufReader::new(ups_r, ups_r_buf),
@@ -282,7 +273,7 @@ where
                 clt_r_buf.chunk(),
             ) {
                 Ok(p) => return Ok(p),
-                Err(_) => {
+                Err(ProtocolInspectError::NeedMoreData(_)) => {
                     if clt_r_buf.remaining() == 0 {
                         return Ok(Protocol::Unknown);
                     }
@@ -312,7 +303,7 @@ where
                 ups_r_buf.chunk(),
             ) {
                 Ok(p) => return Ok(p),
-                Err(_) => {
+                Err(ProtocolInspectError::NeedMoreData(_)) => {
                     if ups_r_buf.remaining() == 0 {
                         return Ok(Protocol::Unknown);
                     }

@@ -1,21 +1,11 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use super::HttpLineParseError;
 
+#[derive(Debug)]
 pub struct HttpMethodLine<'a> {
     pub version: u8,
     pub method: &'a str,
@@ -50,5 +40,78 @@ impl<'a> HttpMethodLine<'a> {
             method,
             uri,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_valid_method_line() {
+        // HTTP/1.1
+        let data = b"GET /index.html HTTP/1.1";
+        let result = HttpMethodLine::parse(data).unwrap();
+        assert_eq!(result.method, "GET");
+        assert_eq!(result.uri, "/index.html");
+        assert_eq!(result.version, 1);
+
+        // HTTP/1.0
+        let data = b"POST /api HTTP/1.0";
+        let result = HttpMethodLine::parse(data).unwrap();
+        assert_eq!(result.method, "POST");
+        assert_eq!(result.uri, "/api");
+        assert_eq!(result.version, 0);
+
+        // HTTP/2
+        let data = b"OPTIONS * HTTP/2";
+        let result = HttpMethodLine::parse(data).unwrap();
+        assert_eq!(result.method, "OPTIONS");
+        assert_eq!(result.uri, "*");
+        assert_eq!(result.version, 2);
+
+        // HTTP/2.0
+        let data = b"GET / HTTP/2.0";
+        let result = HttpMethodLine::parse(data).unwrap();
+        assert_eq!(result.version, 2);
+    }
+
+    #[test]
+    fn invalid_utf8() {
+        let data = b"GET /\xFF HTTP/1.1";
+        let err = HttpMethodLine::parse(data).unwrap_err();
+        assert!(matches!(err, HttpLineParseError::InvalidUtf8Encoding(_)));
+    }
+
+    #[test]
+    fn missing_first_space() {
+        let data = b"GET/index.html HTTP/1.1";
+        let err = HttpMethodLine::parse(data).unwrap_err();
+        assert!(matches!(err, HttpLineParseError::NoDelimiterFound(' ')));
+    }
+
+    #[test]
+    fn missing_second_space() {
+        let data = b"GET /index.htmlHTTP/1.1";
+        let err = HttpMethodLine::parse(data).unwrap_err();
+        assert!(matches!(err, HttpLineParseError::NoDelimiterFound(' ')));
+    }
+
+    #[test]
+    fn invalid_version() {
+        let data = b"GET / HTP/1.1";
+        let err = HttpMethodLine::parse(data).unwrap_err();
+        assert!(matches!(err, HttpLineParseError::InvalidVersion));
+
+        let data = b"GET / HTTP/3.0";
+        let err = HttpMethodLine::parse(data).unwrap_err();
+        assert!(matches!(err, HttpLineParseError::InvalidVersion));
+    }
+
+    #[test]
+    fn empty_input() {
+        let data = b"";
+        let err = HttpMethodLine::parse(data).unwrap_err();
+        assert!(matches!(err, HttpLineParseError::NoDelimiterFound(' ')));
     }
 }

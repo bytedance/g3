@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
@@ -23,9 +12,9 @@ use http::Method;
 use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Instant;
 
-use g3_http::client::HttpAdaptedResponse;
 use g3_http::HttpBodyType;
-use g3_io_ext::{IdleCheck, LimitedCopyConfig};
+use g3_http::client::HttpAdaptedResponse;
+use g3_io_ext::{IdleCheck, StreamCopyConfig};
 use g3_types::net::HttpHeaderMap;
 
 use super::IcapRespmodClient;
@@ -48,9 +37,10 @@ mod impl_trait;
 
 pub trait HttpResponseForAdaptation {
     fn body_type(&self, method: &Method) -> Option<HttpBodyType>;
+    fn serialize_for_client(&self) -> Vec<u8>;
     fn serialize_for_adapter(&self) -> Vec<u8>;
-    fn append_trailer_header(&self, buf: &mut Vec<u8>);
-    fn adapt_to(&self, other: HttpAdaptedResponse) -> Self;
+    fn adapt_with_body(&self, other: HttpAdaptedResponse) -> Self;
+    fn adapt_without_body(&self, other: HttpAdaptedResponse) -> Self;
 }
 
 #[allow(async_fn_in_trait)]
@@ -61,7 +51,7 @@ pub trait HttpResponseClientWriter<H: HttpResponseForAdaptation>: AsyncWrite {
 impl IcapRespmodClient {
     pub async fn h1_adapter<I: IdleCheck>(
         &self,
-        copy_config: LimitedCopyConfig,
+        copy_config: StreamCopyConfig,
         http_body_line_max_size: usize,
         idle_checker: I,
     ) -> anyhow::Result<HttpResponseAdapter<I>> {
@@ -85,7 +75,7 @@ pub struct HttpResponseAdapter<I: IdleCheck> {
     icap_client: Arc<IcapServiceClient>,
     icap_connection: IcapClientConnection,
     icap_options: Arc<IcapServiceOptions>,
-    copy_config: LimitedCopyConfig,
+    copy_config: StreamCopyConfig,
     http_body_line_max_size: usize,
     idle_checker: I,
     client_addr: Option<SocketAddr>,
@@ -102,7 +92,6 @@ pub struct RespmodAdaptationRunState {
     pub ups_read_finished: bool,
     pub clt_write_started: bool,
     pub clt_write_finished: bool,
-    pub(crate) icap_io_finished: bool,
 }
 
 impl RespmodAdaptationRunState {
@@ -116,7 +105,6 @@ impl RespmodAdaptationRunState {
             ups_read_finished: false,
             clt_write_started: false,
             clt_write_finished: false,
-            icap_io_finished: false,
         }
     }
 
@@ -174,6 +162,13 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         }
     }
 
+    fn preview_size(&self) -> Option<usize> {
+        if self.icap_client.config.disable_preview {
+            return None;
+        }
+        self.icap_options.preview_size
+    }
+
     pub async fn xfer<R, H, UR, CW>(
         self,
         state: &mut RespmodAdaptationRunState,
@@ -189,7 +184,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         CW: HttpResponseClientWriter<H> + Unpin,
     {
         if let Some(body_type) = http_response.body_type(http_request.method()) {
-            if let Some(preview_size) = self.icap_options.preview_size {
+            if let Some(preview_size) = self.preview_size() {
                 self.xfer_with_preview(
                     state,
                     http_request,

@@ -1,24 +1,13 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use std::net::{IpAddr, SocketAddr};
+use std::net::SocketAddr;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
-use clap::{value_parser, Arg, ArgMatches, Command};
+use anyhow::{Context, anyhow};
+use clap::{Arg, ArgMatches, Command, value_parser};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio_rustls::client::TlsStream;
@@ -29,17 +18,18 @@ use g3_types::net::{RustlsClientConfig, RustlsClientConfigBuilder, UpstreamAddr}
 use super::ProcArgs;
 use crate::module::proxy_protocol::{AppendProxyProtocolArgs, ProxyProtocolArgs};
 use crate::module::rustls::{AppendRustlsArgs, RustlsTlsClientArgs};
+use crate::module::socket::{AppendSocketArgs, SocketArgs};
 
 const SSL_ARG_TARGET: &str = "target";
-const SSL_ARG_LOCAL_ADDRESS: &str = "local-address";
 const SSL_ARG_TIMEOUT: &str = "timeout";
 const SSL_ARG_CONNECT_TIMEOUT: &str = "connect-timeout";
 
 pub(super) struct BenchRustlsArgs {
     target: UpstreamAddr,
-    bind: Option<IpAddr>,
     pub(super) timeout: Duration,
     pub(super) connect_timeout: Duration,
+
+    socket: SocketArgs,
     pub(super) tls: RustlsTlsClientArgs,
     proxy_protocol: ProxyProtocolArgs,
 
@@ -54,9 +44,9 @@ impl BenchRustlsArgs {
         };
         BenchRustlsArgs {
             target,
-            bind: None,
             timeout: Duration::from_secs(10),
             connect_timeout: Duration::from_secs(10),
+            socket: SocketArgs::default(),
             tls,
             proxy_protocol: ProxyProtocolArgs::default(),
             target_addrs: None,
@@ -82,18 +72,7 @@ impl BenchRustlsArgs {
             .ok_or_else(|| anyhow!("no target addr set"))?;
         let peer = *proc_args.select_peer(addrs);
 
-        let socket = g3_socket::tcp::new_socket_to(
-            peer.ip(),
-            self.bind,
-            &Default::default(),
-            &Default::default(),
-            true,
-        )
-        .map_err(|e| anyhow!("failed to setup socket to peer {peer}: {e:?}"))?;
-        let mut stream = socket
-            .connect(peer)
-            .await
-            .map_err(|e| anyhow!("connect to {peer} error: {e:?}"))?;
+        let mut stream = self.socket.tcp_connect_to(peer).await?;
 
         if let Some(data) = self.proxy_protocol.data() {
             stream
@@ -127,14 +106,6 @@ pub(super) fn add_ssl_args(app: Command) -> Command {
             .value_parser(value_parser!(UpstreamAddr)),
     )
     .arg(
-        Arg::new(SSL_ARG_LOCAL_ADDRESS)
-            .value_name("LOCAL IP ADDRESS")
-            .short('B')
-            .long(SSL_ARG_LOCAL_ADDRESS)
-            .num_args(1)
-            .value_parser(value_parser!(IpAddr)),
-    )
-    .arg(
         Arg::new(SSL_ARG_TIMEOUT)
             .value_name("TIMEOUT DURATION")
             .help("TLS handshake timeout")
@@ -150,6 +121,7 @@ pub(super) fn add_ssl_args(app: Command) -> Command {
             .long(SSL_ARG_CONNECT_TIMEOUT)
             .num_args(1),
     )
+    .append_socket_args()
     .append_rustls_args()
     .append_proxy_protocol_args()
 }
@@ -163,10 +135,6 @@ pub(super) fn parse_ssl_args(args: &ArgMatches) -> anyhow::Result<BenchRustlsArg
 
     let mut ssl_args = BenchRustlsArgs::new(target);
 
-    if let Some(ip) = args.get_one::<IpAddr>(SSL_ARG_LOCAL_ADDRESS) {
-        ssl_args.bind = Some(*ip);
-    }
-
     if let Some(timeout) = g3_clap::humanize::get_duration(args, SSL_ARG_TIMEOUT)? {
         ssl_args.timeout = timeout;
     }
@@ -175,6 +143,10 @@ pub(super) fn parse_ssl_args(args: &ArgMatches) -> anyhow::Result<BenchRustlsArg
         ssl_args.connect_timeout = timeout;
     }
 
+    ssl_args
+        .socket
+        .parse_args(args)
+        .context("invalid socket config")?;
     ssl_args
         .tls
         .parse_tls_args(args)

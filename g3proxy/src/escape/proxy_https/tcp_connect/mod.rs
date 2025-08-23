@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::{IpAddr, SocketAddr};
@@ -22,11 +11,12 @@ use tokio::task::JoinSet;
 use tokio::time::Instant;
 
 use g3_io_ext::LimitedStream;
+use g3_socket::BindAddr;
 use g3_types::net::{ConnectError, Host, ProxyProtocolEncoder, UpstreamAddr};
 
 use super::ProxyHttpsEscaper;
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes};
 use crate::resolve::HappyEyeballsResolveJob;
 use crate::serve::ServerTaskNotes;
 
@@ -34,7 +24,7 @@ impl ProxyHttpsEscaper {
     fn prepare_connect_socket(
         &self,
         peer_ip: IpAddr,
-    ) -> Result<(TcpSocket, Option<IpAddr>), TcpConnectError> {
+    ) -> Result<(TcpSocket, BindAddr), TcpConnectError> {
         let bind_ip = match peer_ip {
             IpAddr::V4(_) => {
                 if self.config.no_ipv4 {
@@ -50,20 +40,42 @@ impl ProxyHttpsEscaper {
             }
         };
 
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "illumos",
+            target_os = "solaris"
+        ))]
+        let bind = bind_ip.map(BindAddr::Ip).unwrap_or_else(|| {
+            self.config
+                .bind_interface
+                .map(BindAddr::Interface)
+                .unwrap_or_default()
+        });
+        #[cfg(not(any(
+            target_os = "linux",
+            target_os = "android",
+            target_os = "macos",
+            target_os = "illumos",
+            target_os = "solaris"
+        )))]
+        let bind = bind_ip.map(BindAddr::Ip).unwrap_or_default();
         let sock = g3_socket::tcp::new_socket_to(
             peer_ip,
-            bind_ip,
+            &bind,
             &self.config.tcp_keepalive,
             &self.config.tcp_misc_opts,
             true,
         )
         .map_err(TcpConnectError::SetupSocketFailed)?;
-        Ok((sock, bind_ip))
+        Ok((sock, bind))
     }
 
     async fn fixed_try_connect(
         &self,
         peer: SocketAddr,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, TcpConnectError> {
@@ -73,7 +85,7 @@ impl ProxyHttpsEscaper {
 
         let instant_now = Instant::now();
 
-        self.stats.tcp.add_connection_attempted();
+        self.stats.tcp.connect.add_attempted();
         tcp_notes.tries = 1;
         match tokio::time::timeout(
             self.config.general.tcp_connect.each_timeout(),
@@ -82,36 +94,45 @@ impl ProxyHttpsEscaper {
         .await
         {
             Ok(Ok(ups_stream)) => {
+                self.stats.tcp.connect.add_success();
                 tcp_notes.duration = instant_now.elapsed();
 
-                self.stats.tcp.add_connection_established();
                 let local_addr = ups_stream
                     .local_addr()
                     .map_err(TcpConnectError::SetupSocketFailed)?;
+                self.stats.tcp.connect.add_established();
                 tcp_notes.local = Some(local_addr);
                 // the chained outgoing addr is not detected at here
                 Ok(ups_stream)
             }
             Ok(Err(e)) => {
+                self.stats.tcp.connect.add_error();
                 tcp_notes.duration = instant_now.elapsed();
 
                 let e = TcpConnectError::ConnectFailed(ConnectError::from(e));
-                EscapeLogForTcpConnect {
-                    tcp_notes,
-                    task_id: &task_notes.id,
+                if let Some(logger) = &self.escape_logger {
+                    EscapeLogForTcpConnect {
+                        upstream: task_conf.upstream,
+                        tcp_notes,
+                        task_id: &task_notes.id,
+                    }
+                    .log(logger, &e);
                 }
-                .log(&self.escape_logger, &e);
                 Err(e)
             }
             Err(_) => {
+                self.stats.tcp.connect.add_timeout();
                 tcp_notes.duration = instant_now.elapsed();
 
                 let e = TcpConnectError::TimeoutByRule;
-                EscapeLogForTcpConnect {
-                    tcp_notes,
-                    task_id: &task_notes.id,
+                if let Some(logger) = &self.escape_logger {
+                    EscapeLogForTcpConnect {
+                        upstream: task_conf.upstream,
+                        tcp_notes,
+                        task_id: &task_notes.id,
+                    }
+                    .log(logger, &e);
                 }
-                .log(&self.escape_logger, &e);
                 Err(e)
             }
         }
@@ -125,6 +146,7 @@ impl ProxyHttpsEscaper {
         &self,
         mut resolver_job: HappyEyeballsResolveJob,
         peer_port: u16,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, TcpConnectError> {
@@ -154,27 +176,35 @@ impl ProxyHttpsEscaper {
         let mut returned_err = TcpConnectError::NoAddressConnected;
 
         loop {
-            if spawn_new_connection {
-                if let Some(ip) = ips.pop() {
-                    let (sock, bind) = self.prepare_connect_socket(ip)?;
-                    let peer = SocketAddr::new(ip, peer_port);
-                    running_connection += 1;
-                    spawn_new_connection = false;
-                    tcp_notes.tries += 1;
-                    self.stats.tcp.add_connection_attempted();
-                    c_set.spawn(async move {
-                        match tokio::time::timeout(each_timeout, sock.connect(peer)).await {
-                            Ok(Ok(stream)) => (Ok(stream), peer, bind),
-                            Ok(Err(e)) => (
+            if spawn_new_connection && let Some(ip) = ips.pop() {
+                let (sock, bind) = self.prepare_connect_socket(ip)?;
+                let peer = SocketAddr::new(ip, peer_port);
+                running_connection += 1;
+                spawn_new_connection = false;
+                tcp_notes.tries += 1;
+                let stats = self.stats.clone();
+                c_set.spawn(async move {
+                    stats.tcp.connect.add_attempted();
+                    match tokio::time::timeout(each_timeout, sock.connect(peer)).await {
+                        Ok(Ok(stream)) => {
+                            stats.tcp.connect.add_success();
+                            (Ok(stream), peer, bind)
+                        }
+                        Ok(Err(e)) => {
+                            stats.tcp.connect.add_error();
+                            (
                                 Err(TcpConnectError::ConnectFailed(ConnectError::from(e))),
                                 peer,
                                 bind,
-                            ),
-                            Err(_) => (Err(TcpConnectError::TimeoutByRule), peer, bind),
+                            )
                         }
-                    });
-                    connect_interval.reset();
-                }
+                        Err(_) => {
+                            stats.tcp.connect.add_timeout();
+                            (Err(TcpConnectError::TimeoutByRule), peer, bind)
+                        }
+                    }
+                });
+                connect_interval.reset();
             }
 
             if running_connection > 0 {
@@ -191,20 +221,23 @@ impl ProxyHttpsEscaper {
                                 tcp_notes.bind = r.2;
                                 match r.0 {
                                     Ok(ups_stream) => {
-                                        self.stats.tcp.add_connection_established();
                                         let local_addr = ups_stream
                                             .local_addr()
                                             .map_err(TcpConnectError::SetupSocketFailed)?;
+                                        self.stats.tcp.connect.add_established();
                                         tcp_notes.local = Some(local_addr);
                                         // the chained outgoing addr is not detected at here
                                         return Ok(ups_stream);
                                     }
                                     Err(e) => {
-                                        EscapeLogForTcpConnect {
-                                            tcp_notes,
-                                            task_id: &task_notes.id,
+                                        if let Some(logger) = &self.escape_logger {
+                                            EscapeLogForTcpConnect {
+                                                upstream: task_conf.upstream,
+                                                tcp_notes,
+                                                task_id: &task_notes.id,
+                                            }
+                                            .log(logger, &e);
                                         }
-                                        .log(&self.escape_logger, &e);
                                         // TODO tell resolver to remove addr
                                         returned_err = e;
                                         spawn_new_connection = true;
@@ -263,41 +296,52 @@ impl ProxyHttpsEscaper {
         }
     }
 
-    async fn tcp_connect_to<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn tcp_connect_to(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> Result<(UpstreamAddr, TcpStream), TcpConnectError> {
         let peer_proxy = self
-            .get_next_proxy(task_notes, tcp_notes.upstream.host())
+            .get_next_proxy(task_notes, task_conf.upstream.host())
             .clone();
 
         let stream = match peer_proxy.host() {
             Host::Ip(ip) => {
                 self.fixed_try_connect(
                     SocketAddr::new(*ip, peer_proxy.port()),
+                    task_conf,
                     tcp_notes,
                     task_notes,
                 )
                 .await?
             }
             Host::Domain(domain) => {
-                let resolver_job = self.resolve_happy(domain)?;
+                let resolver_job = self.resolve_happy(domain.clone())?;
 
-                self.happy_try_connect(resolver_job, peer_proxy.port(), tcp_notes, task_notes)
-                    .await?
+                self.happy_try_connect(
+                    resolver_job,
+                    peer_proxy.port(),
+                    task_conf,
+                    tcp_notes,
+                    task_notes,
+                )
+                .await?
             }
         };
 
         Ok((peer_proxy, stream))
     }
 
-    pub(super) async fn tcp_new_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    pub(super) async fn tcp_new_connection(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
     ) -> Result<(UpstreamAddr, LimitedStream<TcpStream>), TcpConnectError> {
-        let (peer, stream) = self.tcp_connect_to(tcp_notes, task_notes).await?;
+        let (peer, stream) = self
+            .tcp_connect_to(task_conf, tcp_notes, task_notes)
+            .await?;
 
         let limit_config = &self.config.general.tcp_sock_speed_limit;
         let mut stream = LimitedStream::local_limited(

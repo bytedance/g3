@@ -1,17 +1,6 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
@@ -22,16 +11,15 @@ use tokio::time::Instant;
 
 use g3_http::HttpBodyDecodeReader;
 
+use crate::IcapServiceClient;
 use crate::reqmod::h1::HttpAdapterErrorResponse;
 use crate::service::IcapClientConnection;
-use crate::IcapServiceClient;
 
 pub struct ReqmodAdaptationRunState {
     task_create_instant: Instant,
     pub dur_ups_send_all: Option<Duration>,
     pub clt_read_finished: bool,
     pub ups_write_finished: bool,
-    pub(crate) icap_io_finished: bool,
 }
 
 impl ReqmodAdaptationRunState {
@@ -41,7 +29,6 @@ impl ReqmodAdaptationRunState {
             dur_ups_send_all: None,
             clt_read_finished: false,
             ups_write_finished: false,
-            icap_io_finished: false,
         }
     }
 
@@ -64,13 +51,14 @@ pub struct ReqmodRecvHttpResponseBody {
 }
 
 impl ReqmodRecvHttpResponseBody {
-    pub fn body_reader(&mut self) -> HttpBodyDecodeReader<'_, impl AsyncBufRead> {
-        HttpBodyDecodeReader::new_chunked(&mut self.icap_connection.1, 1024)
+    pub fn body_reader(&mut self) -> HttpBodyDecodeReader<'_, impl AsyncBufRead + use<>> {
+        HttpBodyDecodeReader::new_chunked(&mut self.icap_connection.reader, 1024)
     }
 
-    pub async fn save_connection(self) {
+    pub async fn save_connection(mut self) {
+        self.icap_connection.mark_reader_finished();
         if self.icap_keepalive {
-            self.icap_client.save_connection(self.icap_connection).await;
+            self.icap_client.save_connection(self.icap_connection);
         }
     }
 }

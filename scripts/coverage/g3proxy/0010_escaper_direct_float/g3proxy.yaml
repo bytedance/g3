@@ -1,0 +1,39 @@
+---
+
+log: journal
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+resolver:
+  - name: default
+    type: c-ares
+    server:
+      - 127.0.0.1
+
+escaper:
+  - name: direct_lazy
+    type: direct_float
+    resolver: default
+    resolve_strategy: IPv4First
+    cache_ipv4: ipv4_ip_cache.json
+    cache_ipv6: ipv6_ip_cache.json
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.1
+
+server:
+  - name: http
+    type: http_proxy
+    listen: 127.0.0.1:8080
+    escaper: direct_lazy
+  - name: socks1
+    type: socks_proxy
+    listen: 127.0.0.1:1080
+    escaper: direct_lazy
+  - name: socks2
+    type: socks_proxy
+    listen: 127.0.0.1:1081
+    escaper: direct_lazy
+    use-udp-associate: true

@@ -1,26 +1,15 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::net::IpAddr;
 
-use anyhow::{anyhow, Context};
-use g3_types::metrics::MetricsName;
+use anyhow::{Context, anyhow};
+use g3_types::metrics::NodeName;
 use ip_network::IpNetwork;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_yaml::YamlDocPosition;
 
@@ -30,21 +19,21 @@ const ESCAPER_CONFIG_TYPE: &str = "RouteClient";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct RouteClientEscaperConfig {
-    pub(crate) name: MetricsName,
+    pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) exact_match_ipaddr: BTreeMap<MetricsName, BTreeSet<IpAddr>>,
-    pub(crate) subnet_match_ipaddr: BTreeMap<MetricsName, BTreeSet<IpNetwork>>,
-    pub(crate) default_next: MetricsName,
+    pub(crate) exact_match_ipaddr: BTreeMap<NodeName, BTreeSet<IpAddr>>,
+    pub(crate) subnet_match_ipaddr: BTreeMap<NodeName, BTreeSet<IpNetwork>>,
+    pub(crate) default_next: NodeName,
 }
 
 impl RouteClientEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         RouteClientEscaperConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             exact_match_ipaddr: BTreeMap::new(),
             subnet_match_ipaddr: BTreeMap::new(),
-            default_next: MetricsName::default(),
+            default_next: NodeName::default(),
         }
     }
 
@@ -82,7 +71,7 @@ impl RouteClientEscaperConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "exact_match" | "exact_rules" => {
@@ -92,7 +81,7 @@ impl RouteClientEscaperConfig {
                 RouteClientEscaperConfig::foreach_rule(k, v, |map| self.add_subnet_match(map))
             }
             "default_next" => {
-                self.default_next = g3_yaml::value::as_metrics_name(v)?;
+                self.default_next = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
@@ -118,11 +107,11 @@ impl RouteClientEscaperConfig {
     }
 
     fn add_exact_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        let mut escaper = MetricsName::default();
+        let mut escaper = NodeName::default();
         let mut all_ipaddr = BTreeSet::<IpAddr>::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
-                escaper = g3_yaml::value::as_metrics_name(v)?;
+                escaper = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "ips" | "ip" => {
@@ -142,20 +131,20 @@ impl RouteClientEscaperConfig {
         if escaper.is_empty() {
             return Err(anyhow!("no next escaper set"));
         }
-        if !all_ipaddr.is_empty() {
-            if let Some(_old) = self.exact_match_ipaddr.insert(escaper.clone(), all_ipaddr) {
-                return Err(anyhow!("found multiple entries for next escaper {escaper}"));
-            }
+        if !all_ipaddr.is_empty()
+            && let Some(_old) = self.exact_match_ipaddr.insert(escaper.clone(), all_ipaddr)
+        {
+            return Err(anyhow!("found multiple entries for next escaper {escaper}"));
         }
         Ok(())
     }
 
     fn add_subnet_match(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        let mut escaper = MetricsName::default();
+        let mut escaper = NodeName::default();
         let mut all_subnets = BTreeSet::<IpNetwork>::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
-                escaper = g3_yaml::value::as_metrics_name(v)?;
+                escaper = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "subnets" | "subnet" => {
@@ -175,20 +164,19 @@ impl RouteClientEscaperConfig {
         if escaper.is_empty() {
             return Err(anyhow!("no next escaper set"));
         }
-        if !all_subnets.is_empty() {
-            if let Some(_old) = self
+        if !all_subnets.is_empty()
+            && let Some(_old) = self
                 .subnet_match_ipaddr
                 .insert(escaper.clone(), all_subnets)
-            {
-                return Err(anyhow!("found multiple entries for next escaper {escaper}"));
-            }
+        {
+            return Err(anyhow!("found multiple entries for next escaper {escaper}"));
         }
         Ok(())
     }
 }
 
 impl EscaperConfig for RouteClientEscaperConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -196,11 +184,11 @@ impl EscaperConfig for RouteClientEscaperConfig {
         self.position.clone()
     }
 
-    fn escaper_type(&self) -> &str {
+    fn r#type(&self) -> &str {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &MetricsName {
+    fn resolver(&self) -> &NodeName {
         Default::default()
     }
 
@@ -216,7 +204,7 @@ impl EscaperConfig for RouteClientEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         set.insert(self.default_next.clone());
         for key in self.exact_match_ipaddr.keys() {

@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
@@ -24,13 +13,6 @@ use thiserror::Error;
 use g3_resolver::ResolveError;
 use g3_types::net::UpstreamAddr;
 
-#[cfg(any(
-    target_os = "linux",
-    target_os = "android",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd",
-))]
 use super::UdpRelayPacket;
 
 #[derive(Error, Debug)]
@@ -77,6 +59,8 @@ pub trait UdpRelayRemoteRecv {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_recv_packets(
         &mut self,
@@ -94,16 +78,25 @@ pub trait UdpRelayRemoteSend {
         to: &UpstreamAddr,
     ) -> Poll<Result<usize, UdpRelayRemoteError>>;
 
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "android",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-    ))]
     fn poll_send_packets(
         &mut self,
         cx: &mut Context<'_>,
         packets: &[UdpRelayPacket],
-    ) -> Poll<Result<usize, UdpRelayRemoteError>>;
+    ) -> Poll<Result<usize, UdpRelayRemoteError>> {
+        let mut count = 0;
+        for packet in packets {
+            match self.poll_send_packet(cx, packet.payload(), packet.upstream()) {
+                Poll::Pending => {
+                    return if count > 0 {
+                        Poll::Ready(Ok(count))
+                    } else {
+                        Poll::Pending
+                    };
+                }
+                Poll::Ready(Ok(_)) => count += 1,
+                Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
+            }
+        }
+        Poll::Ready(Ok(count))
+    }
 }

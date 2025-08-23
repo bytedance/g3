@@ -1,22 +1,11 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use yaml_rust::Yaml;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use g3_types::net::ProxyProtocolVersion;
 
 pub fn as_proxy_protocol_version(value: &Yaml) -> anyhow::Result<ProxyProtocolVersion> {
@@ -26,5 +15,43 @@ pub fn as_proxy_protocol_version(value: &Yaml) -> anyhow::Result<ProxyProtocolVe
         1 => Ok(ProxyProtocolVersion::V1),
         2 => Ok(ProxyProtocolVersion::V2),
         _ => Err(anyhow!("unsupported PROXY protocol version {v}")),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn as_proxy_protocol_version_ok() {
+        let yaml = yaml_str!("1");
+        assert_eq!(
+            as_proxy_protocol_version(&yaml).unwrap(),
+            ProxyProtocolVersion::V1
+        );
+
+        let yaml = Yaml::Integer(2);
+        assert_eq!(
+            as_proxy_protocol_version(&yaml).unwrap(),
+            ProxyProtocolVersion::V2
+        );
+    }
+
+    #[test]
+    fn as_proxy_protocol_version_err() {
+        let yaml = yaml_str!("3"); // Invalid version
+        assert!(as_proxy_protocol_version(&yaml).is_err());
+
+        let yaml = Yaml::Integer(256); // Beyond u8 range
+        assert!(as_proxy_protocol_version(&yaml).is_err());
+
+        let yaml = Yaml::Boolean(true); // Invalid type
+        assert!(as_proxy_protocol_version(&yaml).is_err());
+
+        let yaml = Yaml::Array(vec![]); // Invalid type
+        assert!(as_proxy_protocol_version(&yaml).is_err());
+
+        let yaml = Yaml::Null; // Invalid type
+        assert!(as_proxy_protocol_version(&yaml).is_err())
     }
 }

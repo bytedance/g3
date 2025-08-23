@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::cell::RefCell;
@@ -19,7 +8,7 @@ use std::fmt::{Arguments, Write};
 
 use itoa::Integer;
 use ryu::Float;
-use slog::{Error, Level, OwnedKVList, Record, Serializer, KV};
+use slog::{Error, KV, Level, OwnedKVList, Record, Serializer};
 
 use g3_types::log::AsyncLogFormatter;
 
@@ -70,7 +59,7 @@ impl AsyncLogFormatter<Vec<u8>> for JournalFormatter {
             kv_formatter.emit_sanitized_one_line("CODE_POSITION", &code_position);
         }
 
-        kv_formatter.emit_arguments("MESSAGE", record.msg())?;
+        kv_formatter.emit_arguments("MESSAGE".into(), record.msg())?;
 
         Ok(buf)
     }
@@ -78,7 +67,7 @@ impl AsyncLogFormatter<Vec<u8>> for JournalFormatter {
 
 struct FormatterKv<'a>(&'a mut Vec<u8>);
 
-impl<'a> FormatterKv<'a> {
+impl FormatterKv<'_> {
     fn emit_integer<T: Integer>(&mut self, key: slog::Key, value: T) -> slog::Result {
         let mut buffer = itoa::Buffer::new();
         let value_s = buffer.format(value);
@@ -99,14 +88,14 @@ impl<'a> FormatterKv<'a> {
     }
 
     fn emit_one_line(&mut self, key: slog::Key, value: &str) -> slog::Result {
-        if let Some(k) = sanitized_key(key) {
+        if let Some(k) = sanitized_key(key.as_str()) {
             self.emit_sanitized_one_line(&k, value);
         }
         Ok(())
     }
 
     fn emit_multi_line(&mut self, key: slog::Key, value: &str) -> slog::Result {
-        if let Some(k) = sanitized_key(key) {
+        if let Some(k) = sanitized_key(key.as_str()) {
             self.0.extend_from_slice(k.as_bytes());
             self.0.push(b'\n');
             let len = value.len() as u64;
@@ -118,7 +107,7 @@ impl<'a> FormatterKv<'a> {
     }
 }
 
-impl<'a> Serializer for FormatterKv<'a> {
+impl Serializer for FormatterKv<'_> {
     impl_integer_by_itoa! {
         /// Emit `usize`
         usize => emit_usize
@@ -266,7 +255,7 @@ mod tests {
         let mut vars = Vec::new();
         let mut kv_formatter = FormatterKv(&mut vars);
 
-        kv_formatter.emit_u8("a-key", 8u8).unwrap();
+        kv_formatter.emit_u8("a-key".into(), 8u8).unwrap();
         assert_eq!(vars, b"A_KEY=8\n");
     }
 
@@ -275,7 +264,7 @@ mod tests {
         let mut vars = Vec::new();
         let mut kv_formatter = FormatterKv(&mut vars);
 
-        kv_formatter.emit_f32("a-key", 1.1f32).unwrap();
+        kv_formatter.emit_f32("a-key".into(), 1.1f32).unwrap();
         assert_eq!(vars, b"A_KEY=1.1\n");
     }
 
@@ -284,7 +273,7 @@ mod tests {
         let mut vars = Vec::new();
         let mut kv_formatter = FormatterKv(&mut vars);
 
-        kv_formatter.emit_bool("a-key", true).unwrap();
+        kv_formatter.emit_bool("a-key".into(), true).unwrap();
         assert_eq!(vars, b"A_KEY=true\n");
     }
 
@@ -295,7 +284,7 @@ mod tests {
 
         let v = "value";
         kv_formatter
-            .emit_arguments("a-key", &format_args!("a-{v}"))
+            .emit_arguments("a-key".into(), &format_args!("a-{v}"))
             .unwrap();
         assert_eq!(vars, b"A_KEY=a-value\n");
     }
@@ -307,7 +296,7 @@ mod tests {
 
         let v = "v1\nv2";
         kv_formatter
-            .emit_arguments("a-key", &format_args!("a-{v}"))
+            .emit_arguments("a-key".into(), &format_args!("a-{v}"))
             .unwrap();
         assert_eq!(vars, b"A_KEY\n\x07\0\0\0\0\0\0\0a-v1\nv2\n");
     }

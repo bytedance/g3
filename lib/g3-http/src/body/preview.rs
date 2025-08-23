@@ -1,23 +1,11 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::future::Future;
 use std::io::{self, Write};
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll};
 
 use atoi::FromRadix16;
 use bytes::BufMut;
@@ -45,7 +33,7 @@ pub struct PreviewData<'a, R> {
     pub inner: &'a mut R,
 }
 
-impl<'a, R> Future for PreviewData<'a, R>
+impl<R> Future for PreviewData<'_, R>
 where
     R: AsyncBufRead + Unpin,
 {
@@ -55,13 +43,20 @@ where
         if let Some(mut header) = self.header.take() {
             let limit = self.limit;
             let body_type = self.body_type;
-            let buf = ready!(Pin::new(&mut *self.inner).poll_fill_buf(cx))
-                .map_err(PreviewError::ReadError)?;
-            if buf.is_empty() {
-                return Poll::Ready(Err(PreviewError::ReaderClosed));
+            match Pin::new(&mut *self.inner).poll_fill_buf(cx) {
+                Poll::Ready(Ok(buf)) => {
+                    if buf.is_empty() {
+                        return Poll::Ready(Err(PreviewError::ReaderClosed));
+                    }
+                    let state = push_preview_data(&mut header, body_type, limit, buf)?;
+                    Poll::Ready(Ok((header, state)))
+                }
+                Poll::Ready(Err(e)) => Poll::Ready(Err(PreviewError::ReadError(e))),
+                Poll::Pending => {
+                    self.header = Some(header);
+                    Poll::Pending
+                }
             }
-            let state = push_preview_data(&mut header, body_type, limit, buf)?;
-            Poll::Ready(Ok((header, state)))
         } else {
             Poll::Ready(Err(PreviewError::AlreadyPolled))
         }

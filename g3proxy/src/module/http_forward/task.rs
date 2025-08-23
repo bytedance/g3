@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use http::{Method, Uri};
@@ -24,7 +13,7 @@ pub(crate) struct HttpForwardTaskNotes {
     pub(crate) rsp_status: u16,
     pub(crate) origin_status: u16,
     pub(crate) pipeline_wait: Duration,
-    pub(crate) reuse_connection: bool,
+    pub(crate) reused_connection: bool,
     create_ins: Instant,
     pub(crate) dur_req_send_hdr: Duration,
     pub(crate) dur_req_send_all: Duration,
@@ -48,7 +37,7 @@ impl HttpForwardTaskNotes {
             rsp_status: 0,
             origin_status: 0,
             pipeline_wait: req_received.elapsed(),
-            reuse_connection: false,
+            reused_connection: false,
             create_ins: task_created,
             dur_req_send_hdr: Duration::default(),
             dur_req_send_all: Duration::default(),

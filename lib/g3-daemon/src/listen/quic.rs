@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
@@ -25,21 +14,17 @@ use quinn::{Connection, Endpoint, Incoming};
 use tokio::runtime::Handle;
 use tokio::sync::{broadcast, watch};
 
-use g3_socket::util::native_socket_addr;
 use g3_socket::RawSocket;
+use g3_std_ext::net::SocketAddrExt;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::net::UdpListenConfig;
 
-use crate::listen::ListenStats;
-use crate::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
+use crate::listen::{ListenAliveGuard, ListenStats};
+use crate::server::{BaseServer, ClientConnectionInfo, ReloadServer, ServerReloadCommand};
 
 #[async_trait]
 pub trait AcceptQuicServer: BaseServer {
     async fn run_quic_task(&self, connection: Connection, cc_info: ClientConnectionInfo);
-}
-
-pub trait ReloadQuicServer: AcceptQuicServer {
-    fn get_reloaded(&self) -> Self;
 }
 
 pub trait ListenQuicConf {
@@ -57,33 +42,90 @@ pub trait ListenQuicConf {
 #[derive(Clone)]
 pub struct ListenQuicRuntime<S> {
     server: S,
+    listen_config: UdpListenConfig,
+    listen_stats: Arc<ListenStats>,
+}
+
+impl<S> ListenQuicRuntime<S>
+where
+    S: AcceptQuicServer + ReloadServer + Clone + Send + Sync + 'static,
+{
+    pub fn new(server: S, listen_stats: Arc<ListenStats>, listen_config: UdpListenConfig) -> Self {
+        ListenQuicRuntime {
+            server,
+            listen_config,
+            listen_stats,
+        }
+    }
+
+    fn create_instance(&self) -> ListenQuicRuntimeInstance<S> {
+        let server_type = self.server.r#type();
+        let server_version = self.server.version();
+        ListenQuicRuntimeInstance {
+            server: self.server.clone(),
+            server_type,
+            server_version,
+            worker_id: None,
+            listen_config: self.listen_config.clone(),
+            listen_stats: self.listen_stats.clone(),
+            instance_id: 0,
+            _alive_guard: None,
+        }
+    }
+
+    pub fn run_all_instances<C>(
+        &self,
+        listen_in_worker: bool,
+        quic_config: &quinn::ServerConfig,
+        server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
+        quic_cfg_receiver: &watch::Sender<C>,
+    ) -> anyhow::Result<()>
+    where
+        C: ListenQuicConf + Clone + Send + Sync + 'static,
+    {
+        let mut instance_count = self.listen_config.instance();
+        if listen_in_worker {
+            let worker_count = crate::runtime::worker::worker_count();
+            if worker_count > 0 {
+                instance_count = worker_count;
+            }
+        }
+
+        for i in 0..instance_count {
+            let mut runtime = self.create_instance();
+            runtime.instance_id = i;
+
+            let socket = g3_socket::udp::new_std_bind_listen(&self.listen_config)?;
+            let listen_addr = socket.local_addr()?;
+            runtime.into_running(
+                socket,
+                listen_addr,
+                quic_config.clone(),
+                listen_in_worker,
+                server_reload_sender.subscribe(),
+                quic_cfg_receiver.subscribe(),
+            );
+        }
+        Ok(())
+    }
+}
+
+pub struct ListenQuicRuntimeInstance<S> {
+    server: S,
     server_type: &'static str,
     server_version: usize,
     worker_id: Option<usize>,
     listen_config: UdpListenConfig,
     listen_stats: Arc<ListenStats>,
     instance_id: usize,
+    _alive_guard: Option<ListenAliveGuard>,
 }
 
-impl<S> ListenQuicRuntime<S>
+impl<S> ListenQuicRuntimeInstance<S>
 where
-    S: ReloadQuicServer + Clone + Send + Sync + 'static,
+    S: AcceptQuicServer + ReloadServer + Clone + Send + Sync + 'static,
 {
-    pub fn new(server: S, listen_stats: Arc<ListenStats>, listen_config: UdpListenConfig) -> Self {
-        let server_type = server.server_type();
-        let server_version = server.version();
-        ListenQuicRuntime {
-            server,
-            server_type,
-            server_version,
-            worker_id: None,
-            listen_config,
-            listen_stats,
-            instance_id: 0,
-        }
-    }
-
-    fn pre_start(&self) {
+    fn pre_start(&mut self) {
         info!(
             "started {} SRT[{}_v{}#{}]",
             self.server_type,
@@ -91,7 +133,7 @@ where
             self.server_version,
             self.instance_id,
         );
-        self.listen_stats.add_running_runtime();
+        self._alive_guard = Some(self.listen_stats.add_running_runtime());
     }
 
     fn pre_stop(&self) {
@@ -112,7 +154,6 @@ where
             self.server_version,
             self.instance_id,
         );
-        self.listen_stats.del_running_runtime();
     }
 
     async fn run<C>(
@@ -138,7 +179,7 @@ where
                         Ok(ServerReloadCommand::ReloadVersion(version)) => {
                             info!("SRT[{}_v{}#{}] received reload request from v{version}",
                                 self.server.name(), self.server_version, self.instance_id);
-                            let new_server = self.server.get_reloaded();
+                            let new_server = self.server.reload();
                             self.server_version = new_server.version();
                             self.server = new_server;
                             continue;
@@ -177,7 +218,7 @@ where
                                 listen_addr = addr;
                             }
                         } else {
-                            self.update_socket_opts(&sock_raw_fd);
+                            self.update_socket_opts(&sock_raw_fd, listen_addr);
                         }
                     }
                 }
@@ -213,10 +254,8 @@ where
             .local_ip()
             .map(|ip| SocketAddr::new(ip, listen_addr.port()))
             .unwrap_or(listen_addr);
-        let mut cc_info = ClientConnectionInfo::new(
-            native_socket_addr(peer_addr),
-            native_socket_addr(local_addr),
-        );
+        let mut cc_info =
+            ClientConnectionInfo::new(peer_addr.to_canonical(), local_addr.to_canonical());
 
         let server = self.server.clone();
         let listen_stats = self.listen_stats.clone();
@@ -290,8 +329,10 @@ where
         }
     }
 
-    fn update_socket_opts(&self, raw_socket: &RawSocket) {
-        if let Err(e) = raw_socket.set_udp_misc_opts(self.listen_config.socket_misc_opts()) {
+    fn update_socket_opts(&self, raw_socket: &RawSocket, listen_addr: SocketAddr) {
+        if let Err(e) =
+            raw_socket.set_udp_misc_opts(listen_addr, self.listen_config.socket_misc_opts())
+        {
             warn!(
                 "SRT[{}_v{}#{}] update socket misc opts failed: {e}",
                 self.server.name(),
@@ -392,11 +433,9 @@ where
     }
 
     fn get_rt_handle(&mut self, listen_in_worker: bool) -> Handle {
-        if listen_in_worker {
-            if let Some(rt) = crate::runtime::worker::select_listen_handle() {
-                self.worker_id = Some(rt.id);
-                return rt.handle;
-            }
+        if listen_in_worker && let Some(rt) = crate::runtime::worker::select_listen_handle() {
+            self.worker_id = Some(rt.id);
+            return rt.handle;
         }
         Handle::current()
     }
@@ -443,41 +482,5 @@ where
                 }
             }
         });
-    }
-
-    pub fn run_all_instances<C>(
-        &self,
-        listen_in_worker: bool,
-        quic_config: &quinn::ServerConfig,
-        server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
-        quic_cfg_receiver: &watch::Sender<C>,
-    ) -> anyhow::Result<()>
-    where
-        C: ListenQuicConf + Clone + Send + Sync + 'static,
-    {
-        let mut instance_count = self.listen_config.instance();
-        if listen_in_worker {
-            let worker_count = crate::runtime::worker::worker_count();
-            if worker_count > 0 {
-                instance_count = worker_count;
-            }
-        }
-
-        for i in 0..instance_count {
-            let mut runtime = self.clone();
-            runtime.instance_id = i;
-
-            let socket = g3_socket::udp::new_std_bind_listen(&self.listen_config)?;
-            let listen_addr = socket.local_addr()?;
-            runtime.into_running(
-                socket,
-                listen_addr,
-                quic_config.clone(),
-                listen_in_worker,
-                server_reload_sender.subscribe(),
-                quic_cfg_receiver.subscribe(),
-            );
-        }
-        Ok(())
     }
 }

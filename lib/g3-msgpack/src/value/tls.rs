@@ -1,17 +1,6 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::str::FromStr;
@@ -73,5 +62,134 @@ pub fn as_tls_cert_usage(v: &ValueRef) -> anyhow::Result<TlsCertUsage> {
         _ => Err(anyhow!(
             "msgpack value type for 'tls service type' should be 'binary' or 'string' or 'u8'"
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn as_tls_service_type_ok() {
+        // Valid string inputs
+        let v = ValueRef::String("http".into());
+        assert_eq!(as_tls_service_type(&v).unwrap(), TlsServiceType::Http);
+
+        let v = ValueRef::String("SMTP".into());
+        assert_eq!(as_tls_service_type(&v).unwrap(), TlsServiceType::Smtp);
+
+        // Valid binary inputs
+        let v = ValueRef::Binary(b"imap");
+        assert_eq!(as_tls_service_type(&v).unwrap(), TlsServiceType::Imap);
+
+        // Valid integer inputs
+        let v = ValueRef::Integer(0.into());
+        assert_eq!(as_tls_service_type(&v).unwrap(), TlsServiceType::Http);
+
+        let v = ValueRef::Integer(1.into());
+        assert_eq!(as_tls_service_type(&v).unwrap(), TlsServiceType::Smtp);
+
+        let v = ValueRef::Integer(2.into());
+        assert_eq!(as_tls_service_type(&v).unwrap(), TlsServiceType::Imap);
+    }
+
+    #[test]
+    fn as_tls_service_type_err() {
+        // Invalid string
+        let v = ValueRef::String("ftp".into());
+        assert!(as_tls_service_type(&v).is_err());
+
+        // Invalid UTF-8 in string
+        let v = ValueRef::String("\0ff\0fe".into());
+        assert!(as_tls_service_type(&v).is_err());
+
+        // Out-of-range integer
+        let v = ValueRef::Integer(3.into());
+        assert!(as_tls_service_type(&v).is_err());
+
+        // Invalid UTF-8 in binary
+        let v = ValueRef::Binary(&[0xff, 0xff]);
+        assert!(as_tls_service_type(&v).is_err());
+
+        // Wrong type (boolean)
+        let v = ValueRef::Boolean(true);
+        assert!(as_tls_service_type(&v).is_err());
+    }
+
+    #[test]
+    fn as_tls_cert_usage_ok() {
+        // Valid string inputs
+        let v = ValueRef::String("tls_server".into());
+        assert_eq!(as_tls_cert_usage(&v).unwrap(), TlsCertUsage::TlsServer);
+
+        let v = ValueRef::String("tlsserver".into());
+        assert_eq!(as_tls_cert_usage(&v).unwrap(), TlsCertUsage::TlsServer);
+
+        let v = ValueRef::String("tls_server_tongsuo".into());
+        assert_eq!(
+            as_tls_cert_usage(&v).unwrap(),
+            TlsCertUsage::TLsServerTongsuo
+        );
+
+        let v = ValueRef::String("tlcp_server_sign".into());
+        assert_eq!(
+            as_tls_cert_usage(&v).unwrap(),
+            TlsCertUsage::TlcpServerSignature
+        );
+
+        let v = ValueRef::String("tlcp_server_enc".into());
+        assert_eq!(
+            as_tls_cert_usage(&v).unwrap(),
+            TlsCertUsage::TlcpServerEncryption
+        );
+
+        // Valid binary inputs
+        let v = ValueRef::Binary(b"tls_server");
+        assert_eq!(as_tls_cert_usage(&v).unwrap(), TlsCertUsage::TlsServer);
+
+        // Valid integer inputs
+        let v = ValueRef::Integer(0.into());
+        assert_eq!(as_tls_cert_usage(&v).unwrap(), TlsCertUsage::TlsServer);
+
+        let v = ValueRef::Integer(1.into());
+        assert_eq!(
+            as_tls_cert_usage(&v).unwrap(),
+            TlsCertUsage::TLsServerTongsuo
+        );
+
+        let v = ValueRef::Integer(11.into());
+        assert_eq!(
+            as_tls_cert_usage(&v).unwrap(),
+            TlsCertUsage::TlcpServerSignature
+        );
+
+        let v = ValueRef::Integer(12.into());
+        assert_eq!(
+            as_tls_cert_usage(&v).unwrap(),
+            TlsCertUsage::TlcpServerEncryption
+        );
+    }
+
+    #[test]
+    fn as_tls_cert_usage_err() {
+        // Invalid string
+        let v = ValueRef::String("invalid".into());
+        assert!(as_tls_cert_usage(&v).is_err());
+
+        // Invalid UTF-8 in string
+        let v = ValueRef::String("\0ff\0fe".into());
+        assert!(as_tls_cert_usage(&v).is_err());
+
+        // Out-of-range integer (13)
+        let v = ValueRef::Integer(13.into());
+        assert!(as_tls_cert_usage(&v).is_err());
+
+        // Unsupported integer (2)
+        let v = ValueRef::Integer(2.into());
+        assert!(as_tls_cert_usage(&v).is_err());
+
+        // Wrong type (float)
+        let v = ValueRef::F64(1.0);
+        assert!(as_tls_cert_usage(&v).is_err());
     }
 }

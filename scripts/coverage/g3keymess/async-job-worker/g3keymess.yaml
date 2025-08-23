@@ -1,0 +1,27 @@
+log: journal
+
+worker:
+  thread_number: 2
+
+runtime:
+  thread_number: 2
+
+backend: async_job
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+  prefix: g3keymess
+
+server:
+  - name: default
+    listen: "[::]:1300"
+    # only multiplex mode can use workers now
+    multiplex_queue_depth: 128
+    extra_metrics_tags:
+      cluster: default
+
+store:
+  - name: local
+    type: local
+    dir: ../keys

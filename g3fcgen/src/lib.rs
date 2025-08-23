@@ -1,29 +1,17 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
-use log::{debug, warn};
+use anyhow::{Context, anyhow};
 use tokio::runtime::Handle;
 use tokio::time::Instant;
 
 use g3_cert_agent::Request;
-use g3_types::ext::DurationExt;
+use g3_std_ext::time::DurationExt;
 
 pub mod config;
 
@@ -38,7 +26,7 @@ mod backend;
 use backend::{BackendStats, OpensslBackend};
 
 mod frontend;
-use frontend::{FrontendStats, GeneratedData, UdpDgramFrontend};
+use frontend::{Frontend, FrontendStats, GeneratedData};
 
 struct BackendRequest {
     user_req: Request,
@@ -71,8 +59,8 @@ impl BackendResponse {
 }
 
 pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
-    let (req_sender, req_receiver) = flume::bounded::<BackendRequest>(1024);
-    let (rsp_sender, rsp_receiver) = flume::bounded::<BackendResponse>(1024);
+    let (req_sender, req_receiver) = kanal::bounded_async::<BackendRequest>(1024);
+    let (rsp_sender, rsp_receiver) = kanal::bounded_async::<BackendResponse>(1024);
 
     let backend_config =
         config::get_backend_config().ok_or_else(|| anyhow!("no backend config available"))?;
@@ -90,68 +78,20 @@ pub async fn run(proc_args: &ProcArgs) -> anyhow::Result<()> {
         let backend = OpensslBackend::new(&backend_config, &backend_stats)
             .context("failed to build backend for main runtime")?;
         backend.spawn(&Handle::current(), 0, req_receiver, rsp_sender);
+    } else {
+        drop(rsp_sender);
     }
 
-    let frontend_stats = Arc::new(FrontendStats::default());
+    let frontend = Frontend::new(proc_args.listen_config(), duration_recorder, rsp_receiver)?;
+
     if let Some(stats_config) = g3_daemon::stat::config::get_global_stat_config() {
         stat::spawn_working_thread(
             stats_config,
             backend_stats,
             duration_stats,
-            frontend_stats.clone(),
+            frontend.stats(),
         )?;
     }
 
-    let udp_listen_addr = proc_args.udp_listen_addr();
-    let frontend = UdpDgramFrontend::new(udp_listen_addr).await?;
-
-    let mut rcv_buf = [0u8; 16384];
-    loop {
-        tokio::select! {
-            r = frontend.recv_req(&mut rcv_buf) => {
-                frontend_stats.add_request_total();
-                let recv_time = Instant::now();
-                match r {
-                    Ok((len, peer)) => match Request::parse_req(&rcv_buf[0..len]) {
-                        Ok(user_req) => {
-                            debug!("{} - request received", user_req.host());
-                            let req = BackendRequest {user_req, peer, recv_time};
-                            if let Err(e) = req_sender.send_async(req).await {
-                                return Err(anyhow!("failed to send request to backend: {e}"));
-                            }
-                        }
-                        Err(e) => {
-                            frontend_stats.add_request_invalid();
-                            warn!("invalid request from peer {peer}: {e:?}");
-                        }
-                    }
-                    Err(e) => return Err(anyhow!("frontend recv error: {e:?}")),
-                }
-            }
-            r = rsp_receiver.recv_async() => {
-                match r {
-                    Ok(rsp) =>{
-                        match rsp.user_req.encode_rsp(&rsp.generated.cert, &rsp.generated.key, rsp.generated.ttl) {
-                            Ok(buf) => {
-                                frontend_stats.add_response_total();
-                                match frontend.send_rsp(buf.as_slice(), rsp.peer).await {
-                                    Ok(_) => {
-                                        let duration_nanos = rsp.duration();
-                                        debug!("{} - duration: {}ns, rsp size: {}", rsp.user_req.host(), duration_nanos, buf.len());
-                                        let _ = duration_recorder.record(duration_nanos);
-                                    }
-                                    Err(e) => {
-                                        frontend_stats.add_response_fail();
-                                        warn!("write response back error: {e:?}");
-                                    }
-                                }
-                            }
-                            Err(e) => return Err(anyhow!("response encode error: {e:?}")),
-                        }
-                    }
-                    Err(e) => return Err(anyhow!("recv from backend failed: {e}")),
-                }
-            }
-        }
-    }
+    frontend.run(req_sender).await
 }

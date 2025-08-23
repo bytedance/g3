@@ -1,32 +1,21 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::cell::UnsafeCell;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
-use hickory_client::client::{AsyncClient, ClientHandle};
+use anyhow::{Context, anyhow};
+use hickory_client::client::{Client, ClientHandle};
 use hickory_proto::op::ResponseCode;
 use tokio::time::Instant;
 
 use super::{
     BenchDnsArgs, BenchTaskContext, DnsHistogramRecorder, DnsRequestPickState, DnsRuntimeStats,
 };
-use crate::target::dns::DnsRequest;
 use crate::target::BenchError;
+use crate::target::dns::DnsRequest;
 
 #[derive(Default)]
 struct LocalRequestPicker {
@@ -62,7 +51,7 @@ impl DnsRequestPickState for LocalRequestPicker {
 pub(super) struct DnsTaskContext {
     args: Arc<BenchDnsArgs>,
 
-    client: Option<AsyncClient>,
+    client: Option<Client>,
 
     runtime_stats: Arc<DnsRuntimeStats>,
     histogram_recorder: DnsHistogramRecorder,
@@ -85,7 +74,7 @@ impl DnsTaskContext {
         })
     }
 
-    async fn fetch_client(&mut self) -> anyhow::Result<AsyncClient> {
+    async fn fetch_client(&mut self) -> anyhow::Result<Client> {
         if let Some(client) = &self.client {
             return Ok(client.clone());
         }
@@ -101,11 +90,7 @@ impl DnsTaskContext {
         self.client = None;
     }
 
-    async fn run_with_client(
-        &self,
-        mut client: AsyncClient,
-        req: &DnsRequest,
-    ) -> anyhow::Result<()> {
+    async fn run_with_client(&self, mut client: Client, req: &DnsRequest) -> anyhow::Result<()> {
         let rsp = match tokio::time::timeout(
             self.args.timeout,
             client.query(req.name.clone(), req.class, req.rtype),

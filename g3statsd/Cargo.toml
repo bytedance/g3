@@ -1,0 +1,40 @@
+[package]
+name = "g3statsd"
+version = "0.2.0"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "G3 StatsD"
+
+[dependencies]
+anyhow.workspace = true
+thiserror.workspace = true
+async-recursion.workspace = true
+arc-swap.workspace = true
+clap.workspace = true
+clap_complete.workspace = true
+ahash.workspace = true
+foldhash.workspace = true
+memchr.workspace = true
+itoa.workspace = true
+ryu.workspace = true
+log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
+chrono.workspace = true
+yaml-rust.workspace = true
+fastrand.workspace = true
+tokio = { workspace = true, features = ["time", "signal", "net", "macros"] }
+capnp.workspace = true
+capnp-rpc.workspace = true
+http.workspace = true
+serde_json.workspace = true
+g3-daemon.workspace = true
+g3-http.workspace = true
+g3-io-ext.workspace = true
+g3-macros.workspace = true
+g3-socket.workspace = true
+g3-types = { workspace = true, features = ["acl-rule"] }
+g3-yaml = { workspace = true, features = ["acl-rule", "http"] }
+g3statsd-proto = { path = "proto" }
+
+[build-dependencies]
+g3-build-env.workspace = true

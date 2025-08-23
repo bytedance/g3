@@ -1,17 +1,6 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
@@ -19,12 +8,12 @@ use std::net::SocketAddr;
 use anyhow::anyhow;
 
 use g3_types::collection::WeightedValue;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
 use super::{
-    AnyDiscoverConfig, DiscoverConfig, DiscoverConfigDiffAction, CONFIG_KEY_DISCOVER_NAME,
-    CONFIG_KEY_DISCOVER_TYPE,
+    AnyDiscoverConfig, CONFIG_KEY_DISCOVER_NAME, CONFIG_KEY_DISCOVER_TYPE, DiscoverConfig,
+    DiscoverConfigDiffAction,
 };
 
 mod yaml;
@@ -38,14 +27,14 @@ pub(crate) struct StaticAddrDiscoverInput {
 
 #[derive(Clone)]
 pub(crate) struct StaticAddrDiscoverConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
 }
 
 impl StaticAddrDiscoverConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         StaticAddrDiscoverConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
         }
     }
@@ -60,7 +49,7 @@ impl StaticAddrDiscoverConfig {
 
 impl DiscoverConfig for StaticAddrDiscoverConfig {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -70,7 +59,7 @@ impl DiscoverConfig for StaticAddrDiscoverConfig {
     }
 
     #[inline]
-    fn discover_type(&self) -> &'static str {
+    fn r#type(&self) -> &'static str {
         DISCOVER_CONFIG_TYPE
     }
 

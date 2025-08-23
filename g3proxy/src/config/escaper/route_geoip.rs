@@ -1,29 +1,18 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ip_network::IpNetwork;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
 use g3_geoip_types::{ContinentCode, IsoCountryCode};
 use g3_ip_locate::IpLocateServiceConfig;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::resolve::ResolveStrategy;
 use g3_yaml::YamlDocPosition;
 
@@ -33,25 +22,25 @@ const ESCAPER_CONFIG_TYPE: &str = "RouteGeoIp";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct RouteGeoIpEscaperConfig {
-    pub(crate) name: MetricsName,
+    pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) resolver: MetricsName,
+    pub(crate) resolver: NodeName,
     pub(crate) resolve_strategy: ResolveStrategy,
     pub(crate) resolution_delay: Duration,
     pub(crate) ip_locate_service: IpLocateServiceConfig,
-    pub(crate) lpm_rules: BTreeMap<MetricsName, BTreeSet<IpNetwork>>,
-    pub(crate) asn_rules: BTreeMap<MetricsName, BTreeSet<u32>>,
-    pub(crate) country_rules: BTreeMap<MetricsName, BTreeSet<IsoCountryCode>>,
-    pub(crate) continent_rules: BTreeMap<MetricsName, BTreeSet<ContinentCode>>,
-    pub(crate) default_next: MetricsName,
+    pub(crate) lpm_rules: BTreeMap<NodeName, BTreeSet<IpNetwork>>,
+    pub(crate) asn_rules: BTreeMap<NodeName, BTreeSet<u32>>,
+    pub(crate) country_rules: BTreeMap<NodeName, BTreeSet<IsoCountryCode>>,
+    pub(crate) continent_rules: BTreeMap<NodeName, BTreeSet<ContinentCode>>,
+    pub(crate) default_next: NodeName,
 }
 
 impl RouteGeoIpEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         RouteGeoIpEscaperConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
-            resolver: MetricsName::default(),
+            resolver: NodeName::default(),
             resolve_strategy: Default::default(),
             resolution_delay: Duration::from_millis(50),
             ip_locate_service: IpLocateServiceConfig::default(),
@@ -59,7 +48,7 @@ impl RouteGeoIpEscaperConfig {
             asn_rules: BTreeMap::new(),
             country_rules: BTreeMap::new(),
             continent_rules: BTreeMap::new(),
-            default_next: MetricsName::default(),
+            default_next: NodeName::default(),
         }
     }
 
@@ -79,11 +68,11 @@ impl RouteGeoIpEscaperConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "resolver" => {
-                self.resolver = g3_yaml::value::as_metrics_name(v)?;
+                self.resolver = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "resolve_strategy" => {
@@ -96,9 +85,9 @@ impl RouteGeoIpEscaperConfig {
                 Ok(())
             }
             "ip_locate_service" => {
-                self.ip_locate_service = g3_yaml::value::as_ip_locate_service_config(v).context(
-                    format!("invalid ip locate service config value for key {k}"),
-                )?;
+                self.ip_locate_service = IpLocateServiceConfig::parse_yaml(v).context(format!(
+                    "invalid ip locate service config value for key {k}"
+                ))?;
                 Ok(())
             }
             "geo_rules" | "geo_match" => {
@@ -116,7 +105,7 @@ impl RouteGeoIpEscaperConfig {
                 }
             }
             "default_next" => {
-                self.default_next = g3_yaml::value::as_metrics_name(v)?;
+                self.default_next = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),
@@ -153,14 +142,14 @@ impl RouteGeoIpEscaperConfig {
     }
 
     fn add_geo_rule(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        let mut escaper = MetricsName::default();
+        let mut escaper = NodeName::default();
         let mut networks = BTreeSet::<IpNetwork>::new();
         let mut asn_set = BTreeSet::<u32>::new();
         let mut countries = BTreeSet::<IsoCountryCode>::new();
         let mut continents = BTreeSet::<ContinentCode>::new();
         g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
             "next" | "escaper" => {
-                escaper = g3_yaml::value::as_metrics_name(v)?;
+                escaper = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "net" | "network" | "networks" => {
@@ -235,7 +224,7 @@ impl RouteGeoIpEscaperConfig {
 }
 
 impl EscaperConfig for RouteGeoIpEscaperConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -243,11 +232,11 @@ impl EscaperConfig for RouteGeoIpEscaperConfig {
         self.position.clone()
     }
 
-    fn escaper_type(&self) -> &str {
+    fn r#type(&self) -> &str {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &MetricsName {
+    fn resolver(&self) -> &NodeName {
         &self.resolver
     }
 
@@ -263,7 +252,7 @@ impl EscaperConfig for RouteGeoIpEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         set.insert(self.default_next.clone());
         let all_keys = self

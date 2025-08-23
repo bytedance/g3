@@ -1,0 +1,356 @@
+name: CodeCoverage
+permissions: { }
+
+on:
+  push:
+    paths-ignore:
+      - 'ansible/**'
+      - 'doc/**'
+      - 'sphinx/**'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+    branches:
+      - 'master'
+  pull_request:
+    paths-ignore:
+      - 'ansible/**'
+      - 'doc/**'
+      - 'sphinx/**'
+      - 'Cargo.lock'
+      - 'Cargo.toml'
+    branches:
+      - 'master'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  lib-unit-test:
+    name: lib unit test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
+        with:
+          toolchain: stable
+          components: llvm-tools
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
+      - name: Install binutils
+        run: |
+          cargo install cargo-binutils
+      - name: run unit test
+        run: |
+          ./scripts/coverage/lib_unit_test.sh
+      - name: Upload coverage data
+        uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: true
+          disable_search: true
+          files: output.lcov
+          flags: lib
+          name: lib-unit-test
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: false
+  g3mkcert-test:
+    name: g3mkcert test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
+        with:
+          toolchain: stable
+          components: llvm-tools
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install libssl-dev
+      - name: Install binutils
+        run: |
+          cargo install cargo-binutils
+      - name: run unit test
+        run: |
+          ./scripts/coverage/g3mkcert.sh
+      - name: Upload coverage data
+        uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: true
+          disable_search: true
+          files: output.lcov
+          flags: g3mkcert
+          name: g3mkcert-all-test
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: false
+  g3keymess-test:
+    name: g3keymess test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
+        with:
+          toolchain: stable
+          components: llvm-tools
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto libssl-dev
+      - name: Install binutils
+        run: |
+          cargo install cargo-binutils
+      - name: run unit test
+        run: |
+          ./scripts/coverage/g3keymess.sh
+      - name: Upload coverage data
+        uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: true
+          disable_search: true
+          files: output.lcov
+          flags: g3keymess
+          name: g3keymess-all-test
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: false
+  g3proxy-test:
+    name: g3proxy test
+    runs-on: ubuntu-latest
+    services:
+      ftp-server:
+        image: bogem/ftp:latest
+        env:
+          FTP_USER: ftpuser
+          FTP_PASS: ftppass
+          PASV_ADDRESS: 127.0.0.1
+        ports:
+          - '20-21:20-21/tcp'
+          - '47400-47470:47400-47470/tcp'
+        volumes:
+          - /tmp/vsftpd:/home/vsftpd
+      httpbin:
+        image: ghcr.io/psf/httpbin:0.10.2
+        ports:
+          - 80:8080
+      influxdb:
+        image: influxdb:3-core
+        env:
+          INFLUXDB3_NODE_IDENTIFIER_PREFIX: local
+          INFLUXDB3_OBJECT_STORE: memory
+        ports:
+          - 8181:8181
+      graphite:
+        image: graphiteapp/graphite-statsd:latest
+        ports:
+          - 2003:2003
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
+        with:
+          toolchain: stable
+          components: llvm-tools
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
+      - name: Install CA Certificates
+        run: |
+          sudo apt-get install ca-certificates
+      - name: Install test libs
+        run: |
+          sudo apt-get install python3-requests python3-pycurl python3-dnspython python3-socks
+      - name: Install binutils
+        run: |
+          cargo install cargo-binutils
+      - name: Install nginx
+        run: |
+          sudo apt-get install nginx-light
+      - name: Install and run c-icap
+        run: |
+          sudo apt-get install c-icap
+          sudo sed -i 's/^MaxServers .*/MaxServers 100/' /etc/c-icap/c-icap.conf
+          sudo systemctl start c-icap
+      - name: Install netcat-openbsd
+        run: |
+          sudo apt-get install netcat-openbsd
+      - name: Listen udpdump port
+        run: |
+          nc -u -l -k 127.0.0.1 5555 >/dev/null &
+      - name: Install and run fluent-bit
+        run: |
+          sudo curl https://raw.githubusercontent.com/fluent/fluent-bit/master/install.sh | sh
+          sudo cp ${{ github.workspace }}/scripts/coverage/g3proxy/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf
+          sudo systemctl start fluent-bit
+      - name: Install dnsmasq
+        run: |
+          sudo apt-get install dnsmasq-base
+      - name: Backup /etc/resolv.conf
+        run: |
+          sudo cp /etc/resolv.conf /etc/resolv.conf.backup
+      - name: Edit /etc/resolv.conf
+        run: |
+          echo "nameserver 127.0.0.1" | sudo tee /etc/resolv.conf
+      - name: Run dnsmasq
+        run: |
+          sudo dnsmasq --local-service -C ${{ github.workspace }}/scripts/coverage/g3proxy/dnsmasq.conf
+      - name: run unit test
+        run: |
+          ./scripts/coverage/g3proxy.sh
+      - name: Restore /etc/resolv.conf
+        run: |
+          sudo mv /etc/resolv.conf.backup /etc/resolv.conf
+      - name: Upload coverage data
+        uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: true
+          disable_search: true
+          files: output.lcov
+          flags: g3proxy
+          name: g3proxy-all-test
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: false
+  g3bench-test:
+    name: g3bench test
+    runs-on: ubuntu-latest
+    services:
+      httpbin:
+        image: ghcr.io/psf/httpbin:0.10.2
+        ports:
+          - 80:8080
+      influxdb:
+        image: influxdb:3-core
+        env:
+          INFLUXDB3_NODE_IDENTIFIER_PREFIX: local
+          INFLUXDB3_OBJECT_STORE: memory
+        ports:
+          - 8181:8181
+      graphite:
+        image: graphiteapp/graphite-statsd:latest
+        ports:
+          - 2003:2003
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
+        with:
+          toolchain: stable
+          components: llvm-tools
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
+      - name: Install CA Certificates
+        run: |
+          sudo apt-get install ca-certificates
+      - name: Install binutils
+        run: |
+          cargo install cargo-binutils
+      - name: Install nginx
+        run: |
+          sudo apt-get install nginx-light
+      - name: Install netcat-openbsd
+        run: |
+          sudo apt-get install netcat-openbsd
+      - name: Install dnsmasq
+        run: |
+          sudo apt-get install dnsmasq-base
+      - name: Backup /etc/resolv.conf
+        run: |
+          sudo cp /etc/resolv.conf /etc/resolv.conf.backup
+      - name: Edit /etc/resolv.conf
+        run: |
+          echo "nameserver 127.0.0.1" | sudo tee /etc/resolv.conf
+      - name: Run dnsmasq
+        run: |
+          sudo dnsmasq --local-service -C ${{ github.workspace }}/scripts/coverage/g3bench/dnsmasq.conf
+      - name: run unit test
+        run: |
+          ./scripts/coverage/g3bench.sh
+      - name: Restore /etc/resolv.conf
+        run: |
+          sudo mv /etc/resolv.conf.backup /etc/resolv.conf
+      - name: Upload coverage data
+        uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: true
+          disable_search: true
+          files: output.lcov
+          flags: g3bench
+          name: g3bench-all-test
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: false
+  g3statsd-test:
+    name: g3statsd test
+    runs-on: ubuntu-latest
+    services:
+      influxdb:
+        image: influxdb:3-core
+        env:
+          INFLUXDB3_NODE_IDENTIFIER_PREFIX: local
+          INFLUXDB3_OBJECT_STORE: memory
+        ports:
+          - 8181:8181
+      graphite:
+        image: graphiteapp/graphite-statsd:latest
+        ports:
+          - 2003:2003
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Install rust toolchain
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
+        with:
+          toolchain: stable
+          components: llvm-tools
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install capnproto
+      - name: Install binutils
+        run: |
+          cargo install cargo-binutils
+      - name: Install netcat-openbsd
+        run: |
+          sudo apt-get install netcat-openbsd
+      - name: Install and run fluent-bit
+        run: |
+          sudo curl https://raw.githubusercontent.com/fluent/fluent-bit/master/install.sh | sh
+          sudo cp ${{ github.workspace }}/scripts/coverage/g3proxy/fluent-bit.conf /etc/fluent-bit/fluent-bit.conf
+          sudo systemctl start fluent-bit
+      - name: run unit test
+        run: |
+          ./scripts/coverage/g3statsd.sh
+      - name: Upload coverage data
+        uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: true
+          disable_search: true
+          files: output.lcov
+          flags: g3statsd
+          name: g3statsd-all-test
+          token: ${{ secrets.CODECOV_TOKEN }}
+          verbose: false

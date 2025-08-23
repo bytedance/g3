@@ -1,16 +1,11 @@
 ---
 runtime:
-  thread_number: 2
+  thread_number: 1
 
-worker:
-  sched_affinity: true
+log: stdout
 
-log: journal
-
-controller:
-  local:
-    recv_timeout: 30
-    send_timeout: 1
+stat:
+  target_udp: 127.0.0.1:8125
 
 server:
   - name: test
@@ -18,7 +13,10 @@ server:
     type: http_proxy
     listen:
       address: "[::]:10086"
-    tls_client: {}
+    tls_client: { }
+    local_server_name:
+      - 127.0.0.1
+      - ::1
     tcp_sock_speed_limit: 100M
   - name: test-tls
     tls_server:
@@ -38,7 +36,6 @@ server:
 resolver:
   - name: default
     type: c-ares
-    server: 127.0.0.1
 
 escaper:
   - name: default

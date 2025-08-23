@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
@@ -19,19 +8,18 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use ahash::AHashMap;
 use anyhow::Context;
 use arc_swap::ArcSwapOption;
 use chrono::{DateTime, Utc};
-use governor::{clock::DefaultClock, state::InMemoryState, state::NotKeyed, RateLimiter};
+use foldhash::HashMap;
 use tokio::time::Instant;
 
 use g3_io_ext::{GlobalDatagramLimiter, GlobalLimitGroup, GlobalStreamLimiter};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
 use g3_types::auth::UserAuthError;
-use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit};
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit, GlobalRateLimitState, RateLimiter};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{HttpHeaderMap, ProxyRequestType, UpstreamAddr};
 use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
 
@@ -43,12 +31,12 @@ use crate::config::auth::{UserAuditConfig, UserConfig};
 
 pub(crate) struct User {
     config: Arc<UserConfig>,
-    group: MetricsName,
+    group: NodeName,
     started: Instant,
     is_expired: AtomicBool,
     is_blocked: Arc<AtomicBool>,
-    request_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
-    tcp_conn_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
+    request_rate_limit: Option<Arc<RateLimiter<GlobalRateLimitState>>>,
+    connection_rate_limit: Option<Arc<RateLimiter<GlobalRateLimitState>>>,
     tcp_all_upload_speed_limit: Option<Arc<GlobalStreamLimiter>>,
     tcp_all_download_speed_limit: Option<Arc<GlobalStreamLimiter>>,
     udp_all_upload_speed_limit: Option<Arc<GlobalDatagramLimiter>>,
@@ -56,18 +44,18 @@ pub(crate) struct User {
     ingress_net_filter: Option<Arc<AclNetworkRule>>,
     dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
     resolve_redirection: Option<ResolveRedirection>,
-    log_rate_limit: Option<Arc<RateLimiter<NotKeyed, InMemoryState, DefaultClock>>>,
-    forbid_stats: Arc<Mutex<AHashMap<String, Arc<UserForbiddenStats>>>>,
-    req_stats: Arc<Mutex<AHashMap<String, Arc<UserRequestStats>>>>,
-    io_stats: Arc<Mutex<AHashMap<String, Arc<UserTrafficStats>>>>,
-    upstream_io_stats: Arc<Mutex<AHashMap<String, Arc<UserUpstreamTrafficStats>>>>,
+    log_rate_limit: Option<Arc<RateLimiter<GlobalRateLimitState>>>,
+    forbid_stats: Arc<Mutex<HashMap<NodeName, Arc<UserForbiddenStats>>>>,
+    req_stats: Arc<Mutex<HashMap<NodeName, Arc<UserRequestStats>>>>,
+    io_stats: Arc<Mutex<HashMap<NodeName, Arc<UserTrafficStats>>>>,
+    upstream_io_stats: Arc<Mutex<HashMap<NodeName, Arc<UserUpstreamTrafficStats>>>>,
     req_alive_sem: GaugeSemaphore,
     explicit_sites: UserSites,
 }
 
 impl User {
     #[inline]
-    pub(crate) fn task_max_idle_count(&self) -> i32 {
+    pub(crate) fn task_max_idle_count(&self) -> Option<usize> {
         self.config.task_idle_max_count
     }
 
@@ -96,22 +84,19 @@ impl User {
     }
 
     pub(super) fn new(
-        group: &MetricsName,
+        group: &NodeName,
         config: &Arc<UserConfig>,
         datetime_now: &DateTime<Utc>,
     ) -> anyhow::Result<Self> {
         let request_rate_limit = config
             .request_rate_limit
-            .as_ref()
-            .map(|quota| Arc::new(RateLimiter::direct(quota.get_inner())));
-        let tcp_conn_rate_limit = config
-            .tcp_conn_rate_limit
-            .as_ref()
-            .map(|quota| Arc::new(RateLimiter::direct(quota.get_inner())));
+            .map(|quota| Arc::new(RateLimiter::new_global(quota)));
+        let connection_rate_limit = config
+            .connection_rate_limit
+            .map(|quota| Arc::new(RateLimiter::new_global(quota)));
         let log_rate_limit = config
             .log_rate_limit
-            .as_ref()
-            .map(|quota| Arc::new(RateLimiter::direct(quota.get_inner())));
+            .map(|quota| Arc::new(RateLimiter::new_global(quota)));
 
         let tcp_all_upload_speed_limit = if let Some(config) = config.tcp_all_upload_speed_limit {
             let limiter = Arc::new(GlobalStreamLimiter::new(GlobalLimitGroup::User, config));
@@ -157,7 +142,7 @@ impl User {
             is_expired,
             is_blocked,
             request_rate_limit,
-            tcp_conn_rate_limit,
+            connection_rate_limit,
             tcp_all_upload_speed_limit,
             tcp_all_download_speed_limit,
             udp_all_upload_speed_limit,
@@ -166,10 +151,10 @@ impl User {
             dst_host_filter: None,
             resolve_redirection: None,
             log_rate_limit,
-            forbid_stats: Arc::new(Mutex::new(AHashMap::new())),
-            req_stats: Arc::new(Mutex::new(AHashMap::new())),
-            io_stats: Arc::new(Mutex::new(AHashMap::new())),
-            upstream_io_stats: Arc::new(Mutex::new(AHashMap::new())),
+            forbid_stats: Arc::new(Mutex::new(HashMap::default())),
+            req_stats: Arc::new(Mutex::new(HashMap::default())),
+            io_stats: Arc::new(Mutex::new(HashMap::default())),
+            upstream_io_stats: Arc::new(Mutex::new(HashMap::default())),
             req_alive_sem: GaugeSemaphore::new(config.request_alive_max),
             explicit_sites,
         };
@@ -184,58 +169,58 @@ impl User {
         config: &Arc<UserConfig>,
         datetime_now: &DateTime<Utc>,
     ) -> anyhow::Result<Self> {
-        let request_rate_limit = if let Some(quota) = &config.request_rate_limit {
+        let request_rate_limit = if let Some(quota) = config.request_rate_limit {
             if let Some(old_limiter) = &self.request_rate_limit {
                 if let Some(old_quota) = &self.config.request_rate_limit {
                     if quota.eq(old_quota) {
                         // always use the old rate limiter when possible
                         Some(Arc::clone(old_limiter))
                     } else {
-                        Some(Arc::new(RateLimiter::direct(quota.get_inner())))
+                        Some(Arc::new(RateLimiter::new_global(quota)))
                     }
                 } else {
                     unreachable!()
                 }
             } else {
-                Some(Arc::new(RateLimiter::direct(quota.get_inner())))
+                Some(Arc::new(RateLimiter::new_global(quota)))
             }
         } else {
             None
         };
 
-        let tcp_conn_rate_limit = if let Some(quota) = &config.tcp_conn_rate_limit {
-            if let Some(old_limiter) = &self.tcp_conn_rate_limit {
-                if let Some(old_quota) = &self.config.tcp_conn_rate_limit {
+        let connection_rate_limit = if let Some(quota) = config.connection_rate_limit {
+            if let Some(old_limiter) = &self.connection_rate_limit {
+                if let Some(old_quota) = &self.config.connection_rate_limit {
                     if quota.eq(old_quota) {
                         // always use the old rate limiter when possible
                         Some(Arc::clone(old_limiter))
                     } else {
-                        Some(Arc::new(RateLimiter::direct(quota.get_inner())))
+                        Some(Arc::new(RateLimiter::new_global(quota)))
                     }
                 } else {
                     unreachable!()
                 }
             } else {
-                Some(Arc::new(RateLimiter::direct(quota.get_inner())))
+                Some(Arc::new(RateLimiter::new_global(quota)))
             }
         } else {
             None
         };
 
-        let log_rate_limit = if let Some(quota) = &config.log_rate_limit {
+        let log_rate_limit = if let Some(quota) = config.log_rate_limit {
             if let Some(old_limiter) = &self.log_rate_limit {
                 if let Some(old_quota) = &self.config.log_rate_limit {
                     if quota.eq(old_quota) {
                         // always use the old rate limiter when possible
                         Some(Arc::clone(old_limiter))
                     } else {
-                        Some(Arc::new(RateLimiter::direct(quota.get_inner())))
+                        Some(Arc::new(RateLimiter::new_global(quota)))
                     }
                 } else {
                     unreachable!()
                 }
             } else {
-                Some(Arc::new(RateLimiter::direct(quota.get_inner())))
+                Some(Arc::new(RateLimiter::new_global(quota)))
             }
         } else {
             None
@@ -315,7 +300,7 @@ impl User {
             is_expired,
             is_blocked,
             request_rate_limit,
-            tcp_conn_rate_limit,
+            connection_rate_limit,
             tcp_all_upload_speed_limit,
             tcp_all_download_speed_limit,
             udp_all_upload_speed_limit,
@@ -425,11 +410,11 @@ impl User {
     fn fetch_forbidden_stats(
         &self,
         user_type: UserType,
-        server: &MetricsName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server: &NodeName,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Arc<UserForbiddenStats> {
         let mut map = self.forbid_stats.lock().unwrap();
-        let stats = map.entry(server.to_string()).or_insert_with(|| {
+        let stats = map.entry(server.clone()).or_insert_with(|| {
             Arc::new(UserForbiddenStats::new(
                 &self.group,
                 self.config.name().clone(),
@@ -453,11 +438,11 @@ impl User {
     fn fetch_request_stats(
         &self,
         user_type: UserType,
-        server: &MetricsName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server: &NodeName,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Arc<UserRequestStats> {
         let mut map = self.req_stats.lock().unwrap();
-        let stats = map.entry(server.to_string()).or_insert_with(|| {
+        let stats = map.entry(server.clone()).or_insert_with(|| {
             Arc::new(UserRequestStats::new(
                 &self.group,
                 self.config.name().clone(),
@@ -481,11 +466,11 @@ impl User {
     fn fetch_traffic_stats(
         &self,
         user_type: UserType,
-        server: &MetricsName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server: &NodeName,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Arc<UserTrafficStats> {
         let mut map = self.io_stats.lock().unwrap();
-        let stats = map.entry(server.to_string()).or_insert_with(|| {
+        let stats = map.entry(server.clone()).or_insert_with(|| {
             Arc::new(UserTrafficStats::new(
                 &self.group,
                 self.config.name().clone(),
@@ -509,11 +494,11 @@ impl User {
     fn fetch_upstream_traffic_stats(
         &self,
         user_type: UserType,
-        escaper: &MetricsName,
-        escaper_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        escaper: &NodeName,
+        escaper_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Arc<UserUpstreamTrafficStats> {
         let mut map = self.upstream_io_stats.lock().unwrap();
-        let stats = map.entry(escaper.to_string()).or_insert_with(|| {
+        let stats = map.entry(escaper.clone()).or_insert_with(|| {
             Arc::new(UserUpstreamTrafficStats::new(
                 &self.group,
                 self.config.name().clone(),
@@ -535,11 +520,11 @@ impl User {
     }
 
     fn skip_log(&self, forbid_stats: &Arc<UserForbiddenStats>) -> bool {
-        if let Some(limit) = &self.log_rate_limit {
-            if limit.check().is_err() {
-                forbid_stats.add_log_skipped();
-                return true;
-            }
+        if let Some(limit) = &self.log_rate_limit
+            && limit.check().is_err()
+        {
+            forbid_stats.add_log_skipped();
+            return true;
         }
         false
     }
@@ -549,19 +534,18 @@ impl User {
         reused_connection: bool,
         forbid_stats: &Arc<UserForbiddenStats>,
     ) -> Result<(), ()> {
-        if !reused_connection {
-            if let Some(limit) = &self.tcp_conn_rate_limit {
-                if limit.check().is_err() {
-                    forbid_stats.add_rate_limited();
-                    return Err(());
-                }
-            }
+        if !reused_connection
+            && let Some(limit) = &self.connection_rate_limit
+            && limit.check().is_err()
+        {
+            forbid_stats.add_rate_limited();
+            return Err(());
         }
-        if let Some(limit) = &self.request_rate_limit {
-            if limit.check().is_err() {
-                forbid_stats.add_rate_limited();
-                return Err(());
-            }
+        if let Some(limit) = &self.request_rate_limit
+            && limit.check().is_err()
+        {
+            forbid_stats.add_rate_limited();
+            return Err(());
         }
         Ok(())
     }
@@ -703,8 +687,8 @@ impl UserContext {
         raw_user_name: Option<Arc<str>>,
         user: Arc<User>,
         user_type: UserType,
-        server: &MetricsName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server: &NodeName,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Self {
         let forbid_stats = user.fetch_forbidden_stats(user_type, server, server_extra_tags);
         let req_stats = user.fetch_request_stats(user_type, server, server_extra_tags);
@@ -728,8 +712,8 @@ impl UserContext {
 
     pub(crate) fn check_in_site(
         &mut self,
-        server: &MetricsName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server: &NodeName,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
         ups: &UpstreamAddr,
     ) {
         if let Some(user_site) = self.user.explicit_sites.fetch_site(ups) {
@@ -811,8 +795,8 @@ impl UserContext {
 
     pub(crate) fn fetch_traffic_stats(
         &self,
-        server: &MetricsName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server: &NodeName,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Vec<Arc<UserTrafficStats>> {
         let mut all_stats = Vec::with_capacity(2);
 
@@ -830,8 +814,8 @@ impl UserContext {
 
     pub(crate) fn fetch_upstream_traffic_stats(
         &self,
-        escaper: &MetricsName,
-        escaper_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        escaper: &NodeName,
+        escaper_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Vec<Arc<UserUpstreamTrafficStats>> {
         let mut all_stats = Vec::with_capacity(2);
 

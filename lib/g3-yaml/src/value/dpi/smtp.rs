@@ -1,20 +1,9 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
 use g3_dpi::SmtpInterceptionConfig;
@@ -74,5 +63,155 @@ pub fn as_smtp_interception_config(value: &Yaml) -> anyhow::Result<SmtpIntercept
         Err(anyhow!(
             "yaml value type for 'smtp interception config' should be 'map'"
         ))
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature = "dpi")]
+mod test {
+    use super::*;
+    use std::time::Duration;
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn as_smtp_interception_config_ok() {
+        // full valid configuation
+        let yaml = yaml_doc!(
+            r"
+                greeting_timeout: 10s
+                quit_wait_timeout: 5s
+                command_wait_timeout: 5m
+                response_wait_timeout: 30s
+                data_initiation_timeout: 20s
+                data_termination_timeout: 50s
+                allow_on_demand_mail_relay: true
+                allow_data_chunking: true
+                allow_burl_data: true
+            "
+        );
+        let config = as_smtp_interception_config(&yaml).unwrap();
+        assert_eq!(config.greeting_timeout, Duration::from_secs(10));
+        assert_eq!(config.quit_wait_timeout, Duration::from_secs(5));
+        assert_eq!(config.command_wait_timeout, Duration::from_secs(300));
+        assert_eq!(config.response_wait_timeout, Duration::from_secs(30));
+        assert_eq!(config.data_initiation_timeout, Duration::from_secs(20));
+        assert_eq!(config.data_termination_timeout, Duration::from_secs(50));
+        assert!(config.allow_on_demand_mail_relay);
+        assert!(config.allow_data_chunking);
+        assert!(config.allow_burl_data);
+
+        // alias key (allow_odmr and allow_burl)
+        let yaml = yaml_doc!(
+            r"
+                allow_odmr: true
+                allow_burl: true
+            "
+        );
+        let config = as_smtp_interception_config(&yaml).unwrap();
+        assert!(config.allow_on_demand_mail_relay);
+        assert!(config.allow_burl_data);
+
+        // default configuation
+        let yaml = Yaml::Hash(Default::default());
+        let config = as_smtp_interception_config(&yaml).unwrap();
+        assert_eq!(config.greeting_timeout, Duration::from_secs(300));
+        assert_eq!(config.quit_wait_timeout, Duration::from_secs(60));
+        assert_eq!(config.command_wait_timeout, Duration::from_secs(300));
+        assert_eq!(config.response_wait_timeout, Duration::from_secs(300));
+        assert_eq!(config.data_initiation_timeout, Duration::from_secs(120));
+        assert_eq!(config.data_termination_timeout, Duration::from_secs(600));
+        assert!(!config.allow_on_demand_mail_relay);
+        assert!(!config.allow_data_chunking);
+        assert!(!config.allow_burl_data);
+    }
+
+    #[test]
+    fn as_smtp_interception_config_err() {
+        // invalid value for greeting_timeout
+        let yaml = yaml_doc!(
+            r"
+                greeting_timeout: invalid
+            "
+        );
+        assert!(as_smtp_interception_config(&yaml).is_err());
+
+        // invalid value for quit_wait_timeout
+        let yaml = yaml_doc!(
+            r"
+                quit_wait_timeout: -1s
+            "
+        );
+        assert!(as_smtp_interception_config(&yaml).is_err());
+
+        // invalid value for command_wait_timeout
+        let yaml = yaml_doc!(
+            r"
+                command_wait_timeout: 1x
+            "
+        );
+        assert!(as_smtp_interception_config(&yaml).is_err());
+
+        // invalid value for response_wait_timeout
+        let yaml = yaml_doc!(
+            r"
+                response_wait_timeout: invalid
+            "
+        );
+        assert!(as_smtp_interception_config(&yaml).is_err());
+
+        // invalid value for data_initiation_timeout
+        let yaml = yaml_doc!(
+            r"
+                data_initiation_timeout: -5s
+            "
+        );
+        assert!(as_smtp_interception_config(&yaml).is_err());
+
+        // invalid value for data_termination_timeout
+        let yaml = yaml_doc!(
+            r"
+                data_termination_timeout: 5y
+            "
+        );
+        assert!(as_smtp_interception_config(&yaml).is_err());
+
+        // invalid value for allow_on_demand_mail_relay
+        let yaml = yaml_doc!(
+            r"
+                allow_on_demand_mail_relay: invalid
+            "
+        );
+        assert!(as_smtp_interception_config(&yaml).is_err());
+
+        // invalid value for allow_data_chunking
+        let yaml = yaml_doc!(
+            r"
+                allow_data_chunking: not_bool
+            "
+        );
+        assert!(as_smtp_interception_config(&yaml).is_err());
+
+        // invalid value for allow_burl_data
+        let yaml = yaml_doc!(
+            r"
+                allow_burl_data: invalid_bool
+            "
+        );
+        assert!(as_smtp_interception_config(&yaml).is_err());
+
+        // invalid key
+        let yaml = yaml_doc!(
+            r"
+                invalid_key: value
+            "
+        );
+        assert!(as_smtp_interception_config(&yaml).is_err());
+
+        // non-map input
+        let yaml = yaml_str!("invalid");
+        assert!(as_smtp_interception_config(&yaml).is_err());
+
+        let yaml = Yaml::Array(vec![]);
+        assert!(as_smtp_interception_config(&yaml).is_err());
     }
 }

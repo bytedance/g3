@@ -1,17 +1,6 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -25,6 +14,9 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_rustls::TlsConnector;
 
 use g3_types::net::{Host, RustlsClientConfig, RustlsClientConfigBuilder, UpstreamAddr};
+
+#[cfg(feature = "yaml")]
+mod yaml;
 
 pub const REDIS_DEFAULT_PORT: u16 = 6379;
 
@@ -138,7 +130,7 @@ impl RedisClientConfig {
     async fn lookup_server(&self) -> anyhow::Result<SocketAddr> {
         match self.server.host() {
             Host::Domain(domain) => {
-                let mut ips = tokio::net::lookup_host(format!("{domain}:{}", self.server.port()))
+                let mut ips = tokio::net::lookup_host((domain.as_ref(), self.server.port()))
                     .await
                     .map_err(|e| anyhow!("failed to resolve domain {domain}: {e}"))?;
                 ips.next()
@@ -148,11 +140,11 @@ impl RedisClientConfig {
         }
     }
 
-    pub async fn connect(&self) -> anyhow::Result<impl AsyncCommands> {
+    pub async fn connect(&self) -> anyhow::Result<impl AsyncCommands + use<>> {
         let peer = self.lookup_server().await?;
         let socket = g3_socket::tcp::new_socket_to(
             peer.ip(),
-            None,
+            &Default::default(),
             &Default::default(),
             &Default::default(),
             true,

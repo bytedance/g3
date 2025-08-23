@@ -1,0 +1,86 @@
+---
+
+log: journal
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+resolver:
+  - name: default
+    type: c-ares
+    server:
+      - 127.0.0.1
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: default
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.1
+
+user-group:
+  - name: g1
+    static_users:
+      - name: t1
+        token:
+          salt: 4e8f8a4e37f0fa1b
+          md5: d9d963915b9815d4cc39c196c2868900
+          sha1: c28640e7b1a3d9db98187632aeba99c0cff0ffd4
+    source:
+      type: file
+      path: group_1.json
+  - name: g2
+    static_users:
+      - name: t1
+        token:
+          salt: 4e8f8a4e37f0fa1b
+          md5: d9d963915b9815d4cc39c196c2868900
+          sha1: c28640e7b1a3d9db98187632aeba99c0cff0ffd4
+      - name: t2
+        token: '$1$rnfSARNK$DJNIbbMpjjSmral92rE3k1'
+  - name: g3
+    static_users:
+      - name: t1
+        token:
+          salt: 4e8f8a4e37f0fa1b
+          md5: d9d963915b9815d4cc39c196c2868900
+          sha1: c28640e7b1a3d9db98187632aeba99c0cff0ffd4
+    source:
+      type: lua
+      fetch_script: group_3.lua
+      cache_file: group_3_cache.json
+  - name: g4
+    static_users:
+      - name: t1
+        token:
+          salt: 4e8f8a4e37f0fa1b
+          md5: d9d963915b9815d4cc39c196c2868900
+          sha1: c28640e7b1a3d9db98187632aeba99c0cff0ffd4
+    source:
+      type: python
+      script: group_4.py
+      cache_file: group_4_cache.json
+
+server:
+  - name: http1
+    type: http_proxy
+    listen: 127.0.0.1:8080
+    escaper: default
+    user-group: g1
+  - name: http2
+    type: http_proxy
+    listen: 127.0.0.1:8081
+    escaper: default
+    user-group: g2
+  - name: http3
+    type: http_proxy
+    listen: 127.0.0.1:8082
+    escaper: default
+    user-group: g3
+  - name: http4
+    type: http_proxy
+    listen: 127.0.0.1:8083
+    escaper: default
+    user-group: g4

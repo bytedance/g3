@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
@@ -63,4 +52,74 @@ pub enum AuthParseError {
     InvalidPassword,
     #[error("no delimiter found")]
     NoDelimiterFound,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::SocketAddr;
+    use std::time::Duration;
+
+    #[test]
+    fn user_auth_error_variants() {
+        let err = UserAuthError::NoUserSupplied;
+        assert_eq!(err.to_string(), "no user is supplied");
+
+        let err = UserAuthError::NoSuchUser;
+        assert_eq!(err.to_string(), "no such user found");
+
+        let err = UserAuthError::TokenNotMatch;
+        assert_eq!(err.to_string(), "token not match");
+
+        let err = UserAuthError::ExpiredUser;
+        assert_eq!(err.to_string(), "user has been expired");
+
+        let err = UserAuthError::BlockedUser(Duration::from_secs(10));
+        assert_eq!(err.to_string(), "user has been blocked");
+
+        let addr: SocketAddr = "127.0.0.1:8080".parse().unwrap();
+        let err = UserAuthError::BlockedSrcIp(addr);
+        assert_eq!(err.to_string(), "src addr 127.0.0.1:8080 is blocked");
+    }
+
+    #[test]
+    fn user_auth_error_blocked_delay() {
+        assert_eq!(UserAuthError::NoUserSupplied.blocked_delay(), None);
+        assert_eq!(UserAuthError::NoSuchUser.blocked_delay(), None);
+        assert_eq!(UserAuthError::TokenNotMatch.blocked_delay(), None);
+        assert_eq!(UserAuthError::ExpiredUser.blocked_delay(), None);
+        assert_eq!(
+            UserAuthError::BlockedSrcIp("127.0.0.1:8080".parse().unwrap()).blocked_delay(),
+            None
+        );
+        assert_eq!(
+            UserAuthError::BlockedUser(Duration::ZERO).blocked_delay(),
+            None
+        );
+        assert_eq!(
+            UserAuthError::BlockedUser(Duration::from_secs(10)).blocked_delay(),
+            Some(Duration::from_secs(10))
+        );
+    }
+
+    #[test]
+    fn auth_parse_error_variants() {
+        let err = AuthParseError::UnsupportedAuthType;
+        assert_eq!(err.to_string(), "unsupported auth type");
+
+        let err = AuthParseError::InvalidBase64Encoding;
+        assert_eq!(err.to_string(), "invalid base64 encoding");
+
+        let err = AuthParseError::InvalidUtf8Encoding;
+        assert_eq!(err.to_string(), "invalid utf-8 encoding");
+
+        let err = AuthParseError::InvalidUsername;
+        assert_eq!(err.to_string(), "invalid username");
+
+        let err = AuthParseError::InvalidPassword;
+        assert_eq!(err.to_string(), "invalid password");
+
+        let err = AuthParseError::NoDelimiterFound;
+        assert_eq!(err.to_string(), "no delimiter found");
+    }
 }

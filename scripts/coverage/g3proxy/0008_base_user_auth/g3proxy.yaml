@@ -1,0 +1,106 @@
+---
+
+log: journal
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+resolver:
+  - name: default
+    type: c-ares
+    server:
+      - 127.0.0.1
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: default
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.1
+
+user-group:
+  - name: default
+    static_users:
+      - name: t1
+        token:
+          salt: 4e8f8a4e37f0fa1b
+          md5: d9d963915b9815d4cc39c196c2868900
+          sha1: c28640e7b1a3d9db98187632aeba99c0cff0ffd4
+        tcp_sock_speed_limit: 10M
+        tcp_all_upload_speed_limit: 20M
+        tcp_all_download_speed_limit: 50M
+        tcp_conn_rate_limit: 100
+        request_rate_limit: 500
+        request_max_alive: 10000
+      - name: t2
+        token: '$1$rnfSARNK$DJNIbbMpjjSmral92rE3k1'
+        tcp_all_upload_speed_limit: 800K
+        tcp_all_download_speed_limit: 800K
+        udp_sock_speed_limit: 10M
+        udp_all_upload_speed_limit: 20M
+        udp_all_download_speed_limit: 50M
+        resolve_redirection:
+          - exact: httpbin.local
+            to: 127.0.0.1
+        dst_port_filter:
+          default: allow
+          forbid:
+            - 22
+            - 100-200
+      - name: t3
+        token:
+          salt: 113323bdab6fd2cc
+          md5: 5c81f2becadde7fa5fde9026652ccc84
+          sha1: ff9d5c1a14328dd85ee95d4e574bd0558a1dfa96
+        socks_use_udp_associate: true
+        resolve_strategy: Ipv4Only
+        dst_host_filter_set:
+          exact_match:
+            default: allow
+            forbid: 192.168.1.1
+            allow:
+              - 127.0.0.1
+          subnet_match:
+            default: allow
+            forbid:
+              - 192.168.0.0/16
+
+server:
+  - name: rss
+    type: http_rproxy
+    listen: 127.0.0.1:9443
+    escaper: default
+    enable_tls_server: true
+    global_tls_server:
+      cert_pairs:
+        certificate: ../httpbin.local.pem
+        private-key: ../httpbin.local-key.pem
+    hosts:
+      - exact_match: httpbin.local
+        upstream: 127.0.0.1:80
+        tls_server:
+          cert_pairs:
+            certificate: ../httpbin.local.pem
+            private-key: ../httpbin.local-key.pem
+  - name: http
+    type: http_proxy
+    listen: 127.0.0.1:8080
+    escaper: default
+    user-group: default
+    tls_client:
+      ca_certificate: ../rootCA.pem
+  - name: tls
+    type: native_tls_port
+    listen: 127.0.0.1:8443
+    server: http
+    tls_server:
+      cert_pairs:
+        certificate: ../g3proxy.local.pem
+        private-key: ../g3proxy.local-key.pem
+  - name: socks
+    type: socks_proxy
+    listen: 127.0.0.1:1080
+    escaper: default
+    user-group: default

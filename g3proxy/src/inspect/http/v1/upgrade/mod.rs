@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::time::Duration;
@@ -28,40 +17,42 @@ use g3_dpi::Protocol;
 use g3_http::client::HttpTransparentResponse;
 use g3_http::server::{HttpTransparentRequest, UriExt};
 use g3_http::{HttpBodyReader, HttpBodyType};
+use g3_icap_client::reqmod::IcapReqmodClient;
 use g3_icap_client::reqmod::h1::{
     H1ReqmodAdaptationError, HttpAdapterErrorResponse, HttpRequestAdapter,
     ReqmodAdaptationMidState, ReqmodAdaptationRunState, ReqmodRecvHttpResponseBody,
 };
-use g3_icap_client::reqmod::IcapReqmodClient;
-use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt, OnceBufReader};
+use g3_io_ext::{LimitedWriteExt, OnceBufReader, StreamCopy, StreamCopyError};
 use g3_slog_types::{LtDateTime, LtDuration, LtHttpUri, LtUpstreamAddr, LtUuid};
-use g3_types::net::{HttpUpgradeToken, UpstreamAddr};
+use g3_types::net::{HttpUpgradeToken, UpstreamAddr, WebSocketNotes};
 
 use super::{H1InterceptionError, HttpRequest, HttpRequestIo, HttpResponseIo};
 use crate::config::server::ServerConfig;
 use crate::inspect::{BoxAsyncRead, BoxAsyncWrite, StreamInspectContext, StreamInspection};
-use crate::log::inspect::stream::StreamInspectLog;
 use crate::log::inspect::InspectSource;
+use crate::log::inspect::stream::StreamInspectLog;
 use crate::module::http_forward::HttpProxyClientResponse;
 use crate::serve::{ServerIdleChecker, ServerTaskError, ServerTaskResult};
 
 macro_rules! intercept_log {
     ($obj:tt, $r:expr, $($args:tt)+) => {
-        slog_info!($obj.ctx.intercept_logger(), $($args)+;
-            "intercept_type" => "HttpUpgrade",
-            "task_id" => LtUuid($obj.ctx.server_task_id()),
-            "depth" => $obj.ctx.inspection_depth,
-            "request_id" => $obj.req_id,
-            "next_protocol" => $r.as_ref().map(|v| v.0.to_string()),
-            "next_upstream" => $r.as_ref().map(|v| LtUpstreamAddr(&v.1)),
-            "received_at" => LtDateTime(&$obj.http_notes.receive_datetime),
-            "uri" => LtHttpUri::new(&$obj.req.uri, $obj.ctx.log_uri_max_chars()),
-            "rsp_status" => $obj.http_notes.rsp_status,
-            "origin_status" => $obj.http_notes.origin_status,
-            "dur_req_send_hdr" => LtDuration($obj.http_notes.dur_req_send_hdr),
-            "dur_req_pipeline" => LtDuration($obj.http_notes.dur_req_pipeline),
-            "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
-        )
+        if let Some(logger) = $obj.ctx.intercept_logger() {
+            slog_info!(logger, $($args)+;
+                "intercept_type" => "HttpUpgrade",
+                "task_id" => LtUuid($obj.ctx.server_task_id()),
+                "depth" => $obj.ctx.inspection_depth,
+                "request_id" => $obj.req_id,
+                "next_protocol" => $r.as_ref().map(|v| v.0.to_string()),
+                "next_upstream" => $r.as_ref().map(|v| LtUpstreamAddr(&v.1)),
+                "received_at" => LtDateTime(&$obj.http_notes.receive_datetime),
+                "uri" => LtHttpUri::new(&$obj.req.uri, $obj.ctx.log_uri_max_chars()),
+                "rsp_status" => $obj.http_notes.rsp_status,
+                "origin_status" => $obj.http_notes.origin_status,
+                "dur_req_send_hdr" => LtDuration($obj.http_notes.dur_req_send_hdr),
+                "dur_req_pipeline" => LtDuration($obj.http_notes.dur_req_pipeline),
+                "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
+            );
+        }
     };
 }
 
@@ -105,6 +96,7 @@ pub(super) struct H1UpgradeTask<SC: ServerConfig> {
     send_error_response: bool,
     should_close: bool,
     http_notes: HttpForwardTaskNotes,
+    ws_notes: Option<WebSocketNotes>,
 }
 
 impl<SC> H1UpgradeTask<SC>
@@ -120,6 +112,7 @@ where
             send_error_response: true,
             should_close: false,
             http_notes,
+            ws_notes: None,
         }
     }
 
@@ -147,27 +140,51 @@ where
         }
     }
 
-    pub(super) async fn forward_icap<CW, UR, UW>(
-        &mut self,
-        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
-        reqmod_client: &IcapReqmodClient,
-    ) -> Option<(HttpUpgradeToken, UpstreamAddr)>
+    async fn reply_fatal<CW>(&mut self, rsp: HttpProxyClientResponse, clt_w: &mut CW)
     where
         CW: AsyncWrite + Unpin,
-        UR: AsyncRead + Unpin,
-        UW: AsyncWrite + Unpin,
     {
-        match self.do_forward(rsp_io, reqmod_client).await {
-            Ok(v) => {
-                intercept_log!(self, &v, "ok");
-                v
+        self.should_close = true;
+        if rsp.reply_err_to_request(clt_w).await.is_ok() {
+            self.http_notes.rsp_status = rsp.status();
+        }
+    }
+
+    async fn check_blocked<CW>(&mut self, clt_w: &mut CW) -> ServerTaskResult<()>
+    where
+        CW: AsyncWrite + Unpin,
+    {
+        match self.req.retain_upgrade_token(|req, p| {
+            if matches!(p, HttpUpgradeToken::Websocket) {
+                let Some(http_host) = &req.host else {
+                    return false;
+                };
+                return !self
+                    .ctx
+                    .websocket_inspect_action(http_host.host())
+                    .is_block();
+            } else if matches!(p, HttpUpgradeToken::ConnectIp) {
+                return false;
             }
-            Err(e) => {
-                if self.send_error_response {
-                    self.reply_task_err(&e, &mut rsp_io.clt_w).await;
-                }
-                intercept_log!(self, &None::<(HttpUpgradeToken, UpstreamAddr)>, "{e}");
-                None
+            true
+        }) {
+            Some(0) => {
+                self.reply_fatal(HttpProxyClientResponse::forbidden(self.req.version), clt_w)
+                    .await;
+                Err(ServerTaskError::InternalAdapterError(anyhow!(
+                    "upgrade protocol blocked by inspection policy"
+                )))
+            }
+            Some(_) => Ok(()),
+            None => {
+                self.reply_fatal(
+                    HttpProxyClientResponse::bad_request(self.req.version),
+                    clt_w,
+                )
+                .await;
+                Err(ServerTaskError::InternalAdapterError(anyhow!(
+                    "no Upgrade header found in HTTP upgrade request"
+                )))
             }
         }
     }
@@ -181,7 +198,7 @@ where
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
-        match self.send_request(None, rsp_io).await {
+        match self.do_forward_original(rsp_io).await {
             Ok(v) => {
                 intercept_log!(self, &v, "ok");
                 v
@@ -196,7 +213,45 @@ where
         }
     }
 
-    async fn do_forward<CW, UR, UW>(
+    pub(super) async fn do_forward_original<CW, UR, UW>(
+        &mut self,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
+    ) -> ServerTaskResult<Option<(HttpUpgradeToken, UpstreamAddr)>>
+    where
+        CW: AsyncWrite + Unpin,
+        UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
+    {
+        self.check_blocked(&mut rsp_io.clt_w).await?;
+        self.send_request(None, rsp_io).await
+    }
+
+    pub(super) async fn forward_icap<CW, UR, UW>(
+        &mut self,
+        rsp_io: &mut HttpResponseIo<CW, UR, UW>,
+        reqmod_client: &IcapReqmodClient,
+    ) -> Option<(HttpUpgradeToken, UpstreamAddr)>
+    where
+        CW: AsyncWrite + Unpin,
+        UR: AsyncRead + Unpin,
+        UW: AsyncWrite + Unpin,
+    {
+        match self.do_forward_icap(rsp_io, reqmod_client).await {
+            Ok(v) => {
+                intercept_log!(self, &v, "ok");
+                v
+            }
+            Err(e) => {
+                if self.send_error_response {
+                    self.reply_task_err(&e, &mut rsp_io.clt_w).await;
+                }
+                intercept_log!(self, &None::<(HttpUpgradeToken, UpstreamAddr)>, "{e}");
+                None
+            }
+        }
+    }
+
+    async fn do_forward_icap<CW, UR, UW>(
         &mut self,
         rsp_io: &mut HttpResponseIo<CW, UR, UW>,
         reqmod_client: &IcapReqmodClient,
@@ -206,6 +261,7 @@ where
         UR: AsyncRead + Unpin,
         UW: AsyncWrite + Unpin,
     {
+        self.check_blocked(&mut rsp_io.clt_w).await?;
         match reqmod_client
             .h1_adapter(
                 self.ctx.server_config.limited_copy_config(),
@@ -281,16 +337,16 @@ where
 
         if let Some(mut recv_body) = rsp_recv_body {
             let mut body_reader = recv_body.body_reader();
-            let copy_to_clt = LimitedCopy::new(
+            let copy_to_clt = StreamCopy::new(
                 &mut body_reader,
                 clt_w,
                 &self.ctx.server_config.limited_copy_config(),
             );
             copy_to_clt.await.map_err(|e| match e {
-                LimitedCopyError::ReadFailed(e) => ServerTaskError::InternalAdapterError(anyhow!(
+                StreamCopyError::ReadFailed(e) => ServerTaskError::InternalAdapterError(anyhow!(
                     "read http error response from adapter failed: {e:?}"
                 )),
-                LimitedCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
+                StreamCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
             })?;
             recv_body.save_connection().await;
         } else {
@@ -355,7 +411,7 @@ where
 
     async fn send_response<CW, UR, UW>(
         &mut self,
-        rsp: HttpTransparentResponse,
+        mut rsp: HttpTransparentResponse,
         rsp_head: Bytes,
         rsp_io: &mut HttpResponseIo<CW, UR, UW>,
     ) -> ServerTaskResult<Option<(HttpUpgradeToken, UpstreamAddr)>>
@@ -389,20 +445,30 @@ where
                 }
             };
 
-            let upstream = if matches!(upgrade_protocol, HttpUpgradeToken::ConnectUdp) {
-                self.req
-                    .uri
-                    .get_connect_udp_upstream()
-                    .map_err(ServerTaskError::from)?
-            } else {
-                self.req
-                    .host
-                    .take()
-                    .ok_or(ServerTaskError::InvalidClientProtocol(
-                        "no Host header found in http upgrade request",
-                    ))?
-            };
+            match upgrade_protocol {
+                HttpUpgradeToken::Websocket => {
+                    let mut ws_notes = WebSocketNotes::new(self.req.uri.clone());
+                    ws_notes.append_response_headers(rsp.end_to_end_headers.drain());
+                    self.ws_notes = Some(ws_notes);
+                }
+                HttpUpgradeToken::ConnectUdp => {
+                    let upstream = self
+                        .req
+                        .uri
+                        .get_connect_udp_upstream()
+                        .map_err(ServerTaskError::from)?;
+                    return Ok(Some((upgrade_protocol, upstream)));
+                }
+                _ => {}
+            }
 
+            let upstream = self
+                .req
+                .host
+                .take()
+                .ok_or(ServerTaskError::InvalidClientProtocol(
+                    "no Host header found in http upgrade request",
+                ))?;
             Ok(Some((upgrade_protocol, upstream)))
         } else if let Some(body_type) = rsp.body_type(&self.req.method) {
             self.send_response_body(rsp_io, body_type).await?;
@@ -428,17 +494,14 @@ where
             self.ctx.h1_interception().body_line_max_len,
         );
 
-        let mut ups_to_clt = LimitedCopy::new(
+        let mut ups_to_clt = StreamCopy::new(
             &mut body_reader,
             &mut rsp_io.clt_w,
             &self.ctx.server_config.limited_copy_config(),
         );
 
-        let idle_duration = self.ctx.server_config.task_idle_check_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.register();
         let mut idle_count = 0;
-        let max_idle_count = self.ctx.task_max_idle_count();
 
         loop {
             tokio::select! {
@@ -450,17 +513,17 @@ where
                             // clt_w is already flushed
                             Ok(())
                         }
-                        Err(LimitedCopyError::ReadFailed(e)) => {
+                        Err(StreamCopyError::ReadFailed(e)) => {
                             let _ = ups_to_clt.write_flush().await;
                             Err(ServerTaskError::UpstreamReadFailed(e))
                         }
-                        Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
+                        Err(StreamCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if ups_to_clt.is_idle() {
-                        idle_count += 1;
-                        if idle_count >= max_idle_count {
+                        idle_count += n;
+                        if idle_count >= self.ctx.max_idle_count {
                             return if ups_to_clt.no_cached_data() {
                                 Err(ServerTaskError::UpstreamAppTimeout("idle while reading response body"))
                             } else {
@@ -487,7 +550,7 @@ where
     }
 
     pub(super) fn into_upgrade(
-        self,
+        mut self,
         req_io: HttpRequestIo<BoxAsyncRead>,
         rsp_io: HttpResponseIo<BoxAsyncWrite, BoxAsyncRead, BoxAsyncWrite>,
         protocol: HttpUpgradeToken,
@@ -509,9 +572,12 @@ where
                 Err(H1InterceptionError::InvalidUpgradeProtocol(protocol))
             }
             HttpUpgradeToken::Websocket => {
+                let mut ws_notes = self.ws_notes.unwrap();
+                ws_notes.append_request_headers(self.req.end_to_end_headers.drain());
                 StreamInspectLog::new(&ctx).log(InspectSource::HttpUpgrade, Protocol::Websocket);
-                let mut websocket_obj =
-                    crate::inspect::websocket::H1WebsocketInterceptObject::new(ctx, upstream);
+                let mut websocket_obj = crate::inspect::websocket::H1WebsocketInterceptObject::new(
+                    ctx, upstream, ws_notes,
+                );
                 websocket_obj.set_io(clt_r, clt_w, ups_r, ups_w);
                 Ok(StreamInspection::Websocket(websocket_obj))
             }

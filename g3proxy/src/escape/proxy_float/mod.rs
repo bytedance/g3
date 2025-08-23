@@ -1,23 +1,11 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::collections::BTreeSet;
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use log::warn;
@@ -25,27 +13,32 @@ use slog::Logger;
 use tokio::sync::mpsc;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::metrics::MetricsName;
-use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
+use g3_types::metrics::NodeName;
+use g3_types::net::{OpensslClientConfig, UpstreamAddr};
 
-use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal, EscaperStats};
+use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal, EscaperRegistry, EscaperStats};
+use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::proxy_float::ProxyFloatEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
 use crate::module::ftp_over_http::{
-    AnyFtpConnectContextParam, ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats,
-    BoxFtpConnectContext, BoxFtpRemoteConnection, DenyFtpConnectContext,
+    ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpConnectContext,
+    BoxFtpRemoteConnection, DenyFtpConnectContext,
 };
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, BoxHttpForwardContext,
     DirectHttpForwardContext,
 };
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
+    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskConf,
+    UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupError, UdpRelaySetupResult, UdpRelayTaskConf,
+    UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -59,6 +52,7 @@ mod source;
 
 mod tcp_connect;
 mod tls_connect;
+mod tls_handshake;
 
 pub(super) struct ProxyFloatEscaper {
     config: Arc<ProxyFloatEscaperConfig>,
@@ -66,14 +60,14 @@ pub(super) struct ProxyFloatEscaper {
     quit_job_sender: Option<mpsc::Sender<()>>,
     peers: Arc<ArcSwap<PeerSet>>,
     tls_config: Arc<OpensslClientConfig>,
-    escape_logger: Logger,
+    escape_logger: Option<Logger>,
 }
 
 impl ProxyFloatEscaper {
-    async fn new_obj(
+    fn new_obj(
         config: ProxyFloatEscaperConfig,
         stats: Arc<ProxyFloatEscaperStats>,
-        peers: Option<Arc<PeerSet>>,
+        peers: ArcSwap<PeerSet>,
     ) -> anyhow::Result<ArcEscaper> {
         let escape_logger = config.get_escape_logger();
 
@@ -83,23 +77,7 @@ impl ProxyFloatEscaper {
             .context("failed to setup tls client config")?;
 
         let config = Arc::new(config);
-
-        let peers = match peers {
-            Some(peers) => peers,
-            None => {
-                let peers = source::load_cached_peers(&config)
-                    .await
-                    .unwrap_or_else(|e| {
-                        warn!(
-                            "failed to load cached peers for escaper {}: {e:?}",
-                            config.name
-                        );
-                        PeerSet::default()
-                    });
-                Arc::new(peers)
-            }
-        };
-        let peers = Arc::new(ArcSwap::new(peers));
+        let peers = Arc::new(peers);
         let quit_job_sender = source::new_job(Arc::clone(&config), Arc::clone(&peers))?;
 
         stats.set_extra_tags(config.extra_metrics_tags.clone());
@@ -119,17 +97,26 @@ impl ProxyFloatEscaper {
     pub(super) async fn prepare_initial(
         config: ProxyFloatEscaperConfig,
     ) -> anyhow::Result<ArcEscaper> {
+        let peers = source::load_cached_peers(&config)
+            .await
+            .unwrap_or_else(|e| {
+                warn!(
+                    "failed to load cached peers for escaper {}: {e:?}",
+                    config.name
+                );
+                PeerSet::default()
+            });
         let stats = Arc::new(ProxyFloatEscaperStats::new(config.name()));
-        ProxyFloatEscaper::new_obj(config, stats, None).await
+        ProxyFloatEscaper::new_obj(config, stats, ArcSwap::from_pointee(peers))
     }
 
-    async fn prepare_reload(
+    fn prepare_reload(
         config: AnyEscaperConfig,
         stats: Arc<ProxyFloatEscaperStats>,
         peers: Arc<PeerSet>,
     ) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::ProxyFloat(config) = config {
-            ProxyFloatEscaper::new_obj(config, stats, Some(peers)).await
+            ProxyFloatEscaper::new_obj(config, stats, ArcSwap::new(peers))
         } else {
             Err(anyhow!("invalid escaper config type"))
         }
@@ -182,12 +169,8 @@ impl ProxyFloatEscaper {
 
 #[async_trait]
 impl Escaper for ProxyFloatEscaper {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
-    }
-
-    fn escaper_type(&self) -> &str {
-        self.config.escaper_type()
     }
 
     fn get_escape_stats(&self) -> Option<ArcEscaperStats> {
@@ -198,44 +181,45 @@ impl Escaper for ProxyFloatEscaper {
         source::publish_peers(&self.config, &self.peers, data).await
     }
 
-    async fn tcp_setup_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn tcp_setup_connection(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
+        _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         self.stats.interface.add_tcp_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
         let peer = self
             .select_peer(task_notes)
             .map_err(TcpConnectError::EscaperNotUsable)?;
-        peer.tcp_setup_connection(self, tcp_notes, task_notes, task_stats)
+        peer.tcp_setup_connection(self, task_conf, tcp_notes, task_notes, task_stats)
             .await
     }
 
-    async fn tls_setup_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn tls_setup_connection(
+        &self,
+        task_conf: &TlsConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
+        _audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         self.stats.interface.add_tls_connect_attempted();
         tcp_notes.escaper.clone_from(&self.config.name);
         let peer = self
             .select_peer(task_notes)
             .map_err(TcpConnectError::EscaperNotUsable)?;
-        peer.tls_setup_connection(
-            self, tcp_notes, task_notes, task_stats, tls_config, tls_name,
-        )
-        .await
+        peer.tls_setup_connection(self, task_conf, tcp_notes, task_notes, task_stats)
+            .await
     }
 
-    async fn udp_setup_connection<'a>(
-        &'a self,
-        udp_notes: &'a mut UdpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn udp_setup_connection(
+        &self,
+        task_conf: &UdpConnectTaskConf<'_>,
+        udp_notes: &mut UdpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         self.stats.interface.add_udp_connect_attempted();
@@ -243,14 +227,15 @@ impl Escaper for ProxyFloatEscaper {
         let peer = self
             .select_peer(task_notes)
             .map_err(UdpConnectError::EscaperNotUsable)?;
-        peer.udp_setup_connection(self, udp_notes, task_notes, task_stats)
+        peer.udp_setup_connection(self, task_conf, udp_notes, task_notes, task_stats)
             .await
     }
 
-    async fn udp_setup_relay<'a>(
-        &'a self,
-        udp_notes: &'a mut UdpRelayTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn udp_setup_relay(
+        &self,
+        task_conf: &UdpRelayTaskConf<'_>,
+        udp_notes: &mut UdpRelayTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         self.stats.interface.add_udp_relay_session_attempted();
@@ -258,7 +243,7 @@ impl Escaper for ProxyFloatEscaper {
         let peer = self
             .select_peer(task_notes)
             .map_err(UdpRelaySetupError::EscaperNotUsable)?;
-        peer.udp_setup_relay(self, udp_notes, task_notes, task_stats)
+        peer.udp_setup_relay(self, task_conf, udp_notes, task_notes, task_stats)
             .await
     }
 
@@ -267,11 +252,11 @@ impl Escaper for ProxyFloatEscaper {
         Box::new(ctx)
     }
 
-    async fn new_ftp_connect_context<'a>(
-        &'a self,
+    async fn new_ftp_connect_context(
+        &self,
         _escaper: ArcEscaper,
-        _task_notes: &'a ServerTaskNotes,
-        _upstream: &'a UpstreamAddr,
+        _task_conf: &TcpConnectTaskConf<'_>,
+        _task_notes: &ServerTaskNotes,
     ) -> BoxFtpConnectContext {
         Box::new(DenyFtpConnectContext::new(self.name(), None))
     }
@@ -279,12 +264,12 @@ impl Escaper for ProxyFloatEscaper {
 
 #[async_trait]
 impl EscaperInternal for ProxyFloatEscaper {
-    fn _resolver(&self) -> &MetricsName {
+    fn _resolver(&self) -> &NodeName {
         Default::default()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
-        None
+    fn _depend_on_escaper(&self, _name: &NodeName) -> bool {
+        false
     }
 
     fn _clone_config(&self) -> AnyEscaperConfig {
@@ -292,20 +277,16 @@ impl EscaperInternal for ProxyFloatEscaper {
         AnyEscaperConfig::ProxyFloat(config.clone())
     }
 
-    fn _update_config_in_place(
+    fn _reload(
         &self,
-        _flags: u64,
-        _config: AnyEscaperConfig,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
+        config: AnyEscaperConfig,
+        _registry: &mut EscaperRegistry,
+    ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
         // copy the old peers, they may be a little outdated at this stage
-        // as we haven't stop the old job
+        // as we haven't stopped the old job
         let peers = self.peers.load_full();
-        ProxyFloatEscaper::prepare_reload(config, stats, peers).await
+        ProxyFloatEscaper::prepare_reload(config, stats, peers)
     }
 
     fn _clean_to_offline(&self) {
@@ -314,10 +295,11 @@ impl EscaperInternal for ProxyFloatEscaper {
         }
     }
 
-    async fn _new_http_forward_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn _new_http_forward_connection(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.stats.interface.add_http_forward_connection_attempted();
@@ -325,17 +307,16 @@ impl EscaperInternal for ProxyFloatEscaper {
         let peer = self
             .select_peer(task_notes)
             .map_err(TcpConnectError::EscaperNotUsable)?;
-        peer.new_http_forward_connection(self, tcp_notes, task_notes, task_stats)
+        peer.new_http_forward_connection(self, task_conf, tcp_notes, task_notes, task_stats)
             .await
     }
 
-    async fn _new_https_forward_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn _new_https_forward_connection(
+        &self,
+        task_conf: &TlsConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         self.stats
             .interface
@@ -344,16 +325,15 @@ impl EscaperInternal for ProxyFloatEscaper {
         let peer = self
             .select_peer(task_notes)
             .map_err(TcpConnectError::EscaperNotUsable)?;
-        peer.new_https_forward_connection(
-            self, tcp_notes, task_notes, task_stats, tls_config, tls_name,
-        )
-        .await
+        peer.new_https_forward_connection(self, task_conf, tcp_notes, task_notes, task_stats)
+            .await
     }
 
-    async fn _new_ftp_control_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+    async fn _new_ftp_control_connection(
+        &self,
+        _task_conf: &TcpConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.stats.interface.add_ftp_over_http_request_attempted();
@@ -362,13 +342,14 @@ impl EscaperInternal for ProxyFloatEscaper {
         Err(TcpConnectError::MethodUnavailable)
     }
 
-    async fn _new_ftp_transfer_connection<'a>(
-        &'a self,
-        transfer_tcp_notes: &'a mut TcpConnectTaskNotes,
-        _control_tcp_notes: &'a TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+    async fn _new_ftp_transfer_connection(
+        &self,
+        _task_conf: &TcpConnectTaskConf<'_>,
+        transfer_tcp_notes: &mut TcpConnectTaskNotes,
+        _control_tcp_notes: &TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteTransferStats,
-        _context: AnyFtpConnectContextParam,
+        _ftp_server: &UpstreamAddr,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         self.stats.interface.add_ftp_transfer_connection_attempted();
         transfer_tcp_notes.escaper.clone_from(&self.config.name);

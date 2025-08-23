@@ -1,30 +1,20 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::IpAddr;
+use std::sync::Arc;
 
 use ahash::AHashMap;
 use radix_trie::Trie;
 
-use super::{reverse_idna_domain, reverse_to_idna_domain, QueryStrategy};
+use super::{QueryStrategy, reverse_idna_domain, reverse_to_idna_domain};
 use crate::net::Host;
 
 #[derive(Clone, Eq, PartialEq)]
 pub enum ResolveRedirectionValue {
-    Domain(String),
+    Domain(Arc<str>),
     Ip((Vec<IpAddr>, Vec<IpAddr>)),
 }
 
@@ -55,7 +45,7 @@ impl ResolveRedirectionBuilder {
             .insert(domain, ResolveRedirectionValue::Ip((ipv4, ipv6)));
     }
 
-    pub fn insert_exact_alias(&mut self, domain: String, alias: String) {
+    pub fn insert_exact_alias(&mut self, domain: String, alias: Arc<str>) {
         self.ht
             .insert(domain, ResolveRedirectionValue::Domain(alias));
     }
@@ -98,18 +88,18 @@ pub struct ResolveRedirection {
 
 impl ResolveRedirection {
     pub fn query_value(&self, domain: &str) -> Option<ResolveRedirectionValue> {
-        if !self.ht.is_empty() {
-            if let Some(v) = self.ht.get(domain) {
-                return Some(v.clone());
-            }
+        if !self.ht.is_empty()
+            && let Some(v) = self.ht.get(domain)
+        {
+            return Some(v.clone());
         }
 
         if self.match_trie {
             let reversed_domain = reverse_idna_domain(domain);
             if let Some(node) = self.trie.get_ancestor_value(&reversed_domain) {
                 let replaced = reversed_domain.replacen(&node.from, &node.to, 1);
-                return Some(ResolveRedirectionValue::Domain(reverse_to_idna_domain(
-                    &replaced,
+                return Some(ResolveRedirectionValue::Domain(Arc::from(
+                    reverse_to_idna_domain(&replaced),
                 )));
             }
         }
@@ -118,41 +108,41 @@ impl ResolveRedirection {
     }
 
     pub fn query_first(&self, domain: &str, strategy: QueryStrategy) -> Option<Host> {
-        if !self.ht.is_empty() {
-            if let Some(v) = self.ht.get(domain) {
-                match v {
-                    ResolveRedirectionValue::Domain(alias) => {
-                        return Some(Host::Domain(alias.to_string()));
-                    }
-                    ResolveRedirectionValue::Ip((ip4, ip6)) => match strategy {
-                        QueryStrategy::Ipv4Only => {
-                            if !ip4.is_empty() {
-                                return Some(Host::Ip(ip4[0]));
-                            }
-                        }
-                        QueryStrategy::Ipv6Only => {
-                            if !ip6.is_empty() {
-                                return Some(Host::Ip(ip6[0]));
-                            }
-                        }
-                        QueryStrategy::Ipv4First => {
-                            if !ip4.is_empty() {
-                                return Some(Host::Ip(ip4[0]));
-                            }
-                            if !ip6.is_empty() {
-                                return Some(Host::Ip(ip6[0]));
-                            }
-                        }
-                        QueryStrategy::Ipv6First => {
-                            if !ip6.is_empty() {
-                                return Some(Host::Ip(ip6[0]));
-                            }
-                            if !ip4.is_empty() {
-                                return Some(Host::Ip(ip4[0]));
-                            }
-                        }
-                    },
+        if !self.ht.is_empty()
+            && let Some(v) = self.ht.get(domain)
+        {
+            match v {
+                ResolveRedirectionValue::Domain(alias) => {
+                    return Some(Host::Domain(alias.clone()));
                 }
+                ResolveRedirectionValue::Ip((ip4, ip6)) => match strategy {
+                    QueryStrategy::Ipv4Only => {
+                        if !ip4.is_empty() {
+                            return Some(Host::Ip(ip4[0]));
+                        }
+                    }
+                    QueryStrategy::Ipv6Only => {
+                        if !ip6.is_empty() {
+                            return Some(Host::Ip(ip6[0]));
+                        }
+                    }
+                    QueryStrategy::Ipv4First => {
+                        if !ip4.is_empty() {
+                            return Some(Host::Ip(ip4[0]));
+                        }
+                        if !ip6.is_empty() {
+                            return Some(Host::Ip(ip6[0]));
+                        }
+                    }
+                    QueryStrategy::Ipv6First => {
+                        if !ip6.is_empty() {
+                            return Some(Host::Ip(ip6[0]));
+                        }
+                        if !ip4.is_empty() {
+                            return Some(Host::Ip(ip4[0]));
+                        }
+                    }
+                },
             }
         }
 
@@ -160,7 +150,7 @@ impl ResolveRedirection {
             let reversed_domain = reverse_idna_domain(domain);
             if let Some(node) = self.trie.get_ancestor_value(&reversed_domain) {
                 let replaced = reversed_domain.replacen(&node.from, &node.to, 1);
-                return Some(Host::Domain(reverse_to_idna_domain(&replaced)));
+                return Some(Host::Domain(Arc::from(reverse_to_idna_domain(&replaced))));
             }
         }
 
@@ -226,11 +216,11 @@ mod tests {
     fn exact_replace_alias() {
         let mut builder = ResolveRedirectionBuilder::default();
         let to_domain = "www.1-example.com";
-        builder.insert_exact_alias(DOMAIN1.to_string(), to_domain.to_string());
+        builder.insert_exact_alias(DOMAIN1.to_string(), Arc::from(to_domain));
         let r = builder.build();
 
         let ret = r.query_first(DOMAIN1, QueryStrategy::Ipv4First).unwrap();
-        assert_eq!(ret, Host::Domain(to_domain.to_string()));
+        assert_eq!(ret, Host::Domain(Arc::from(to_domain)));
 
         assert!(r.query_first(DOMAIN4, QueryStrategy::Ipv4First).is_none());
     }
@@ -242,17 +232,19 @@ mod tests {
         let r = builder.build();
 
         let ret = r.query_first("foo.com", QueryStrategy::Ipv4First).unwrap();
-        assert_eq!(ret, Host::Domain("bar.com".to_string()));
+        assert_eq!(ret, Host::Domain(Arc::from("bar.com")));
         let ret = r
             .query_first("a.foo.com", QueryStrategy::Ipv4First)
             .unwrap();
-        assert_eq!(ret, Host::Domain("a.bar.com".to_string()));
+        assert_eq!(ret, Host::Domain(Arc::from("a.bar.com")));
 
-        assert!(r
-            .query_first("a.zfoo.com", QueryStrategy::Ipv4First)
-            .is_none());
-        assert!(r
-            .query_first("a.fooz.com", QueryStrategy::Ipv4First)
-            .is_none());
+        assert!(
+            r.query_first("a.zfoo.com", QueryStrategy::Ipv4First)
+                .is_none()
+        );
+        assert!(
+            r.query_first("a.fooz.com", QueryStrategy::Ipv4First)
+                .is_none()
+        );
     }
 }

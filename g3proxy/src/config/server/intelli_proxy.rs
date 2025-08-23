@@ -1,27 +1,16 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::BTreeSet;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
-use yaml_rust::{yaml, Yaml};
+use anyhow::{Context, anyhow};
+use yaml_rust::{Yaml, yaml};
 
 use g3_types::acl::AclNetworkRuleBuilder;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::{ProxyProtocolVersion, TcpListenConfig};
 use g3_yaml::YamlDocPosition;
 
@@ -32,13 +21,13 @@ const SERVER_CONFIG_TYPE: &str = "IntelliProxy";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct IntelliProxyConfig {
-    name: MetricsName,
+    name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) listen: TcpListenConfig,
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
-    pub(crate) http_server: MetricsName,
-    pub(crate) socks_server: MetricsName,
+    pub(crate) http_server: NodeName,
+    pub(crate) socks_server: NodeName,
     pub(crate) protocol_detection_timeout: Duration,
     pub(crate) proxy_protocol: Option<ProxyProtocolVersion>,
     pub(crate) proxy_protocol_read_timeout: Duration,
@@ -47,13 +36,13 @@ pub(crate) struct IntelliProxyConfig {
 impl IntelliProxyConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         IntelliProxyConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             listen: TcpListenConfig::default(),
             listen_in_worker: false,
             ingress_net_filter: None,
-            http_server: MetricsName::default(),
-            socks_server: MetricsName::default(),
+            http_server: NodeName::default(),
+            socks_server: NodeName::default(),
             protocol_detection_timeout: Duration::from_secs(4),
             proxy_protocol: None,
             proxy_protocol_read_timeout: Duration::from_secs(5),
@@ -76,7 +65,7 @@ impl IntelliProxyConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SERVER_TYPE => Ok(()),
             super::CONFIG_KEY_SERVER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "listen" => {
@@ -96,11 +85,11 @@ impl IntelliProxyConfig {
                 Ok(())
             }
             "http_server" => {
-                self.http_server = g3_yaml::value::as_metrics_name(v)?;
+                self.http_server = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "socks_server" => {
-                self.socks_server = g3_yaml::value::as_metrics_name(v)?;
+                self.socks_server = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "protocol_detection_channel_size" => Ok(()),
@@ -144,7 +133,7 @@ impl IntelliProxyConfig {
 }
 
 impl ServerConfig for IntelliProxyConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -152,19 +141,19 @@ impl ServerConfig for IntelliProxyConfig {
         self.position.clone()
     }
 
-    fn server_type(&self) -> &'static str {
+    fn r#type(&self) -> &'static str {
         SERVER_CONFIG_TYPE
     }
 
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         Default::default()
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         Default::default()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         Default::default()
     }
 
@@ -181,10 +170,10 @@ impl ServerConfig for IntelliProxyConfig {
             return ServerConfigDiffAction::ReloadAndRespawn;
         }
 
-        ServerConfigDiffAction::ReloadOnlyConfig
+        ServerConfigDiffAction::ReloadNoRespawn
     }
 
-    fn dependent_server(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_server(&self) -> Option<BTreeSet<NodeName>> {
         let mut set = BTreeSet::new();
         set.insert(self.http_server.clone());
         set.insert(self.socks_server.clone());

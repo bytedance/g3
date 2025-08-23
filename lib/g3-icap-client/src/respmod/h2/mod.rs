@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
@@ -24,7 +13,7 @@ use http::{Request, Response};
 use tokio::time::Instant;
 
 use g3_http::client::HttpAdaptedResponse;
-use g3_io_ext::{IdleCheck, LimitedCopyConfig};
+use g3_io_ext::{IdleCheck, StreamCopyConfig};
 use g3_types::net::HttpHeaderMap;
 
 use super::IcapRespmodClient;
@@ -55,7 +44,7 @@ pub trait H2SendResponseToClient {
 impl IcapRespmodClient {
     pub async fn h2_adapter<I: IdleCheck>(
         &self,
-        copy_config: LimitedCopyConfig,
+        copy_config: StreamCopyConfig,
         http_body_line_max_size: usize,
         http_trailer_max_size: usize,
         idle_checker: I,
@@ -81,7 +70,7 @@ pub struct H2ResponseAdapter<I: IdleCheck> {
     icap_client: Arc<IcapServiceClient>,
     icap_connection: IcapClientConnection,
     icap_options: Arc<IcapServiceOptions>,
-    copy_config: LimitedCopyConfig,
+    copy_config: StreamCopyConfig,
     http_body_line_max_size: usize,
     http_trailer_max_size: usize,
     idle_checker: I,
@@ -97,7 +86,6 @@ pub struct RespmodAdaptationRunState {
     pub dur_clt_send_header: Option<Duration>,
     pub dur_clt_send_all: Option<Duration>,
     pub clt_write_started: bool,
-    pub(crate) icap_io_finished: bool,
 }
 
 impl RespmodAdaptationRunState {
@@ -109,7 +97,6 @@ impl RespmodAdaptationRunState {
             dur_clt_send_header: None,
             dur_clt_send_all: None,
             clt_write_started: false,
-            icap_io_finished: false,
         }
     }
 
@@ -164,6 +151,13 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
         }
     }
 
+    fn preview_size(&self) -> Option<usize> {
+        if self.icap_client.config.disable_preview {
+            return None;
+        }
+        self.icap_options.preview_size
+    }
+
     pub async fn xfer<CW>(
         self,
         state: &mut RespmodAdaptationRunState,
@@ -179,7 +173,7 @@ impl<I: IdleCheck> H2ResponseAdapter<I> {
             state.mark_ups_recv_no_body();
             self.xfer_without_body(state, http_request, http_response, clt_send_response)
                 .await
-        } else if let Some(preview_size) = self.icap_options.preview_size {
+        } else if let Some(preview_size) = self.preview_size() {
             self.xfer_with_preview(
                 state,
                 http_request,

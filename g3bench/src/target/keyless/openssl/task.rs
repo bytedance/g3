@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
@@ -27,7 +16,6 @@ use crate::target::BenchError;
 
 pub(super) struct KeylessOpensslTaskContext {
     args: Arc<KeylessOpensslArgs>,
-    #[allow(unused)]
     proc_args: Arc<ProcArgs>,
 
     runtime_stats: Arc<KeylessRuntimeStats>,
@@ -51,7 +39,7 @@ impl KeylessOpensslTaskContext {
 
     #[cfg(feature = "openssl-async-job")]
     async fn run_action(&self) -> anyhow::Result<Vec<u8>> {
-        if self.proc_args.use_unaided_worker && self.proc_args.openssl_async_job_size > 0 {
+        if self.proc_args.use_unaided_worker {
             KeylessOpensslAsyncJob::new(self.args.clone()).run().await
         } else {
             self.args.handle_action()
@@ -86,7 +74,7 @@ impl BenchTaskContext for KeylessOpensslTaskContext {
         self.histogram_recorder.record_total_time(total_time);
         self.args
             .global
-            .check_result(task_id, output)
+            .check_result(task_id, output, &self.proc_args)
             .map_err(BenchError::Task)?;
         tokio::task::yield_now().await;
         Ok(())

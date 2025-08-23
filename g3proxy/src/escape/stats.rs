@@ -1,25 +1,14 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use arc_swap::ArcSwapOption;
 
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::stats::{StatId, TcpIoSnapshot, TcpIoStats, UdpIoSnapshot, UdpIoStats};
 
 pub(crate) trait EscaperInternalStats {
@@ -28,17 +17,25 @@ pub(crate) trait EscaperInternalStats {
 }
 
 pub(crate) trait EscaperStats: EscaperInternalStats {
-    fn name(&self) -> &MetricsName;
+    fn name(&self) -> &NodeName;
     fn stat_id(&self) -> StatId;
-    fn load_extra_tags(&self) -> Option<Arc<StaticMetricsTags>>;
-    fn share_extra_tags(&self) -> &Arc<ArcSwapOption<StaticMetricsTags>>;
+    fn load_extra_tags(&self) -> Option<Arc<MetricTagMap>>;
+    fn share_extra_tags(&self) -> &Arc<ArcSwapOption<MetricTagMap>>;
 
     /// count for tasks
     fn get_task_total(&self) -> u64;
 
     /// count for attempted established connections
-    fn get_conn_attempted(&self) -> u64;
-    fn get_conn_established(&self) -> u64;
+    fn connection_attempted(&self) -> u64;
+    fn connection_established(&self) -> u64;
+
+    fn tcp_connect_snapshot(&self) -> Option<EscaperTcpConnectSnapshot> {
+        None
+    }
+
+    fn tls_snapshot(&self) -> Option<EscaperTlsSnapshot> {
+        None
+    }
 
     fn tcp_io_snapshot(&self) -> Option<TcpIoSnapshot> {
         None
@@ -160,33 +157,128 @@ impl EscaperInterfaceStats {
 }
 
 #[derive(Default)]
+pub(crate) struct EscaperTcpConnectSnapshot {
+    pub(crate) attempt: u64,
+    pub(crate) establish: u64,
+    pub(crate) success: u64,
+    pub(crate) error: u64,
+    pub(crate) timeout: u64,
+}
+
+#[derive(Default)]
+pub(super) struct EscaperTcpConnectStats {
+    attempted: AtomicU64,
+    established: AtomicU64,
+    success: AtomicU64,
+    error: AtomicU64,
+    timeout: AtomicU64,
+}
+
+impl EscaperTcpConnectStats {
+    pub(super) fn add_attempted(&self) {
+        self.attempted.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn add_established(&self) {
+        self.established.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn add_success(&self) {
+        self.success.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn add_error(&self) {
+        self.error.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn add_timeout(&self) {
+        self.error.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn snapshot(&self) -> EscaperTcpConnectSnapshot {
+        EscaperTcpConnectSnapshot {
+            attempt: self.attempted.load(Ordering::Relaxed),
+            establish: self.established.load(Ordering::Relaxed),
+            success: self.success.load(Ordering::Relaxed),
+            error: self.error.load(Ordering::Relaxed),
+            timeout: self.timeout.load(Ordering::Relaxed),
+        }
+    }
+}
+
+#[derive(Default)]
 pub(crate) struct EscaperTcpStats {
-    connection_attempted: AtomicU64,
-    connection_established: AtomicU64,
+    pub(super) connect: EscaperTcpConnectStats,
     pub(crate) io: TcpIoStats,
 }
 
 impl EscaperTcpStats {
-    pub(crate) fn add_connection_attempted(&self) {
-        self.connection_attempted.fetch_add(1, Ordering::Relaxed);
+    pub(crate) fn connection_attempted(&self) -> u64 {
+        self.connect.attempted.load(Ordering::Relaxed)
     }
 
-    pub(crate) fn get_connection_attempted(&self) -> u64 {
-        self.connection_attempted.load(Ordering::Relaxed)
+    pub(crate) fn connection_established(&self) -> u64 {
+        self.connect.established.load(Ordering::Relaxed)
     }
 
-    pub(crate) fn add_connection_established(&self) {
-        self.connection_established.fetch_add(1, Ordering::Relaxed);
-    }
-
-    pub(crate) fn get_connection_established(&self) -> u64 {
-        self.connection_established.load(Ordering::Relaxed)
+    pub(crate) fn connect_snapshot(&self) -> EscaperTcpConnectSnapshot {
+        self.connect.snapshot()
     }
 }
 
 #[derive(Default)]
 pub(crate) struct EscaperUdpStats {
     pub(crate) io: UdpIoStats,
+}
+
+#[derive(Default)]
+pub(crate) struct EscaperTlsSnapshot {
+    pub(crate) handshake_success: u64,
+    pub(crate) handshake_error: u64,
+    pub(crate) handshake_timeout: u64,
+    pub(crate) peer_orderly_closure: u64,
+    pub(crate) peer_abortive_closure: u64,
+}
+
+#[derive(Default)]
+pub(crate) struct EscaperTlsStats {
+    handshake_success: AtomicU64,
+    handshake_error: AtomicU64,
+    handshake_timeout: AtomicU64,
+    peer_orderly_closure: AtomicU64,
+    peer_abortive_closure: AtomicU64,
+}
+
+impl EscaperTlsStats {
+    pub(super) fn add_handshake_success(&self) {
+        self.handshake_success.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn add_handshake_error(&self) {
+        self.handshake_error.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn add_handshake_timeout(&self) {
+        self.handshake_timeout.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn add_peer_orderly_closure(&self) {
+        self.peer_abortive_closure.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn add_peer_abortive_closure(&self) {
+        self.peer_abortive_closure.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn snapshot(&self) -> EscaperTlsSnapshot {
+        EscaperTlsSnapshot {
+            handshake_success: self.handshake_success.load(Ordering::Relaxed),
+            handshake_error: self.handshake_error.load(Ordering::Relaxed),
+            handshake_timeout: self.handshake_timeout.load(Ordering::Relaxed),
+            peer_orderly_closure: self.peer_orderly_closure.load(Ordering::Relaxed),
+            peer_abortive_closure: self.peer_abortive_closure.load(Ordering::Relaxed),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -197,24 +289,24 @@ pub(crate) struct RouteEscaperSnapshot {
 
 /// General stats for `route` type escapers
 pub(crate) struct RouteEscaperStats {
-    name: MetricsName,
+    name: NodeName,
     id: StatId,
     request_passed: AtomicU64,
     request_failed: AtomicU64,
 }
 
 impl RouteEscaperStats {
-    pub(super) fn new(name: &MetricsName) -> Self {
+    pub(super) fn new(name: &NodeName) -> Self {
         RouteEscaperStats {
             name: name.clone(),
-            id: StatId::new(),
+            id: StatId::new_unique(),
             request_passed: AtomicU64::new(0),
             request_failed: AtomicU64::new(0),
         }
     }
 
     #[inline]
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         &self.name
     }
 

@@ -1,30 +1,17 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use openssl::pkey::{PKey, Private};
 use tokio::io::{AsyncRead, AsyncWrite, BufReader};
 use tokio::sync::broadcast;
 
 use g3_io_ext::{LimitedBufReadExt, LimitedWriteExt};
-use g3_types::ext::DurationExt;
 
-use super::{KeylessTask, WrappedKeylessRequest};
+use super::KeylessTask;
 use crate::log::request::RequestErrorLogContext;
 use crate::protocol::KeylessResponse;
-use crate::serve::{ServerReloadCommand, ServerTaskError};
+use crate::serve::{RequestProcessContext, ServerReloadCommand, ServerTaskError};
 
 impl KeylessTask {
     pub(crate) async fn into_simplex_running<R, W>(mut self, reader: R, mut writer: W)
@@ -95,14 +82,14 @@ impl KeylessTask {
         if let Some(rsp) = req.take_err_rsp() {
             req.stats.add_by_error_code(rsp.error_code());
             return self
-                .send_response(writer, KeylessResponse::Error(rsp))
+                .send_response(writer, &req.ctx, KeylessResponse::Error(rsp))
                 .await;
         }
 
         if let Some(pong) = req.inner.ping_pong() {
             req.stats.add_passed();
             return self
-                .send_response(writer, KeylessResponse::Pong(pong))
+                .send_response(writer, &req.ctx, KeylessResponse::Pong(pong))
                 .await;
         }
 
@@ -111,7 +98,7 @@ impl KeylessTask {
             Err(rsp) => {
                 req.stats.add_by_error_code(rsp.error_code());
                 return self
-                    .send_response(writer, KeylessResponse::Error(rsp))
+                    .send_response(writer, &req.ctx, KeylessResponse::Error(rsp))
                     .await;
             }
         };
@@ -122,43 +109,26 @@ impl KeylessTask {
             None
         };
 
-        let rsp = self.process_by_openssl(&req, &key);
+        let rsp = req.process_by_openssl(&key);
 
         drop(server_sem);
 
-        let r = self.send_response(writer, rsp).await;
-        let _ = req
-            .duration_recorder
-            .record(req.create_time.elapsed().as_nanos_u64());
-        r
-    }
-
-    fn process_by_openssl(
-        &self,
-        req: &WrappedKeylessRequest,
-        key: &PKey<Private>,
-    ) -> KeylessResponse {
-        match req.inner.process(key) {
-            Ok(d) => {
-                req.stats.add_passed();
-                KeylessResponse::Data(d)
-            }
-            Err(e) => {
-                req.stats.add_by_error_code(e.error_code());
-                KeylessResponse::Error(e)
-            }
-        }
+        req.ctx.record_duration_stats();
+        self.send_response(writer, &req.ctx, rsp).await
     }
 
     pub(super) async fn send_response<W>(
         &self,
         writer: &mut W,
+        ctx: &RequestProcessContext,
         rsp: KeylessResponse,
     ) -> Result<(), ServerTaskError>
     where
         W: AsyncWrite + Send + Unpin + 'static,
     {
-        RequestErrorLogContext { task_id: &self.id }.log(&self.ctx.request_logger, &rsp);
+        if let Some(logger) = &self.ctx.request_logger {
+            RequestErrorLogContext { task_id: &self.id }.log(logger, ctx, &rsp);
+        }
 
         writer
             .write_all_flush(rsp.message())

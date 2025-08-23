@@ -1,53 +1,21 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
-
-use std::time::Duration;
 
 use anyhow::anyhow;
 use quinn::{RecvStream, SendStream};
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::sync::mpsc;
-use tokio::time::Instant;
 
-use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt};
+use g3_io_ext::{StreamCopy, StreamCopyError};
 use g3_types::net::{ProxyProtocolEncodeError, ProxyProtocolV2Encoder};
 
-use super::StreamDetourContext;
+use super::{DetourAction, StreamDetourContext};
 use crate::config::server::ServerConfig;
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-#[repr(u16)]
-enum DetourAction {
-    Continue,
-    Bypass,
-    Block,
-}
-
-impl From<u16> for DetourAction {
-    fn from(value: u16) -> Self {
-        match value {
-            0 => DetourAction::Continue,
-            1 => DetourAction::Bypass,
-            _ => DetourAction::Block,
-        }
-    }
-}
-
-pub(super) struct StreamDetourStream {
+pub(crate) struct StreamDetourStream {
     pub(super) north_send: SendStream,
     pub(super) north_recv: RecvStream,
     pub(super) south_send: SendStream,
@@ -56,11 +24,18 @@ pub(super) struct StreamDetourStream {
     pub(super) match_id: u16,
 }
 
-impl<'a, SC> StreamDetourContext<'a, SC>
+impl StreamDetourStream {
+    pub(crate) fn finish(mut self) {
+        let _ = self.north_send.finish();
+        let _ = self.south_send.finish();
+    }
+}
+
+impl<SC> StreamDetourContext<'_, SC>
 where
     SC: ServerConfig,
 {
-    pub(super) async fn relay<CR, CW, UR, UW>(
+    pub(crate) async fn relay<CR, CW, UR, UW>(
         self,
         mut clt_r: CR,
         mut clt_w: CW,
@@ -80,48 +55,17 @@ where
             mut south_send,
             mut south_recv,
             force_quit_sender,
-            match_id,
+            match_id: _,
         } = d_stream;
-
-        match self
-            .send_detour_request(&mut north_send, &mut north_recv, &mut south_send, match_id)
-            .await
-        {
-            Ok(DetourAction::Continue) => {}
-            Ok(DetourAction::Bypass) => {
-                return crate::inspect::stream::transit_transparent(
-                    clt_r,
-                    clt_w,
-                    ups_r,
-                    ups_w,
-                    self.server_config,
-                    self.server_quit_policy,
-                    self.task_notes.user(),
-                )
-                .await
-            }
-            Ok(DetourAction::Block) => {
-                let _ = clt_w.shutdown().await;
-                let _ = ups_w.shutdown().await;
-                let _ = north_send.finish();
-                let _ = south_send.finish();
-                return Err(ServerTaskError::InternalAdapterError(anyhow!(
-                    "blocked by detour server"
-                )));
-            }
-            Err(e) => return Err(ServerTaskError::InternalAdapterError(e)),
-        }
 
         let copy_config = self.server_config.limited_copy_config();
 
-        let mut clt_to_d = LimitedCopy::new(&mut clt_r, &mut north_send, &copy_config);
-        let mut d_to_ups = LimitedCopy::new(&mut north_recv, &mut ups_w, &copy_config);
-        let mut ups_to_d = LimitedCopy::new(&mut ups_r, &mut south_send, &copy_config);
-        let mut d_to_clt = LimitedCopy::new(&mut south_recv, &mut clt_w, &copy_config);
+        let mut clt_to_d = StreamCopy::new(&mut clt_r, &mut north_send, &copy_config);
+        let mut d_to_ups = StreamCopy::new(&mut north_recv, &mut ups_w, &copy_config);
+        let mut ups_to_d = StreamCopy::new(&mut ups_r, &mut south_send, &copy_config);
+        let mut d_to_clt = StreamCopy::new(&mut south_recv, &mut clt_w, &copy_config);
 
-        let idle_duration = self.server_config.task_idle_check_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.idle_wheel.register();
         let mut idle_count = 0;
 
         loop {
@@ -134,11 +78,11 @@ where
                             self.relay_after_client_closed(north_send, south_send, d_to_ups).await;
                             Err(ServerTaskError::ClosedByClient)
                         },
-                        Err(LimitedCopyError::ReadFailed(e)) => {
+                        Err(StreamCopyError::ReadFailed(e)) => {
                             self.relay_after_client_closed(north_send, south_send, d_to_ups).await;
                             Err(ServerTaskError::ClientTcpReadFailed(e))
                         },
-                        Err(LimitedCopyError::WriteFailed(e)) => {
+                        Err(StreamCopyError::WriteFailed(e)) => {
                             self.relay_after_detour_failed(south_send, d_to_ups, d_to_clt).await;
                             Err(
                                 ServerTaskError::InternalAdapterError(
@@ -158,7 +102,7 @@ where
                                 )
                             )
                         },
-                        Err(LimitedCopyError::ReadFailed(e)) => {
+                        Err(StreamCopyError::ReadFailed(e)) => {
                             self.relay_after_detour_failed(south_send, d_to_ups, d_to_clt).await;
                             Err(
                                 ServerTaskError::InternalAdapterError(
@@ -166,7 +110,7 @@ where
                                 )
                             )
                         },
-                        Err(LimitedCopyError::WriteFailed(e)) => {
+                        Err(StreamCopyError::WriteFailed(e)) => {
                             self.relay_after_remote_closed(north_send, south_send, d_to_clt).await;
                             Err(ServerTaskError::UpstreamWriteFailed(e))
                         },
@@ -178,11 +122,11 @@ where
                             self.relay_after_remote_closed(north_send, south_send, d_to_clt).await;
                             Err(ServerTaskError::ClosedByUpstream)
                         },
-                        Err(LimitedCopyError::ReadFailed(e)) => {
+                        Err(StreamCopyError::ReadFailed(e)) => {
                             self.relay_after_remote_closed(north_send, south_send, d_to_clt).await;
                             Err(ServerTaskError::UpstreamReadFailed(e))
                         },
-                        Err(LimitedCopyError::WriteFailed(e)) => {
+                        Err(StreamCopyError::WriteFailed(e)) => {
                             self.relay_after_detour_failed(north_send, d_to_ups, d_to_clt).await;
                             Err(
                                 ServerTaskError::InternalAdapterError(
@@ -202,7 +146,7 @@ where
                                 )
                             )
                         },
-                        Err(LimitedCopyError::ReadFailed(e)) => {
+                        Err(StreamCopyError::ReadFailed(e)) => {
                             self.relay_after_detour_failed(north_send, d_to_ups, d_to_clt).await;
                             Err(
                                 ServerTaskError::InternalAdapterError(
@@ -210,27 +154,23 @@ where
                                 )
                             )
                         },
-                        Err(LimitedCopyError::WriteFailed(e)) => {
+                        Err(StreamCopyError::WriteFailed(e)) => {
                             self.relay_after_client_closed(north_send, south_send, d_to_ups).await;
                             Err(ServerTaskError::ClientTcpWriteFailed(e))
                         },
                     };
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if clt_to_d.is_idle() && d_to_clt.is_idle() && ups_to_d.is_idle() && d_to_ups.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
-                        let quit = if let Some(user) = self.task_notes.user() {
-                            if user.is_blocked() {
+                        if let Some(user) = self.task_notes.user()
+                            && user.is_blocked() {
                                 return Err(ServerTaskError::CanceledAsUserBlocked);
                             }
-                            idle_count >= user.task_max_idle_count()
-                        } else {
-                            idle_count >= self.server_config.task_max_idle_count()
-                        };
 
-                        if quit {
-                            return Err(ServerTaskError::Idle(idle_duration, idle_count));
+                        if idle_count >= self.max_idle_count {
+                            return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
                         idle_count = 0;
@@ -241,11 +181,10 @@ where
                         d_to_clt.reset_active();
                     }
 
-                    if let Some(user) = self.task_notes.user() {
-                        if user.is_blocked() {
+                    if let Some(user) = self.task_notes.user()
+                        && user.is_blocked() {
                             return Err(ServerTaskError::CanceledAsUserBlocked);
                         }
-                    }
 
                     if self.server_quit_policy.force_quit() {
                         let _ = force_quit_sender.try_send(());
@@ -271,9 +210,7 @@ where
         ppv2.push_upstream(self.upstream)?;
         ppv2.push_match_id(match_id)?;
         ppv2.push_protocol(self.protocol.as_str())?;
-        if !self.payload.is_empty() {
-            ppv2.push_payload(&self.payload)?;
-        }
+        ppv2.push_payload_len(self.payload.len())?;
         Ok(ppv2)
     }
 
@@ -289,28 +226,39 @@ where
         Ok(ppv2)
     }
 
-    async fn send_detour_request(
+    pub(crate) async fn check_detour_action(
         &self,
-        north_send: &mut SendStream,
-        north_recv: &mut RecvStream,
-        south_send: &mut SendStream,
-        match_id: u16,
+        detour_stream: &mut StreamDetourStream,
     ) -> anyhow::Result<DetourAction> {
         let mut client_ppv2 = self
-            .encode_client_ppv2(match_id)
+            .encode_client_ppv2(detour_stream.match_id)
             .map_err(|e| anyhow!("failed to encode ppv2 header for client stream: {e}"))?;
-        north_send
-            .write_all_flush(client_ppv2.finalize())
+        detour_stream
+            .north_send
+            .write_all(client_ppv2.finalize())
             .await
             .map_err(|e| anyhow!("failed to send ppv2 header for client stream: {e}"))?;
+        if !self.payload.is_empty() {
+            detour_stream
+                .north_send
+                .write_all(&self.payload)
+                .await
+                .map_err(|e| anyhow!("failed to send payload data: {e}"))?;
+        }
+        // no flush needed on SendStream
 
         let detour_action;
 
         let mut buf = [0u8; 4];
-        match tokio::time::timeout(Duration::from_secs(60), north_recv.read_exact(&mut buf)).await {
+        match tokio::time::timeout(
+            self.request_timeout,
+            detour_stream.north_recv.read_exact(&mut buf),
+        )
+        .await
+        {
             Ok(Ok(_)) => {
                 let rsp_match_id = u16::from_be_bytes([buf[0], buf[1]]);
-                if rsp_match_id != match_id {
+                if rsp_match_id != detour_stream.match_id {
                     return Err(anyhow!(
                         "invalid response from detour server: invalid match id"
                     ));
@@ -326,12 +274,14 @@ where
         }
 
         let mut remote_ppv2 = self
-            .encode_remote_ppv2(match_id)
+            .encode_remote_ppv2(detour_stream.match_id)
             .map_err(|e| anyhow!("failed to encode ppv2 header for remote stream: {e}"))?;
-        south_send
-            .write_all_flush(remote_ppv2.finalize())
+        detour_stream
+            .south_send
+            .write_all(remote_ppv2.finalize())
             .await
             .map_err(|e| anyhow!("failed to send ppv2 header for remote stream: {e}"))?;
+        // no flush needed on SendStream
 
         Ok(detour_action)
     }
@@ -340,7 +290,7 @@ where
         self,
         mut north_send: SendStream,
         mut south_send: SendStream,
-        mut d_to_ups: LimitedCopy<'_, RecvStream, UW>,
+        mut d_to_ups: StreamCopy<'_, RecvStream, UW>,
     ) where
         UW: AsyncWrite + Unpin,
     {
@@ -358,7 +308,7 @@ where
         self,
         mut north_send: SendStream,
         mut south_send: SendStream,
-        mut d_to_clt: LimitedCopy<'_, RecvStream, CW>,
+        mut d_to_clt: StreamCopy<'_, RecvStream, CW>,
     ) where
         CW: AsyncWrite + Unpin,
     {
@@ -375,8 +325,8 @@ where
     async fn relay_after_detour_failed<CW, UW>(
         self,
         mut left_sender: SendStream,
-        mut d_to_ups: LimitedCopy<'_, RecvStream, UW>,
-        mut d_to_clt: LimitedCopy<'_, RecvStream, CW>,
+        mut d_to_ups: StreamCopy<'_, RecvStream, UW>,
+        mut d_to_clt: StreamCopy<'_, RecvStream, CW>,
     ) where
         CW: AsyncWrite + Unpin,
         UW: AsyncWrite + Unpin,

@@ -1,24 +1,12 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use std::future::Future;
 use std::sync::Mutex;
 
 use anyhow::anyhow;
-use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
+use capnp_rpc::{RpcSystem, rpc_twoparty_capnp, twoparty};
 use log::{debug, warn};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, BufReader};
 use tokio::sync::oneshot;
@@ -70,7 +58,7 @@ impl LocalController {
     fn start(
         self,
         mutex: &Mutex<Option<oneshot::Sender<oneshot::Sender<LocalControllerImpl>>>>,
-    ) -> anyhow::Result<impl Future> {
+    ) -> anyhow::Result<impl Future + use<>> {
         let mut abort_channel = mutex.lock().unwrap();
         if abort_channel.is_some() {
             return Err(anyhow!("controller already existed"));
@@ -86,10 +74,10 @@ impl LocalController {
         let (sender, receiver) = oneshot::channel();
 
         let abort_channel = mutex.lock().unwrap().take();
-        if let Some(quit_sender) = abort_channel {
-            if quit_sender.send(sender).is_ok() {
-                let _ = receiver.await;
-            }
+        if let Some(quit_sender) = abort_channel
+            && quit_sender.send(sender).is_ok()
+        {
+            let _ = receiver.await;
         }
     }
 
@@ -108,7 +96,10 @@ impl LocalController {
         Ok(fut)
     }
 
-    pub fn start_unique(daemon_name: &str, daemon_group: &str) -> anyhow::Result<impl Future> {
+    pub fn start_unique(
+        daemon_name: &str,
+        daemon_group: &str,
+    ) -> anyhow::Result<impl Future + use<>> {
         LocalController::create_unique(daemon_name, daemon_group)?.start_as_unique()
     }
 
@@ -127,7 +118,10 @@ impl LocalController {
         Ok(fut)
     }
 
-    pub fn start_daemon(daemon_name: &str, daemon_group: &str) -> anyhow::Result<impl Future> {
+    pub fn start_daemon(
+        daemon_name: &str,
+        daemon_group: &str,
+    ) -> anyhow::Result<impl Future + use<>> {
         LocalController::create_daemon(daemon_name, daemon_group)?.start_as_daemon()
     }
 

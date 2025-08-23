@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 mod base;
@@ -21,13 +10,14 @@ mod pool;
 mod port;
 mod proxy;
 mod tcp;
+mod tls;
 mod udp;
+
+#[cfg(unix)]
+mod interface;
 
 #[cfg(feature = "http")]
 mod http;
-
-#[cfg(feature = "ftp-client")]
-mod ftp;
 
 #[cfg(feature = "rustls")]
 mod dns;
@@ -45,7 +35,11 @@ pub use tcp::{
     as_happy_eyeballs_config, as_tcp_connect_config, as_tcp_keepalive_config, as_tcp_listen_config,
     as_tcp_misc_sock_opts,
 };
+pub use tls::as_tls_version;
 pub use udp::{as_udp_listen_config, as_udp_misc_sock_opts};
+
+#[cfg(unix)]
+pub use interface::as_interface;
 
 #[cfg(feature = "acl-rule")]
 pub use base::as_ip_network;
@@ -53,11 +47,9 @@ pub use base::as_ip_network;
 #[cfg(feature = "http")]
 pub use self::http::{
     as_http_forward_capability, as_http_forwarded_header_type, as_http_header_name,
-    as_http_keepalive_config, as_http_path_and_query, as_http_server_id,
+    as_http_header_value_string, as_http_keepalive_config, as_http_path_and_query,
+    as_http_server_id,
 };
-
-#[cfg(feature = "ftp-client")]
-pub use ftp::as_ftp_client_config;
 
 #[cfg(feature = "rustls")]
 pub use dns::as_dns_encryption_protocol_builder;

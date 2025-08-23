@@ -1,27 +1,16 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::future::poll_fn;
 use std::net::IpAddr;
 use std::sync::Arc;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 use std::time::Duration;
 
 use g3_resolver::{ResolveError, ResolvedRecordSource};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::resolve::{QueryStrategy, ResolveRedirectionValue, ResolveStrategy};
 
 pub(crate) trait LoggedResolveJob {
@@ -49,7 +38,7 @@ macro_rules! impl_logged_poll_query {
 }
 
 pub(crate) trait IntegratedResolverHandle {
-    fn name(&self) -> &MetricsName;
+    fn name(&self) -> &NodeName;
     fn is_closed(&self) -> bool;
     fn query_v4(&self, domain: Arc<str>) -> Result<BoxLoggedResolveJob, ResolveError>;
     fn query_v6(&self, domain: Arc<str>) -> Result<BoxLoggedResolveJob, ResolveError>;
@@ -105,7 +94,7 @@ impl HappyEyeballsResolveJob {
         v: ResolveRedirectionValue,
     ) -> Result<Self, ResolveError> {
         match v {
-            ResolveRedirectionValue::Domain(d) => Self::new_dyn(s, h, Arc::from(d)),
+            ResolveRedirectionValue::Domain(d) => Self::new_dyn(s, h, d),
             ResolveRedirectionValue::Ip((ip4, ip6)) => {
                 let mut job = HappyEyeballsResolveJob {
                     r1: None,
@@ -353,6 +342,7 @@ enum ArriveFirstResolveJobInner {
 }
 
 pub(crate) struct ArriveFirstResolveJob {
+    pub(crate) domain: Arc<str>,
     strategy: ResolveStrategy,
     inner: Option<ArriveFirstResolveJobInner>,
 }
@@ -368,21 +358,22 @@ impl ArriveFirstResolveJob {
         }
         let inner = match strategy.query {
             QueryStrategy::Ipv4Only => {
-                ArriveFirstResolveJobInner::OnlyOne(handle.query_v4(domain)?)
+                ArriveFirstResolveJobInner::OnlyOne(handle.query_v4(domain.clone())?)
             }
             QueryStrategy::Ipv6Only => {
-                ArriveFirstResolveJobInner::OnlyOne(handle.query_v6(domain)?)
+                ArriveFirstResolveJobInner::OnlyOne(handle.query_v6(domain.clone())?)
             }
             QueryStrategy::Ipv4First => ArriveFirstResolveJobInner::First(
                 handle.query_v4(domain.clone())?,
-                handle.query_v6(domain)?,
+                handle.query_v6(domain.clone())?,
             ),
             QueryStrategy::Ipv6First => ArriveFirstResolveJobInner::First(
                 handle.query_v6(domain.clone())?,
-                handle.query_v4(domain)?,
+                handle.query_v4(domain.clone())?,
             ),
         };
         Ok(ArriveFirstResolveJob {
+            domain,
             strategy,
             inner: Some(inner),
         })

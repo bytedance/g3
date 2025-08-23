@@ -1,21 +1,10 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use arc_swap::ArcSwap;
 use tokio::time::Instant;
@@ -34,10 +23,10 @@ pub struct GlobalDatagramLimiter {
 impl GlobalDatagramLimiter {
     pub fn new(config: GlobalDatagramSpeedLimitConfig) -> Self {
         GlobalDatagramLimiter {
-            config: ArcSwap::new(Arc::new(config)),
+            config: ArcSwap::from_pointee(config),
             byte_tokens: AtomicU64::new(config.replenish_bytes()),
             packet_tokens: AtomicU64::new(config.replenish_packets()),
-            last_updated: ArcSwap::new(Arc::new(Instant::now())),
+            last_updated: ArcSwap::from_pointee(Instant::now()),
         }
     }
 
@@ -53,8 +42,14 @@ impl GlobalDatagramLimiter {
                 }
                 let config = *self.config.load().as_ref();
                 tokio::time::sleep(config.replenish_interval()).await;
-                self.add_bytes(config.replenish_bytes(), config.max_burst_bytes());
-                self.add_packets(config.replenish_packets(), config.max_burst_packets());
+                let replenish_bytes = config.replenish_bytes();
+                if replenish_bytes > 0 {
+                    self.add_bytes(replenish_bytes, config.max_burst_bytes());
+                }
+                let replenish_packets = config.replenish_packets();
+                if replenish_packets > 0 {
+                    self.add_packets(replenish_packets, config.max_burst_packets());
+                }
                 self.last_updated.store(Arc::new(Instant::now()));
             }
         };
@@ -180,7 +175,10 @@ impl GlobalDatagramLimit for GlobalDatagramLimiter {
                     Ordering::AcqRel,
                     Ordering::Acquire,
                 ) {
-                    Ok(_) => to_advance = (cur_tokens - left_tokens) as usize,
+                    Ok(_) => {
+                        to_advance = (cur_tokens - left_tokens) as usize;
+                        break;
+                    }
                     Err(actual) => cur_tokens = actual,
                 }
             }
@@ -204,7 +202,10 @@ impl GlobalDatagramLimit for GlobalDatagramLimiter {
                     Ordering::AcqRel,
                     Ordering::Acquire,
                 ) {
-                    Ok(_) => buf_size = (cur_tokens - left_tokens) as usize,
+                    Ok(_) => {
+                        buf_size = (cur_tokens - left_tokens) as usize;
+                        break;
+                    }
                     Err(actual) => cur_tokens = actual,
                 }
             }
@@ -248,11 +249,52 @@ impl GlobalDatagramLimit for GlobalDatagramLimiter {
 
     fn release_bytes(&self, size: usize) {
         let max_burst = self.config.load().as_ref().max_burst_bytes();
-        self.add_bytes(size as u64, max_burst);
+        if max_burst > 0 {
+            self.add_bytes(size as u64, max_burst);
+        }
     }
 
     fn release_packets(&self, count: usize) {
         let max_burst = self.config.load().as_ref().max_burst_packets();
-        self.add_packets(count as u64, max_burst);
+        if max_burst > 0 {
+            self.add_packets(count as u64, max_burst);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn check_packet() {
+        let config = GlobalDatagramSpeedLimitConfig::per_second(1000);
+        let limiter = GlobalDatagramLimiter::new(config);
+        assert_eq!(limiter.check_packet(100), DatagramLimitAction::Advance(1));
+        assert_eq!(limiter.check_packet(900), DatagramLimitAction::Advance(1));
+        assert_ne!(limiter.check_packet(100), DatagramLimitAction::Advance(1));
+    }
+
+    #[test]
+    fn check_packets() {
+        let config = GlobalDatagramSpeedLimitConfig::per_second(1000);
+        let limiter = GlobalDatagramLimiter::new(config);
+        let total_len_v = [100, 200];
+        assert_eq!(
+            limiter.check_packets(&total_len_v),
+            DatagramLimitAction::Advance(2)
+        );
+
+        let total_len_v = [200, 700, 900];
+        assert_eq!(
+            limiter.check_packets(&total_len_v),
+            DatagramLimitAction::Advance(2)
+        );
+
+        let total_len_v = [50, 40, 10];
+        assert_eq!(
+            limiter.check_packets(&total_len_v),
+            DatagramLimitAction::Advance(3)
+        );
     }
 }

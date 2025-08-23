@@ -1,34 +1,47 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use crate::acl::{
     AclAction, AclChildDomainRule, AclChildDomainRuleBuilder, AclExactHostRule, AclNetworkRule,
-    AclNetworkRuleBuilder, AclRegexSetRule, AclRegexSetRuleBuilder,
+    AclNetworkRuleBuilder, AclRegexDomainRule, AclRegexDomainRuleBuilder, ActionContract,
+    OrderedActionContract,
 };
 use crate::net::Host;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AclDstHostRuleSetBuilder {
-    pub exact: Option<AclExactHostRule>,
-    pub child: Option<AclChildDomainRuleBuilder>,
-    pub regex: Option<AclRegexSetRuleBuilder>,
-    pub subnet: Option<AclNetworkRuleBuilder>,
+pub struct AclDstHostRuleSetBuilder<Action = AclAction> {
+    pub exact: Option<AclExactHostRule<Action>>,
+    pub child: Option<AclChildDomainRuleBuilder<Action>>,
+    pub regex: Option<AclRegexDomainRuleBuilder<Action>>,
+    pub subnet: Option<AclNetworkRuleBuilder<Action>>,
 }
 
-impl AclDstHostRuleSetBuilder {
+impl<Action> Default for AclDstHostRuleSetBuilder<Action> {
+    fn default() -> Self {
+        AclDstHostRuleSetBuilder {
+            exact: None,
+            child: None,
+            regex: None,
+            subnet: None,
+        }
+    }
+}
+
+impl<Action: OrderedActionContract> AclDstHostRuleSetBuilder<Action> {
+    pub fn build_with_missed_action(&self, missed_action: Action) -> AclDstHostRuleSet<Action> {
+        AclDstHostRuleSet {
+            exact: self.exact.clone(),
+            child: self.child.as_ref().map(|b| b.build()),
+            regex: self.regex.as_ref().map(|b| b.build()),
+            subnet: self.subnet.as_ref().map(|b| b.build()),
+            missed_action,
+        }
+    }
+}
+
+impl AclDstHostRuleSetBuilder<AclAction> {
     pub fn build(&self) -> AclDstHostRuleSet {
         let mut missed_action = AclAction::Permit;
 
@@ -62,16 +75,16 @@ impl AclDstHostRuleSetBuilder {
     }
 }
 
-pub struct AclDstHostRuleSet {
-    exact: Option<AclExactHostRule>,
-    child: Option<AclChildDomainRule>,
-    regex: Option<AclRegexSetRule>,
-    subnet: Option<AclNetworkRule>,
-    missed_action: AclAction,
+pub struct AclDstHostRuleSet<Action = AclAction> {
+    exact: Option<AclExactHostRule<Action>>,
+    child: Option<AclChildDomainRule<Action>>,
+    regex: Option<AclRegexDomainRule<Action>>,
+    subnet: Option<AclNetworkRule<Action>>,
+    missed_action: Action,
 }
 
-impl AclDstHostRuleSet {
-    pub fn check(&self, upstream: &Host) -> (bool, AclAction) {
+impl<Action: ActionContract> AclDstHostRuleSet<Action> {
+    pub fn check(&self, upstream: &Host) -> (bool, Action) {
         match upstream {
             Host::Ip(ip) => {
                 if let Some(rule) = &self.exact {

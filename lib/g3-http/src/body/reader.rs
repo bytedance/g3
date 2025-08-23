@@ -1,22 +1,11 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use bytes::BufMut;
 use tokio::io::{AsyncBufRead, AsyncRead, ReadBuf};
@@ -123,19 +112,35 @@ where
         r
     }
 
+    pub fn new_trailer(stream: &'a mut R, body_line_max_len: usize) -> Self {
+        HttpBodyReader {
+            stream,
+            body_type: HttpBodyType::Chunked,
+            next_read_type: NextReadType::Trailer,
+            body_line_max_len,
+            next_read_size: 0,
+            left_total_size: 0,
+            chunk_size_line_cache: Vec::<u8>::with_capacity(Self::DEFAULT_LINE_SIZE),
+            trailer_line_length: 0,
+            trailer_last_char: 0,
+            finished: false,
+            read_content_length: 0,
+            current_chunk_size: 0,
+        }
+    }
+
     pub fn new_chunked_after_preview(
         stream: &'a mut R,
-        body_type: HttpBodyType,
         body_line_max_len: usize,
         next_chunk_size: u64,
     ) -> Self {
         let mut r = HttpBodyReader {
             stream,
-            body_type,
+            body_type: HttpBodyType::Chunked,
             next_read_type: NextReadType::FixedLength,
             body_line_max_len,
             next_read_size: 0,
-            left_total_size: 0,
+            left_total_size: next_chunk_size,
             chunk_size_line_cache: Vec::<u8>::with_capacity(Self::DEFAULT_LINE_SIZE),
             trailer_line_length: 0,
             trailer_last_char: 0,
@@ -522,7 +527,7 @@ where
     }
 }
 
-impl<'a, R> AsyncRead for HttpBodyReader<'a, R>
+impl<R> AsyncRead for HttpBodyReader<'_, R>
 where
     R: AsyncBufRead + Unpin,
 {
@@ -549,15 +554,12 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::Bytes;
-    use tokio::io::{AsyncReadExt, BufReader, Result};
-    use tokio_util::io::StreamReader;
+    use tokio::io::{AsyncReadExt, BufReader};
 
     #[tokio::test]
     async fn read_single_to_end() {
         let content = b"test body";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_reader =
             HttpBodyReader::new(&mut buf_stream, HttpBodyType::ReadUntilEnd, 1024);
@@ -575,11 +577,10 @@ mod tests {
     async fn read_split_to_end() {
         let content1 = b"test body";
         let content2 = b"hello world";
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(content1)),
-            Result::Ok(Bytes::from_static(content2)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_reader =
             HttpBodyReader::new(&mut buf_stream, HttpBodyType::ReadUntilEnd, 1024);
@@ -600,8 +601,7 @@ mod tests {
     async fn read_single_content_length() {
         let body_len: usize = 9;
         let content = b"test bodyxxxx";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_reader = HttpBodyReader::new(
             &mut buf_stream,
@@ -623,11 +623,10 @@ mod tests {
         let body_len: usize = 20;
         let content1 = b"hello world";
         let content2 = b"test bodyxxxx";
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(content1)),
-            Result::Ok(Bytes::from_static(content2)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_reader = HttpBodyReader::new(
             &mut buf_stream,
@@ -648,11 +647,25 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn read_empty_chunked() {
+        let body_len: usize = 5;
+        let content = b"0\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut body_reader = HttpBodyReader::new_chunked(&mut buf_stream, 1024);
+
+        let mut buf = [0u8; 32];
+        let len = body_reader.read(&mut buf).await.unwrap();
+        assert_eq!(len, body_len);
+        assert_eq!(&buf[0..len], &content[0..len]);
+        assert!(body_reader.finished());
+    }
+
+    #[tokio::test]
     async fn read_single_chunked() {
         let body_len: usize = 24;
         let content = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\n\r\nXXX";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_reader = HttpBodyReader::new(&mut buf_stream, HttpBodyType::Chunked, 1024);
 
@@ -668,11 +681,10 @@ mod tests {
         let body_len: usize = 24;
         let content1 = b"5\r\ntest\n\r\n4\r";
         let content2 = b"\nbody\r\n0\r\n\r\nXXX";
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(content1)),
-            Result::Ok(Bytes::from_static(content2)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_reader = HttpBodyReader::new(&mut buf_stream, HttpBodyType::Chunked, 1024);
 
@@ -688,11 +700,40 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn read_long_chunked() {
+        let content1 = b"5\r\ntest\n\r\n";
+        let content2 = b"4\r\nbody\r\n";
+        let content3 = b"20\r\naabbbbbbbbbbccccccccccdddddddddd\r\n";
+        let content4 = b"0\r\n\r\nXXX";
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .read(content3)
+            .read(content4)
+            .build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut body_reader = HttpBodyReader::new(&mut buf_stream, HttpBodyType::Chunked, 1024);
+
+        let mut buf = [0u8; 32];
+        let len = body_reader.read(&mut buf).await.unwrap();
+        assert_eq!(len, buf.len());
+        assert_eq!(
+            buf.as_slice(),
+            b"5\r\ntest\n\r\n4\r\nbody\r\n20\r\naabbbbbbb"
+        );
+        assert!(!body_reader.finished());
+
+        let len = body_reader.read(&mut buf).await.unwrap();
+        assert_eq!(len, 30);
+        assert_eq!(&buf[..len], b"bbbccccccccccdddddddddd\r\n0\r\n\r\n");
+        assert!(body_reader.finished());
+    }
+
+    #[tokio::test]
     async fn read_single_trailer() {
         let body_len: usize = 30;
         let content = b"5\r\ntest\n\r\n4\r\nbody\r\n0\r\nA: B\r\n\r\nXX";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut body_reader = HttpBodyReader::new(&mut buf_stream, HttpBodyType::Chunked, 1024);
 
@@ -703,5 +744,33 @@ mod tests {
         //let len = body_reader.read(&mut buf).await.unwrap();
         //assert_eq!(len, 0);
         assert!(body_reader.finished());
+    }
+
+    #[tokio::test]
+    async fn direct_read_single_trailer() {
+        let content = b"A: B\r\n\r\n1234";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut body_reader = HttpBodyReader::new_trailer(&mut buf_stream, 1024);
+
+        let mut buf = [0u8; 64];
+        let len = body_reader.read(&mut buf).await.unwrap();
+        assert_eq!(len, 8);
+        assert_eq!(&buf[..len], b"A: B\r\n\r\n");
+        assert!(body_reader.finished);
+    }
+
+    #[tokio::test]
+    async fn direct_read_empty_trailer() {
+        let content = b"\r\n\r\n1234";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut body_reader = HttpBodyReader::new_trailer(&mut buf_stream, 1024);
+
+        let mut buf = [0u8; 64];
+        let len = body_reader.read(&mut buf).await.unwrap();
+        assert_eq!(len, 2);
+        assert_eq!(&buf[..len], b"\r\n");
+        assert!(body_reader.finished);
     }
 }

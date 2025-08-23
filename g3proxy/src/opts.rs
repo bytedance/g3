@@ -1,26 +1,15 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use clap::builder::ArgPredicate;
-use clap::{value_parser, Arg, ArgAction, Command, ValueHint};
+use clap::{Arg, ArgAction, Command, ValueHint, value_parser};
 use clap_complete::Shell;
 
 use g3_daemon::opts::{DaemonArgs, DaemonArgsExt};
@@ -167,6 +156,7 @@ pub fn parse_clap() -> anyhow::Result<Option<ProcArgs>> {
     } else {
         return Err(anyhow!("no config file given"));
     }
+    #[cfg(unix)]
     if let Some(control_dir) = args.get_one::<PathBuf>(ARGS_CONTROL_DIR) {
         g3_daemon::opts::validate_and_set_control_dir(control_dir)
             .context(format!("invalid control dir: {}", control_dir.display()))?;

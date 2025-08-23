@@ -1,23 +1,11 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::future::Future;
 use std::io::IoSliceMut;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use thiserror::Error;
 
@@ -152,16 +140,17 @@ trait UdpRelayRecv {
 
 struct ClientRecv<'a, T: UdpRelayClientRecv + ?Sized>(&'a mut T);
 
-impl<'a, T: UdpRelayClientRecv + ?Sized> UdpRelayRecv for ClientRecv<'a, T> {
+impl<T: UdpRelayClientRecv + ?Sized> UdpRelayRecv for ClientRecv<'_, T> {
     fn poll_recv_packet(
         &mut self,
         cx: &mut Context<'_>,
         packet: &mut UdpRelayPacket,
     ) -> Poll<Result<usize, UdpRelayError>> {
-        let (off, nr, ups) = ready!(self
-            .0
-            .poll_recv_packet(cx, &mut packet.buf)
-            .map_err(UdpRelayError::ClientError))?;
+        let (off, nr, ups) = ready!(
+            self.0
+                .poll_recv_packet(cx, &mut packet.buf)
+                .map_err(UdpRelayError::ClientError)
+        )?;
         packet.buf_data_off = off;
         packet.buf_data_end = nr;
         packet.ups = ups;
@@ -174,6 +163,8 @@ impl<'a, T: UdpRelayClientRecv + ?Sized> UdpRelayRecv for ClientRecv<'a, T> {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_recv_packets(
         &mut self,
@@ -188,16 +179,17 @@ impl<'a, T: UdpRelayClientRecv + ?Sized> UdpRelayRecv for ClientRecv<'a, T> {
 
 struct RemoteRecv<'a, T: UdpRelayRemoteRecv + ?Sized>(&'a mut T);
 
-impl<'a, T: UdpRelayRemoteRecv + ?Sized> UdpRelayRecv for RemoteRecv<'a, T> {
+impl<T: UdpRelayRemoteRecv + ?Sized> UdpRelayRecv for RemoteRecv<'_, T> {
     fn poll_recv_packet(
         &mut self,
         cx: &mut Context<'_>,
         packet: &mut UdpRelayPacket,
     ) -> Poll<Result<usize, UdpRelayError>> {
-        let (off, nr, ups) = ready!(self
-            .0
-            .poll_recv_packet(cx, &mut packet.buf)
-            .map_err(|e| UdpRelayError::RemoteError(None, e)))?;
+        let (off, nr, ups) = ready!(
+            self.0
+                .poll_recv_packet(cx, &mut packet.buf)
+                .map_err(|e| UdpRelayError::RemoteError(None, e))
+        )?;
         packet.buf_data_off = off;
         packet.buf_data_end = nr;
         packet.ups = ups;
@@ -210,6 +202,8 @@ impl<'a, T: UdpRelayRemoteRecv + ?Sized> UdpRelayRecv for RemoteRecv<'a, T> {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_recv_packets(
         &mut self,
@@ -254,7 +248,7 @@ trait UdpRelaySend {
 
 struct ClientSend<'a, T: UdpRelayClientSend + ?Sized>(&'a mut T);
 
-impl<'a, T: UdpRelayClientSend + ?Sized> UdpRelaySend for ClientSend<'a, T> {
+impl<T: UdpRelayClientSend + ?Sized> UdpRelaySend for ClientSend<'_, T> {
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,
@@ -271,6 +265,8 @@ impl<'a, T: UdpRelayClientSend + ?Sized> UdpRelaySend for ClientSend<'a, T> {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_send_packets(
         &mut self,
@@ -285,7 +281,7 @@ impl<'a, T: UdpRelayClientSend + ?Sized> UdpRelaySend for ClientSend<'a, T> {
 
 struct RemoteSend<'a, T: UdpRelayRemoteSend + ?Sized>(&'a mut T);
 
-impl<'a, T: UdpRelayRemoteSend + ?Sized> UdpRelaySend for RemoteSend<'a, T> {
+impl<T: UdpRelayRemoteSend + ?Sized> UdpRelaySend for RemoteSend<'_, T> {
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,
@@ -296,13 +292,6 @@ impl<'a, T: UdpRelayRemoteSend + ?Sized> UdpRelaySend for RemoteSend<'a, T> {
             .map_err(|e| UdpRelayError::RemoteError(Some(packet.ups.clone()), e))
     }
 
-    #[cfg(any(
-        target_os = "linux",
-        target_os = "android",
-        target_os = "freebsd",
-        target_os = "netbsd",
-        target_os = "openbsd",
-    ))]
     fn poll_send_packets(
         &mut self,
         cx: &mut Context<'_>,
@@ -358,6 +347,7 @@ impl UdpRelayBuffer {
                             self.recv_done = true;
                         }
                         self.send_end += count;
+                        self.active = true;
                     }
                     Poll::Ready(Err(e)) => return Poll::Ready(Err(e)),
                     Poll::Pending => {
@@ -377,6 +367,7 @@ impl UdpRelayBuffer {
                     .map(|p| p.buf_data_end - p.buf_data_off)
                     .sum::<usize>();
                 self.send_start += count;
+                self.active = true;
             }
             self.send_start = 0;
             self.send_end = 0;
@@ -432,7 +423,7 @@ where
     }
 }
 
-impl<'a, C, R> Future for UdpRelayClientToRemote<'a, C, R>
+impl<C, R> Future for UdpRelayClientToRemote<'_, C, R>
 where
     C: UdpRelayClientRecv + Unpin + ?Sized,
     R: UdpRelayRemoteSend + Unpin + ?Sized,
@@ -477,7 +468,7 @@ where
     }
 }
 
-impl<'a, C, R> Future for UdpRelayRemoteToClient<'a, C, R>
+impl<C, R> Future for UdpRelayRemoteToClient<'_, C, R>
 where
     C: UdpRelayClientSend + Unpin + ?Sized,
     R: UdpRelayRemoteRecv + Unpin + ?Sized,

@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::atomic::{AtomicI64, AtomicU64, Ordering};
@@ -20,6 +9,7 @@ use std::time::Duration;
 use g3_io_ext::{LimitedReaderStats, LimitedRecvStats, LimitedSendStats, LimitedWriterStats};
 use g3_statsd_client::StatsdClient;
 
+use crate::module::ssl::SslSessionStats;
 use crate::target::BenchRuntimeStats;
 
 #[derive(Default)]
@@ -58,6 +48,10 @@ pub(crate) struct HttpRuntimeStats {
     conn_attempt_total: AtomicU64,
     conn_success: AtomicU64,
     conn_success_total: AtomicU64,
+
+    pub(crate) target_ssl_session: SslSessionStats,
+    pub(crate) proxy_ssl_session: SslSessionStats,
+
     conn_close_error: AtomicU64,
     conn_close_timeout: AtomicU64,
 
@@ -85,6 +79,8 @@ impl HttpRuntimeStats {
             conn_attempt_total: AtomicU64::new(0),
             conn_success: AtomicU64::new(0),
             conn_success_total: AtomicU64::new(0),
+            target_ssl_session: Default::default(),
+            proxy_ssl_session: Default::default(),
             conn_close_error: AtomicU64::new(0),
             conn_close_timeout: AtomicU64::new(0),
             io,
@@ -259,6 +255,9 @@ impl BenchRuntimeStats for HttpRuntimeStats {
         if close_timeout > 0 {
             println!("Close timeout: {close_timeout}");
         }
+
+        self.proxy_ssl_session.summary("PROXY TLS");
+        self.target_ssl_session.summary("TARGET TLS");
 
         println!("# Traffic");
         match &self.io {

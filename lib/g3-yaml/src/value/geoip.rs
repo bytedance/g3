@@ -1,26 +1,14 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::str::FromStr;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
 use g3_geoip_types::{ContinentCode, IpLocation, IpLocationBuilder, IsoCountryCode};
-use g3_ip_locate::IpLocateServiceConfig;
 
 pub fn as_iso_country_code(value: &Yaml) -> anyhow::Result<IsoCountryCode> {
     if let Yaml::String(s) = value {
@@ -95,68 +83,167 @@ pub fn as_ip_location(value: &Yaml) -> anyhow::Result<IpLocation> {
     }
 }
 
-fn set_query_peer_addr(config: &mut IpLocateServiceConfig, value: &Yaml) -> anyhow::Result<()> {
-    let addr = crate::value::as_env_sockaddr(value)?;
-    config.set_query_peer_addr(addr);
-    Ok(())
-}
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use yaml_rust::YamlLoader;
 
-pub fn as_ip_locate_service_config(value: &Yaml) -> anyhow::Result<IpLocateServiceConfig> {
-    match value {
-        Yaml::Hash(map) => {
-            let mut config = IpLocateServiceConfig::default();
+    #[test]
+    fn as_iso_country_code_ok() {
+        // valid country codes
+        assert_eq!(
+            as_iso_country_code(&yaml_str!("US")).unwrap(),
+            IsoCountryCode::US
+        );
+        assert_eq!(
+            as_iso_country_code(&yaml_str!("CN")).unwrap(),
+            IsoCountryCode::CN
+        );
+        assert_eq!(
+            as_iso_country_code(&yaml_str!("JP")).unwrap(),
+            IsoCountryCode::JP
+        );
+    }
 
-            crate::foreach_kv(map, |k, v| match crate::key::normalize(k).as_str() {
-                "cache_request_batch_count" => {
-                    let count = crate::value::as_usize(v)?;
-                    config.set_cache_request_batch_count(count);
-                    Ok(())
-                }
-                "cache_request_timeout" => {
-                    let time = crate::humanize::as_duration(v)
-                        .context(format!("invalid humanize duration value for key {k}"))?;
-                    config.set_cache_request_timeout(time);
-                    Ok(())
-                }
-                "query_peer_addr" => {
-                    set_query_peer_addr(&mut config, v)
-                        .context(format!("invalid sockaddr str value for key {k}"))?;
-                    Ok(())
-                }
-                "query_socket_buffer" => {
-                    let buf_config = crate::value::as_socket_buffer_config(v)
-                        .context(format!("invalid socket buffer config value for key {k}"))?;
-                    config.set_query_socket_buffer(buf_config);
-                    Ok(())
-                }
-                "query_wait_timeout" => {
-                    let time = crate::humanize::as_duration(v)
-                        .context(format!("invalid humanize duration value for key {k}"))?;
-                    config.set_query_wait_timeout(time);
-                    Ok(())
-                }
-                "default_expire_ttl" => {
-                    let ttl = crate::value::as_u32(v)?;
-                    config.set_default_expire_ttl(ttl);
-                    Ok(())
-                }
-                "maximum_expire_ttl" => {
-                    let ttl = crate::value::as_u32(v)?;
-                    config.set_maximum_expire_ttl(ttl);
-                    Ok(())
-                }
-                _ => Err(anyhow!("invalid key {k}")),
-            })?;
+    #[test]
+    fn as_iso_country_code_err() {
+        // invalid string value
+        assert!(as_iso_country_code(&yaml_str!("INVALID")).is_err());
 
-            Ok(config)
-        }
-        Yaml::String(_) => {
-            let mut config = IpLocateServiceConfig::default();
-            set_query_peer_addr(&mut config, value).context("invalid sockaddr str value")?;
-            Ok(config)
-        }
-        _ => Err(anyhow!(
-            "yaml type for 'ip location service config' should be 'map'"
-        )),
+        // non-string types
+        assert!(as_iso_country_code(&Yaml::Integer(123)).is_err());
+        assert!(as_iso_country_code(&Yaml::Boolean(true)).is_err());
+        assert!(as_iso_country_code(&Yaml::Null).is_err());
+    }
+
+    #[test]
+    fn as_continent_code_ok() {
+        // valid continent codes
+        assert_eq!(
+            as_continent_code(&yaml_str!("AS")).unwrap(),
+            ContinentCode::AS
+        );
+        assert_eq!(
+            as_continent_code(&yaml_str!("EU")).unwrap(),
+            ContinentCode::EU
+        );
+        assert_eq!(
+            as_continent_code(&yaml_str!("NA")).unwrap(),
+            ContinentCode::NA
+        );
+    }
+
+    #[test]
+    fn as_continent_code_err() {
+        // invalid string value
+        assert!(as_continent_code(&yaml_str!("INVALID")).is_err());
+
+        // non-string types
+        assert!(as_continent_code(&Yaml::Integer(123)).is_err());
+        assert!(as_continent_code(&Yaml::Boolean(false)).is_err());
+        assert!(as_continent_code(&Yaml::Null).is_err());
+    }
+
+    #[test]
+    fn as_ip_location_ok() {
+        // full valid location
+        let yaml = yaml_doc!(
+            r#"
+                network: "192.168.0.0/24"
+                country: "CN"
+                continent: "AS"
+                as_number: 1234
+                isp_name: "Example ISP"
+                isp_domain: "example.com"
+            "#
+        );
+
+        let loc = as_ip_location(&yaml).unwrap();
+        assert_eq!(loc.network_addr().to_string(), "192.168.0.0/24");
+        assert_eq!(loc.country(), Some(IsoCountryCode::CN));
+        assert_eq!(loc.continent(), Some(ContinentCode::AS));
+        assert_eq!(loc.network_asn(), Some(1234));
+        assert_eq!(loc.isp_name(), Some("Example ISP"));
+        assert_eq!(loc.isp_domain(), Some("example.com"));
+
+        // alias keys
+        let yaml = yaml_doc!(
+            r#"
+                net: "192.168.0.0/24"
+                asn: 1234
+            "#
+        );
+        let loc = as_ip_location(&yaml).unwrap();
+        assert_eq!(loc.network_addr().to_string(), "192.168.0.0/24");
+        assert_eq!(loc.network_asn(), Some(1234));
+
+        // minimum required fields (only network)
+        let yaml = yaml_doc!(
+            r#"
+            network: "10.0.0.0/8"
+            "#
+        );
+        assert_eq!(
+            as_ip_location(&yaml).unwrap().network_addr().to_string(),
+            "10.0.0.0/8"
+        );
+    }
+
+    #[test]
+    fn as_ip_location_err() {
+        // non-hash type
+        assert!(as_ip_location(&yaml_str!("invalid")).is_err());
+
+        // missing network field
+        let yaml_no_net = yaml_doc!(
+            r#"
+            country: "US"
+            "#
+        );
+        assert!(as_ip_location(&yaml_no_net).is_err());
+
+        // invalid country code
+        let yaml_bad_country = yaml_doc!(
+            r#"
+            network: "192.168.0.0/24"
+            country: "INVALID"
+            "#
+        );
+        assert!(as_ip_location(&yaml_bad_country).is_err());
+
+        // invalid continent code
+        let yaml_bad_continent = yaml_doc!(
+            r#"
+            network: "192.168.0.0/24"
+            continent: "INVALID"
+            "#
+        );
+        assert!(as_ip_location(&yaml_bad_continent).is_err());
+
+        // invalid as_number type
+        let yaml_bad_asn = yaml_doc!(
+            r#"
+            network: "192.168.0.0/24"
+            as_number: "not_a_number"
+            "#
+        );
+        assert!(as_ip_location(&yaml_bad_asn).is_err());
+
+        // invalid network format
+        let yaml_bad_net = yaml_doc!(
+            r#"
+            network: "invalid_network"
+            "#
+        );
+        assert!(as_ip_location(&yaml_bad_net).is_err());
+
+        // invalid key
+        let yaml_invalid_key = yaml_doc!(
+            r#"
+            network: "10.0.0.0/8"
+            invalid_key: "value"
+            "#
+        );
+        assert!(as_ip_location(&yaml_invalid_key).is_err());
     }
 }

@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 mod auth;
@@ -25,11 +14,11 @@ mod speed_limit;
 
 pub use auth::{as_password, as_username};
 pub use datetime::as_rfc3339_datetime;
-pub use metrics::{as_metrics_name, as_weighted_metrics_name};
+pub use metrics::{as_metric_node_name, as_weighted_metric_node_name};
 pub use net::*;
 pub use primary::{
-    as_ascii, as_bool, as_f64, as_hashmap, as_i32, as_list, as_nonzero_u32, as_string, as_u16,
-    as_u32, as_u8, as_usize,
+    as_ascii, as_bool, as_bytes, as_f64, as_hashmap, as_i32, as_list, as_nonzero_u32, as_string,
+    as_u8, as_u16, as_u32, as_usize,
 };
 pub use random::as_random_ratio;
 pub use rate_limit::as_rate_limit_quota;
@@ -42,6 +31,11 @@ pub use speed_limit::{
 pub mod acl;
 #[cfg(feature = "acl-rule")]
 pub mod acl_set;
+
+#[cfg(feature = "regex")]
+mod regex;
+#[cfg(feature = "regex")]
+pub use regex::as_regex;
 
 #[cfg(feature = "resolve")]
 mod resolve;
@@ -57,12 +51,11 @@ pub use self::rustls::{
 
 #[cfg(feature = "openssl")]
 mod openssl;
-#[cfg(feature = "tongsuo")]
-pub use self::openssl::as_openssl_tlcp_certificate_pair;
 #[cfg(feature = "openssl")]
 pub use self::openssl::{
     as_openssl_certificate_pair, as_openssl_certificates, as_openssl_private_key,
-    as_to_many_openssl_tls_client_config_builder, as_to_one_openssl_tls_client_config_builder,
+    as_openssl_tlcp_certificate_pair, as_to_many_openssl_tls_client_config_builder,
+    as_to_one_openssl_tls_client_config_builder,
 };
 
 #[cfg(feature = "route")]

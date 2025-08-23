@@ -1,25 +1,17 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::str::Utf8Error;
+use std::sync::Arc;
 use std::{fmt, str};
 
 use thiserror::Error;
 
 use crate::net::Host;
+
+const MAX_HOST_NAME_LENGTH: usize = 255;
 
 #[derive(Debug, Error)]
 pub enum TlsServerNameError {
@@ -37,7 +29,7 @@ pub enum TlsServerNameError {
 
 #[derive(Clone)]
 pub struct TlsServerName {
-    host_name: String,
+    host_name: Arc<str>,
 }
 
 impl TlsServerName {
@@ -58,7 +50,7 @@ impl TlsServerName {
         }
 
         let name_len = u16::from_be_bytes([buf[3], buf[4]]) as usize;
-        if name_len + 5 > buf_len {
+        if name_len > MAX_HOST_NAME_LENGTH || name_len + 5 > buf_len {
             return Err(TlsServerNameError::InvalidNameLength(name_len));
         }
 
@@ -66,14 +58,14 @@ impl TlsServerName {
         let host_name = str::from_utf8(name).map_err(TlsServerNameError::InvalidHostName)?;
 
         Ok(TlsServerName {
-            host_name: host_name.to_string(),
+            host_name: Arc::from(host_name),
         })
     }
 }
 
 impl AsRef<str> for TlsServerName {
     fn as_ref(&self) -> &str {
-        self.host_name.as_str()
+        self.host_name.as_ref()
     }
 }
 
@@ -85,12 +77,51 @@ impl From<TlsServerName> for Host {
 
 impl From<&TlsServerName> for Host {
     fn from(value: &TlsServerName) -> Self {
-        Host::Domain(value.host_name.to_string())
+        Host::Domain(value.host_name.clone())
     }
 }
 
 impl fmt::Display for TlsServerName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.host_name.as_str())
+        f.write_str(&self.host_name)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn valid() {
+        let data: &[u8] = &[
+            0x00, 0x0e, // Server Name List Length, 14
+            0x00, // Server Name Type - Domain
+            0x00, 0x0b, // Server Name Length, 11
+            b'e', b'x', b'a', b'm', b'p', b'l', b'e', b'.', b'n', b'e', b't',
+        ];
+        let sni = TlsServerName::from_extension_value(data).unwrap();
+        assert_eq!(sni.as_ref(), "example.net");
+    }
+
+    #[test]
+    fn invalid_list_len() {
+        let data: &[u8] = &[
+            0x01, 0x0e, // Server Name List Length, 256 + 14
+            0x00, // Server Name Type - Domain
+            0x00, 0x0b, // Server Name Length, 11
+            b'e', b'x', b'a', b'm', b'p', b'l', b'e', b'.', b'n', b'e', b't',
+        ];
+        assert!(TlsServerName::from_extension_value(data).is_err());
+    }
+
+    #[test]
+    fn invalid_name_len() {
+        let data: &[u8] = &[
+            0x00, 0x0e, // Server Name List Length, 14
+            0x00, // Server Name Type - Domain
+            0x01, 0x0b, // Server Name Length, 256 + 11
+            b'e', b'x', b'a', b'm', b'p', b'l', b'e', b'.', b'n', b'e', b't',
+        ];
+        assert!(TlsServerName::from_extension_value(data).is_err());
     }
 }

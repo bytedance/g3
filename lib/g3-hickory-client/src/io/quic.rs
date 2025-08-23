@@ -1,35 +1,23 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use std::net::SocketAddr;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use bytes::{Bytes, BytesMut};
+use bytes::Bytes;
 use futures_util::Stream;
-use hickory_proto::error::{ProtoError, ProtoErrorKind};
-use hickory_proto::op::Message;
 use hickory_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
+use hickory_proto::{ProtoError, ProtoErrorKind};
 use quinn::{Connection, RecvStream, VarInt};
 use rustls::ClientConfig;
 
+use g3_socket::UdpConnectInfo;
+
 pub async fn connect(
-    name_server: SocketAddr,
-    bind_addr: Option<SocketAddr>,
+    connect_info: UdpConnectInfo,
     tls_config: ClientConfig,
     tls_name: String,
     connect_timeout: Duration,
@@ -37,7 +25,7 @@ pub async fn connect(
 ) -> Result<QuicClientStream, ProtoError> {
     let connection = tokio::time::timeout(
         connect_timeout,
-        crate::connect::quinn::quic_connect(name_server, bind_addr, tls_config, &tls_name, b"doq"),
+        crate::connect::quinn::quic_connect(connect_info, tls_config, &tls_name, b"doq"),
     )
     .await
     .map_err(|_| ProtoError::from("quic connect timed out"))??;
@@ -152,16 +140,15 @@ async fn quic_recv(mut recv_stream: RecvStream) -> Result<DnsResponse, ProtoErro
         .map_err(|e| format!("quic read len error: {e}"))?;
     let message_len = u16::from_be_bytes(len_buf) as usize;
 
-    let mut buffer = BytesMut::with_capacity(message_len);
-    buffer.resize(message_len, 0);
+    let mut buffer = vec![0u8; message_len];
     recv_stream
         .read_exact(&mut buffer)
         .await
         .map_err(|e| format!("quic read message error: {e}"))?;
-    let message = Message::from_vec(&buffer)?;
-    if message.id() != 0 {
+    let rsp = DnsResponse::from_buffer(buffer)?;
+    if rsp.id() != 0 {
         return Err(ProtoError::from("quic response message id is not zero"));
     }
 
-    Ok(DnsResponse::new(message, buffer.to_vec()))
+    Ok(rsp)
 }

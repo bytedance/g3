@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use super::{MaybeProtocol, Protocol, ProtocolInspectError, ProtocolInspectState};
@@ -55,26 +44,37 @@ impl ProtocolInspectState {
         self.exclude_other(MaybeProtocol::Rtsp);
 
         // check ssh version
-        match &data[4..6] {
-            b"1." => {
-                if data[6] < b'0' || data[6] > b'9' {
+        let mut offset = 7;
+        let protocol = match &data[4..6] {
+            b"1." => match data[6] {
+                b'9' => {
+                    if data[7] == b'9' {
+                        offset = 8;
+                        Protocol::Ssh
+                    } else {
+                        Protocol::SshLegacy
+                    }
+                }
+                b'0'..=b'8' => Protocol::SshLegacy,
+                _ => {
                     self.exclude_current();
                     return Ok(None);
                 }
-            }
+            },
             b"2." => {
                 if data[6] != b'0' {
                     self.exclude_current();
                     return Ok(None);
                 }
+                Protocol::Ssh
             }
             _ => {
                 self.exclude_current();
                 return Ok(None);
             }
-        }
+        };
 
-        if data[7] != b'-' {
+        if data[offset] != b'-' {
             self.exclude_current();
             return Ok(None);
         }
@@ -88,12 +88,15 @@ impl ProtocolInspectState {
                 Ok(None)
             };
         }
-        if data[data_len - 2] != b'\r' {
-            self.exclude_current();
-            return Ok(None);
+        if data[7] != b'9' {
+            // no '\r' for SSH-1.99-
+            if data[data_len - 2] != b'\r' {
+                self.exclude_current();
+                return Ok(None);
+            }
         }
 
-        Ok(None)
+        Ok(Some(protocol))
     }
 
     pub(crate) fn check_ssh_server_protocol_version_exchange(
@@ -132,7 +135,7 @@ impl ProtocolInspectState {
             b"1." => match data[6] {
                 b'9' => {
                     if data[7] == b'9' {
-                        offset = 9;
+                        offset = 8;
                         Protocol::Ssh
                     } else {
                         Protocol::SshLegacy

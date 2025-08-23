@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use bytes::Bytes;
@@ -26,26 +15,28 @@ use g3_http::server::UriExt;
 use g3_slog_types::{LtDateTime, LtDuration, LtH2StreamId, LtUpstreamAddr, LtUuid};
 use g3_types::net::UpstreamAddr;
 
-use super::{ExchangeHead, HttpForwardTaskNotes};
+use super::{ExchangeHead, HttpConnectTaskNotes};
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
-        slog_info!($obj.ctx.intercept_logger(), $($args)+;
-            "intercept_type" => "H2Connect",
-            "task_id" => LtUuid($obj.ctx.server_task_id()),
-            "depth" => $obj.ctx.inspection_depth,
-            "clt_stream" => LtH2StreamId(&$obj.clt_stream_id),
-            "ups_stream" => $obj.ups_stream_id.as_ref().map(LtH2StreamId),
-            "next_upstream" => $obj.upstream.as_ref().map(LtUpstreamAddr),
-            "started_at" => LtDateTime(&$obj.http_notes.started_datetime),
-            "ready_time" => LtDuration($obj.http_notes.ready_time),
-            "rsp_status" => $obj.http_notes.rsp_status,
-            "origin_status" => $obj.http_notes.origin_status,
-            "dur_req_send_hdr" => LtDuration($obj.http_notes.dur_req_send_hdr),
-            "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
-        )
+        if let Some(logger) = $obj.ctx.intercept_logger() {
+            slog_info!(logger, $($args)+;
+                "intercept_type" => "H2Connect",
+                "task_id" => LtUuid($obj.ctx.server_task_id()),
+                "depth" => $obj.ctx.inspection_depth,
+                "clt_stream" => LtH2StreamId(&$obj.clt_stream_id),
+                "ups_stream" => $obj.ups_stream_id.as_ref().map(LtH2StreamId),
+                "next_upstream" => $obj.upstream.as_ref().map(LtUpstreamAddr),
+                "started_at" => LtDateTime(&$obj.http_notes.started_datetime),
+                "ready_time" => LtDuration($obj.http_notes.ready_time),
+                "rsp_status" => $obj.http_notes.rsp_status,
+                "origin_status" => $obj.http_notes.origin_status,
+                "dur_req_send_hdr" => LtDuration($obj.http_notes.dur_req_send_hdr),
+                "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
+            );
+        }
     };
 }
 
@@ -54,7 +45,7 @@ pub(crate) struct H2ConnectTask<SC: ServerConfig> {
     clt_stream_id: StreamId,
     ups_stream_id: Option<StreamId>,
     upstream: Option<UpstreamAddr>,
-    http_notes: HttpForwardTaskNotes,
+    http_notes: HttpConnectTaskNotes,
 }
 
 impl<SC> H2ConnectTask<SC>
@@ -67,7 +58,7 @@ where
             clt_stream_id,
             ups_stream_id: None,
             upstream: None,
-            http_notes: HttpForwardTaskNotes::default(),
+            http_notes: HttpConnectTaskNotes::default(),
         }
     }
 

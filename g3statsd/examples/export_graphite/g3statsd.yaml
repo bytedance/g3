@@ -1,0 +1,27 @@
+runtime:
+  thread_number: 2
+
+worker:
+  thread_number: 2
+
+importer:
+  - name: statsd
+    type: statsd
+    collector: aggregate_1s
+    listen: 127.0.0.1:8125
+    listen_in_worker: true
+
+collector:
+  - name: aggregate_1s
+    type: aggregate
+    emit_interval: 1s
+    join_tags:
+      - stat_id
+    exporter: graphite
+
+exporter:
+  - name: graphite
+    type: graphite
+    server: 127.0.0.1
+    port: 2003
+    prefix: g3.example

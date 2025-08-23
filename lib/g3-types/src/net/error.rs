@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
@@ -39,6 +28,8 @@ impl From<io::Error> for ConnectError {
         match e.kind() {
             io::ErrorKind::ConnectionRefused => return ConnectError::ConnectionRefused,
             io::ErrorKind::ConnectionReset => return ConnectError::ConnectionReset,
+            io::ErrorKind::HostUnreachable => return ConnectError::HostUnreachable,
+            io::ErrorKind::NetworkUnreachable => return ConnectError::NetworkUnreachable,
             io::ErrorKind::TimedOut => return ConnectError::TimedOut,
             _ => {}
         }
@@ -53,5 +44,82 @@ impl From<io::Error> for ConnectError {
             }
         }
         ConnectError::UnspecifiedError(e)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn from_io_error_kind() {
+        let io_err = io::Error::new(io::ErrorKind::ConnectionRefused, "test");
+        assert!(matches!(
+            ConnectError::from(io_err),
+            ConnectError::ConnectionRefused
+        ));
+
+        let io_err = io::Error::new(io::ErrorKind::ConnectionReset, "test");
+        assert!(matches!(
+            ConnectError::from(io_err),
+            ConnectError::ConnectionReset
+        ));
+
+        let io_err = io::Error::new(io::ErrorKind::NetworkUnreachable, "test");
+        assert!(matches!(
+            ConnectError::from(io_err),
+            ConnectError::NetworkUnreachable
+        ));
+
+        let io_err = io::Error::new(io::ErrorKind::HostUnreachable, "test");
+        assert!(matches!(
+            ConnectError::from(io_err),
+            ConnectError::HostUnreachable
+        ));
+
+        let io_err = io::Error::new(io::ErrorKind::TimedOut, "test");
+        assert!(matches!(ConnectError::from(io_err), ConnectError::TimedOut));
+
+        let io_err = io::Error::new(io::ErrorKind::PermissionDenied, "test");
+        assert!(matches!(
+            ConnectError::from(io_err),
+            ConnectError::UnspecifiedError(_)
+        ));
+    }
+
+    #[test]
+    fn from_raw_os_error() {
+        let io_err = io::Error::from_raw_os_error(libc::ENETUNREACH);
+        assert!(matches!(
+            ConnectError::from(io_err),
+            ConnectError::NetworkUnreachable
+        ));
+
+        let io_err = io::Error::from_raw_os_error(libc::ECONNRESET);
+        assert!(matches!(
+            ConnectError::from(io_err),
+            ConnectError::ConnectionReset
+        ));
+
+        let io_err = io::Error::from_raw_os_error(libc::ETIMEDOUT);
+        assert!(matches!(ConnectError::from(io_err), ConnectError::TimedOut));
+
+        let io_err = io::Error::from_raw_os_error(libc::ECONNREFUSED);
+        assert!(matches!(
+            ConnectError::from(io_err),
+            ConnectError::ConnectionRefused
+        ));
+
+        let io_err = io::Error::from_raw_os_error(libc::EHOSTUNREACH);
+        assert!(matches!(
+            ConnectError::from(io_err),
+            ConnectError::HostUnreachable
+        ));
+
+        let io_err = io::Error::from_raw_os_error(libc::EACCES);
+        assert!(matches!(
+            ConnectError::from(io_err),
+            ConnectError::UnspecifiedError(_)
+        ));
     }
 }

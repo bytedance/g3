@@ -8,7 +8,6 @@ edition.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-thiserror.workspace = true
 clap.workspace = true
 tokio = { workspace = true, features = ["rt", "macros", "io-util", "fs"] }
 futures-util.workspace = true

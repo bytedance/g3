@@ -1,36 +1,29 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::borrow::Cow;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
+use std::time::Duration;
 
-use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 
+use g3_daemon::server::ServerQuitPolicy;
 use g3_daemon::stat::task::TcpStreamTaskStats;
-use g3_io_ext::{LimitedReader, LimitedWriter};
-use g3_socks::{v4a, v5, SocksVersion};
+use g3_io_ext::{IdleInterval, LimitedReader, LimitedWriter, StreamCopyConfig};
+use g3_socks::{SocksVersion, v4a, v5};
 use g3_types::acl::AclAction;
 use g3_types::net::{ProxyRequestType, UpstreamAddr};
 
 use super::{CommonTaskContext, TcpConnectTaskCltWrapperStats};
+use crate::audit::AuditContext;
+use crate::auth::User;
 use crate::config::server::ServerConfig;
-use crate::inspect::StreamInspectContext;
+use crate::inspect::{StreamInspectContext, StreamTransitTask};
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
-use crate::module::tcp_connect::TcpConnectTaskNotes;
+use crate::module::tcp_connect::{TcpConnectTaskConf, TcpConnectTaskNotes};
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
@@ -39,9 +32,21 @@ use crate::serve::{
 pub(crate) struct SocksProxyTcpConnectTask {
     socks_version: SocksVersion,
     ctx: CommonTaskContext,
+    upstream: UpstreamAddr,
     task_notes: ServerTaskNotes,
     tcp_notes: TcpConnectTaskNotes,
     task_stats: Arc<TcpStreamTaskStats>,
+    audit_ctx: AuditContext,
+    started: bool,
+}
+
+impl Drop for SocksProxyTcpConnectTask {
+    fn drop(&mut self) {
+        if self.started {
+            self.post_stop();
+            self.started = false;
+        }
+    }
 }
 
 impl SocksProxyTcpConnectTask {
@@ -50,6 +55,7 @@ impl SocksProxyTcpConnectTask {
         ctx: CommonTaskContext,
         mut task_notes: ServerTaskNotes,
         upstream: UpstreamAddr,
+        audit_ctx: AuditContext,
     ) -> Self {
         if let Some(user_ctx) = task_notes.user_ctx_mut() {
             user_ctx.check_in_site(
@@ -64,22 +70,29 @@ impl SocksProxyTcpConnectTask {
         SocksProxyTcpConnectTask {
             socks_version,
             ctx,
+            upstream,
             task_notes,
-            tcp_notes: TcpConnectTaskNotes::new(upstream),
+            tcp_notes: TcpConnectTaskNotes::default(),
             task_stats: Arc::new(TcpStreamTaskStats::default()),
+            audit_ctx,
+            started: false,
         }
     }
 
-    fn get_log_context(&self) -> TaskLogForTcpConnect {
-        TaskLogForTcpConnect {
-            task_notes: &self.task_notes,
-            tcp_notes: &self.tcp_notes,
-            total_time: self.task_notes.time_elapsed(),
-            client_rd_bytes: self.task_stats.clt.read.get_bytes(),
-            client_wr_bytes: self.task_stats.clt.write.get_bytes(),
-            remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
-            remote_wr_bytes: self.task_stats.ups.write.get_bytes(),
-        }
+    fn get_log_context(&self) -> Option<TaskLogForTcpConnect<'_>> {
+        self.ctx
+            .task_logger
+            .as_ref()
+            .map(|logger| TaskLogForTcpConnect {
+                logger,
+                upstream: &self.upstream,
+                task_notes: &self.task_notes,
+                tcp_notes: &self.tcp_notes,
+                client_rd_bytes: self.task_stats.clt.read.get_bytes(),
+                client_wr_bytes: self.task_stats.clt.write.get_bytes(),
+                remote_rd_bytes: self.task_stats.ups.read.get_bytes(),
+                remote_wr_bytes: self.task_stats.ups.write.get_bytes(),
+            })
     }
 
     pub(crate) fn into_running<R, W>(mut self, clt_r: LimitedReader<R>, clt_w: LimitedWriter<W>)
@@ -89,24 +102,17 @@ impl SocksProxyTcpConnectTask {
     {
         tokio::spawn(async move {
             self.pre_start();
-            match self.run(clt_r, clt_w).await {
-                Ok(_) => self
-                    .get_log_context()
-                    .log(&self.ctx.task_logger, &ServerTaskError::Finished),
-                Err(e) => self.get_log_context().log(&self.ctx.task_logger, &e),
+            let e = match self.run(clt_r, clt_w).await {
+                Ok(_) => ServerTaskError::Finished,
+                Err(e) => e,
+            };
+            if let Some(log_ctx) = self.get_log_context() {
+                log_ctx.log(e);
             }
-            self.pre_stop();
         });
     }
 
-    fn pre_start(&self) {
-        debug!(
-            "Socks/TcpConnect: new client from {} to {} server {}, using escaper {}",
-            self.ctx.client_addr(),
-            self.ctx.server_config.server_type(),
-            self.ctx.server_config.name(),
-            self.ctx.server_config.escaper
-        );
+    fn pre_start(&mut self) {
         self.ctx.server_stats.task_tcp_connect.add_task();
         self.ctx.server_stats.task_tcp_connect.inc_alive_task();
 
@@ -116,9 +122,17 @@ impl SocksProxyTcpConnectTask {
                 s.req_alive.add_socks_tcp_connect();
             });
         }
+
+        if self.ctx.server_config.flush_task_log_on_created
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log_created();
+        }
+
+        self.started = true;
     }
 
-    fn pre_stop(&mut self) {
+    fn post_stop(&mut self) {
         self.ctx.server_stats.task_tcp_connect.dec_alive_task();
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
@@ -219,7 +233,7 @@ impl SocksProxyTcpConnectTask {
         R: AsyncRead + Send + Sync + Unpin + 'static,
         W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        let mut tcp_client_misc_opts = self.ctx.server_config.tcp_misc_opts;
+        let tcp_client_misc_opts;
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             let user_ctx = user_ctx.clone();
@@ -245,19 +259,26 @@ impl SocksProxyTcpConnectTask {
             self.handle_user_acl_action(action, &mut clt_w, ServerTaskForbiddenError::ProtoBanned)
                 .await?;
 
-            let action = user_ctx.check_upstream(&self.tcp_notes.upstream);
+            let action = user_ctx.check_upstream(&self.upstream);
             self.handle_user_acl_action(action, &mut clt_w, ServerTaskForbiddenError::DestDenied)
+                .await?;
+
+            // server level dst host/port acl rules
+            let action = self.ctx.check_upstream(&self.upstream);
+            self.handle_server_upstream_acl_action(action, &mut clt_w)
                 .await?;
 
             tcp_client_misc_opts = user_ctx
                 .user_config()
-                .tcp_client_misc_opts(&tcp_client_misc_opts);
-        }
+                .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts);
+        } else {
+            // server level dst host/port acl rules
+            let action = self.ctx.check_upstream(&self.upstream);
+            self.handle_server_upstream_acl_action(action, &mut clt_w)
+                .await?;
 
-        // server level dst host/port acl rules
-        let action = self.ctx.check_upstream(&self.tcp_notes.upstream);
-        self.handle_server_upstream_acl_action(action, &mut clt_w)
-            .await?;
+            tcp_client_misc_opts = Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts);
+        }
 
         // set client side socket options
         self.ctx
@@ -268,13 +289,19 @@ impl SocksProxyTcpConnectTask {
             })?;
 
         self.task_notes.stage = ServerTaskStage::Connecting;
+
+        let task_conf = TcpConnectTaskConf {
+            upstream: &self.upstream,
+        };
         match self
             .ctx
             .escaper
             .tcp_setup_connection(
+                &task_conf,
                 &mut self.tcp_notes,
                 &self.task_notes,
                 self.task_stats.clone(),
+                &mut self.audit_ctx,
             )
             .await
         {
@@ -312,6 +339,12 @@ impl SocksProxyTcpConnectTask {
         UR: AsyncRead + Send + Sync + Unpin + 'static,
         UW: AsyncWrite + Send + Sync + Unpin + 'static,
     {
+        if self.ctx.server_config.flush_task_log_on_connected
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log_connected();
+        }
+
         self.task_notes.stage = ServerTaskStage::Replying;
         match self.socks_version {
             SocksVersion::V4a => {
@@ -363,7 +396,7 @@ impl SocksProxyTcpConnectTask {
     {
         self.update_clt(&mut clt_r, &mut clt_w);
 
-        if let Some(audit_handle) = &self.ctx.audit_handle {
+        if let Some(audit_handle) = self.audit_ctx.handle() {
             let audit_task = self
                 .task_notes
                 .user_ctx()
@@ -382,7 +415,9 @@ impl SocksProxyTcpConnectTask {
                     self.ctx.server_config.clone(),
                     self.ctx.server_stats.clone(),
                     self.ctx.server_quit_policy.clone(),
+                    self.ctx.idle_wheel.clone(),
                     &self.task_notes,
+                    &self.tcp_notes,
                 );
                 return crate::inspect::stream::transit_with_inspection(
                     clt_r,
@@ -390,23 +425,14 @@ impl SocksProxyTcpConnectTask {
                     ups_r,
                     ups_w,
                     ctx,
-                    self.tcp_notes.upstream.clone(),
+                    self.upstream.clone(),
                     None,
                 )
                 .await;
             }
         }
 
-        crate::inspect::stream::transit_transparent(
-            clt_r,
-            clt_w,
-            ups_r,
-            ups_w,
-            &self.ctx.server_config,
-            &self.ctx.server_quit_policy,
-            self.task_notes.user_ctx().map(|ctx| ctx.user()),
-        )
-        .await
+        self.transit_transparent(clt_r, clt_w, ups_r, ups_w).await
     }
 
     fn update_clt<CR, CW>(&mut self, clt_r: &mut LimitedReader<CR>, clt_w: &mut LimitedWriter<CW>)
@@ -446,5 +472,49 @@ impl SocksProxyTcpConnectTask {
         let wrapper_stats = Arc::new(wrapper_stats);
         clt_r.reset_stats(wrapper_stats.clone());
         clt_w.reset_stats(wrapper_stats);
+    }
+}
+
+impl StreamTransitTask for SocksProxyTcpConnectTask {
+    fn copy_config(&self) -> StreamCopyConfig {
+        self.ctx.server_config.tcp_copy
+    }
+
+    fn idle_check_interval(&self) -> IdleInterval {
+        self.ctx.idle_wheel.register()
+    }
+
+    fn max_idle_count(&self) -> usize {
+        self.ctx.server_config.task_idle_max_count
+    }
+
+    fn log_client_shutdown(&self) {
+        if let Some(log_ctx) = self.get_log_context() {
+            log_ctx.log_client_shutdown();
+        }
+    }
+
+    fn log_upstream_shutdown(&self) {
+        if let Some(log_ctx) = self.get_log_context() {
+            log_ctx.log_upstream_shutdown();
+        }
+    }
+
+    fn log_periodic(&self) {
+        if let Some(log_ctx) = self.get_log_context() {
+            log_ctx.log_periodic();
+        }
+    }
+
+    fn log_flush_interval(&self) -> Option<Duration> {
+        self.ctx.log_flush_interval()
+    }
+
+    fn quit_policy(&self) -> &ServerQuitPolicy {
+        self.ctx.server_quit_policy.as_ref()
+    }
+
+    fn user(&self) -> Option<&User> {
+        self.task_notes.user_ctx().map(|ctx| ctx.user().as_ref())
     }
 }

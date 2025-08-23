@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::str::FromStr;
@@ -20,37 +9,39 @@ use bytes::Bytes;
 use h2::client::SendRequest;
 use h2::server::SendResponse;
 use h2::{RecvStream, StreamId};
-use http::{header, Request, Response, StatusCode, Version};
+use http::{Request, Response, StatusCode, Version, header};
 use slog::slog_info;
 
 use g3_dpi::Protocol;
 use g3_h2::{H2StreamReader, H2StreamWriter};
 use g3_http::server::UriExt;
 use g3_slog_types::{LtDateTime, LtDuration, LtH2StreamId, LtUpstreamAddr, LtUuid};
-use g3_types::net::{HttpUpgradeToken, UpstreamAddr};
+use g3_types::net::{HttpUpgradeToken, UpstreamAddr, WebSocketNotes};
 
-use super::{ExchangeHead, H2StreamTransferError, HttpForwardTaskNotes};
+use super::{ExchangeHead, H2StreamTransferError, HttpConnectTaskNotes};
 use crate::config::server::ServerConfig;
 use crate::inspect::StreamInspectContext;
-use crate::log::inspect::{stream::StreamInspectLog, InspectSource};
+use crate::log::inspect::{InspectSource, stream::StreamInspectLog};
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
-        slog_info!($obj.ctx.intercept_logger(), $($args)+;
-            "intercept_type" => "H2ExtendedConnect",
-            "task_id" => LtUuid($obj.ctx.server_task_id()),
-            "depth" => $obj.ctx.inspection_depth,
-            "clt_stream" => LtH2StreamId(&$obj.clt_stream_id),
-            "ups_stream" => $obj.ups_stream_id.as_ref().map(LtH2StreamId),
-            "next_protocol" => $obj.protocol.to_string(),
-            "next_upstream" => $obj.upstream.as_ref().map(LtUpstreamAddr),
-            "started_at" => LtDateTime(&$obj.http_notes.started_datetime),
-            "ready_time" => LtDuration($obj.http_notes.ready_time),
-            "rsp_status" => $obj.http_notes.rsp_status,
-            "origin_status" => $obj.http_notes.origin_status,
-            "dur_req_send_hdr" => LtDuration($obj.http_notes.dur_req_send_hdr),
-            "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
-        )
+        if let Some(logger) = $obj.ctx.intercept_logger() {
+            slog_info!(logger, $($args)+;
+                "intercept_type" => "H2ExtendedConnect",
+                "task_id" => LtUuid($obj.ctx.server_task_id()),
+                "depth" => $obj.ctx.inspection_depth,
+                "clt_stream" => LtH2StreamId(&$obj.clt_stream_id),
+                "ups_stream" => $obj.ups_stream_id.as_ref().map(LtH2StreamId),
+                "next_protocol" => $obj.protocol.to_string(),
+                "next_upstream" => $obj.upstream.as_ref().map(LtUpstreamAddr),
+                "started_at" => LtDateTime(&$obj.http_notes.started_datetime),
+                "ready_time" => LtDuration($obj.http_notes.ready_time),
+                "rsp_status" => $obj.http_notes.rsp_status,
+                "origin_status" => $obj.http_notes.origin_status,
+                "dur_req_send_hdr" => LtDuration($obj.http_notes.dur_req_send_hdr),
+                "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
+            );
+        }
     };
 }
 
@@ -60,7 +51,7 @@ pub(crate) struct H2ExtendedConnectTask<SC: ServerConfig> {
     ups_stream_id: Option<StreamId>,
     protocol: HttpUpgradeToken,
     upstream: Option<UpstreamAddr>,
-    http_notes: HttpForwardTaskNotes,
+    http_notes: HttpConnectTaskNotes,
 }
 
 fn get_host(clt_req: &Request<RecvStream>) -> Result<Option<UpstreamAddr>, H2StreamTransferError> {
@@ -92,13 +83,26 @@ where
             ups_stream_id: None,
             protocol,
             upstream: None,
-            http_notes: HttpForwardTaskNotes::default(),
+            http_notes: HttpConnectTaskNotes::default(),
         }
     }
 
     fn reply_bad_request(&mut self, mut clt_send_rsp: SendResponse<Bytes>) {
         if let Ok(rsp) = Response::builder()
             .status(StatusCode::BAD_REQUEST)
+            .version(Version::HTTP_2)
+            .body(())
+        {
+            let rsp_status = rsp.status().as_u16();
+            if clt_send_rsp.send_response(rsp, true).is_ok() {
+                self.http_notes.rsp_status = rsp_status;
+            }
+        }
+    }
+
+    fn reply_forbidden(&mut self, mut clt_send_rsp: SendResponse<Bytes>) {
+        if let Ok(rsp) = Response::builder()
+            .status(StatusCode::FORBIDDEN)
             .version(Version::HTTP_2)
             .body(())
         {
@@ -129,6 +133,9 @@ where
             HttpUpgradeToken::ConnectUdp => {
                 self.run_extended_connect_udp(clt_req, clt_send_rsp, h2s)
                     .await
+            }
+            HttpUpgradeToken::ConnectIp => {
+                self.cancel_and_log(clt_send_rsp, "connect-ip upgrade is not supported");
             }
             _ => self.run_extended_unknown(clt_req, clt_send_rsp, h2s).await,
         }
@@ -162,7 +169,22 @@ where
             }
         };
 
-        let mut exchange_head = ExchangeHead::new(&self.ctx, &mut self.http_notes);
+        if self
+            .ctx
+            .websocket_inspect_action(upstream.host())
+            .is_block()
+        {
+            self.reply_forbidden(clt_send_rsp);
+            intercept_log!(self, "websocket blocked by inspection policy");
+            return;
+        }
+
+        let mut ws_notes = WebSocketNotes::new(clt_req.uri().clone());
+        for (name, value) in clt_req.headers() {
+            ws_notes.append_request_header(name, value);
+        }
+        let mut exchange_head =
+            ExchangeHead::new_websocket(&self.ctx, &mut self.http_notes, &mut ws_notes);
         let exchange_head_result = exchange_head.run(clt_req, clt_send_rsp, h2s).await;
         self.ups_stream_id = exchange_head.ups_stream_id.take();
         match exchange_head_result {
@@ -172,8 +194,9 @@ where
                 self.ctx.increase_inspection_depth();
                 StreamInspectLog::new(&self.ctx)
                     .log(InspectSource::H2ExtendedConnect, Protocol::Websocket);
-                let websocket_obj =
-                    crate::inspect::websocket::H2WebsocketInterceptObject::new(self.ctx, upstream);
+                let websocket_obj = crate::inspect::websocket::H2WebsocketInterceptObject::new(
+                    self.ctx, upstream, ws_notes,
+                );
                 websocket_obj.intercept(clt_r, clt_w, ups_r, ups_w).await;
             }
             Ok(None) => {
@@ -227,7 +250,11 @@ where
                 let ups_w = H2StreamWriter::new(ups_w);
 
                 // Just treat it as unknown. Unknown protocol should be forbidden if needed.
-                if let Err(e) = self.ctx.transit_unknown(clt_r, clt_w, ups_r, ups_w).await {
+                if let Err(e) = self
+                    .ctx
+                    .transit_inspect_unknown(clt_r, clt_w, ups_r, ups_w)
+                    .await
+                {
                     intercept_log!(self, "stream transfer error: {e}");
                 } else {
                     intercept_log!(self, "finished");

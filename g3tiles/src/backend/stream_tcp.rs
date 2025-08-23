@@ -1,33 +1,22 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use arc_swap::ArcSwapOption;
 use async_trait::async_trait;
 use futures_util::future::{AbortHandle, Abortable};
 use tokio::time::Instant;
 
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder, WeightedValue};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_types::net::ConnectError;
 
-use super::{ArcBackend, Backend, BackendExt};
+use super::{ArcBackendInternal, Backend, BackendExt, BackendInternal, BackendRegistry};
 use crate::config::backend::stream_tcp::StreamTcpBackendConfig;
 use crate::config::backend::{AnyBackendConfig, BackendConfig};
 use crate::module::stream::{
@@ -51,7 +40,7 @@ impl StreamTcpBackend {
         stats: Arc<StreamBackendStats>,
         duration_recorder: Arc<StreamBackendDurationRecorder>,
         duration_stats: Arc<StreamBackendDurationStats>,
-    ) -> anyhow::Result<ArcBackend> {
+    ) -> anyhow::Result<ArcBackendInternal> {
         let peer_addrs = Arc::new(ArcSwapOption::new(None));
 
         // always update extra metrics tags
@@ -71,7 +60,9 @@ impl StreamTcpBackend {
         Ok(backend)
     }
 
-    pub(super) fn prepare_initial(config: StreamTcpBackendConfig) -> anyhow::Result<ArcBackend> {
+    pub(super) fn prepare_initial(
+        config: StreamTcpBackendConfig,
+    ) -> anyhow::Result<ArcBackendInternal> {
         let stats = Arc::new(StreamBackendStats::new(config.name()));
         let (duration_recorder, duration_stats) =
             StreamBackendDurationRecorder::new(config.name(), &config.duration_stats);
@@ -88,7 +79,7 @@ impl StreamTcpBackend {
         )
     }
 
-    fn prepare_reload(&self, config: StreamTcpBackendConfig) -> anyhow::Result<ArcBackend> {
+    fn prepare_reload(&self, config: StreamTcpBackendConfig) -> anyhow::Result<ArcBackendInternal> {
         let stats = self.stats.clone();
         // TODO reuse old connection pool?
         StreamTcpBackend::new_obj(
@@ -112,40 +103,24 @@ impl BackendExt for StreamTcpBackend {}
 
 #[async_trait]
 impl Backend for StreamTcpBackend {
-    fn _clone_config(&self) -> AnyBackendConfig {
-        AnyBackendConfig::StreamTcp(self.config.as_ref().clone())
-    }
-
-    fn _update_config_in_place(
-        &self,
-        _flags: u64,
-        _config: AnyBackendConfig,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn _lock_safe_reload(&self, config: AnyBackendConfig) -> anyhow::Result<ArcBackend> {
-        if let AnyBackendConfig::StreamTcp(c) = config {
-            self.prepare_reload(c)
-        } else {
-            Err(anyhow!("invalid backend config type"))
-        }
-    }
-
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
-    fn discover(&self) -> &MetricsName {
+    fn discover(&self) -> &NodeName {
         &self.config.discover
     }
     fn update_discover(&self) -> anyhow::Result<()> {
         let discover = &self.config.discover;
         let discover = crate::discover::get_discover(discover)?;
-        let mut discover_receiver = discover
-            .register_data(&self.config.discover_data)
-            .context("failed to register to discover {discover}")?;
+        let mut discover_receiver =
+            discover
+                .register_data(&self.config.discover_data)
+                .context(format!(
+                    "failed to register to discover {}",
+                    discover.name()
+                ))?;
 
         let peer_addrs_container = self.peer_addrs.clone();
         let (abort_handle, abort_reg) = AbortHandle::new_pair();
@@ -175,6 +150,11 @@ impl Backend for StreamTcpBackend {
         Ok(())
     }
 
+    fn alive_connection(&self) -> u64 {
+        // TODO add alive connection stats
+        0
+    }
+
     async fn stream_connect(&self, task_notes: &ServerTaskNotes) -> StreamConnectResult {
         let Some(next_addr) = self.select_peer(task_notes) else {
             return Err(StreamConnectError::UpstreamNotResolved);
@@ -183,7 +163,7 @@ impl Backend for StreamTcpBackend {
         self.stats.add_conn_attempt();
         let socket = g3_socket::tcp::new_socket_to(
             next_addr.ip(),
-            None,
+            &Default::default(),
             &Default::default(),
             &Default::default(),
             true,
@@ -201,5 +181,31 @@ impl Backend for StreamTcpBackend {
 
         let (ups_r, ups_w) = stream.into_split();
         Ok((Box::new(ups_r), Box::new(ups_w)))
+    }
+}
+
+impl BackendInternal for StreamTcpBackend {
+    fn _clone_config(&self) -> AnyBackendConfig {
+        AnyBackendConfig::StreamTcp(self.config.as_ref().clone())
+    }
+
+    fn _update_config_in_place(
+        &self,
+        _flags: u64,
+        _config: AnyBackendConfig,
+    ) -> anyhow::Result<()> {
+        Ok(())
+    }
+
+    fn _reload(
+        &self,
+        config: AnyBackendConfig,
+        _registry: &mut BackendRegistry,
+    ) -> anyhow::Result<ArcBackendInternal> {
+        if let AnyBackendConfig::StreamTcp(c) = config {
+            self.prepare_reload(c)
+        } else {
+            Err(anyhow!("invalid backend config type"))
+        }
     }
 }

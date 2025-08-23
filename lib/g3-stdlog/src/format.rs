@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::cell::RefCell;
@@ -21,7 +10,7 @@ use g3_types::log::AsyncLogFormatter;
 
 use itoa::Integer;
 use ryu::Float;
-use slog::{Error, OwnedKVList, Record, Serializer, KV};
+use slog::{Error, KV, OwnedKVList, Record, Serializer};
 
 use super::StdLogValue;
 
@@ -76,7 +65,7 @@ impl AsyncLogFormatter<StdLogValue> for StdLogFormatter {
 
 struct FormatterKv<'a>(&'a mut Vec<(String, String)>);
 
-impl<'a> FormatterKv<'a> {
+impl FormatterKv<'_> {
     fn emit_integer<T: Integer>(&mut self, key: slog::Key, value: T) -> slog::Result {
         let mut buffer = itoa::Buffer::new();
         let value_s = buffer.format(value);
@@ -90,7 +79,7 @@ impl<'a> FormatterKv<'a> {
     }
 }
 
-impl<'a> Serializer for FormatterKv<'a> {
+impl Serializer for FormatterKv<'_> {
     impl_integer_by_itoa! {
         /// Emit `usize`
         usize => emit_usize
@@ -186,7 +175,7 @@ mod tests {
         let mut vars = Vec::new();
         let mut kv_formatter = FormatterKv(&mut vars);
 
-        kv_formatter.emit_u8("a-key", 8u8).unwrap();
+        kv_formatter.emit_u8("a-key".into(), 8u8).unwrap();
         assert_eq!(vars, [("a-key".to_string(), "8".to_string())]);
     }
 
@@ -195,7 +184,7 @@ mod tests {
         let mut vars = Vec::new();
         let mut kv_formatter = FormatterKv(&mut vars);
 
-        kv_formatter.emit_f32("a-key", 1.1f32).unwrap();
+        kv_formatter.emit_f32("a-key".into(), 1.1f32).unwrap();
         assert_eq!(vars, [("a-key".to_string(), "1.1".to_string())]);
     }
 
@@ -204,7 +193,7 @@ mod tests {
         let mut vars = Vec::new();
         let mut kv_formatter = FormatterKv(&mut vars);
 
-        kv_formatter.emit_bool("a-key", true).unwrap();
+        kv_formatter.emit_bool("a-key".into(), true).unwrap();
         assert_eq!(vars, [("a-key".to_string(), "true".to_string())]);
     }
 
@@ -215,7 +204,7 @@ mod tests {
 
         let v = "value";
         kv_formatter
-            .emit_arguments("a-key", &format_args!("a-{v}"))
+            .emit_arguments("a-key".into(), &format_args!("a-{v}"))
             .unwrap();
         assert_eq!(vars, [("a-key".to_string(), "a-value".to_string())]);
     }

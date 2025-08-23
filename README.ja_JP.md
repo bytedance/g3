@@ -1,5 +1,7 @@
-[![minimum rustc: 1.80](https://img.shields.io/badge/minimum%20rustc-1.80-green?logo=rust)](https://www.whatrustisit.com)
+[![minimum rustc: 1.88](https://img.shields.io/badge/minimum%20rustc-1.88-green?logo=rust)](https://www.whatrustisit.com)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
+[![codecov](https://codecov.io/gh/bytedance/g3/graph/badge.svg?token=TSQCA4ALQM)](https://codecov.io/gh/bytedance/g3)
+[![docs](https://readthedocs.org/projects/g3-project/badge)](https://g3-project.readthedocs.io/)
 
 # G3プロジェクト
 
@@ -8,14 +10,17 @@
 ## 概要
 
 これは、エンタープライズ向けの汎用プロキシソリューションを構築するために使用されるプロジェクトです。
-プロキシ / リバースプロキシ（作業中） / ロードバランサー（未定） / NATトラバーサル（未定）などを含むがこれらに限定されません。
+プロキシ / リバースプロキシ（作業中） / ロードバランサー（未定） / NATトラバーサル（作業中）などを含むがこれらに限定されません。
 
-## コンポーネント
+## アプリ
 
-G3プロジェクトは多くのコンポーネントで構成されています。
+G3 プロジェクトは多数のアプリケーションで構成されており、各アプリケーションには独自のコード、ドキュメントなどを含む個別のサブディレクトリがあります。
 
-プロジェクトレベルのドキュメントは *doc* サブディレクトリにあり、重要なものについては以下のリンクを参照してください。
-各コンポーネントには、それぞれの *doc* サブディレクトリに独自のドキュメントがあります。
+アプリ ディレクトリに加えて、いくつかのパブリック ディレクトリもあります。
+
+- [doc](doc) プロジェクトレベルのドキュメントが含まれます。
+- [sphinx](sphinx) は、各アプリの HTML リファレンス ドキュメントを生成するために使用されます。
+- [scripts](scripts) には、カバレッジ テスト、パッケージ化スクリプト
 
 ### g3proxy
 
@@ -26,10 +31,11 @@ G3プロジェクトは多くのコンポーネントで構成されています
 
 - 非同期Rust: 高速で信頼性が高い
 - Http1 / Socks5フォワードプロキシプロトコル、SNIプロキシおよびTCP TPROXY
+- サポート easy-proxy & masque/http Well-Known URI
 - プロキシチェイニング、上流プロキシの動的選択をサポート
 - 多くの出口ルート選択方法、カスタム出口選択エージェントをサポート
 - TCP/TLSストリームプロキシ、基本的なHTTPリバースプロキシ
-- OpenSSL、BoringSSL、AWS-LC、Tongsuo、さらにはrustlsを使用したTLS
+- OpenSSL、BoringSSL、AWS-LC、AWS-LC-FIPS、Tongsuo、さらにはrustlsを使用したTLS
 - TLS MITMインターセプション、復号化されたトラフィックダンプ、HTTP1/HTTP2/IMAP/SMTPインターセプション
 - HTTP1/HTTP2/IMAP/SMTPのICAP適応、サードパーティのセキュリティ製品とシームレスに統合可能
 - 優雅なリロード
@@ -40,37 +46,55 @@ G3プロジェクトは多くのコンポーネントで構成されています
 - 豊富な監視メトリクス、入口/出口/ユーザー/ユーザーサイトレベルで
 - さまざまな観測ツールをサポート
 
-詳細な紹介については、[g3proxy](g3proxy/README.md) を参照してください。
+[詳細な紹介](g3proxy/README.md) | [ユーザーガイド](g3proxy/UserGuide.en_US.md) |
+[リファレンスドキュメント](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/)
+
+### g3statsd
+
+StatsD互換の統計アグリゲータ。
+
+[詳細な紹介](g3statsd/README.md) | [リファレンスドキュメント](https://g3-project.readthedocs.io/projects/g3statsd/en/latest/)
 
 ### g3tiles
 
 作業中のリバースプロキシソリューション。
 
+[リファレンスドキュメント](https://g3-project.readthedocs.io/projects/g3tiles/en/latest/)
+
 ### g3bench
 
 HTTP 1.x、HTTP 2、HTTP 3、TLSハンドシェイク、DNS、Cloudflare Keylessをサポートするベンチマークツール。
 
-詳細な紹介については、[g3bench](g3bench/README.md) を参照してください。
+[詳細な紹介](g3bench/README.md)
 
 ### g3mkcert
 
-ルートCA / 中間CA / TLSサーバー / TLSクライアント証明書を作成するツール。
+ルートCA / 中間CA / TLSサーバー / TLSクライアント / TLCPサーバー / TLCPクライアント 証明書を作成するツール。
+
+[詳細な紹介](g3mkcert/README.md)
 
 ### g3fcgen
 
 g3proxyのための偽の証明書ジェネレーター。
 
+[詳細な紹介](g3fcgen/README.md)
+
 ### g3iploc
 
 g3proxyのGeoIPサポートのためのIPロケーションルックアップサービス。
+
+[詳細な紹介](g3iploc/README.md)
 
 ### g3keymess
 
 Cloudflare keylessサーバーの簡単な実装。
 
+[詳細な紹介](g3keymess/README.md) |
+[リファレンスドキュメント](https://g3-project.readthedocs.io/projects/g3keymess/en/latest/)
+
 ## 対応プラットフォーム
 
-現在、完全にサポートされているのはLinuxのみです。コードはFreeBSD、NetBSD、macOS、Windowsでコンパイルされますが、そこでのテストは行っていません。
+現在、完全にサポートされているのはLinuxのみです。コードはFreeBSD、NetBSD、OpenBSD、macOS、Windowsでコンパイルされますが、そこでのテストは行っていません。
 
 他のプラットフォームのサポートを追加するためのPRを歓迎します。
 
@@ -82,83 +106,12 @@ Cloudflare keylessサーバーの簡単な実装。
 
 [Standards](doc/standards.md) に従ってください。
 
-## リリースとパッケージング
+## ビルド、パッケージ化、デプロイ
 
-各コンポーネントの各リリースには *\<name\>-v\<version\>* の形式でタグが設定されます。
-これらのタグを使用してソースtarballを生成できます。
-また、配布準備が整った各コンポーネントにはdebおよびrpmパッケージファイルが追加されています。
+コンパイル済みのパッケージは[cloudsmith](https://cloudsmith.io/~g3-oqh/repos/)にあります。
 
-リリースビルドを行う場合:
-
-1. リリースtarballを生成する
-
-   ```shell
-   # <name>-v<version> のタグがある場合
-   ./scripts/release/build_tarball.sh <name>-v<version>
-   # 使用可能なタグがない場合、gitリビジョン（例: HEAD）を指定する必要があります
-   ./scripts/release/build_tarball.sh <name> <rev>
-   ```
-
-   すべてのベンダーソースはソースtarballに追加されるため、ソースtarballを保存し、コンパイラと依存関係がインストールされている任意の場所でオフラインでビルドできます。
-
-2. パッケージをビルドする
-
-   debパッケージの場合:
-   ```shell
-   tar xf <name>-<version>.tar.xz
-   cd <name>-<version>
-   ./build_deb_from_tar.sh
-   ```
-
-   rpmパッケージの場合:
-   ```shell
-   rpmbuild -ta ./<name>-<version>.tar.xz
-   # 失敗した場合、次のコマンドを手動で実行できます:
-   tar xvf <name>-<version>.tar.xz ./<name>-<version>/<name>.spec
-   cp <name>-<version>.tar.xz ~/rpmbuild/SOURCES/
-   rpmbuild -ba ./<name>-<version>/<name>.spec
-   ```
-
-gitリポジトリから直接パッケージをビルドする場合:
-
-- debパッケージの場合:
-
-  ```shell
-  ./build_deb_from_git.sh <name>
-  ```
-
-- rpmパッケージの場合:
-
-  ```shell
-  ./build_rpm_from_git.sh <name>
-  ```
-
-### 事前ビルドパッケージ
-
-本番環境にインストールする場合は、自分でパッケージをビルドすることをお勧めします。
-
-テスト目的の場合、いくつかのパッケージをビルドして
-[cloudsmith](https://cloudsmith.io/~g3-oqh/repos/) にアップロードしました。インストール手順はそこにあります。
-
-### Dockerイメージのビルド
-
-各コンポーネントの *docker* フォルダーの下にDockerfile(s)があります。ビルドコマンドは次のようになります
-
-```shell
-# ソースルートディレクトリで実行します
-docker build -f <component>/docker/debian.Dockerfile . -t <component>:<tag>
-# ソースコードなしでビルドします
-docker build -f <component>/docker/debian.Dockerfile github.com/bytedance/g3 -t <component>:<tag>
-# ソースtarballがある場合、そのtarballのURLも使用できます
-```
-
-### 静的リンク
-
-[Static Linking](doc/static-linking.md) を参照してください。
-
-### 異なるOpenSSLバリアントでのビルド
-
-[OpenSSL Variants](doc/openssl-variants.md) を参照してください。
+ただし、パッケージはご自身でコンパイルしてパッケージ化することをお勧めします。詳細な手順については、[ビルドとパッケージ化](doc/build_and_package.md)
+を参照してください。
 
 ### LTSバージョン
 

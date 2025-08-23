@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::str::FromStr;
@@ -20,7 +9,7 @@ use anyhow::anyhow;
 use capnp::capability::Promise;
 use capnp_rpc::pry;
 
-use g3_types::metrics::{MetricsTagName, MetricsTagValue};
+use g3_types::metrics::{MetricTagName, MetricTagValue};
 
 use g3keymess_proto::proc_capnp::proc_control;
 use g3keymess_proto::server_capnp::server_control;
@@ -161,9 +150,9 @@ impl proc_control::Server for ProcControlImpl {
 
 fn do_add_metrics_tag(name: &str, value: &str) -> anyhow::Result<()> {
     let name =
-        MetricsTagName::from_str(name).map_err(|e| anyhow!("invalid metrics tag name: {e}"))?;
+        MetricTagName::from_str(name).map_err(|e| anyhow!("invalid metrics tag name: {e}"))?;
     let value =
-        MetricsTagValue::from_str(value).map_err(|e| anyhow!("invalid metrics tag value: {e}"))?;
+        MetricTagValue::from_str(value).map_err(|e| anyhow!("invalid metrics tag value: {e}"))?;
 
     // add for server metrics
     crate::serve::foreach_server(|_, s| {

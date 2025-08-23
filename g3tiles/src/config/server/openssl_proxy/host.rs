@@ -1,32 +1,28 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use anyhow::{anyhow, Context};
+use std::sync::Arc;
+
+use anyhow::{Context, anyhow};
+use openssl::ex_data::Index;
 use openssl::ssl::{
-    SslAcceptor, SslContext, SslContextBuilder, SslOptions, SslSessionCacheMode, SslVerifyMode,
+    SslAcceptor, SslAcceptorBuilder, SslContext, SslContextBuilder, SslOptions,
+    SslSessionCacheMode, SslVerifyMode, TicketKeyStatus,
 };
 use openssl::stack::Stack;
-use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::X509;
+use openssl::x509::store::X509StoreBuilder;
 use yaml_rust::Yaml;
 
 use g3_types::collection::NamedValue;
-use g3_types::limit::RateLimitQuotaConfig;
-use g3_types::metrics::MetricsName;
-use g3_types::net::{OpensslCertificatePair, OpensslSessionIdContext, TcpSockSpeedLimitConfig};
+use g3_types::limit::RateLimitQuota;
+use g3_types::metrics::NodeName;
+use g3_types::net::{
+    OpensslCertificatePair, OpensslServerSessionCache, OpensslSessionIdContext, OpensslTicketKey,
+    RollingTicketer, TcpSockSpeedLimitConfig,
+};
 use g3_types::route::AlpnMatch;
 use g3_yaml::{YamlDocPosition, YamlMapCallback};
 
@@ -45,10 +41,10 @@ pub(crate) struct OpensslHostConfig {
     no_session_ticket: bool,
     no_session_cache: bool,
     pub(crate) request_alive_max: Option<usize>,
-    pub(crate) request_rate_limit: Option<RateLimitQuotaConfig>,
+    pub(crate) request_rate_limit: Option<RateLimitQuota>,
     pub(crate) tcp_sock_speed_limit: Option<TcpSockSpeedLimitConfig>,
-    pub(crate) task_idle_max_count: Option<i32>,
-    pub(crate) backends: AlpnMatch<MetricsName>,
+    pub(crate) task_idle_max_count: Option<usize>,
+    pub(crate) backends: AlpnMatch<NodeName>,
 }
 
 impl NamedValue for OpensslHostConfig {
@@ -111,12 +107,9 @@ impl OpensslHostConfig {
                 }
             }
             let store = store_builder.build();
-            #[cfg(not(feature = "vendored-boringssl"))]
             ssl_builder
                 .set_verify_cert_store(store)
-                .map_err(|e| anyhow!("failed to set ca certs: {e}"))?;
-            #[cfg(feature = "vendored-boringssl")]
-            ssl_builder.set_cert_store(store);
+                .map_err(|e| anyhow!("failed to set verify ca certs: {e}"))?;
             if !subject_stack.is_empty() {
                 ssl_builder.set_client_ca_list(subject_stack);
             }
@@ -127,7 +120,10 @@ impl OpensslHostConfig {
         Ok(())
     }
 
-    pub(crate) fn build_ssl_context(&self) -> anyhow::Result<Option<SslContext>> {
+    pub(crate) fn build_ssl_context(
+        &self,
+        ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
+    ) -> anyhow::Result<Option<SslContext>> {
         if self.cert_pairs.is_empty() {
             return Ok(None);
         }
@@ -151,10 +147,16 @@ impl OpensslHostConfig {
         if self.no_session_cache {
             ssl_builder.set_session_cache_mode(SslSessionCacheMode::OFF);
         } else {
-            ssl_builder.set_session_cache_mode(SslSessionCacheMode::SERVER);
+            let cache = OpensslServerSessionCache::new(256)?;
+            cache.add_to_context(&mut ssl_builder);
         }
         if self.no_session_ticket {
             ssl_builder.set_options(SslOptions::NO_TICKET);
+        } else if let Some(ticketer) = ticketer {
+            let ticket_key_index = SslContext::new_ex_index()
+                .map_err(|e| anyhow!("failed to create ex index: {e}"))?;
+            ssl_builder.set_ex_data(ticket_key_index, ticketer);
+            set_ticket_key_callback(&mut ssl_builder, ticket_key_index)?;
         }
 
         self.set_client_auth(&mut ssl_builder, &mut id_ctx)?;
@@ -192,7 +194,10 @@ impl OpensslHostConfig {
     }
 
     #[cfg(feature = "vendored-tongsuo")]
-    pub(crate) fn build_tlcp_context(&self) -> anyhow::Result<Option<SslContext>> {
+    pub(crate) fn build_tlcp_context(
+        &self,
+        ticketer: Option<Arc<RollingTicketer<OpensslTicketKey>>>,
+    ) -> anyhow::Result<Option<SslContext>> {
         if self.tlcp_cert_pairs.is_empty() {
             return Ok(None);
         }
@@ -211,10 +216,16 @@ impl OpensslHostConfig {
         if self.no_session_cache {
             ssl_builder.set_session_cache_mode(SslSessionCacheMode::OFF);
         } else {
-            ssl_builder.set_session_cache_mode(SslSessionCacheMode::SERVER);
+            let cache = OpensslServerSessionCache::new(256)?;
+            cache.add_to_context(&mut ssl_builder);
         }
         if self.no_session_ticket {
             ssl_builder.set_options(SslOptions::NO_TICKET);
+        } else if let Some(ticketer) = ticketer {
+            let ticket_key_index = SslContext::new_ex_index()
+                .map_err(|e| anyhow!("failed to create ex index: {e}"))?;
+            ssl_builder.set_ex_data(ticket_key_index, ticketer);
+            set_ticket_key_callback(&mut ssl_builder, ticket_key_index)?;
         }
 
         self.set_client_auth(&mut ssl_builder, &mut id_ctx)?;
@@ -245,6 +256,26 @@ impl OpensslHostConfig {
 
         Ok(Some(ssl_builder.build().into_context()))
     }
+}
+
+fn set_ticket_key_callback(
+    builder: &mut SslAcceptorBuilder,
+    ticket_key_index: Index<SslContext, Arc<RollingTicketer<OpensslTicketKey>>>,
+) -> anyhow::Result<()> {
+    builder
+        .set_ticket_key_callback(move |ssl, name, iv, cipher_ctx, hmac_ctx, is_enc| {
+            match ssl.ssl_context().ex_data(ticket_key_index) {
+                Some(ticketer) => {
+                    if is_enc {
+                        ticketer.encrypt_init(name, iv, cipher_ctx, hmac_ctx)
+                    } else {
+                        ticketer.decrypt_init(name, iv, cipher_ctx, hmac_ctx)
+                    }
+                }
+                None => Ok(TicketKeyStatus::FAILED),
+            }
+        })
+        .map_err(|e| anyhow!("failed to set ticket key callback: {e}"))
 }
 
 impl YamlMapCallback for OpensslHostConfig {
@@ -327,8 +358,8 @@ impl YamlMapCallback for OpensslHostConfig {
                 Ok(())
             }
             "task_idle_max_count" => {
-                let max_count = g3_yaml::value::as_i32(value)
-                    .context(format!("invalid i32 value for key {key}"))?;
+                let max_count = g3_yaml::value::as_usize(value)
+                    .context(format!("invalid usize value for key {key}"))?;
                 self.task_idle_max_count = Some(max_count);
                 Ok(())
             }

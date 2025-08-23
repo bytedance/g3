@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
@@ -23,26 +12,29 @@ use async_trait::async_trait;
 #[cfg(feature = "quic")]
 use quinn::Connection;
 use slog::Logger;
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 use tokio_rustls::server::TlsStream;
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
+use g3_io_ext::{AsyncStream, IdleWheel};
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
-use super::task::{CommonTaskContext, SocksProxyNegotiationTask};
 use super::SocksProxyServerStats;
-use crate::audit::AuditHandle;
+use super::task::{CommonTaskContext, SocksProxyNegotiationTask};
+use crate::audit::{AuditContext, AuditHandle};
 use crate::auth::UserGroup;
 use crate::config::server::socks_proxy::SocksProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
 use crate::serve::{
-    ArcServer, ArcServerStats, Server, ServerInternal, ServerQuitPolicy, ServerStats, WrapArcServer,
+    ArcServer, ArcServerInternal, ArcServerStats, Server, ServerInternal, ServerQuitPolicy,
+    ServerRegistry, ServerStats, WrapArcServer,
 };
 
 pub(crate) struct SocksProxyServer {
@@ -52,12 +44,13 @@ pub(crate) struct SocksProxyServer {
     ingress_net_filter: Option<Arc<AclNetworkRule>>,
     dst_host_filter: Option<Arc<AclDstHostRuleSet>>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
-    task_logger: Logger,
+    task_logger: Option<Logger>,
 
     escaper: ArcSwap<ArcEscaper>,
     user_group: ArcSwapOption<UserGroup>,
     audit_handle: ArcSwapOption<AuditHandle>,
     quit_policy: Arc<ServerQuitPolicy>,
+    idle_wheel: Arc<IdleWheel>,
     reload_version: usize,
 }
 
@@ -81,6 +74,7 @@ impl SocksProxyServer {
             .map(|builder| Arc::new(builder.build()));
 
         let task_logger = config.get_task_logger();
+        let idle_wheel = IdleWheel::spawn(config.task_idle_check_duration);
 
         server_stats.set_extra_tags(config.extra_metrics_tags.clone());
 
@@ -100,13 +94,16 @@ impl SocksProxyServer {
             user_group: ArcSwapOption::new(user_group),
             audit_handle: ArcSwapOption::new(audit_handle),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
+            idle_wheel,
             reload_version: version,
         };
 
         Ok(server)
     }
 
-    pub(crate) fn prepare_initial(config: SocksProxyServerConfig) -> anyhow::Result<ArcServer> {
+    pub(crate) fn prepare_initial(
+        config: SocksProxyServerConfig,
+    ) -> anyhow::Result<ArcServerInternal> {
         let config = Arc::new(config);
         let server_stats = Arc::new(SocksProxyServerStats::new(config.name()));
         let listen_stats = Arc::new(ListenStats::new(config.name()));
@@ -117,7 +114,7 @@ impl SocksProxyServer {
 
     fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<SocksProxyServer> {
         if let AnyServerConfig::SocksProxy(config) = config {
-            let config = Arc::new(*config);
+            let config = Arc::new(config);
             let server_stats = Arc::clone(&self.server_stats);
             let listen_stats = Arc::clone(&self.listen_stats);
 
@@ -127,8 +124,8 @@ impl SocksProxyServer {
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
-                self.config.server_type(),
-                config.server_type()
+                self.config.r#type(),
+                config.r#type()
             ))
         }
     }
@@ -150,19 +147,34 @@ impl SocksProxyServer {
         false
     }
 
-    async fn run_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
+    fn audit_context(&self) -> AuditContext {
+        AuditContext::new(self.audit_handle.load_full())
+    }
+
+    async fn run_task<S>(&self, stream: S, cc_info: ClientConnectionInfo)
+    where
+        S: AsyncStream,
+        S::R: AsyncRead + Send + Sync + Unpin + 'static,
+        S::W: AsyncWrite + Send + Sync + Unpin + 'static,
+    {
+        let client_addr = cc_info.client_addr();
+        self.server_stats.add_conn(client_addr);
+        if self.drop_early(client_addr) {
+            return;
+        }
+
         let ctx = CommonTaskContext {
-            server_config: Arc::clone(&self.config),
-            server_stats: Arc::clone(&self.server_stats),
-            server_quit_policy: Arc::clone(&self.quit_policy),
+            server_config: self.config.clone(),
+            server_stats: self.server_stats.clone(),
+            server_quit_policy: self.quit_policy.clone(),
+            idle_wheel: self.idle_wheel.clone(),
             escaper: self.escaper.load().as_ref().clone(),
-            audit_handle: self.audit_handle.load_full(),
             ingress_net_filter: self.ingress_net_filter.clone(),
             dst_host_filter: self.dst_host_filter.clone(),
             cc_info,
             task_logger: self.task_logger.clone(),
         };
-        SocksProxyNegotiationTask::new(ctx, self.user_group.load_full())
+        SocksProxyNegotiationTask::new(ctx, self.audit_context(), self.user_group.load_full())
             .into_running(stream)
             .await;
     }
@@ -170,14 +182,10 @@ impl SocksProxyServer {
 
 impl ServerInternal for SocksProxyServer {
     fn _clone_config(&self) -> AnyServerConfig {
-        AnyServerConfig::SocksProxy(Box::new(self.config.as_ref().clone()))
+        AnyServerConfig::SocksProxy(self.config.as_ref().clone())
     }
 
-    fn _update_config_in_place(&self, _flags: u64, _config: AnyServerConfig) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn _depend_on_server(&self, _name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, _name: &NodeName) -> bool {
         false
     }
 
@@ -203,23 +211,31 @@ impl ServerInternal for SocksProxyServer {
         Ok(())
     }
 
-    fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyServerConfig,
+        _registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServerInternal> {
         let mut server = self.prepare_reload(config)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyServerConfig,
+        _registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServerInternal> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }
 
-    fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()> {
+    fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {
         let Some(listen_config) = &self.config.listen else {
             return Ok(());
         };
-        let runtime =
-            ListenTcpRuntime::new(WrapArcServer(server.clone()), server.get_listen_stats());
+        let listen_stats = server.get_listen_stats();
+        let runtime = ListenTcpRuntime::new(WrapArcServer(server), listen_stats);
         runtime
             .run_all_instances(
                 listen_config,
@@ -237,13 +253,13 @@ impl ServerInternal for SocksProxyServer {
 
 impl BaseServer for SocksProxyServer {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
     #[inline]
-    fn server_type(&self) -> &'static str {
-        self.config.server_type()
+    fn r#type(&self) -> &'static str {
+        self.config.r#type()
     }
 
     #[inline]
@@ -255,12 +271,6 @@ impl BaseServer for SocksProxyServer {
 #[async_trait]
 impl AcceptTcpServer for SocksProxyServer {
     async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
-        let client_addr = cc_info.client_addr();
-        self.server_stats.add_conn(client_addr);
-        if self.drop_early(client_addr) {
-            return;
-        }
-
         self.run_task(stream, cc_info).await
     }
 }
@@ -273,15 +283,15 @@ impl AcceptQuicServer for SocksProxyServer {
 
 #[async_trait]
 impl Server for SocksProxyServer {
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         self.config.escaper()
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         self.config.user_group()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         self.config.auditor()
     }
 
@@ -302,13 +312,11 @@ impl Server for SocksProxyServer {
         &self.quit_policy
     }
 
-    async fn run_rustls_task(&self, _stream: TlsStream<TcpStream>, cc_info: ClientConnectionInfo) {
-        self.server_stats.add_conn(cc_info.client_addr());
-        self.listen_stats.add_dropped();
+    async fn run_rustls_task(&self, stream: TlsStream<TcpStream>, cc_info: ClientConnectionInfo) {
+        self.run_task(stream, cc_info).await
     }
 
-    async fn run_openssl_task(&self, _stream: SslStream<TcpStream>, cc_info: ClientConnectionInfo) {
-        self.server_stats.add_conn(cc_info.client_addr());
-        self.listen_stats.add_dropped();
+    async fn run_openssl_task(&self, stream: SslStream<TcpStream>, cc_info: ClientConnectionInfo) {
+        self.run_task(stream, cc_info).await
     }
 }

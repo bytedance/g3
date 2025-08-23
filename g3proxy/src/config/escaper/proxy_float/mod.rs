@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::BTreeSet;
@@ -20,12 +9,20 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use ascii::AsciiString;
 use log::warn;
-use yaml_rust::{yaml, Yaml};
+use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
+#[cfg(any(
+    target_os = "linux",
+    target_os = "android",
+    target_os = "macos",
+    target_os = "illumos",
+    target_os = "solaris"
+))]
+use g3_types::net::Interface;
 use g3_types::net::{
     OpensslClientConfigBuilder, TcpKeepAliveConfig, TcpMiscSockOpts, UdpMiscSockOpts,
 };
@@ -40,9 +37,17 @@ const ESCAPER_CONFIG_TYPE: &str = "ProxyFloat";
 
 #[derive(Clone, Eq, PartialEq)]
 pub(crate) struct ProxyFloatEscaperConfig {
-    pub(crate) name: MetricsName,
+    pub(crate) name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) shared_logger: Option<AsciiString>,
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "android",
+        target_os = "macos",
+        target_os = "illumos",
+        target_os = "solaris"
+    ))]
+    pub(crate) bind_interface: Option<Interface>,
     pub(crate) bind_v4: Option<IpAddr>,
     pub(crate) bind_v6: Option<IpAddr>,
     pub(crate) tls_config: OpensslClientConfigBuilder,
@@ -55,15 +60,23 @@ pub(crate) struct ProxyFloatEscaperConfig {
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
     pub(crate) expire_guard_duration: chrono::Duration,
     pub(crate) peer_negotiation_timeout: Duration,
-    pub(crate) extra_metrics_tags: Option<Arc<StaticMetricsTags>>,
+    pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
 }
 
 impl ProxyFloatEscaperConfig {
     fn new(position: Option<YamlDocPosition>) -> Self {
         ProxyFloatEscaperConfig {
-            name: MetricsName::default(),
+            name: NodeName::default(),
             position,
             shared_logger: None,
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "illumos",
+                target_os = "solaris"
+            ))]
+            bind_interface: None,
             bind_v4: None,
             bind_v6: None,
             tls_config: OpensslClientConfigBuilder::with_cache_for_many_sites(),
@@ -96,7 +109,7 @@ impl ProxyFloatEscaperConfig {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_ESCAPER_TYPE => Ok(()),
             super::CONFIG_KEY_ESCAPER_NAME => {
-                self.name = g3_yaml::value::as_metrics_name(v)?;
+                self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
             "shared_logger" => {
@@ -108,6 +121,19 @@ impl ProxyFloatEscaperConfig {
                 let tags = g3_yaml::value::as_static_metrics_tags(v)
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 self.extra_metrics_tags = Some(Arc::new(tags));
+                Ok(())
+            }
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "illumos",
+                target_os = "solaris"
+            ))]
+            "bind_interface" => {
+                let interface = g3_yaml::value::as_interface(v)
+                    .context(format!("invalid interface name value for key {k}"))?;
+                self.bind_interface = Some(interface);
                 Ok(())
             }
             "bind_ipv4" => {
@@ -202,7 +228,7 @@ impl ProxyFloatEscaperConfig {
 }
 
 impl EscaperConfig for ProxyFloatEscaperConfig {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         &self.name
     }
 
@@ -210,11 +236,11 @@ impl EscaperConfig for ProxyFloatEscaperConfig {
         self.position.clone()
     }
 
-    fn escaper_type(&self) -> &str {
+    fn r#type(&self) -> &str {
         ESCAPER_CONFIG_TYPE
     }
 
-    fn resolver(&self) -> &MetricsName {
+    fn resolver(&self) -> &NodeName {
         Default::default()
     }
 
@@ -234,7 +260,7 @@ impl EscaperConfig for ProxyFloatEscaperConfig {
         EscaperConfigDiffAction::Reload
     }
 
-    fn dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
+    fn dependent_escaper(&self) -> Option<BTreeSet<NodeName>> {
         None
     }
 }

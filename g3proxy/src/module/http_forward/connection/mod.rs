@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io::{self, IoSlice};
@@ -51,9 +40,10 @@ pub(crate) trait HttpForwardWrite: AsyncWrite {
         user_stats: Vec<Arc<UserUpstreamTrafficStats>>,
     );
 
-    async fn send_request_header<'a>(
-        &'a mut self,
-        req: &'a HttpProxyClientRequest,
+    async fn send_request_header(
+        &mut self,
+        req: &HttpProxyClientRequest,
+        body: Option<&[u8]>,
     ) -> io::Result<()>;
 }
 
@@ -65,12 +55,12 @@ pub(crate) trait HttpForwardRead: AsyncBufRead {
         user_stats: Vec<Arc<UserUpstreamTrafficStats>>,
     );
 
-    async fn recv_response_header<'a>(
-        &'a mut self,
+    async fn recv_response_header(
+        &mut self,
         method: &Method,
         keep_alive: bool,
         max_header_size: usize,
-        http_notes: &'a mut HttpForwardTaskNotes,
+        http_notes: &mut HttpForwardTaskNotes,
     ) -> Result<HttpForwardRemoteResponse, HttpResponseParseError>;
 }
 
@@ -78,7 +68,7 @@ pub(crate) struct HttpForwardWriterForAdaptation<'a> {
     pub(crate) inner: &'a mut BoxHttpForwardWriter,
 }
 
-impl<'a> AsyncWrite for HttpForwardWriterForAdaptation<'a> {
+impl AsyncWrite for HttpForwardWriterForAdaptation<'_> {
     fn poll_write(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
@@ -108,8 +98,8 @@ impl<'a> AsyncWrite for HttpForwardWriterForAdaptation<'a> {
     }
 }
 
-impl<'a> HttpRequestUpstreamWriter<HttpProxyClientRequest> for HttpForwardWriterForAdaptation<'a> {
+impl HttpRequestUpstreamWriter<HttpProxyClientRequest> for HttpForwardWriterForAdaptation<'_> {
     async fn send_request_header(&mut self, req: &HttpProxyClientRequest) -> io::Result<()> {
-        self.inner.send_request_header(req).await
+        self.inner.send_request_header(req, None).await
     }
 }

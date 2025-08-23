@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use itoa::Integer;
@@ -43,7 +32,6 @@ pub struct MetricFormatter<'a> {
     common_tags: Option<&'a StatsdTagGroup>,
     local_tags: StatsdTagGroup,
 
-    msg_len: usize,
     has_tags: bool,
 }
 
@@ -111,18 +99,7 @@ impl StatsdClient {
         name: &'a str,
         value: SmallVec<[u8; 16]>,
     ) -> MetricFormatter<'a> {
-        let mut has_tags = false;
-        // <NAME>:<VALUE>|<TYPE>
-        let mut msg_len = name.len() + 1 + value.len() + 1 + metric_type.as_str().len();
-        if !self.prefix.is_empty() {
-            msg_len += self.prefix.len() + 1; // <PREFIX>.<...>
-        }
-        let client_tags_len = self.tags.len();
-        if client_tags_len > 0 {
-            has_tags = true;
-            msg_len += 2 + client_tags_len; // |#<tags>
-        }
-
+        let has_tags = self.tags.len() > 0;
         MetricFormatter {
             client: self,
             metric_type,
@@ -130,7 +107,6 @@ impl StatsdClient {
             value,
             common_tags: None,
             local_tags: StatsdTagGroup::default(),
-            msg_len,
             has_tags,
         }
     }
@@ -140,15 +116,9 @@ impl<'a> MetricFormatter<'a> {
     fn with_tag_group(mut self, tags: &'a StatsdTagGroup) -> Self {
         let tags_len = tags.len();
         if tags_len > 0 {
-            if self.has_tags {
-                self.msg_len += 1 + tags_len; // ,<tags>
-            } else {
-                self.has_tags = true;
-                self.msg_len += 2 + tags_len; // |#<tags>
-            }
+            self.has_tags = true;
+            self.common_tags = Some(tags);
         }
-
-        self.common_tags = Some(tags);
         self
     }
 
@@ -166,14 +136,9 @@ impl<'a> MetricFormatter<'a> {
 
     pub fn send(mut self) {
         if self.local_tags.len() > 0 {
-            if self.has_tags {
-                self.msg_len += 1 + self.local_tags.len() // ,<tags>
-            } else {
-                self.has_tags = true;
-                self.msg_len += 2 + self.local_tags.len() // |#<tags>
-            }
+            self.has_tags = true;
         }
-        if let Err(e) = self.client.sink.emit(self.msg_len, |buf| {
+        if let Err(e) = self.client.sink.emit(|buf| {
             if !self.client.prefix.is_empty() {
                 buf.extend_from_slice(self.client.prefix.as_bytes());
                 buf.push(b'.');
@@ -187,6 +152,7 @@ impl<'a> MetricFormatter<'a> {
             if self.has_tags {
                 buf.extend_from_slice(b"|#");
             } else {
+                buf.push(b'\n');
                 return;
             }
 
@@ -196,14 +162,14 @@ impl<'a> MetricFormatter<'a> {
                 append_tags = true;
             }
 
-            if let Some(common_tags) = self.common_tags {
-                if common_tags.len() > 0 {
-                    if append_tags {
-                        buf.push(b',');
-                    }
-                    buf.extend_from_slice(common_tags.as_bytes());
-                    append_tags = true;
+            if let Some(common_tags) = self.common_tags
+                && common_tags.len() > 0
+            {
+                if append_tags {
+                    buf.push(b',');
                 }
+                buf.extend_from_slice(common_tags.as_bytes());
+                append_tags = true;
             }
 
             if self.local_tags.len() > 0 {
@@ -212,6 +178,8 @@ impl<'a> MetricFormatter<'a> {
                 }
                 buf.extend_from_slice(self.local_tags.as_bytes());
             }
+
+            buf.push(b'\n');
         }) {
             self.client.handle_emit_error(e);
         }

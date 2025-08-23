@@ -1,34 +1,37 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
 use std::os::unix::net::UnixDatagram;
 use std::path::PathBuf;
 
+use super::SinkBuf;
+
 pub(super) struct UnixMetricsSink {
     path: PathBuf,
     socket: UnixDatagram,
+    max_segment_size: usize,
 }
 
 impl UnixMetricsSink {
-    pub(super) fn new(path: PathBuf, socket: UnixDatagram) -> Self {
-        UnixMetricsSink { path, socket }
+    pub(super) fn new(
+        path: PathBuf,
+        socket: UnixDatagram,
+        max_segment_size: Option<usize>,
+    ) -> Self {
+        UnixMetricsSink {
+            path,
+            socket,
+            max_segment_size: max_segment_size.unwrap_or(4096),
+        }
     }
 
-    pub(super) fn send_msg(&self, msg: &[u8]) -> io::Result<usize> {
-        self.socket.send_to(msg, &self.path)
+    pub(super) fn send_batch(&self, buf: &mut SinkBuf) -> io::Result<()> {
+        for packet in buf.iter(self.max_segment_size) {
+            self.socket.send_to(packet.as_ref(), &self.path)?;
+        }
+        Ok(())
     }
 }

@@ -1,26 +1,25 @@
 [package]
 name = "g3iploc"
-version = "0.1.0"
+version = "0.4.0"
 license.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 description = "G3 IP locate service"
 
 [dependencies]
 anyhow.workspace = true
 clap.workspace = true
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
-rmpv.workspace = true
-tokio = { workspace = true, features = ["net", "io-util", "time"] }
+tokio = { workspace = true, features = ["net", "io-util", "time", "signal", "macros"] }
 yaml-rust.workspace = true
-g3-types.workspace = true
-g3-runtime.workspace = true
-g3-msgpack = { workspace = true, features = ["geoip"]}
 g3-yaml.workspace = true
 g3-daemon.workspace = true
 g3-statsd-client.workspace = true
 g3-geoip-types.workspace = true
 g3-geoip-db.workspace = true
 g3-ip-locate.workspace = true
+g3-socket.workspace = true
+g3-types.workspace = true
 
 [build-dependencies]
 g3-build-env.workspace = true

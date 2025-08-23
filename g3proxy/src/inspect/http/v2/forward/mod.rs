@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::time::Duration;
@@ -22,7 +11,7 @@ use chrono::{DateTime, Utc};
 use h2::client::SendRequest;
 use h2::server::SendResponse;
 use h2::{Reason, RecvStream, StreamId};
-use http::{HeaderValue, Method, Request, Response, StatusCode, Uri, Version};
+use http::{Method, Request, Response, StatusCode, Uri, Version};
 use slog::slog_info;
 use tokio::time::Instant;
 
@@ -34,9 +23,7 @@ use g3_icap_client::reqmod::h2::{
 use g3_icap_client::respmod::h2::{
     H2ResponseAdapter, RespmodAdaptationEndState, RespmodAdaptationRunState,
 };
-use g3_slog_types::{
-    LtDateTime, LtDuration, LtH2StreamId, LtHttpHeaderValue, LtHttpMethod, LtHttpUri, LtUuid,
-};
+use g3_slog_types::{LtDateTime, LtDuration, LtH2StreamId, LtHttpMethod, LtHttpUri, LtUuid};
 use g3_types::net::HttpHeaderMap;
 
 use super::{H2BodyTransfer, H2StreamTransferError};
@@ -46,24 +33,25 @@ use crate::serve::ServerIdleChecker;
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
-        slog_info!($obj.ctx.intercept_logger(), $($args)+;
-            "intercept_type" => "H2StreamForward",
-            "task_id" => LtUuid($obj.ctx.server_task_id()),
-            "depth" => $obj.ctx.inspection_depth,
-            "clt_stream" => LtH2StreamId(&$obj.clt_stream_id),
-            "ups_stream" => $obj.ups_stream_id.as_ref().map(LtH2StreamId),
-            "started_at" => LtDateTime(&$obj.http_notes.started_datetime),
-            "method" => LtHttpMethod(&$obj.http_notes.method),
-            "uri" => LtHttpUri::new(&$obj.http_notes.uri, $obj.ctx.log_uri_max_chars()),
-            "host" => $obj.http_notes.host_header.as_ref().map(LtHttpHeaderValue),
-            "ready_time" => LtDuration($obj.http_notes.ready_time),
-            "rsp_status" => $obj.http_notes.rsp_status,
-            "origin_status" => $obj.http_notes.origin_status,
-            "dur_req_send_hdr" => LtDuration($obj.http_notes.dur_req_send_hdr),
-            "dur_req_send_all" => LtDuration($obj.http_notes.dur_req_send_all),
-            "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
-            "dur_rsp_recv_all" => LtDuration($obj.http_notes.dur_rsp_recv_all),
-        )
+        if let Some(logger) = $obj.ctx.intercept_logger() {
+            slog_info!(logger, $($args)+;
+                "intercept_type" => "H2StreamForward",
+                "task_id" => LtUuid($obj.ctx.server_task_id()),
+                "depth" => $obj.ctx.inspection_depth,
+                "clt_stream" => LtH2StreamId(&$obj.clt_stream_id),
+                "ups_stream" => $obj.ups_stream_id.as_ref().map(LtH2StreamId),
+                "started_at" => LtDateTime(&$obj.http_notes.started_datetime),
+                "method" => LtHttpMethod(&$obj.http_notes.method),
+                "uri" => LtHttpUri::new(&$obj.http_notes.uri, $obj.ctx.log_uri_max_chars()),
+                "ready_time" => LtDuration($obj.http_notes.ready_time),
+                "rsp_status" => $obj.http_notes.rsp_status,
+                "origin_status" => $obj.http_notes.origin_status,
+                "dur_req_send_hdr" => LtDuration($obj.http_notes.dur_req_send_hdr),
+                "dur_req_send_all" => LtDuration($obj.http_notes.dur_req_send_all),
+                "dur_rsp_recv_hdr" => LtDuration($obj.http_notes.dur_rsp_recv_hdr),
+                "dur_rsp_recv_all" => LtDuration($obj.http_notes.dur_rsp_recv_all),
+            );
+        }
     };
 }
 
@@ -79,11 +67,10 @@ struct HttpForwardTaskNotes {
     dur_req_send_all: Duration,
     dur_rsp_recv_hdr: Duration,
     dur_rsp_recv_all: Duration,
-    host_header: Option<HeaderValue>,
 }
 
 impl HttpForwardTaskNotes {
-    fn new(method: Method, uri: Uri, host_header: Option<HeaderValue>) -> Self {
+    fn new(method: Method, uri: Uri) -> Self {
         HttpForwardTaskNotes {
             method,
             uri,
@@ -96,7 +83,6 @@ impl HttpForwardTaskNotes {
             dur_req_send_all: Duration::default(),
             dur_rsp_recv_hdr: Duration::default(),
             dur_rsp_recv_all: Duration::default(),
-            host_header,
         }
     }
 
@@ -146,11 +132,7 @@ where
         clt_stream_id: StreamId,
         req: &Request<RecvStream>,
     ) -> Self {
-        let http_notes = HttpForwardTaskNotes::new(
-            req.method().clone(),
-            req.uri().clone(),
-            req.headers().get(http::header::HOST).cloned(),
-        );
+        let http_notes = HttpForwardTaskNotes::new(req.method().clone(), req.uri().clone());
         H2ForwardTask {
             ctx,
             clt_stream_id,
@@ -347,7 +329,7 @@ where
         let (mut parts, _) = response.into_parts();
         parts.version = Version::HTTP_2;
         parts.status = rsp.status;
-        parts.headers = rsp.headers.into_h2_map();
+        parts.headers = rsp.headers.into();
         let response = Response::from_parts(parts, ());
 
         self.send_error_response = false;
@@ -373,6 +355,11 @@ where
                 H2StreamFromChunkedTransferError::SendTrailerFailed(e) => {
                     H2StreamTransferError::ResponseBodyTransferFailed(
                         H2StreamBodyTransferError::SendTrailersFailed(e),
+                    )
+                }
+                H2StreamFromChunkedTransferError::SenderNotInSendState => {
+                    H2StreamTransferError::ResponseBodyTransferFailed(
+                        H2StreamBodyTransferError::SenderNotInSendState,
                     )
                 }
             })?;
@@ -455,11 +442,8 @@ where
             self.ctx.server_config.limited_copy_config().yield_size(),
         );
 
-        let idle_duration = self.ctx.server_config.task_idle_check_duration();
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.register();
         let mut idle_count = 0;
-        let max_idle_count = self.ctx.task_max_idle_count();
 
         let mut ups_rsp: Option<Response<RecvStream>> = None;
 
@@ -490,12 +474,12 @@ where
                         }
                     }
                 }
-                _ = idle_interval.tick() => {
+                n = idle_interval.tick() => {
                     if req_body_transfer.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
-                        if idle_count > max_idle_count {
-                            return Err(H2StreamTransferError::Idle(idle_duration, idle_count));
+                        if idle_count > self.ctx.max_idle_count {
+                            return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
                         idle_count = 0;
@@ -647,11 +631,8 @@ where
                 self.ctx.server_config.limited_copy_config().yield_size(),
             );
 
-            let idle_duration = self.ctx.server_config.task_idle_check_duration();
-            let mut idle_interval =
-                tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+            let mut idle_interval = self.ctx.idle_wheel.register();
             let mut idle_count = 0;
-            let max_idle_count = self.ctx.task_max_idle_count();
 
             loop {
                 tokio::select! {
@@ -666,12 +647,12 @@ where
                             Err(e) => return Err(H2StreamTransferError::ResponseBodyTransferFailed(e)),
                         }
                     }
-                    _ = idle_interval.tick() => {
+                    n = idle_interval.tick() => {
                         if rsp_body_transfer.is_idle() {
-                            idle_count += 1;
+                            idle_count += n;
 
-                            if idle_count > max_idle_count {
-                                return Err(H2StreamTransferError::Idle(idle_duration, idle_count));
+                            if idle_count > self.ctx.max_idle_count {
+                                return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
                             }
                         } else {
                             idle_count = 0;

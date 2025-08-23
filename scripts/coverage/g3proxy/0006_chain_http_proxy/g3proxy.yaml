@@ -1,0 +1,102 @@
+---
+
+log: journal
+
+stat:
+  target:
+    unix: /tmp/g3statsd.sock
+
+resolver:
+  - name: cares1
+    type: c-ares
+    server:
+      - 127.0.0.1
+  - name: cares2
+    type: c-ares
+    server: 127.0.0.1
+  - name: main
+    type: fail_over
+    primary: cares1
+    standby: cares2
+  - name: hickory
+    type: hickory
+    server: 127.0.0.1
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: main
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.1
+  - name: chained_http
+    type: proxy_http
+    resolver: hickory
+    proxy_addr: g3proxy.local:7080
+    http_forward_capability:
+      forward_ftp: true
+      forward_https: true
+  - name: chained_https
+    type: proxy_https
+    resolver: hickory
+    proxy_addr: g3proxy.local:7443
+    tls_client:
+      ca-certificate: ../rootCA.pem
+    tls_name: g3proxy.local
+    http_forward_capability:
+      forward_ftp: false
+      forward_https: false
+
+server:
+  - name: rss
+    type: http_rproxy
+    listen: 127.0.0.1:9443
+    escaper: default
+    enable_tls_server: true
+    global_tls_server:
+      cert_pairs:
+        certificate: ../httpbin.local.pem
+        private-key: ../httpbin.local-key.pem
+    hosts:
+      - exact_match: httpbin.local
+        upstream: 127.0.0.1:80
+        tls_server:
+          cert_pairs:
+            certificate: ../httpbin.local.pem
+            private-key: ../httpbin.local-key.pem
+  - name: chained_http
+    type: http_proxy
+    listen: 127.0.0.1:7080
+    escaper: default
+    tls_client:
+      ca_certificate: ../rootCA.pem
+  - name: chained_https
+    type: http_proxy
+    listen: 127.0.0.1:7443
+    escaper: default
+    tls_server:
+      cert_pairs:
+        certificate: ../g3proxy.local.pem
+        private-key: ../g3proxy.local-key.pem
+    tls_client:
+      ca_certificate: ../rootCA.pem
+  - name: socks
+    type: socks_proxy
+    listen: 127.0.0.1:1080
+    escaper: chained_http
+  - name: http
+    type: http_proxy
+    listen: 127.0.0.1:8080
+    escaper: chained_https
+    tls_client:
+      ca_certificate: ../rootCA.pem
+  - name: https
+    type: http_proxy
+    listen: 127.0.0.1:8443
+    escaper: chained_http
+    tls_server:
+      cert_pairs:
+        certificate: ../g3proxy.local.pem
+        private-key: ../g3proxy.local-key.pem
+    tls_client:
+      ca_certificate: ../rootCA.pem

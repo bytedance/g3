@@ -1,23 +1,12 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use rand::distributions::Bernoulli;
+use rand::distr::Bernoulli;
 use serde_json::Value;
 
 pub fn as_random_ratio(value: &Value) -> anyhow::Result<Bernoulli> {
@@ -52,5 +41,63 @@ pub fn as_random_ratio(value: &Value) -> anyhow::Result<Bernoulli> {
         _ => Err(anyhow!(
             "yaml value type for 'random ratio' should be 'f64' or 'string'"
         )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn as_random_ratio_ok() {
+        // valid Number values
+        assert_eq!(as_random_ratio(&json!(0.5)).unwrap().p(), 0.5);
+        assert_eq!(as_random_ratio(&json!(1.0)).unwrap().p(), 1.0);
+        assert_eq!(as_random_ratio(&json!(0.0)).unwrap().p(), 0.0);
+
+        // valid fraction format strings
+        assert_eq!(as_random_ratio(&json!("1/2")).unwrap().p(), 0.5);
+        assert_eq!(as_random_ratio(&json!("3/4")).unwrap().p(), 0.75);
+
+        // valid percentage format strings
+        assert_eq!(as_random_ratio(&json!("50%")).unwrap().p(), 0.5);
+        assert_eq!(as_random_ratio(&json!("100%")).unwrap().p(), 1.0);
+
+        // valid float strings
+        assert_eq!(as_random_ratio(&json!("0.7")).unwrap().p(), 0.7);
+        assert_eq!(as_random_ratio(&json!("1.0")).unwrap().p(), 1.0);
+
+        // boolean values
+        assert_eq!(as_random_ratio(&json!(true)).unwrap().p(), 1.0);
+        assert_eq!(as_random_ratio(&json!(false)).unwrap().p(), 0.0);
+    }
+
+    #[test]
+    fn as_random_ratio_err() {
+        // invalid Number values
+        assert!(as_random_ratio(&json!(-0.5)).is_err());
+        assert!(as_random_ratio(&json!(1.5)).is_err());
+        assert!(as_random_ratio(&json!(123)).is_err());
+
+        // invalid fraction format strings
+        assert!(as_random_ratio(&json!("a/2")).is_err());
+        assert!(as_random_ratio(&json!("1/b")).is_err());
+        assert!(as_random_ratio(&json!("3/0")).is_err());
+        assert!(as_random_ratio(&json!("1.5/2")).is_err());
+
+        // invalid percentage format strings
+        assert!(as_random_ratio(&json!("a%")).is_err());
+        assert!(as_random_ratio(&json!("150%")).is_err());
+
+        // invalid float strings
+        assert!(as_random_ratio(&json!("abc")).is_err());
+        assert!(as_random_ratio(&json!("-0.5")).is_err());
+        assert!(as_random_ratio(&json!("2.5")).is_err());
+
+        // unsupported types
+        assert!(as_random_ratio(&json!([])).is_err());
+        assert!(as_random_ratio(&json!({})).is_err());
+        assert!(as_random_ratio(&json!(null)).is_err());
     }
 }

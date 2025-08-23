@@ -1,9 +1,9 @@
 [package]
 name = "g3-icap-client"
-version = "0.2.0"
+version = "0.4.0"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.75.0"
+rust-version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -12,16 +12,25 @@ anyhow.workspace = true
 thiserror.workspace = true
 memchr.workspace = true
 atoi.workspace = true
+itoa.workspace = true
 url.workspace = true
 bytes.workspace = true
 base64.workspace = true
-flume = { workspace = true, features = ["async"] }
+kanal = { workspace = true, features = ["async"] }
 tokio = { workspace = true, features = ["time", "io-util", "sync", "macros", "rt"] }
+tokio-rustls.workspace = true
+rustls-pki-types.workspace = true
 http.workspace = true
 h2.workspace = true
-g3-types.workspace = true
-g3-io-ext.workspace = true
+yaml-rust = { workspace = true, optional = true }
+g3-types = { workspace = true, features = ["rustls"] }
+g3-io-ext = { workspace = true, features = ["rustls"] }
 g3-socket.workspace = true
 g3-http.workspace = true
 g3-h2.workspace = true
 g3-smtp-proto.workspace = true
+g3-yaml = { workspace = true, optional = true, features = ["rustls", "http"] }
+
+[features]
+default = []
+yaml = ["dep:g3-yaml", "dep:yaml-rust"]

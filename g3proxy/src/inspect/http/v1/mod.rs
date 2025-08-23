@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
@@ -19,7 +8,7 @@ use std::sync::Arc;
 use async_recursion::async_recursion;
 use http::{Method, Version};
 use slog::slog_info;
-use tokio::io::{AsyncRead, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
 use g3_dpi::Protocol;
 use g3_io_ext::{FlexBufReader, LimitedBufReadExt};
@@ -98,12 +87,14 @@ impl<SC: ServerConfig> H1InterceptObject<SC> {
 
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
-        slog_info!($obj.ctx.intercept_logger(), $($args)+;
-            "intercept_type" => "H1Connection",
-            "task_id" => LtUuid($obj.ctx.server_task_id()),
-            "depth" => $obj.ctx.inspection_depth,
-            "current_req_id" => $obj.req_id,
-        )
+        if let Some(logger) = $obj.ctx.intercept_logger() {
+            slog_info!(logger, $($args)+;
+                "intercept_type" => "H1Connection",
+                "task_id" => LtUuid($obj.ctx.server_task_id()),
+                "depth" => $obj.ctx.inspection_depth,
+                "current_req_id" => $obj.req_id,
+            );
+        }
     };
 }
 
@@ -150,12 +141,17 @@ where
 
                 r = req_acceptor.accept() => match r {
                     Some(r) => r,
-                    None => return Ok(None),
+                    None => {
+                        let _ = rsp_io.ups_w.shutdown().await;
+                        let _ = rsp_io.clt_w.shutdown().await;
+                        return Ok(None);
+                    }
                 },
-                r = rsp_io.ups_r.fill_wait_eof() => {
+                r = rsp_io.ups_r.fill_wait_data() => {
                     req_acceptor.close();
                     return match r {
-                        Ok(_) => Err(H1InterceptionError::ClosedByUpstream),
+                        Ok(true) => Err(H1InterceptionError::UnexpectedUpstreamData),
+                        Ok(false) => Err(H1InterceptionError::ClosedByUpstream),
                         Err(e) => Err(H1InterceptionError::UpstreamClosedWithError(e)),
                     };
                 }
@@ -163,7 +159,10 @@ where
 
             self.req_id += 1;
             match r {
-                HttpRecvRequest::ClientConnectionClosed => return Ok(None),
+                HttpRecvRequest::ClientConnectionClosed => {
+                    let _ = rsp_io.ups_w.shutdown().await;
+                    return Ok(None);
+                }
                 HttpRecvRequest::ClientConnectionError(e) => return Err(e),
                 HttpRecvRequest::ClientRequestError(e) => {
                     if let Some(rsp) =

@@ -1,27 +1,16 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use std::future::{poll_fn, Future};
+use std::future::poll_fn;
 use std::io;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, ReadBuf};
 
-use g3_io_ext::{LimitedCopyConfig, LimitedCopyError};
+use g3_io_ext::{StreamCopyConfig, StreamCopyError};
 
 #[derive(Debug)]
 struct EncodeCopyBuffer {
@@ -42,7 +31,7 @@ struct EncodeCopyBuffer {
 }
 
 impl EncodeCopyBuffer {
-    fn new(config: LimitedCopyConfig) -> Self {
+    fn new(config: StreamCopyConfig) -> Self {
         EncodeCopyBuffer {
             read_done: false,
             buf: vec![0; config.buffer_size()].into_boxed_slice(),
@@ -96,14 +85,14 @@ impl EncodeCopyBuffer {
         &mut self,
         cx: &mut Context<'_>,
         writer: Pin<&mut W>,
-    ) -> Poll<Result<usize, LimitedCopyError>>
+    ) -> Poll<Result<usize, StreamCopyError>>
     where
         W: AsyncWrite + ?Sized,
     {
         match writer.poll_write(cx, b".") {
             Poll::Pending => Poll::Pending,
-            Poll::Ready(Err(e)) => Poll::Ready(Err(LimitedCopyError::WriteFailed(e))),
-            Poll::Ready(Ok(0)) => Poll::Ready(Err(LimitedCopyError::WriteFailed(io::Error::new(
+            Poll::Ready(Err(e)) => Poll::Ready(Err(StreamCopyError::WriteFailed(e))),
+            Poll::Ready(Ok(0)) => Poll::Ready(Err(StreamCopyError::WriteFailed(io::Error::new(
                 io::ErrorKind::WriteZero,
                 "write zero byte into writer",
             )))),
@@ -120,14 +109,14 @@ impl EncodeCopyBuffer {
         &mut self,
         cx: &mut Context<'_>,
         writer: Pin<&mut W>,
-    ) -> Poll<Result<usize, LimitedCopyError>>
+    ) -> Poll<Result<usize, StreamCopyError>>
     where
         W: AsyncWrite + ?Sized,
     {
         match writer.poll_write(cx, &self.buf[self.w_off..self.line_end]) {
             Poll::Pending => Poll::Pending,
-            Poll::Ready(Err(e)) => Poll::Ready(Err(LimitedCopyError::WriteFailed(e))),
-            Poll::Ready(Ok(0)) => Poll::Ready(Err(LimitedCopyError::WriteFailed(io::Error::new(
+            Poll::Ready(Err(e)) => Poll::Ready(Err(StreamCopyError::WriteFailed(e))),
+            Poll::Ready(Ok(0)) => Poll::Ready(Err(StreamCopyError::WriteFailed(io::Error::new(
                 io::ErrorKind::WriteZero,
                 "write zero byte into writer",
             )))),
@@ -145,7 +134,7 @@ impl EncodeCopyBuffer {
         &mut self,
         cx: &mut Context<'_>,
         mut writer: Pin<&mut W>,
-    ) -> Poll<Result<usize, LimitedCopyError>>
+    ) -> Poll<Result<usize, StreamCopyError>>
     where
         W: AsyncWrite + ?Sized,
     {
@@ -193,7 +182,7 @@ impl EncodeCopyBuffer {
         cx: &mut Context<'_>,
         mut reader: Pin<&mut R>,
         mut writer: Pin<&mut W>,
-    ) -> Poll<Result<u64, LimitedCopyError>>
+    ) -> Poll<Result<u64, StreamCopyError>>
     where
         R: AsyncRead + ?Sized,
         W: AsyncWrite + ?Sized,
@@ -207,7 +196,7 @@ impl EncodeCopyBuffer {
                 if self.w_off >= self.r_off {
                     if self.need_flush {
                         ready!(writer.as_mut().poll_flush(cx))
-                            .map_err(LimitedCopyError::WriteFailed)?;
+                            .map_err(StreamCopyError::WriteFailed)?;
                     }
                     return Poll::Ready(Ok(self.total));
                 }
@@ -225,14 +214,14 @@ impl EncodeCopyBuffer {
                 match self.poll_fill_buf(cx, reader.as_mut()) {
                     Poll::Ready(Ok(_)) => {}
                     Poll::Ready(Err(e)) => {
-                        return Poll::Ready(Err(LimitedCopyError::ReadFailed(e)));
+                        return Poll::Ready(Err(StreamCopyError::ReadFailed(e)));
                     }
                     Poll::Pending => {
                         if self.w_off >= self.r_off {
                             // no data to write
                             if self.need_flush {
                                 ready!(writer.as_mut().poll_flush(cx))
-                                    .map_err(LimitedCopyError::WriteFailed)?;
+                                    .map_err(StreamCopyError::WriteFailed)?;
                                 self.need_flush = false;
                             }
 
@@ -270,7 +259,7 @@ impl EncodeCopyBuffer {
         }
     }
 
-    pub async fn write_flush<W>(&mut self, writer: &mut W) -> Result<(), LimitedCopyError>
+    pub async fn write_flush<W>(&mut self, writer: &mut W) -> Result<(), StreamCopyError>
     where
         W: AsyncWrite + Unpin + ?Sized,
     {
@@ -283,10 +272,7 @@ impl EncodeCopyBuffer {
             // only write and flush the cached data
         }
         if self.need_flush {
-            writer
-                .flush()
-                .await
-                .map_err(LimitedCopyError::WriteFailed)?;
+            writer.flush().await.map_err(StreamCopyError::WriteFailed)?;
         }
         Ok(())
     }
@@ -303,7 +289,7 @@ where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
 {
-    pub fn new(reader: &'a mut R, writer: &'a mut W, config: LimitedCopyConfig) -> Self {
+    pub fn new(reader: &'a mut R, writer: &'a mut W, config: StreamCopyConfig) -> Self {
         TextDataEncodeTransfer {
             reader,
             writer,
@@ -341,7 +327,7 @@ where
         self.buf.active = false;
     }
 
-    pub async fn write_flush(&mut self) -> Result<(), LimitedCopyError> {
+    pub async fn write_flush(&mut self) -> Result<(), StreamCopyError> {
         self.buf.write_flush(&mut self.writer).await
     }
 
@@ -350,12 +336,12 @@ where
     }
 }
 
-impl<'a, R, W> Future for TextDataEncodeTransfer<'a, R, W>
+impl<R, W> Future for TextDataEncodeTransfer<'_, R, W>
 where
     R: AsyncRead + Unpin,
     W: AsyncWrite + Unpin,
 {
-    type Output = Result<u64, LimitedCopyError>;
+    type Output = Result<u64, StreamCopyError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let me = &mut *self;
@@ -368,16 +354,13 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bytes::Bytes;
     use tokio::io::BufReader;
-    use tokio_util::io::StreamReader;
 
     #[tokio::test]
     async fn empty() {
         let body_len: usize = 3;
         let content = b"";
-        let stream = tokio_stream::iter(vec![io::Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut buf = Vec::with_capacity(64);
         let mut msg_transfer =
@@ -393,8 +376,7 @@ mod tests {
     async fn long_with_end() {
         let body_len: usize = 23;
         let content = b"Line 1\r\n\r\n.Line 2\r\n";
-        let stream = tokio_stream::iter(vec![io::Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut buf = Vec::with_capacity(64);
         let mut msg_transfer =
@@ -410,8 +392,7 @@ mod tests {
     async fn long_without_end() {
         let body_len: usize = 23;
         let content = b"Line 1\r\n\r\n.Line 2";
-        let stream = tokio_stream::iter(vec![io::Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let mut buf = Vec::with_capacity(64);
         let mut msg_transfer =
@@ -430,13 +411,12 @@ mod tests {
         let content2 = b"\n";
         let content3 = b".Line 2";
         let content4 = b"\r\n";
-        let stream = tokio_stream::iter(vec![
-            io::Result::Ok(Bytes::from_static(content1)),
-            io::Result::Ok(Bytes::from_static(content2)),
-            io::Result::Ok(Bytes::from_static(content3)),
-            io::Result::Ok(Bytes::from_static(content4)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .read(content3)
+            .read(content4)
+            .build();
         let mut buf_stream = BufReader::new(stream);
         let mut buf = Vec::with_capacity(64);
         let mut msg_transfer =
@@ -454,12 +434,11 @@ mod tests {
         let content1 = b"Line 1\r\n\r";
         let content2 = b"\n";
         let content3 = b".Line 2";
-        let stream = tokio_stream::iter(vec![
-            io::Result::Ok(Bytes::from_static(content1)),
-            io::Result::Ok(Bytes::from_static(content2)),
-            io::Result::Ok(Bytes::from_static(content3)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(content1)
+            .read(content2)
+            .read(content3)
+            .build();
         let mut buf_stream = BufReader::new(stream);
         let mut buf = Vec::with_capacity(64);
         let mut msg_transfer =

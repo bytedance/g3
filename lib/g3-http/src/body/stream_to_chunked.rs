@@ -1,29 +1,17 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::future::Future;
 use std::io::Write;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use tokio::io::{AsyncBufRead, AsyncWrite};
 
-use g3_io_ext::LimitedCopyError;
+use g3_io_ext::StreamCopyError;
 
-struct ChunkedNoTrailerEncodeTransferInternal {
+struct ChunkedEncodeTransferInternal {
     yield_size: usize,
     no_trailer: bool,
     this_chunk_size: usize,
@@ -35,9 +23,9 @@ struct ChunkedNoTrailerEncodeTransferInternal {
     active: bool,
 }
 
-impl ChunkedNoTrailerEncodeTransferInternal {
+impl ChunkedEncodeTransferInternal {
     fn new(yield_size: usize, no_trailer: bool) -> Self {
-        ChunkedNoTrailerEncodeTransferInternal {
+        ChunkedEncodeTransferInternal {
             yield_size,
             no_trailer,
             this_chunk_size: 0,
@@ -55,7 +43,7 @@ impl ChunkedNoTrailerEncodeTransferInternal {
         cx: &mut Context<'_>,
         mut reader: Pin<&mut R>,
         mut writer: Pin<&mut W>,
-    ) -> Poll<Result<u64, LimitedCopyError>>
+    ) -> Poll<Result<u64, StreamCopyError>>
     where
         R: AsyncBufRead,
         W: AsyncWrite,
@@ -64,7 +52,7 @@ impl ChunkedNoTrailerEncodeTransferInternal {
         loop {
             if self.this_chunk_size == 0 && !self.read_finished {
                 let data = ready!(reader.as_mut().poll_fill_buf(cx))
-                    .map_err(LimitedCopyError::ReadFailed)?;
+                    .map_err(StreamCopyError::ReadFailed)?;
                 self.active = true;
                 self.static_header.clear();
                 let chunk_size = data.len();
@@ -72,14 +60,14 @@ impl ChunkedNoTrailerEncodeTransferInternal {
                     self.read_finished = true;
                     if self.total_write == 0 {
                         if self.no_trailer {
-                            let _ = write!(&mut self.static_header, "0\r\n\r\n");
+                            self.static_header.extend_from_slice(b"0\r\n\r\n");
                         } else {
-                            let _ = write!(&mut self.static_header, "0\r\n");
+                            self.static_header.extend_from_slice(b"0\r\n");
                         }
                     } else if self.no_trailer {
-                        let _ = write!(&mut self.static_header, "\r\n0\r\n\r\n");
+                        self.static_header.extend_from_slice(b"\r\n0\r\n\r\n");
                     } else {
-                        let _ = write!(&mut self.static_header, "\r\n0\r\n");
+                        self.static_header.extend_from_slice(b"\r\n0\r\n");
                     }
                 } else if self.total_write == 0 {
                     let _ = write!(&mut self.static_header, "{chunk_size:x}\r\n");
@@ -92,29 +80,35 @@ impl ChunkedNoTrailerEncodeTransferInternal {
             }
 
             while self.static_offset < self.static_header.len() {
-                let nw = ready!(writer
-                    .as_mut()
-                    .poll_write(cx, &self.static_header[self.static_offset..]))
-                .map_err(LimitedCopyError::WriteFailed)?;
+                let nw = ready!(
+                    writer
+                        .as_mut()
+                        .poll_write(cx, &self.static_header[self.static_offset..])
+                )
+                .map_err(StreamCopyError::WriteFailed)?;
                 self.active = true;
                 self.static_offset += nw;
                 self.total_write += nw as u64;
             }
             if self.read_finished {
-                ready!(writer.poll_flush(cx)).map_err(LimitedCopyError::WriteFailed)?;
+                ready!(writer.poll_flush(cx)).map_err(StreamCopyError::WriteFailed)?;
                 return Poll::Ready(Ok(self.total_write));
             }
 
             while self.left_chunk_size > 0 {
-                let data = ready!(reader
-                    .as_mut()
-                    .poll_fill_buf(cx)
-                    .map_err(LimitedCopyError::ReadFailed))?;
+                let data = ready!(
+                    reader
+                        .as_mut()
+                        .poll_fill_buf(cx)
+                        .map_err(StreamCopyError::ReadFailed)
+                )?;
                 debug_assert!(self.left_chunk_size <= data.len());
-                let nw = ready!(writer
-                    .as_mut()
-                    .poll_write(cx, &data[..self.left_chunk_size]))
-                .map_err(LimitedCopyError::WriteFailed)?;
+                let nw = ready!(
+                    writer
+                        .as_mut()
+                        .poll_write(cx, &data[..self.left_chunk_size])
+                )
+                .map_err(StreamCopyError::WriteFailed)?;
                 reader.as_mut().consume(nw);
                 copy_this_round += nw;
                 self.active = true;
@@ -157,15 +151,15 @@ impl ChunkedNoTrailerEncodeTransferInternal {
 pub struct StreamToChunkedTransfer<'a, R, W> {
     reader: &'a mut R,
     writer: &'a mut W,
-    internal: ChunkedNoTrailerEncodeTransferInternal,
+    internal: ChunkedEncodeTransferInternal,
 }
 
 impl<'a, R, W> StreamToChunkedTransfer<'a, R, W> {
-    pub fn new(reader: &'a mut R, writer: &'a mut W, yield_size: usize, no_trailer: bool) -> Self {
+    fn new(reader: &'a mut R, writer: &'a mut W, yield_size: usize, no_trailer: bool) -> Self {
         StreamToChunkedTransfer {
             reader,
             writer,
-            internal: ChunkedNoTrailerEncodeTransferInternal::new(yield_size, no_trailer),
+            internal: ChunkedEncodeTransferInternal::new(yield_size, no_trailer),
         }
     }
 
@@ -202,12 +196,12 @@ impl<'a, R, W> StreamToChunkedTransfer<'a, R, W> {
     }
 }
 
-impl<'a, R, W> Future for StreamToChunkedTransfer<'a, R, W>
+impl<R, W> Future for StreamToChunkedTransfer<'_, R, W>
 where
     R: AsyncBufRead + Unpin,
     W: AsyncWrite + Unpin,
 {
-    type Output = Result<u64, LimitedCopyError>;
+    type Output = Result<u64, StreamCopyError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let me = &mut *self;
@@ -220,20 +214,17 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use bytes::Bytes;
-    use tokio::io::{BufReader, Result};
-    use tokio_util::io::StreamReader;
+    use tokio::io::BufReader;
 
     #[tokio::test]
     async fn encode_two_no_trailer() {
         let body_len: usize = 24;
         let data1 = b"test\n";
         let data2 = b"body";
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(data1)),
-            Result::Ok(Bytes::from_static(data2)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(data1)
+            .read(data2)
+            .build();
         let mut buf_stream = BufReader::new(stream);
 
         let mut write_buf = Vec::with_capacity(body_len);
@@ -253,11 +244,10 @@ mod test {
         let body_len: usize = 22;
         let data1 = b"test\n";
         let data2 = b"body";
-        let stream = tokio_stream::iter(vec![
-            Result::Ok(Bytes::from_static(data1)),
-            Result::Ok(Bytes::from_static(data2)),
-        ]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new()
+            .read(data1)
+            .read(data2)
+            .build();
         let mut buf_stream = BufReader::new(stream);
 
         let mut write_buf = Vec::with_capacity(body_len);
@@ -279,8 +269,7 @@ mod test {
     async fn encode_empty_no_trailer() {
         let body_len: usize = 5;
         let data1 = b"";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(data1))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(data1).build();
         let mut buf_stream = BufReader::new(stream);
 
         let mut write_buf = Vec::with_capacity(body_len);
@@ -299,8 +288,7 @@ mod test {
     async fn encode_empty_pending_trailer() {
         let body_len: usize = 3;
         let data1 = b"";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(data1))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(data1).build();
         let mut buf_stream = BufReader::new(stream);
 
         let mut write_buf = Vec::with_capacity(body_len);

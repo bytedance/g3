@@ -1,9 +1,9 @@
 [package]
 name = "g3-msgpack"
-version = "0.2.0"
+version = "0.4.0"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.60.0"
+rust-version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -13,9 +13,7 @@ rmpv.workspace = true
 uuid.workspace = true
 atoi.workspace = true
 chrono = { workspace = true, features = ["std"] }
-rustls = { workspace = true, optional = true }
-rustls-pki-types = { workspace = true, optional = true }
-rustls-pemfile = { workspace = true, optional = true }
+rustls-pki-types = { workspace = true, optional = true, features = ["std"] }
 openssl = { workspace = true, optional = true }
 ip_network = { workspace = true, optional = true }
 g3-types.workspace = true
@@ -23,6 +21,6 @@ g3-geoip-types = { workspace = true, optional = true }
 
 [features]
 default = []
-rustls = ["g3-types/rustls", "dep:rustls", "dep:rustls-pki-types", "dep:rustls-pemfile"]
+rustls = ["g3-types/rustls", "dep:rustls-pki-types"]
 openssl = ["g3-types/openssl", "dep:openssl"]
 geoip = ["dep:g3-geoip-types", "dep:ip_network"]

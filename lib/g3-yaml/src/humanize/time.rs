@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::str::FromStr;
@@ -58,36 +47,42 @@ mod tests {
     use super::*;
 
     #[test]
-    fn t_duration() {
-        let v = Yaml::String("1h2m".to_string());
+    fn as_duration_ok() {
+        let v = yaml_str!("1h2m");
         assert_eq!(as_duration(&v).unwrap(), Duration::from_secs(3600 + 120));
 
-        let v = Yaml::String("1000".to_string());
+        let v = yaml_str!("1000");
         assert_eq!(as_duration(&v).unwrap(), Duration::from_secs(1000));
-
-        let v = Yaml::String("-1000".to_string());
-        assert!(as_duration(&v).is_err());
-
-        let v = Yaml::String("1.01".to_string());
-        assert!(as_duration(&v).is_err());
-
-        let v = Yaml::String("-1000h".to_string());
-        assert!(as_duration(&v).is_err());
-
-        let v = Yaml::String("1000Ah".to_string());
-        assert!(as_duration(&v).is_err());
 
         let v = Yaml::Integer(1000);
         assert_eq!(as_duration(&v).unwrap(), Duration::from_secs(1000));
-
-        let v = Yaml::Integer(-1000);
-        assert!(as_duration(&v).is_err());
 
         let v = Yaml::Real("1.01".to_string());
         assert_eq!(
             as_duration(&v).unwrap(),
             Duration::try_from_secs_f64(1.01).unwrap()
         );
+    }
+
+    #[test]
+    fn as_duration_err() {
+        let v = yaml_str!("-1000");
+        assert!(as_duration(&v).is_err());
+
+        let v = yaml_str!("1.01");
+        assert!(as_duration(&v).is_err());
+
+        let v = yaml_str!("-1000h");
+        assert!(as_duration(&v).is_err());
+
+        let v = yaml_str!("1000Ah");
+        assert!(as_duration(&v).is_err());
+
+        let v = yaml_str!("abc");
+        assert!(as_duration(&v).is_err());
+
+        let v = Yaml::Integer(-1000);
+        assert!(as_duration(&v).is_err());
 
         let v = Yaml::Array(vec![Yaml::Integer(1)]);
         assert!(as_duration(&v).is_err());

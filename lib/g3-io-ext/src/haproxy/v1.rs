@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
@@ -56,25 +45,24 @@ impl ProxyProtocolV1Reader {
         let family = iter
             .next()
             .ok_or(ProxyProtocolReadError::InvalidFamily(0x00))?;
-        let family_c;
-        match family.len() {
+        let family_c = match family.len() {
             4 => {
                 if !family.starts_with(b"TCP") {
                     return Err(ProxyProtocolReadError::InvalidFamily(0x00));
                 }
-                family_c = family[3];
+                family[3]
             }
             7 => {
                 return if family == b"UNKNOWN" {
                     Ok(None)
                 } else {
                     Err(ProxyProtocolReadError::InvalidFamily(0x00))
-                }
+                };
             }
             _ => {
                 return Err(ProxyProtocolReadError::InvalidFamily(0x00));
             }
-        }
+        };
 
         let src_ip = iter.next().ok_or(ProxyProtocolReadError::InvalidSrcAddr)?;
         let src_ip =
@@ -140,6 +128,11 @@ impl ProxyProtocolV1Reader {
                         .read(&mut self.data_buf[offset..offset + len])
                         .await?;
                     assert_eq!(nr, len);
+
+                    if !self.data_buf.starts_with(COMMON_DATA) {
+                        return Err(ProxyProtocolReadError::InvalidMagicHeader);
+                    }
+
                     return Ok(offset + nr);
                 }
                 None => {
@@ -169,6 +162,8 @@ impl ProxyProtocolV1Reader {
 mod tests {
     use super::*;
     use g3_types::net::{ProxyProtocolEncoder, ProxyProtocolVersion};
+    use tokio::io::AsyncWriteExt;
+    use tokio::net::{TcpListener, TcpStream};
 
     async fn run_t(client: SocketAddr, server: SocketAddr) {
         let mut encoder = ProxyProtocolEncoder::new(ProxyProtocolVersion::V1);
@@ -194,5 +189,24 @@ mod tests {
         let server = SocketAddr::from_str("[2001:db8::11]:443").unwrap();
 
         run_t(client, server).await;
+    }
+
+    #[tokio::test]
+    async fn t_invalid_header() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        tokio::spawn(async move {
+            let stream = TcpStream::connect(addr);
+            let mut client = stream.await.unwrap();
+            client.write_all(b"PR\r\n").await.unwrap();
+        });
+
+        let (mut server, _) = listener.accept().await.unwrap();
+        let mut reader = ProxyProtocolV1Reader::new(Duration::from_secs(1));
+
+        let result = reader.read_proxy_protocol_v1_for_tcp(&mut server).await;
+
+        assert!(result.is_err_and(|e| matches!(e, ProxyProtocolReadError::InvalidMagicHeader)));
     }
 }

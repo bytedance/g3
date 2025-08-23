@@ -1,17 +1,6 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
@@ -21,7 +10,9 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::{broadcast, oneshot};
 
 use super::{KeylessForwardRequest, KeylessUpstreamConnection};
-use crate::module::keyless::{KeylessBackendStats, KeylessUpstreamDurationRecorder};
+use crate::module::keyless::{
+    KeylessBackendAliveChannelGuard, KeylessBackendStats, KeylessUpstreamDurationRecorder,
+};
 
 mod state;
 use state::StreamSharedState;
@@ -42,7 +33,7 @@ pub(crate) struct MultiplexedUpstreamConnectionConfig {
 impl Default for MultiplexedUpstreamConnectionConfig {
     fn default() -> Self {
         MultiplexedUpstreamConnectionConfig {
-            max_request_count: 1000,
+            max_request_count: 4000,
             max_alive_time: Duration::from_secs(3600), // 1h
             response_timeout: Duration::from_secs(4),
         }
@@ -55,8 +46,9 @@ pub(crate) struct MultiplexedUpstreamConnection<R, W> {
     duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
     r: R,
     w: W,
-    req_receiver: flume::Receiver<KeylessForwardRequest>,
+    req_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
     quit_notifier: broadcast::Receiver<()>,
+    alive_channel_guard: KeylessBackendAliveChannelGuard,
 }
 
 impl<R, W> MultiplexedUpstreamConnection<R, W> {
@@ -66,9 +58,10 @@ impl<R, W> MultiplexedUpstreamConnection<R, W> {
         duration_recorder: Arc<KeylessUpstreamDurationRecorder>,
         ups_r: R,
         ups_w: W,
-        req_receiver: flume::Receiver<KeylessForwardRequest>,
+        req_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
         quit_notifier: broadcast::Receiver<()>,
     ) -> Self {
+        let alive_channel_guard = stats.inc_alive_channel();
         MultiplexedUpstreamConnection {
             config,
             stats,
@@ -77,6 +70,7 @@ impl<R, W> MultiplexedUpstreamConnection<R, W> {
             w: ups_w,
             req_receiver,
             quit_notifier,
+            alive_channel_guard,
         }
     }
 }
@@ -86,7 +80,7 @@ where
     R: AsyncRead + Send + Unpin + 'static,
     W: AsyncWrite + Send + Unpin,
 {
-    async fn run(self) -> anyhow::Result<()> {
+    async fn run(self, idle_timeout: Duration) -> anyhow::Result<()> {
         let shared_state = Arc::new(StreamSharedState::default());
         let (reader_close_sender, reader_close_receiver) = oneshot::channel();
 
@@ -101,7 +95,7 @@ where
         );
         let recv_task = KeylessUpstreamRecvTask::new(
             self.config.response_timeout,
-            self.stats,
+            self.stats.clone(),
             self.quit_notifier,
             reader_close_sender,
             shared_state,
@@ -109,7 +103,17 @@ where
         );
 
         let reader = self.r;
-        tokio::spawn(async move { recv_task.into_running(reader).await });
-        send_task.run(self.w, reader_close_receiver).await
+        let alive_channel_guard = self.alive_channel_guard;
+        tokio::spawn(async move {
+            recv_task.into_running(reader).await;
+            // Only consider the channel off if recv closed.
+            drop(alive_channel_guard);
+        });
+        // The connection is considered off if we no longer need to send request over it,
+        // but there may be pending responses on the wire, so let's quit early here to let
+        // the connection pool to create new connections early.
+        send_task
+            .run(self.w, reader_close_receiver, idle_timeout)
+            .await
     }
 }

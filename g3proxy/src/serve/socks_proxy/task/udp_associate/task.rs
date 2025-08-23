@@ -1,28 +1,15 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::future::poll_fn;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use log::debug;
 use slog::Logger;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::net::UdpSocket;
-use tokio::time::Instant;
 
 use g3_io_ext::{
     LimitedUdpRecv, LimitedUdpSend, UdpRecvHalf, UdpRelayClientRecv, UdpRelayClientSend,
@@ -31,7 +18,7 @@ use g3_io_ext::{
 };
 use g3_socks::v5::Socks5Reply;
 use g3_types::acl::AclAction;
-use g3_types::net::ProxyRequestType;
+use g3_types::net::{ProxyRequestType, UpstreamAddr};
 
 use super::{
     CommonTaskContext, Socks5UdpAssociateClientRecv, Socks5UdpAssociateClientSend,
@@ -40,7 +27,7 @@ use super::{
 use crate::config::server::ServerConfig;
 use crate::log::escape::udp_sendto::EscapeLogForUdpRelaySendto;
 use crate::log::task::udp_associate::TaskLogForUdpAssociate;
-use crate::module::udp_relay::UdpRelayTaskNotes;
+use crate::module::udp_relay::{UdpRelayTaskConf, UdpRelayTaskNotes};
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
@@ -48,11 +35,23 @@ use crate::serve::{
 
 pub(crate) struct SocksProxyUdpAssociateTask {
     ctx: Arc<CommonTaskContext>,
+    initial_peer: UpstreamAddr,
     udp_notes: UdpRelayTaskNotes,
     task_notes: ServerTaskNotes,
     task_stats: Arc<UdpAssociateTaskStats>,
     udp_listen_addr: Option<SocketAddr>,
     udp_client_addr: Option<SocketAddr>,
+    max_idle_count: usize,
+    started: bool,
+}
+
+impl Drop for SocksProxyUdpAssociateTask {
+    fn drop(&mut self) {
+        if self.started {
+            self.post_stop();
+            self.started = false;
+        }
+    }
 }
 
 impl SocksProxyUdpAssociateTask {
@@ -61,35 +60,45 @@ impl SocksProxyUdpAssociateTask {
         notes: ServerTaskNotes,
         udp_client_addr: Option<SocketAddr>,
     ) -> Self {
-        let buf_conf = ctx.server_config.udp_socket_buffer;
+        let max_idle_count = notes
+            .user_ctx()
+            .and_then(|c| c.user().task_max_idle_count())
+            .unwrap_or(ctx.server_config.task_idle_max_count);
         SocksProxyUdpAssociateTask {
             ctx: Arc::new(ctx),
-            udp_notes: UdpRelayTaskNotes::empty(buf_conf),
+            initial_peer: UpstreamAddr::empty(),
+            udp_notes: UdpRelayTaskNotes::default(),
             task_notes: notes,
             task_stats: Arc::new(UdpAssociateTaskStats::default()),
             udp_listen_addr: None,
             udp_client_addr,
+            max_idle_count,
+            started: false,
         }
     }
 
-    fn get_log_context(&self) -> TaskLogForUdpAssociate {
-        TaskLogForUdpAssociate {
-            task_notes: &self.task_notes,
-            tcp_server_addr: self.ctx.server_addr(),
-            tcp_client_addr: self.ctx.client_addr(),
-            udp_listen_addr: self.udp_listen_addr,
-            udp_client_addr: self.udp_client_addr,
-            udp_notes: &self.udp_notes,
-            total_time: self.task_notes.time_elapsed(),
-            client_rd_bytes: self.task_stats.clt.recv.get_bytes(),
-            client_rd_packets: self.task_stats.clt.recv.get_packets(),
-            client_wr_bytes: self.task_stats.clt.send.get_bytes(),
-            client_wr_packets: self.task_stats.clt.send.get_packets(),
-            remote_rd_bytes: self.task_stats.ups.recv.get_bytes(),
-            remote_rd_packets: self.task_stats.ups.recv.get_packets(),
-            remote_wr_bytes: self.task_stats.ups.send.get_bytes(),
-            remote_wr_packets: self.task_stats.ups.send.get_packets(),
-        }
+    fn get_log_context(&self) -> Option<TaskLogForUdpAssociate<'_>> {
+        self.ctx
+            .task_logger
+            .as_ref()
+            .map(|logger| TaskLogForUdpAssociate {
+                logger,
+                task_notes: &self.task_notes,
+                tcp_server_addr: self.ctx.server_addr(),
+                tcp_client_addr: self.ctx.client_addr(),
+                udp_listen_addr: self.udp_listen_addr,
+                udp_client_addr: self.udp_client_addr,
+                initial_peer: &self.initial_peer,
+                udp_notes: &self.udp_notes,
+                client_rd_bytes: self.task_stats.clt.recv.get_bytes(),
+                client_rd_packets: self.task_stats.clt.recv.get_packets(),
+                client_wr_bytes: self.task_stats.clt.send.get_bytes(),
+                client_wr_packets: self.task_stats.clt.send.get_packets(),
+                remote_rd_bytes: self.task_stats.ups.recv.get_bytes(),
+                remote_rd_packets: self.task_stats.ups.recv.get_packets(),
+                remote_wr_bytes: self.task_stats.ups.send.get_bytes(),
+                remote_wr_packets: self.task_stats.ups.send.get_packets(),
+            })
     }
 
     pub(crate) fn into_running<R, W>(mut self, clt_r: R, clt_w: W)
@@ -99,24 +108,17 @@ impl SocksProxyUdpAssociateTask {
     {
         tokio::spawn(async move {
             self.pre_start();
-            match self.run(clt_r, clt_w).await {
-                Ok(_) => self
-                    .get_log_context()
-                    .log(&self.ctx.task_logger, &ServerTaskError::ClosedByClient),
-                Err(e) => self.get_log_context().log(&self.ctx.task_logger, &e),
+            let e = match self.run(clt_r, clt_w).await {
+                Ok(_) => ServerTaskError::ClosedByClient,
+                Err(e) => e,
+            };
+            if let Some(log_ctx) = self.get_log_context() {
+                log_ctx.log(e);
             }
-            self.pre_stop();
         });
     }
 
-    fn pre_start(&self) {
-        debug!(
-            "SocksProxy/UdpAssociate: new client from {} to {} server {}, using escaper {}",
-            self.ctx.client_addr(),
-            self.ctx.server_config.server_type(),
-            self.ctx.server_config.name(),
-            self.ctx.server_config.escaper
-        );
+    fn pre_start(&mut self) {
         self.ctx.server_stats.task_udp_associate.add_task();
         self.ctx.server_stats.task_udp_associate.inc_alive_task();
 
@@ -124,9 +126,17 @@ impl SocksProxyUdpAssociateTask {
             user_ctx.req_stats().req_total.add_socks_udp_associate();
             user_ctx.req_stats().req_alive.add_socks_udp_associate();
         }
+
+        if self.ctx.server_config.flush_task_log_on_created
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log_created();
+        }
+
+        self.started = true;
     }
 
-    fn pre_stop(&mut self) {
+    fn post_stop(&mut self) {
         self.ctx.server_stats.task_udp_associate.dec_alive_task();
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
@@ -250,19 +260,19 @@ impl SocksProxyUdpAssociateTask {
             Box::new(clt_w),
             ups_r,
             ups_w,
-            &escape_logger,
+            escape_logger,
         )
         .await
     }
 
-    async fn run_relay<'a, R>(
-        &'a mut self,
+    async fn run_relay<R>(
+        &mut self,
         mut clt_tcp_r: R,
         mut clt_r: Box<dyn UdpRelayClientRecv + Unpin + Send>,
         mut clt_w: Box<dyn UdpRelayClientSend + Unpin + Send>,
         mut ups_r: Box<dyn UdpRelayRemoteRecv + Unpin + Send>,
         mut ups_w: Box<dyn UdpRelayRemoteSend + Unpin + Send>,
-        escape_logger: &'a Logger,
+        escape_logger: Option<Logger>,
     ) -> ServerTaskResult<()>
     where
         R: AsyncRead + Unpin,
@@ -274,9 +284,8 @@ impl SocksProxyUdpAssociateTask {
         let mut r_to_c =
             UdpRelayRemoteToClient::new(&mut *clt_w, &mut *ups_r, self.ctx.server_config.udp_relay);
 
-        let idle_duration = self.ctx.server_config.task_idle_check_duration;
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.register();
+        let mut log_interval = self.ctx.get_log_interval();
         let mut idle_count = 0;
         let mut buf: [u8; 4] = [0; 4];
         loop {
@@ -298,12 +307,14 @@ impl SocksProxyUdpAssociateTask {
                     return match r {
                         Ok(_) => Ok(()),
                         Err(UdpRelayError::RemoteError(ra, e)) => {
-                            EscapeLogForUdpRelaySendto {
-                                task_id,
-                                udp_notes: &self.udp_notes,
-                                remote_addr: &ra,
+                            if let Some(logger) = escape_logger {
+                                EscapeLogForUdpRelaySendto {
+                                    task_id,
+                                    udp_notes: &self.udp_notes,
+                                    remote_addr: &ra,
+                                }
+                                .log(&logger, &e);
                             }
-                            .log(escape_logger, &e);
                             Err(e.into())
                         }
                         Err(UdpRelayError::ClientError(e)) => Err(e.into()),
@@ -313,33 +324,37 @@ impl SocksProxyUdpAssociateTask {
                     return match r {
                         Ok(_) => Ok(()),
                         Err(UdpRelayError::RemoteError(ra, e)) => {
-                            EscapeLogForUdpRelaySendto {
-                                task_id,
-                                udp_notes: &self.udp_notes,
-                                remote_addr: &ra,
+                            if let Some(logger) = escape_logger {
+                                EscapeLogForUdpRelaySendto {
+                                    task_id,
+                                    udp_notes: &self.udp_notes,
+                                    remote_addr: &ra,
+                                }
+                                .log(&logger, &e);
                             }
-                            .log(escape_logger, &e);
                             return Err(e.into());
                         }
                         Err(UdpRelayError::ClientError(e)) => Err(e.into()),
                     };
                 }
-                _ = idle_interval.tick() => {
+                 _ = log_interval.tick() => {
+                    if let Some(log_ctx) = self.get_log_context() {
+                        log_ctx.log_periodic();
+                    }
+                }
+                n = idle_interval.tick() => {
                     if c_to_r.is_idle() && r_to_c.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
-                        let quit = if let Some(user_ctx) = self.task_notes.user_ctx() {
+                        if let Some(user_ctx) = self.task_notes.user_ctx() {
                             let user = user_ctx.user();
                             if user.is_blocked() {
                                 return Err(ServerTaskError::CanceledAsUserBlocked);
                             }
-                            idle_count >= user.task_max_idle_count()
-                        } else {
-                            idle_count >= self.ctx.server_config.task_idle_max_count
-                        };
+                        }
 
-                        if quit {
-                            return Err(ServerTaskError::Idle(idle_duration, idle_count));
+                        if idle_count >= self.max_idle_count {
+                            return Err(ServerTaskError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
                         idle_count = 0;
@@ -348,11 +363,10 @@ impl SocksProxyUdpAssociateTask {
                         r_to_c.reset_active();
                     }
 
-                    if let Some(user_ctx) = self.task_notes.user_ctx() {
-                        if user_ctx.user().is_blocked() {
+                    if let Some(user_ctx) = self.task_notes.user_ctx()
+                        && user_ctx.user().is_blocked() {
                             return Err(ServerTaskError::CanceledAsUserBlocked);
                         }
-                    }
 
                     if self.ctx.server_quit_policy.force_quit() {
                         return Err(ServerTaskError::CanceledAsServerQuit)
@@ -371,7 +385,7 @@ impl SocksProxyUdpAssociateTask {
         Socks5UdpAssociateClientSend<LimitedUdpSend<UdpSendHalf>>,
         Box<dyn UdpRelayRemoteRecv + Unpin + Send>,
         Box<dyn UdpRelayRemoteSend + Unpin + Send>,
-        Logger,
+        Option<Logger>,
     )>
     where
         R: AsyncRead + Unpin,
@@ -398,10 +412,10 @@ impl SocksProxyUdpAssociateTask {
             limit_config.max_north_bytes,
             wrapper_stats.clone(),
         );
-        if let Some(user_ctx) = self.task_notes.user_ctx() {
-            if let Some(limiter) = user_ctx.user().udp_all_upload_speed_limit() {
-                clt_r.add_global_limiter(limiter.clone());
-            }
+        if let Some(user_ctx) = self.task_notes.user_ctx()
+            && let Some(limiter) = user_ctx.user().udp_all_upload_speed_limit()
+        {
+            clt_r.add_global_limiter(limiter.clone());
         }
         let mut clt_w_stats = wrapper_stats;
 
@@ -425,7 +439,7 @@ impl SocksProxyUdpAssociateTask {
             user_ctx.check_in_site(
                 self.ctx.server_config.name(),
                 self.ctx.server_stats.share_extra_tags(),
-                &self.udp_notes.initial_peer,
+                &self.initial_peer,
             );
 
             if let Some(site_req_stats) = user_ctx.site_req_stats() {
@@ -469,17 +483,23 @@ impl SocksProxyUdpAssociateTask {
             limit_config.max_south_bytes,
             clt_w_stats,
         );
-        if let Some(user_ctx) = self.task_notes.user_ctx() {
-            if let Some(limiter) = user_ctx.user().udp_all_download_speed_limit() {
-                clt_w.add_global_limiter(limiter.clone());
-            }
+        if let Some(user_ctx) = self.task_notes.user_ctx()
+            && let Some(limiter) = user_ctx.user().udp_all_download_speed_limit()
+        {
+            clt_w.add_global_limiter(limiter.clone());
         }
 
         self.task_notes.stage = ServerTaskStage::Connecting;
+
+        let task_conf = UdpRelayTaskConf {
+            initial_peer: &self.initial_peer,
+            sock_buf: self.ctx.server_config.udp_socket_buffer,
+        };
         let (ups_r, mut ups_w, logger) = self
             .ctx
             .escaper
             .udp_setup_relay(
+                &task_conf,
                 &mut self.udp_notes,
                 &self.task_notes,
                 self.task_stats.clone(),
@@ -487,10 +507,13 @@ impl SocksProxyUdpAssociateTask {
             .await?;
         self.task_notes.stage = ServerTaskStage::Connected;
 
-        poll_fn(|cx| {
-            ups_w.poll_send_packet(cx, &buf[buf_off..buf_nr], &self.udp_notes.initial_peer)
-        })
-        .await?;
+        if self.ctx.server_config.flush_task_log_on_connected
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log_connected();
+        }
+
+        poll_fn(|cx| ups_w.poll_send_packet(cx, &buf[buf_off..buf_nr], &self.initial_peer)).await?;
 
         let clt_w = Socks5UdpAssociateClientSend::new(clt_w, udp_client_addr);
 
@@ -508,11 +531,7 @@ impl SocksProxyUdpAssociateTask {
     {
         let udp_fut = tokio::time::timeout(
             self.ctx.server_config.timeout.udp_client_initial,
-            clt_udp_r.recv_first_packet(
-                buf,
-                &self.ctx.ingress_net_filter,
-                &mut self.udp_notes.initial_peer,
-            ),
+            clt_udp_r.recv_first_packet(buf, &self.ctx.ingress_net_filter, &mut self.initial_peer),
         );
         let mut buf_tcp: [u8; 4] = [0; 4];
         tokio::select! {

@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
@@ -25,6 +14,7 @@ pub struct ResolverQueryStats {
     query_total: AtomicU64,
     query_cached: AtomicU64,
     query_driver: AtomicU64,
+    query_trashed: AtomicU64,
     driver_timeout: AtomicU64,
     driver_refused: AtomicU64,
     driver_malformed: AtomicU64,
@@ -39,6 +29,7 @@ pub struct ResolverQuerySnapshot {
     pub total: u64,
     pub cached: u64,
     pub driver: u64,
+    pub trashed: u64,
     pub driver_timeout: u64,
     pub driver_refused: u64,
     pub driver_malformed: u64,
@@ -54,6 +45,7 @@ impl ResolverQueryStats {
             total: self.query_total.load(Ordering::Relaxed),
             cached: self.query_cached.load(Ordering::Relaxed),
             driver: self.query_driver.load(Ordering::Relaxed),
+            trashed: self.query_trashed.load(Ordering::Relaxed),
             driver_timeout: self.driver_timeout.load(Ordering::Relaxed),
             driver_refused: self.driver_refused.load(Ordering::Relaxed),
             driver_malformed: self.driver_malformed.load(Ordering::Relaxed),
@@ -69,7 +61,7 @@ impl ResolverQueryStats {
     }
 
     pub(crate) fn add_query_cached(&self) {
-        self.query_cached.fetch_add(1, Ordering::Relaxed);
+        self.add_query_cached_n(1);
     }
 
     pub(crate) fn add_query_cached_n(&self, n: usize) {
@@ -80,6 +72,16 @@ impl ResolverQueryStats {
 
     pub(crate) fn add_query_driver(&self) {
         self.query_driver.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn add_query_trashed(&self) {
+        self.add_query_trashed_n(1);
+    }
+
+    pub(crate) fn add_query_trashed_n(&self, n: usize) {
+        if n > 0 {
+            self.query_trashed.fetch_add(n as u64, Ordering::Relaxed);
+        }
     }
 
     #[inline]
@@ -160,6 +162,8 @@ pub(crate) struct ResolverMemoryStats {
     len_cache: AtomicUsize,
     cap_doing: AtomicUsize,
     len_doing: AtomicUsize,
+    cap_trash: AtomicUsize,
+    len_trash: AtomicUsize,
 }
 
 #[derive(Default)]
@@ -168,6 +172,8 @@ pub struct ResolverMemorySnapshot {
     pub len_cache: usize,
     pub cap_doing: usize,
     pub len_doing: usize,
+    pub cap_trash: usize,
+    pub len_trash: usize,
 }
 
 impl ResolverMemoryStats {
@@ -177,6 +183,8 @@ impl ResolverMemoryStats {
             len_cache: self.len_cache.load(Ordering::Relaxed),
             cap_doing: self.cap_doing.load(Ordering::Relaxed),
             len_doing: self.len_doing.load(Ordering::Relaxed),
+            cap_trash: self.cap_trash.load(Ordering::Relaxed),
+            len_trash: self.len_trash.load(Ordering::Relaxed),
         }
     }
 
@@ -194,6 +202,14 @@ impl ResolverMemoryStats {
 
     pub(crate) fn set_doing_length(&self, value: usize) {
         self.len_doing.store(value, Ordering::Relaxed);
+    }
+
+    pub(crate) fn set_trash_capacity(&self, value: usize) {
+        self.cap_trash.store(value, Ordering::Relaxed);
+    }
+
+    pub(crate) fn set_trash_length(&self, value: usize) {
+        self.len_trash.store(value, Ordering::Relaxed);
     }
 }
 

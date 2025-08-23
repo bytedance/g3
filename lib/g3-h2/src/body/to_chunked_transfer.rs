@@ -1,23 +1,11 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::future::Future;
 use std::io::{self, Write};
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use bytes::{BufMut, Bytes};
 use h2::RecvStream;
@@ -73,11 +61,13 @@ impl ChunkedEncodeTransferInternal {
     }
 
     fn with_chunk(yield_size: usize, chunk: Bytes) -> Self {
+        let mut static_header = Vec::with_capacity(16);
+        let _ = write!(&mut static_header, "{:x}\r\n", chunk.len());
         ChunkedEncodeTransferInternal {
             yield_size,
-            this_chunk_size: 0,
+            this_chunk_size: chunk.len(),
             chunk: Some(chunk),
-            static_header: Vec::with_capacity(16),
+            static_header,
             static_offset: 0,
             total_write: 0,
             read_data_finished: false,
@@ -85,6 +75,22 @@ impl ChunkedEncodeTransferInternal {
             trailer_bytes: Vec::new(),
             trailer_offset: 0,
             transfer_stage: TransferStage::Data,
+        }
+    }
+
+    fn without_data() -> Self {
+        ChunkedEncodeTransferInternal {
+            yield_size: 0,
+            this_chunk_size: 0,
+            chunk: None,
+            static_header: Vec::new(),
+            static_offset: 0,
+            total_write: 0,
+            read_data_finished: true,
+            active: false,
+            trailer_bytes: Vec::new(),
+            trailer_offset: 0,
+            transfer_stage: TransferStage::Trailer,
         }
     }
 
@@ -128,9 +134,11 @@ impl ChunkedEncodeTransferInternal {
     {
         if !self.trailer_bytes.is_empty() {
             while self.trailer_offset < self.trailer_bytes.len() {
-                let nw = ready!(writer
-                    .as_mut()
-                    .poll_write(cx, &self.trailer_bytes[self.trailer_offset..]))
+                let nw = ready!(
+                    writer
+                        .as_mut()
+                        .poll_write(cx, &self.trailer_bytes[self.trailer_offset..])
+                )
                 .map_err(H2StreamToChunkedTransferError::WriteError)?;
                 self.active = true;
                 self.trailer_offset += nw;
@@ -181,21 +189,23 @@ impl ChunkedEncodeTransferInternal {
                 match ready!(recv_stream.poll_data(cx)) {
                     Some(Ok(chunk)) => {
                         self.active = true;
+                        if chunk.is_empty() {
+                            continue;
+                        }
+                        let nr = chunk.len();
+                        recv_stream
+                            .flow_control()
+                            .release_capacity(nr)
+                            .map_err(H2StreamToChunkedTransferError::RecvDataFailed)?;
                         self.static_header.clear();
-                        let chunk_size = chunk.len();
                         if self.total_write == 0 {
-                            let _ = write!(&mut self.static_header, "{chunk_size:x}\r\n",);
+                            let _ = write!(&mut self.static_header, "{nr:x}\r\n");
                         } else {
-                            let _ = write!(&mut self.static_header, "\r\n{chunk_size:x}\r\n");
+                            let _ = write!(&mut self.static_header, "\r\n{nr:x}\r\n");
                         }
                         self.static_offset = 0;
-                        self.this_chunk_size = chunk_size;
-                        if chunk_size == 0 {
-                            let _ = write!(&mut self.static_header, "\r\n");
-                            self.read_data_finished = true;
-                        } else {
-                            self.chunk = Some(chunk);
-                        }
+                        self.this_chunk_size = nr;
+                        self.chunk = Some(chunk);
                     }
                     Some(Err(e)) => {
                         return Poll::Ready(Err(H2StreamToChunkedTransferError::RecvDataFailed(e)));
@@ -205,9 +215,9 @@ impl ChunkedEncodeTransferInternal {
                         self.active = true;
                         self.static_header.clear();
                         if self.total_write == 0 {
-                            let _ = write!(&mut self.static_header, "0\r\n");
+                            self.static_header.extend_from_slice(b"0\r\n");
                         } else {
-                            let _ = write!(&mut self.static_header, "\r\n0\r\n");
+                            self.static_header.extend_from_slice(b"\r\n0\r\n");
                         }
                         self.static_offset = 0;
                         self.this_chunk_size = 0;
@@ -216,9 +226,11 @@ impl ChunkedEncodeTransferInternal {
             }
 
             while self.static_offset < self.static_header.len() {
-                let nw = ready!(writer
-                    .as_mut()
-                    .poll_write(cx, &self.static_header[self.static_offset..]))
+                let nw = ready!(
+                    writer
+                        .as_mut()
+                        .poll_write(cx, &self.static_header[self.static_offset..])
+                )
                 .map_err(H2StreamToChunkedTransferError::WriteError)?;
                 self.active = true;
                 self.static_offset += nw;
@@ -233,10 +245,6 @@ impl ChunkedEncodeTransferInternal {
                 match writer.as_mut().poll_write(cx, &chunk) {
                     Poll::Ready(Ok(nw)) => {
                         let left_chunk = chunk.split_off(nw);
-                        recv_stream
-                            .flow_control()
-                            .release_capacity(nw)
-                            .map_err(H2StreamToChunkedTransferError::RecvDataFailed)?;
                         self.total_write += nw as u64;
                         copy_this_round += nw;
                         self.active = true;
@@ -312,6 +320,14 @@ impl<'a, W> H2StreamToChunkedTransfer<'a, W> {
         }
     }
 
+    pub fn without_data(recv_stream: &'a mut RecvStream, writer: &'a mut W) -> Self {
+        H2StreamToChunkedTransfer {
+            recv_stream,
+            writer,
+            internal: ChunkedEncodeTransferInternal::without_data(),
+        }
+    }
+
     pub fn finished(&self) -> bool {
         self.internal.finished()
     }
@@ -333,7 +349,7 @@ impl<'a, W> H2StreamToChunkedTransfer<'a, W> {
     }
 }
 
-impl<'a, W> Future for H2StreamToChunkedTransfer<'a, W>
+impl<W> Future for H2StreamToChunkedTransfer<'_, W>
 where
     W: AsyncWrite + Unpin,
 {

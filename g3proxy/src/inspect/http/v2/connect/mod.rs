@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::time::Duration;
@@ -31,6 +20,7 @@ use g3_icap_client::reqmod::h2::{
     H2RequestAdapter, ReqmodAdaptationMidState, ReqmodAdaptationRunState,
     ReqmodRecvHttpResponseBody,
 };
+use g3_types::net::WebSocketNotes;
 
 use super::H2StreamTransferError;
 use crate::config::server::ServerConfig;
@@ -43,7 +33,7 @@ pub(super) use standard::H2ConnectTask;
 mod extended;
 pub(super) use extended::H2ExtendedConnectTask;
 
-struct HttpForwardTaskNotes {
+struct HttpConnectTaskNotes {
     ready_time: Duration,
     rsp_status: u16,
     origin_status: u16,
@@ -53,9 +43,9 @@ struct HttpForwardTaskNotes {
     dur_rsp_recv_hdr: Duration,
 }
 
-impl Default for HttpForwardTaskNotes {
+impl Default for HttpConnectTaskNotes {
     fn default() -> Self {
-        HttpForwardTaskNotes {
+        HttpConnectTaskNotes {
             ready_time: Duration::default(),
             rsp_status: 0,
             origin_status: 0,
@@ -67,7 +57,7 @@ impl Default for HttpForwardTaskNotes {
     }
 }
 
-impl HttpForwardTaskNotes {
+impl HttpConnectTaskNotes {
     pub(crate) fn mark_stream_ready(&mut self) {
         self.ready_time = self.started_ins.elapsed();
     }
@@ -85,16 +75,32 @@ struct ExchangeHead<'a, SC: ServerConfig> {
     ctx: &'a StreamInspectContext<SC>,
     ups_stream_id: Option<StreamId>,
     send_error_response: bool,
-    http_notes: &'a mut HttpForwardTaskNotes,
+    http_notes: &'a mut HttpConnectTaskNotes,
+    ws_notes: Option<&'a mut WebSocketNotes>,
 }
 
 impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
-    fn new(ctx: &'a StreamInspectContext<SC>, http_notes: &'a mut HttpForwardTaskNotes) -> Self {
+    fn new(ctx: &'a StreamInspectContext<SC>, http_notes: &'a mut HttpConnectTaskNotes) -> Self {
         ExchangeHead {
             ctx,
             ups_stream_id: None,
             send_error_response: false,
             http_notes,
+            ws_notes: None,
+        }
+    }
+
+    fn new_websocket(
+        ctx: &'a StreamInspectContext<SC>,
+        http_notes: &'a mut HttpConnectTaskNotes,
+        ws_notes: &'a mut WebSocketNotes,
+    ) -> Self {
+        ExchangeHead {
+            ctx,
+            ups_stream_id: None,
+            send_error_response: false,
+            http_notes,
+            ws_notes: Some(ws_notes),
         }
     }
 
@@ -110,12 +116,12 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
         match self.do_run(clt_req, &mut clt_send_rsp, h2s).await {
             Ok(d) => Ok(d),
             Err(e) => {
-                if self.send_error_response {
-                    if let Some(rsp) = e.build_reply() {
-                        let rsp_status = rsp.status().as_u16();
-                        if clt_send_rsp.send_response(rsp, true).is_ok() {
-                            self.http_notes.rsp_status = rsp_status;
-                        }
+                if self.send_error_response
+                    && let Some(rsp) = e.build_reply()
+                {
+                    let rsp_status = rsp.status().as_u16();
+                    if clt_send_rsp.send_response(rsp, true).is_ok() {
+                        self.http_notes.rsp_status = rsp_status;
                     }
                 }
                 Err(e)
@@ -239,7 +245,7 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
         let (mut parts, _) = response.into_parts();
         parts.version = Version::HTTP_2;
         parts.status = rsp.status;
-        parts.headers = rsp.headers.into_h2_map();
+        parts.headers = rsp.headers.into();
         let response = Response::from_parts(parts, ());
 
         self.send_error_response = false;
@@ -265,6 +271,11 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
                 H2StreamFromChunkedTransferError::SendTrailerFailed(e) => {
                     H2StreamTransferError::ResponseBodyTransferFailed(
                         H2StreamBodyTransferError::SendTrailersFailed(e),
+                    )
+                }
+                H2StreamFromChunkedTransferError::SenderNotInSendState => {
+                    H2StreamTransferError::ResponseBodyTransferFailed(
+                        H2StreamBodyTransferError::SenderNotInSendState,
                     )
                 }
             })?;
@@ -340,6 +351,13 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
         H2StreamTransferError,
     > {
         let (parts, ups_r) = ups_rsp.into_parts();
+
+        if let Some(ws_notes) = self.ws_notes.take() {
+            for (name, value) in &parts.headers {
+                ws_notes.append_response_header(name, value);
+            }
+        }
+
         let ups_rsp = Response::from_parts(parts, ());
 
         if ups_r.is_end_stream() {
@@ -382,11 +400,8 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
                 self.ctx.server_config.limited_copy_config().yield_size(),
             );
 
-            let idle_duration = self.ctx.server_config.task_idle_check_duration();
-            let mut idle_interval =
-                tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+            let mut idle_interval = self.ctx.idle_wheel.register();
             let mut idle_count = 0;
-            let max_idle_count = self.ctx.task_max_idle_count();
 
             loop {
                 tokio::select! {
@@ -398,12 +413,12 @@ impl<'a, SC: ServerConfig> ExchangeHead<'a, SC> {
                             Err(e) => return Err(H2StreamTransferError::ResponseBodyTransferFailed(e)),
                         }
                     }
-                    _ = idle_interval.tick() => {
+                    n = idle_interval.tick() => {
                         if rsp_body_transfer.is_idle() {
-                            idle_count += 1;
+                            idle_count += n;
 
-                            if idle_count > max_idle_count {
-                                return Err(H2StreamTransferError::Idle(idle_duration, idle_count));
+                            if idle_count > self.ctx.max_idle_count {
+                                return Err(H2StreamTransferError::Idle(idle_interval.period(), idle_count));
                             }
                         } else {
                             idle_count = 0;

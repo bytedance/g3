@@ -1,28 +1,19 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use http::{Method, Version};
+use http::{HeaderValue, Method, Version, header};
 use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
 use g3_http::server::{HttpProxyClientRequest, HttpRequestParseError, UriExt};
-use g3_types::net::UpstreamAddr;
+use g3_http::uri::{HttpMasque, WellKnownUri};
+use g3_types::net::{HttpProxySubProtocol, UpstreamAddr};
 
-use super::{HttpClientReader, HttpProxySubProtocol};
+use super::HttpClientReader;
+use crate::config::server::http_proxy::HttpProxyServerConfig;
 
 pub(crate) struct HttpProxyRequest<CDR> {
     pub(crate) client_protocol: HttpProxySubProtocol,
@@ -39,17 +30,18 @@ where
     CDR: AsyncRead + Unpin,
 {
     pub(crate) async fn parse(
+        config: &HttpProxyServerConfig,
         reader: &mut HttpClientReader<CDR>,
         sender: mpsc::Sender<Option<HttpClientReader<CDR>>>,
-        max_header_size: usize,
-        steal_forwarded_for: bool,
-        allow_custom_host: bool,
         version: &mut Version,
     ) -> Result<(Self, bool), HttpRequestParseError> {
         let time_accepted = Instant::now();
 
-        let req =
-            HttpProxyClientRequest::parse(reader, max_header_size, version, |req, name, header| {
+        let mut req = HttpProxyClientRequest::parse(
+            reader,
+            config.req_hdr_max_size,
+            version,
+            |req, name, header| {
                 match name.as_str() {
                     "proxy-authorization" => return req.parse_header_authorization(header.value),
                     "proxy-connection" => {
@@ -57,33 +49,58 @@ where
                         return req.parse_header_connection(header);
                     }
                     "forwarded" | "x-forwarded-for" => {
-                        if steal_forwarded_for {
+                        if config.steal_forwarded_for {
                             return Ok(());
                         }
                     }
                     _ => {}
                 }
-                req.append_header(name, header)?;
+                req.append_parsed_header(name, header)?;
                 Ok(())
-            })
-            .await?;
+            },
+        )
+        .await?;
         let time_received = Instant::now();
 
         let (upstream, sub_protocol) = if matches!(&req.method, &Method::CONNECT) {
-            (
-                get_connect_upstream(&req.uri)?,
-                HttpProxySubProtocol::TcpConnect,
-            )
-        } else {
-            get_forward_upstream_and_protocol(&req.uri)?
-        };
-
-        if !allow_custom_host {
-            if let Some(host) = &req.host {
-                if !host.host_eq(&upstream) {
-                    return Err(HttpRequestParseError::UnmatchedHostAndAuthority);
+            let addr = req.uri.get_upstream_with_default_port(443)?;
+            (addr, HttpProxySubProtocol::TcpConnect)
+        } else if req.is_local_request(&config.local_server_names) {
+            match WellKnownUri::parse(&req.uri).map_err(|e| {
+                HttpRequestParseError::UnsupportedRequest(format!("invalid well-known uri: {e}",))
+            })? {
+                Some(WellKnownUri::EasyProxy(protocol, addr, uri)) => {
+                    req.uri = uri;
+                    req.set_host(&addr);
+                    (addr, protocol)
+                }
+                Some(WellKnownUri::Masque(HttpMasque::Http(uri))) => {
+                    req.uri = uri;
+                    let (addr, protocol) = req.uri.get_upstream_and_protocol()?;
+                    req.set_host(&addr);
+                    (addr, protocol)
+                }
+                Some(v) => {
+                    return Err(HttpRequestParseError::UnsupportedRequest(format!(
+                        "unsupported well-known uri suffix: {}",
+                        v.suffix()
+                    )));
+                }
+                None => {
+                    return Err(HttpRequestParseError::UnsupportedRequest(
+                        "unsupported local request uri".to_string(),
+                    ));
                 }
             }
+        } else {
+            req.uri.get_upstream_and_protocol()?
+        };
+
+        if !config.allow_custom_host
+            && let Some(host) = &req.host
+            && !host.host_eq(&upstream)
+        {
+            return Err(HttpRequestParseError::UnmatchedHostAndAuthority);
         }
 
         let req = HttpProxyRequest {
@@ -114,30 +131,14 @@ where
         // reader should be sent by default
         Ok((req, true))
     }
-}
 
-fn get_connect_upstream(uri: &http::Uri) -> Result<UpstreamAddr, HttpRequestParseError> {
-    uri.get_upstream_with_default_port(443)
-}
-
-fn get_forward_upstream_and_protocol(
-    uri: &http::Uri,
-) -> Result<(UpstreamAddr, HttpProxySubProtocol), HttpRequestParseError> {
-    match uri.scheme() {
-        Some(scheme) => {
-            if scheme.eq(&http::uri::Scheme::HTTP) {
-                let upstream = uri.get_upstream_with_default_port(80)?;
-                Ok((upstream, HttpProxySubProtocol::HttpForward))
-            } else if scheme.eq(&http::uri::Scheme::HTTPS) {
-                let upstream = uri.get_upstream_with_default_port(443)?;
-                Ok((upstream, HttpProxySubProtocol::HttpsForward))
-            } else if scheme.as_str().eq_ignore_ascii_case("ftp") {
-                let upstream = uri.get_upstream_with_default_port(21)?;
-                Ok((upstream, HttpProxySubProtocol::FtpOverHttp))
-            } else {
-                Err(HttpRequestParseError::UnsupportedScheme)
+    pub(crate) fn drop_default_port_in_host(&mut self) {
+        if let Some(v) = self.inner.end_to_end_headers.get_mut(header::HOST) {
+            let b = v.inner().as_bytes();
+            if let Some(d) = memchr::memchr(b':', b) {
+                let new_v = HeaderValue::from_bytes(&b[..d]).unwrap();
+                v.set_inner(new_v);
             }
         }
-        None => Err(HttpRequestParseError::InvalidRequestTarget),
     }
 }

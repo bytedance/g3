@@ -1,62 +1,51 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use async_trait::async_trait;
 use slog::Logger;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use crate::config::resolver::c_ares::CAresResolverConfig;
 use crate::config::resolver::{AnyResolverConfig, ResolverConfig};
 use crate::resolve::{
-    ArcIntegratedResolverHandle, BoxResolver, Resolver, ResolverInternal, ResolverStats,
+    ArcIntegratedResolverHandle, BoxResolverInternal, Resolver, ResolverInternal, ResolverStats,
 };
 
 pub(crate) struct CAresResolver {
     config: Arc<CAresResolverConfig>,
     inner: g3_resolver::Resolver,
     stats: Arc<ResolverStats>,
-    logger: Arc<Logger>,
+    logger: Option<Logger>,
 }
 
 impl CAresResolver {
-    pub(crate) fn new_obj(config: CAresResolverConfig) -> anyhow::Result<BoxResolver> {
+    pub(crate) fn new_obj(config: CAresResolverConfig) -> anyhow::Result<BoxResolverInternal> {
         let mut builder = g3_resolver::ResolverBuilder::new((&config).into());
         builder.thread_name(format!("res-{}", config.name()));
         let resolver = builder.build()?;
 
-        let logger = crate::log::resolve::get_logger(config.resolver_type(), config.name());
+        let logger = crate::log::resolve::get_logger(config.r#type(), config.name());
         let stats = ResolverStats::new(config.name(), resolver.get_stats());
 
         Ok(Box::new(CAresResolver {
             config: Arc::new(config),
             inner: resolver,
             stats: Arc::new(stats),
-            logger: Arc::new(logger),
+            logger,
         }))
     }
 }
 
 #[async_trait]
 impl ResolverInternal for CAresResolver {
-    fn _dependent_resolver(&self) -> Option<BTreeSet<MetricsName>> {
+    fn _dependent_resolver(&self) -> Option<BTreeSet<NodeName>> {
         None
     }
 
@@ -67,7 +56,7 @@ impl ResolverInternal for CAresResolver {
     fn _update_config(
         &mut self,
         config: AnyResolverConfig,
-        _dep_table: BTreeMap<MetricsName, ArcIntegratedResolverHandle>,
+        _dep_table: BTreeMap<NodeName, ArcIntegratedResolverHandle>,
     ) -> anyhow::Result<()> {
         if let AnyResolverConfig::CAres(config) = config {
             self.inner
@@ -82,7 +71,7 @@ impl ResolverInternal for CAresResolver {
 
     fn _update_dependent_handle(
         &mut self,
-        _target: &MetricsName,
+        _target: &NodeName,
         _handle: ArcIntegratedResolverHandle,
     ) -> anyhow::Result<()> {
         Ok(())
@@ -99,7 +88,7 @@ impl Resolver for CAresResolver {
         Arc::new(super::CAresResolverHandle::new(
             &self.config,
             inner_context,
-            &self.logger,
+            self.logger.clone(),
         ))
     }
 

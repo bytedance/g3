@@ -1,4 +1,3 @@
-
 Setup for g3proxy coverage tests
 ================================
 
@@ -11,6 +10,7 @@ We use the following tools in the coverage scripts:
 We use docker containers to run various target services, i.e. httpbin.
 
 Install on Debian:
+
 ```shell
 apt install docker.io
 ```
@@ -23,7 +23,8 @@ You have 2 choices to run dnsmasq:
 
 - NetworkManager Plugin
 
-  If you have enabled dnsmasq plugin in NetworkManager, then there is nothing to do. The conf directory will be **/etc/NetworkManager/dnsmasq.d/**.
+  If you have enabled dnsmasq plugin in NetworkManager, then there is nothing to do. The conf directory will be
+  **/etc/NetworkManager/dnsmasq.d/**.
 
 - Standalone dnsmasq Service
 
@@ -36,18 +37,11 @@ You have 2 choices to run dnsmasq:
 
 # Setup local DNS
 
-## Modify /etc/hosts
-
-Add the following lines to **/etc/hosts**:
-```text
-127.0.0.1 g3proxy.local
-127.0.0.1 httpbin.local
-```
-
-Save the following conf file to **dnsmasq.d/02-add-hosts.conf**:
+Save the following conf file to **dnsmasq.d/g3proxy-ci.conf**:
 
 ```text
-addn-hosts=/etc/hosts
+address=/httpbin.local/127.0.0.1
+address=/g3proxy.local/127.0.0.1
 ```
 
 Then restart **NetworkManager** or **dnsmasq** which should respawn the real dnsmasq process.
@@ -73,4 +67,28 @@ docker run -d -v /tmp/vsftpd:/home/vsftpd \
                 -e PASV_ADDRESS=127.0.0.1 \
                 --name ftp \
                 -d bogem/ftp
+```
+
+## influxdb
+
+1. Run the container
+
+   ```shell
+   docker pull influxdb:3-core
+   docker run -p 127.0.0.1:8181:8181 --rm influxdb:3-core --node-id local --object-store=memory
+   ```
+
+2. Create the auth token
+
+   ```shell
+   curl -X POST http://127.0.0.1:8181/api/v3/configure/token/admin | jq ".token" -r
+   ```
+
+3. Export the auth token as variable `INFLUXDB3_AUTH_TOKEN`.
+
+## graphite
+
+```shell
+docker pull graphiteapp/graphite-statsd:latest
+docker run -p 127.0.0.1:2003:2003 --rm graphiteapp/graphite-statsd
 ```

@@ -1,28 +1,18 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::collections::BTreeSet;
 use std::io::Write;
 use std::str::FromStr;
 
 use bytes::{BufMut, Bytes, BytesMut};
-use http::{HeaderName, Method, Uri, Version};
+use http::{HeaderName, Method, Uri, Version, header};
 use tokio::io::AsyncBufRead;
 
 use g3_io_ext::LimitedBufReadExt;
-use g3_types::net::{HttpHeaderMap, HttpHeaderValue, UpstreamAddr};
+use g3_types::net::{HttpHeaderMap, HttpHeaderValue, HttpUpgradeToken, UpstreamAddr};
 
 use super::{HttpAdaptedRequest, HttpRequestParseError};
 use crate::header::Connection;
@@ -47,7 +37,6 @@ pub struct HttpTransparentRequest {
     chunked_transfer: bool,
     has_transfer_encoding: bool,
     has_content_length: bool,
-    has_trailer: bool,
 }
 
 impl HttpTransparentRequest {
@@ -70,16 +59,72 @@ impl HttpTransparentRequest {
             chunked_transfer: false,
             has_transfer_encoding: false,
             has_content_length: false,
-            has_trailer: false,
         }
     }
 
-    pub fn clone_by_adaptation(&self, adapted: HttpAdaptedRequest) -> Self {
+    pub fn adapt_with_body(&self, adapted: HttpAdaptedRequest) -> Self {
         let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
-        hop_by_hop_headers.remove(http::header::TRAILER);
-        for v in adapted.trailer() {
-            hop_by_hop_headers.append(http::header::TRAILER, v.clone());
+        match adapted.content_length {
+            Some(content_length) => {
+                hop_by_hop_headers.remove(header::TRANSFER_ENCODING);
+                HttpTransparentRequest {
+                    version: adapted.version,
+                    method: adapted.method,
+                    uri: adapted.uri,
+                    steal_forwarded_for: false,
+                    end_to_end_headers: adapted.headers,
+                    hop_by_hop_headers,
+                    host: None,
+                    original_connection_name: self.original_connection_name.clone(),
+                    extra_connection_headers: self.extra_connection_headers.clone(),
+                    origin_header_size: self.origin_header_size,
+                    keep_alive: self.keep_alive,
+                    connection_upgrade: self.connection_upgrade,
+                    upgrade: self.upgrade,
+                    content_length,
+                    chunked_transfer: false,
+                    has_transfer_encoding: false,
+                    has_content_length: true,
+                }
+            }
+            None => {
+                if !self.chunked_transfer {
+                    if let Some(mut v) = hop_by_hop_headers.remove(header::TRANSFER_ENCODING) {
+                        v.set_static_value("chunked");
+                        hop_by_hop_headers.insert(header::TRANSFER_ENCODING, v);
+                    } else {
+                        hop_by_hop_headers.insert(
+                            header::TRANSFER_ENCODING,
+                            HttpHeaderValue::from_static("chunked"),
+                        );
+                    }
+                }
+                HttpTransparentRequest {
+                    version: adapted.version,
+                    method: adapted.method,
+                    uri: adapted.uri,
+                    steal_forwarded_for: false,
+                    end_to_end_headers: adapted.headers,
+                    hop_by_hop_headers,
+                    host: None,
+                    original_connection_name: self.original_connection_name.clone(),
+                    extra_connection_headers: self.extra_connection_headers.clone(),
+                    origin_header_size: self.origin_header_size,
+                    keep_alive: self.keep_alive,
+                    connection_upgrade: self.connection_upgrade,
+                    upgrade: self.upgrade,
+                    content_length: 0,
+                    chunked_transfer: true,
+                    has_transfer_encoding: true,
+                    has_content_length: false,
+                }
+            }
         }
+    }
+
+    pub fn adapt_without_body(&self, adapted: HttpAdaptedRequest) -> Self {
+        let mut hop_by_hop_headers = self.hop_by_hop_headers.clone();
+        hop_by_hop_headers.remove(header::TRANSFER_ENCODING);
         HttpTransparentRequest {
             version: adapted.version,
             method: adapted.method,
@@ -94,11 +139,10 @@ impl HttpTransparentRequest {
             keep_alive: self.keep_alive,
             connection_upgrade: self.connection_upgrade,
             upgrade: self.upgrade,
-            content_length: self.content_length,
-            chunked_transfer: true,
+            content_length: 0,
+            chunked_transfer: false,
             has_transfer_encoding: false,
             has_content_length: false,
-            has_trailer: false,
         }
     }
 
@@ -210,10 +254,7 @@ impl HttpTransparentRequest {
     fn post_check_and_fix(&mut self) {
         if !self.connection_upgrade {
             self.upgrade = false;
-            self.hop_by_hop_headers.remove(http::header::UPGRADE);
-        }
-        if self.has_trailer && !self.chunked_transfer {
-            self.hop_by_hop_headers.remove(http::header::TRAILER);
+            self.hop_by_hop_headers.remove(header::UPGRADE);
         }
 
         // Don't move non-standard connection headers to hop-by-hop headers, as we don't support them
@@ -262,7 +303,7 @@ impl HttpTransparentRequest {
                 }
                 "upgrade" => {
                     self.connection_upgrade = true;
-                    self.extra_connection_headers.push(http::header::UPGRADE);
+                    self.extra_connection_headers.push(header::UPGRADE);
                 }
                 s => {
                     if let Ok(h) = HeaderName::from_str(s) {
@@ -287,6 +328,46 @@ impl HttpTransparentRequest {
         value.set_original_name(header.name);
         self.end_to_end_headers.append(name, value);
         Ok(())
+    }
+
+    pub fn retain_upgrade_token<F>(&mut self, retain: F) -> Option<usize>
+    where
+        F: Fn(&Self, &HttpUpgradeToken) -> bool,
+    {
+        let mut new_upgrade_headers = Vec::with_capacity(4);
+        let mut checked_tokens = BTreeSet::new();
+        for header in self.hop_by_hop_headers.get_all(header::UPGRADE) {
+            let value = header.to_str();
+            for s in value.split(',') {
+                let s = s.trim();
+                if s.is_empty() {
+                    continue;
+                }
+
+                let Ok(protocol) = HttpUpgradeToken::from_str(s) else {
+                    continue;
+                };
+                if checked_tokens.contains(&protocol) {
+                    continue;
+                }
+                if retain(self, &protocol) {
+                    let mut new_value =
+                        unsafe { HttpHeaderValue::from_string_unchecked(s.to_string()) };
+                    if let Some(name) = header.original_name() {
+                        new_value.set_original_name(name);
+                    }
+                    new_upgrade_headers.push(new_value);
+                }
+                checked_tokens.insert(protocol);
+            }
+        }
+
+        self.hop_by_hop_headers.remove(header::UPGRADE)?;
+        let retain_count = new_upgrade_headers.len();
+        for value in new_upgrade_headers {
+            self.hop_by_hop_headers.append(header::UPGRADE, value);
+        }
+        Some(retain_count)
     }
 
     fn insert_hop_by_hop_header(
@@ -322,10 +403,6 @@ impl HttpTransparentRequest {
             "connection" => return self.parse_header_connection(&header),
             "upgrade" => {
                 self.upgrade = true;
-                return self.insert_hop_by_hop_header(name, &header);
-            }
-            "trailer" => {
-                self.has_trailer = true;
                 return self.insert_hop_by_hop_header(name, &header);
             }
             "transfer-encoding" => {
@@ -379,11 +456,7 @@ impl HttpTransparentRequest {
         let mut buf =
             Vec::<u8>::with_capacity(self.origin_header_size + RESERVED_LEN_FOR_EXTRA_HEADERS);
         if let Some(pa) = self.uri.path_and_query() {
-            if self.method.eq(&Method::OPTIONS) && pa.query().is_none() && pa.path().eq("/") {
-                let _ = write!(buf, "OPTIONS * {:?}\r\n", self.version);
-            } else {
-                let _ = write!(buf, "{} {} {:?}\r\n", self.method, pa, self.version);
-            }
+            let _ = write!(buf, "{} {} {:?}\r\n", self.method, pa, self.version);
         } else if self.method.eq(&Method::OPTIONS) {
             let _ = write!(buf, "OPTIONS * {:?}\r\n", self.version);
         } else {
@@ -405,11 +478,7 @@ impl HttpTransparentRequest {
     pub fn serialize_for_adapter(&self) -> Vec<u8> {
         let mut buf = Vec::<u8>::with_capacity(self.origin_header_size);
         if let Some(pa) = self.uri.path_and_query() {
-            if self.method.eq(&Method::OPTIONS) && pa.query().is_none() && pa.path().eq("/") {
-                let _ = write!(buf, "OPTIONS * {:?}\r\n", self.version);
-            } else {
-                let _ = write!(buf, "{} {} {:?}\r\n", self.method, pa, self.version);
-            }
+            let _ = write!(buf, "{} {} {:?}\r\n", self.method, pa, self.version);
         } else if self.method.eq(&Method::OPTIONS) {
             let _ = write!(buf, "OPTIONS * {:?}\r\n", self.version);
         } else {
@@ -499,8 +568,7 @@ impl HttpTransparentRequestAcceptor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::io::{BufReader, Result};
-    use tokio_util::io::StreamReader;
+    use tokio::io::BufReader;
 
     #[tokio::test]
     async fn read_get() {
@@ -513,8 +581,7 @@ mod tests {
             User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like G\
             ecko) Chrome/72.0.3611.2 Safari/537.36\r\n\
             Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7\r\n\r\n";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let (request, data) = HttpTransparentRequest::parse(&mut buf_stream, 4096, false)
             .await
@@ -535,13 +602,32 @@ mod tests {
             User-Agent: axios/0.21.1\r\n\
             host: api.giphy.com\r\n\
             Connection: close\r\n\r\n";
-        let stream = tokio_stream::iter(vec![Result::Ok(Bytes::from_static(content))]);
-        let stream = StreamReader::new(stream);
+        let stream = tokio_test::io::Builder::new().read(content).build();
         let mut buf_stream = BufReader::new(stream);
         let (request, data) = HttpTransparentRequest::parse(&mut buf_stream, 4096, false)
             .await
             .unwrap();
         assert_eq!(data.as_ref(), content.as_slice());
         assert!(!request.keep_alive());
+    }
+
+    #[tokio::test]
+    async fn connection_upgrade() {
+        let content = b"GET /hello.txt HTTP/1.1\r\n\
+            Host: www.example.com\r\n\
+            Connection: upgrade\r\n\
+            Upgrade: Websocket,  HTTP/2.0\r\n\
+            \r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let (mut request, _) = HttpTransparentRequest::parse(&mut buf_stream, 4096, false)
+            .await
+            .unwrap();
+        let left_tokens = request
+            .retain_upgrade_token(|_req, p| matches!(p, HttpUpgradeToken::Http(_)))
+            .unwrap();
+        assert_eq!(left_tokens, 1);
+        let token = request.hop_by_hop_headers.get(header::UPGRADE).unwrap();
+        assert_eq!(token.to_str(), "HTTP/2.0");
     }
 }

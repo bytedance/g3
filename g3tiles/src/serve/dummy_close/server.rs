@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
@@ -25,11 +14,13 @@ use tokio::sync::broadcast;
 
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use crate::config::server::dummy_close::DummyCloseServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
-use crate::serve::{ArcServer, Server, ServerInternal, ServerQuitPolicy};
+use crate::serve::{
+    ArcServer, ArcServerInternal, Server, ServerInternal, ServerQuitPolicy, ServerRegistry,
+};
 
 pub(crate) struct DummyCloseServer {
     config: DummyCloseServerConfig,
@@ -51,14 +42,16 @@ impl DummyCloseServer {
         }
     }
 
-    pub(crate) fn prepare_initial(config: DummyCloseServerConfig) -> anyhow::Result<ArcServer> {
+    pub(crate) fn prepare_initial(
+        config: DummyCloseServerConfig,
+    ) -> anyhow::Result<ArcServerInternal> {
         let listen_stats = Arc::new(ListenStats::new(config.name()));
 
         let server = DummyCloseServer::new(config, listen_stats);
         Ok(Arc::new(server))
     }
 
-    pub(crate) fn prepare_default(name: &MetricsName) -> ArcServer {
+    pub(crate) fn prepare_default(name: &NodeName) -> ArcServerInternal {
         let config = DummyCloseServerConfig::new(name, None);
         let listen_stats = Arc::new(ListenStats::new(name));
         Arc::new(DummyCloseServer::new(config, listen_stats))
@@ -73,8 +66,8 @@ impl DummyCloseServer {
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
-                self.config.server_type(),
-                config.server_type()
+                self.config.r#type(),
+                config.r#type()
             ))
         }
     }
@@ -85,11 +78,7 @@ impl ServerInternal for DummyCloseServer {
         AnyServerConfig::DummyClose(self.config.clone())
     }
 
-    fn _update_config_in_place(&self, _flags: u64, _config: AnyServerConfig) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn _depend_on_server(&self, _name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, _name: &NodeName) -> bool {
         false
     }
 
@@ -98,19 +87,27 @@ impl ServerInternal for DummyCloseServer {
 
     fn _update_next_servers_in_place(&self) {}
 
-    fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyServerConfig,
+        _registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServerInternal> {
         Err(anyhow!(
             "this {} server doesn't support reload with old notifier",
-            config.server_type()
+            config.r#type()
         ))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyServerConfig,
+        _registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServerInternal> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }
 
-    fn _start_runtime(&self, _server: &ArcServer) -> anyhow::Result<()> {
+    fn _start_runtime(&self, _server: ArcServer) -> anyhow::Result<()> {
         Ok(())
     }
 
@@ -120,12 +117,12 @@ impl ServerInternal for DummyCloseServer {
 }
 
 impl BaseServer for DummyCloseServer {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
-    fn server_type(&self) -> &'static str {
-        self.config.server_type()
+    fn r#type(&self) -> &'static str {
+        self.config.r#type()
     }
 
     fn version(&self) -> usize {
@@ -159,5 +156,5 @@ impl Server for DummyCloseServer {
         &self.quit_policy
     }
 
-    fn update_backend(&self, _name: &MetricsName) {}
+    fn update_backend(&self, _name: &NodeName) {}
 }

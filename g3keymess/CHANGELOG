@@ -1,4 +1,36 @@
 
+v0.5.0:
+ - Compatibility: update MSRV to 1.88.0
+
+v0.4.4:
+ - Feature: allow to set tcp keepalive on tcp listen socket in server
+
+v0.4.3:
+ - Feature: restore support for aws-lc
+ - Feature: add support for aws-lc-fips
+ - Deprecated: the following config options are deprecated:
+     - emit_duration in statsd config, use emit_interval instead
+
+v0.4.2:
+ - Feature: allow to read symlink files on local store dir
+ - Feature: allow to retry register on startup
+ - Feature: add cli options to allow quit on panic
+ - Feature: allow to enable tls usage in server
+ - Feature: add more fields to request log
+
+v0.4.1:
+ - Feature: allow to set openssl async job size in worker config
+ - Feature: allow to set worker CPU affinity from environment variables
+
+v0.4.0:
+ - Feature: add worker support, and also allow to use multiple threads in main runtime
+ - Compatibility: drop AWS-LC support to reduce outdated dependencies
+
+v0.3.5:
+ - Feature: emit tokio runtime metrics
+ - Feature: allow to send event logs to stdout
+ - Optimization: more robust daemon hot restart
+
 v0.3.4:
  - Feature: add more error types to request log
  - Feature: emit request duration stats

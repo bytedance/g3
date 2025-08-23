@@ -1,20 +1,8 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use std::future::Future;
 use std::mem;
 use std::sync::Arc;
 use std::time::Duration;
@@ -29,7 +17,7 @@ use g3_types::stats::ConnectionPoolStats;
 use super::KeylessForwardRequest;
 
 pub(crate) trait KeylessUpstreamConnection {
-    fn run(self) -> impl Future<Output = anyhow::Result<()>> + Send;
+    fn run(self, idle_timeout: Duration) -> impl Future<Output = anyhow::Result<()>> + Send;
 }
 
 #[async_trait]
@@ -37,8 +25,9 @@ pub(crate) trait KeylessUpstreamConnect {
     type Connection: KeylessUpstreamConnection;
     async fn new_connection(
         &self,
-        req_receiver: flume::Receiver<KeylessForwardRequest>,
+        req_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
         quit_notifier: broadcast::Receiver<()>,
+        idle_timeout: Duration,
     ) -> anyhow::Result<Self::Connection>;
 }
 pub(crate) type ArcKeylessUpstreamConnect<C> =
@@ -55,6 +44,7 @@ enum KeylessPoolCmd {
 #[derive(Clone)]
 pub(crate) struct KeylessConnectionPoolHandle {
     cmd_sender: mpsc::Sender<KeylessPoolCmd>,
+    stats: Arc<ConnectionPoolStats>,
 }
 
 impl KeylessConnectionPoolHandle {
@@ -69,6 +59,10 @@ impl KeylessConnectionPoolHandle {
     pub(crate) fn request_new_connection(&self) {
         let _ = self.cmd_sender.try_send(KeylessPoolCmd::NewConnection);
     }
+
+    pub(crate) fn alive_connection(&self) -> u64 {
+        self.stats.alive_count() as u64
+    }
 }
 
 pub(crate) struct KeylessConnectionPool<C: KeylessUpstreamConnection> {
@@ -76,7 +70,7 @@ pub(crate) struct KeylessConnectionPool<C: KeylessUpstreamConnection> {
     connector: ArcKeylessUpstreamConnect<C>,
     stats: Arc<ConnectionPoolStats>,
 
-    keyless_request_receiver: flume::Receiver<KeylessForwardRequest>,
+    keyless_request_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
 
     connection_id: u64,
     connection_close_receiver: mpsc::Receiver<u64>,
@@ -93,7 +87,7 @@ where
     fn new(
         config: ConnectionPoolConfig,
         connector: ArcKeylessUpstreamConnect<C>,
-        keyless_request_receiver: flume::Receiver<KeylessForwardRequest>,
+        keyless_request_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
         graceful_close_wait: Duration,
     ) -> Self {
         let (connection_close_sender, connection_close_receiver) = mpsc::channel(1);
@@ -114,7 +108,7 @@ where
     pub(crate) fn spawn(
         config: ConnectionPoolConfig,
         connector: ArcKeylessUpstreamConnect<C>,
-        keyless_request_receiver: flume::Receiver<KeylessForwardRequest>,
+        keyless_request_receiver: kanal::AsyncReceiver<KeylessForwardRequest>,
         graceful_close_wait: Duration,
     ) -> KeylessConnectionPoolHandle {
         let pool = KeylessConnectionPool::new(
@@ -123,11 +117,12 @@ where
             keyless_request_receiver,
             graceful_close_wait,
         );
+        let stats = pool.stats.clone();
         let (cmd_sender, cmd_receiver) = mpsc::channel(CMD_CHANNEL_SIZE);
         tokio::spawn(async move {
             pool.into_running(cmd_receiver).await;
         });
-        KeylessConnectionPoolHandle { cmd_sender }
+        KeylessConnectionPoolHandle { cmd_sender, stats }
     }
 
     async fn into_running(mut self, mut cmd_receiver: mpsc::Receiver<KeylessPoolCmd>) {
@@ -190,22 +185,27 @@ where
         let connection_close_sender = self.connection_close_sender.clone();
         let connection_quit_notifier = self.connection_quit_notifier.subscribe();
         let pool_stats = self.stats.clone();
-        pool_stats.add_connection();
+        let idle_timeout = self.config.idle_timeout();
         tokio::spawn(async move {
+            let alive_guard = pool_stats.add_connection();
             match connector
-                .new_connection(keyless_request_receiver, connection_quit_notifier)
+                .new_connection(
+                    keyless_request_receiver,
+                    connection_quit_notifier,
+                    idle_timeout,
+                )
                 .await
             {
                 Ok(connection) => {
-                    if let Err(e) = connection.run().await {
+                    if let Err(e) = connection.run(idle_timeout).await {
                         debug!("connection closed with error: {e}");
                     }
-                    pool_stats.del_connection();
+                    drop(alive_guard);
                     let _ = connection_close_sender.try_send(connection_id);
                 }
                 Err(e) => {
                     debug!("failed to create new connection: {e}");
-                    pool_stats.del_connection();
+                    drop(alive_guard);
                 }
             }
         });

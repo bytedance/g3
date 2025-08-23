@@ -1,5 +1,7 @@
-[![minimum rustc: 1.80](https://img.shields.io/badge/minimum%20rustc-1.80-green?logo=rust)](https://www.whatrustisit.com)
+[![minimum rustc: 1.88](https://img.shields.io/badge/minimum%20rustc-1.88-green?logo=rust)](https://www.whatrustisit.com)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE)
+[![codecov](https://codecov.io/gh/bytedance/g3/graph/badge.svg?token=TSQCA4ALQM)](https://codecov.io/gh/bytedance/g3)
+[![docs](https://readthedocs.org/projects/g3-project/badge)](https://g3-project.readthedocs.io/)
 
 # G3 Project
 
@@ -8,15 +10,18 @@
 ## About
 
 This is the project we used to build enterprise-oriented generic proxy solutions,
-including but not limited to proxy / reverse proxy (WIP) / load balancer (TBD) / nat traversal (TBD).
+including but not limited to proxy / reverse proxy (WIP) / load balancer (TBD) / NAT traversal (WIP).
 
-## Components
+## Applications
 
-G3 Project is made up of many components.
+The G3 project consists of many applications, each of which has a separate subdirectory containing its own code,
+documentation, etc.
 
-The project-level documents resides in the *doc* subdirectory, and you should see the links below for the important
-ones.
-Each component will have its own documents in its *doc* subdirectory.
+In addition to the application directories, there are some public directories:
+
+- [doc](doc) Contains project-level documentation.
+- [sphinx](sphinx) is used to generate HTML reference documents for each application.
+- [scripts](scripts) Contains various auxiliary scripts, including coverage testing, packaging scripts, etc.
 
 ### g3proxy
 
@@ -27,10 +32,11 @@ as we have basic support built in.
 
 - Async Rust: fast and reliable
 - Http1 / Socks5 forward proxy protocol, SNI Proxy and TCP TPROXY
+- Support easy-proxy and masque/http Well-Known URI
 - Proxy Chaining, with support for dynamic selection of upstream proxies
 - Plenty of egress route selection methods, with support for custom egress selection agent
 - TCP/TLS Stream Proxy, Basic HTTP Reverse Proxy
-- TLS over OpenSSL or BoringSSL or AWS-LC or Tongsuo, and even rustls
+- TLS over OpenSSL / BoringSSL / AWS-LC / AWS-LC-FIPS / Tongsuo, and even rustls
 - TLS MITM interception, decrypted traffic dump, HTTP1/HTTP2/IMAP/SMTP interception
 - ICAP adaptation for HTTP1/HTTP2/IMAP/SMTP, can integrate seamlessly with 3rd-party security products
 - Graceful reload
@@ -41,38 +47,56 @@ as we have basic support built in.
 - Rich monitoring metrics, at ingress / egress / user / user-site level
 - Support for a variety of observability tools
 
-See [g3proxy](g3proxy/README.md) for detailed introduction.
+[README](g3proxy/README.md) | [User Guide](g3proxy/UserGuide.en_US.md) |
+[Reference Doc](https://g3-project.readthedocs.io/projects/g3proxy/en/latest/)
+
+### g3statsd
+
+A StatsD compatible stats aggregator.
+
+[README](g3statsd/README.md) | [Reference Doc](https://g3-project.readthedocs.io/projects/g3statsd/en/latest/)
 
 ### g3tiles
 
 A work in progress reverse proxy solution.
 
+[Reference Doc](https://g3-project.readthedocs.io/projects/g3tiles/en/latest/)
+
 ### g3bench
 
 A benchmark tool that supports HTTP 1.x, HTTP 2, HTTP 3, TLS Handshake, DNS and Cloudflare Keyless.
 
-See [g3bench](g3bench/README.md) for detailed introduction.
+[README](g3bench/README.md)
 
 ### g3mkcert
 
-A tool to make root CA / intermediate CA / TLS server / TLS client certificates.
+A tool to make root CA / intermediate CA / TLS server / TLS client / TLCP server / TLCP client certificates.
+
+[README](g3mkcert/README.md)
 
 ### g3fcgen
 
 Fake certificate generator for g3proxy.
 
+[README](g3fcgen/README.md)
+
 ### g3iploc
 
 IP location lookup service for g3proxy GeoIP support.
+
+[README](g3iploc/README.md)
 
 ### g3keymess
 
 A simple implementation of Cloudflare keyless server.
 
+[README](g3keymess/README.md) |
+[Reference Doc](https://g3-project.readthedocs.io/projects/g3keymess/en/latest/)
+
 ## Target Platform
 
-Only Linux is fully supported yet. The code will compile on FreeBSD, NetBSD, macOS and Windows, but we haven't tested it
-there.
+Only Linux is fully supported yet. The code will compile on FreeBSD, NetBSD, OpenBSD, macOS and Windows, but we haven't
+tested it there.
 
 Feel free to open PRs to add support for other platforms.
 
@@ -84,84 +108,12 @@ Follow [Dev-Setup](doc/dev-setup.md).
 
 Follow [Standards](doc/standards.md).
 
-## Release and Packaging
+## Build, Package and Deploy
 
-We will set tags for each release of each component in the form *\<name\>-v\<version\>*.
-You can use these tags to generate source tarballs.
-And we have added deb and rpm package files for each component that is ready for distribution.
+Pre-Built packages can be found at [cloudsmith](https://cloudsmith.io/~g3-oqh/repos/).
 
-If you want to do a release build:
-
-1. generate a release tarball
-
-   ```shell
-   # if we have a tag <name>-v<version>
-   ./scripts/release/build_tarball.sh <name>-v<version>
-   # if no tags usable, you need to specify the git revision (e.g. HEAD)
-   ./scripts/release/build_tarball.sh <name> <rev>
-   ```
-
-   All vendor sources will be added to the source tarball, so you can save the source tarball and build it offline at
-   anywhere that has the compiler and dependencies installed.
-
-2. build the package
-
-   For deb package:
-   ```shell
-   tar xf <name>-<version>.tar.xz
-   cd <name>-<version>
-   ./build_deb_from_tar.sh
-   ```
-
-   For rpm package:
-   ```shell
-   rpmbuild -ta ./<name>-<version>.tar.xz
-   # if failed, you can run the following commands manually:
-   tar xvf <name>-<version>.tar.xz ./<name>-<version>/<name>.spec
-   cp <name>-<version>.tar.xz ~/rpmbuild/SOURCES/
-   rpmbuild -ba ./<name>-<version>/<name>.spec
-   ```
-
-If you want to build a package directly from the git repo:
-
-- For deb package:
-
-  ```shell
-  ./build_deb_from_git.sh <name>
-  ```
-
-- For rpm package:
-
-  ```shell
-  ./build_rpm_from_git.sh <name>
-  ```
-
-### Pre-Built Packages
-
-It is recommended to build packages yourself if you want to install them in a production environment.
-
-For testing purpose, we have built and uploaded some packages to
-[cloudsmith](https://cloudsmith.io/~g3-oqh/repos/), you can find installation instructions there.
-
-### Build Docker Image
-
-You can find Dockerfile(s) under *docker* folder of each component. The build command will be like
-
-```shell
-# run this in the source root dir
-docker build -f <component>/docker/debian.Dockerfile . -t <component>:<tag>
-# build without the source code
-docker build -f <component>/docker/debian.Dockerfile github.com/bytedance/g3 -t <component>:<tag>
-# if you have a source tarball, you can also use the URL of that tarball
-```
-
-### Static Linking
-
-See [Static Linking](doc/static-linking.md).
-
-### Build with different OpenSSL variants
-
-See [OpenSSL Variants](doc/openssl-variants.md).
+But it is still recommended to build packages yourself, see [Build and Package](doc/build_and_package.md) for more
+details.
 
 ### LTS Version
 
@@ -186,3 +138,9 @@ Please do **not** create a public GitHub issue.
 ## License
 
 This project is licensed under the [Apache-2.0 License](LICENSE).
+
+## 404Starlink
+
+<img src="https://github.com/knownsec/404StarLink/raw/master/Images/logo.png" width="30%">
+
+[g3proxy](g3proxy) has joined [404Starlink](https://github.com/knownsec/404StarLink)

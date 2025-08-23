@@ -1,25 +1,14 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
 use std::path::PathBuf;
 
 use anyhow::anyhow;
-use capnp_rpc::{rpc_twoparty_capnp, twoparty, RpcSystem};
-use clap::{value_parser, Arg, ArgMatches, Command, ValueHint};
+use capnp_rpc::{RpcSystem, rpc_twoparty_capnp, twoparty};
+use clap::{Arg, ArgMatches, Command, ValueHint, value_parser};
 use clap_complete::Shell;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
@@ -84,7 +73,7 @@ impl DaemonCtlArgs {
 
     pub async fn connect_rpc<T>(
         &self,
-        daemon_name: &'static str,
+        daemon_name: &str,
     ) -> anyhow::Result<(RpcSystem<rpc_twoparty_capnp::Side>, T)>
     where
         T: capnp::capability::FromClientHook,
@@ -108,8 +97,8 @@ impl DaemonCtlArgs {
     #[cfg(unix)]
     async fn connect_to_daemon(
         &self,
-        daemon_name: &'static str,
-    ) -> anyhow::Result<impl AsyncRead + AsyncWrite> {
+        daemon_name: &str,
+    ) -> anyhow::Result<impl AsyncRead + AsyncWrite + use<>> {
         let control_dir = self.control_dir.clone().unwrap_or_else(|| {
             let mut sys_ctl_dir = PathBuf::from("/run");
             sys_ctl_dir.push(daemon_name);
@@ -141,8 +130,8 @@ impl DaemonCtlArgs {
     #[cfg(windows)]
     async fn connect_to_daemon(
         &self,
-        daemon_name: &'static str,
-    ) -> anyhow::Result<impl AsyncRead + AsyncWrite> {
+        daemon_name: &str,
+    ) -> anyhow::Result<impl AsyncRead + AsyncWrite + use<>> {
         let pipe_name = if self.pid != 0 {
             format!(r"\\.\pipe\{daemon_name}@{}:{}", self.daemon_group, self.pid)
         } else {

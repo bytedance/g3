@@ -1,49 +1,80 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use chrono::{DateTime, Utc};
-use slog::{slog_info, Logger};
+use openssl::pkey::{PKey, Private};
+use slog::{Logger, slog_info};
 use tokio::io::AsyncRead;
-use tokio::sync::{broadcast, Semaphore};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore, broadcast};
 use tokio::time::Instant;
 use uuid::Uuid;
 
+use g3_daemon::server::ClientConnectionInfo;
 use g3_histogram::HistogramRecorder;
 use g3_slog_types::{LtDateTime, LtUuid};
+use g3_std_ext::time::DurationExt;
 
 use crate::config::server::KeyServerConfig;
-use crate::protocol::{KeylessAction, KeylessErrorResponse, KeylessRequest};
+use crate::protocol::{KeylessAction, KeylessErrorResponse, KeylessRequest, KeylessResponse};
 use crate::serve::{
-    KeyServerDurationRecorder, KeyServerRequestStats, KeyServerStats, ServerReloadCommand,
-    ServerTaskError,
+    KeyServerAliveTaskGuard, KeyServerDurationRecorder, KeyServerRequestStats, KeyServerStats,
+    ServerReloadCommand, ServerTaskError,
 };
 
-#[cfg(feature = "openssl-async-job")]
 mod multiplex;
 mod simplex;
 
-struct WrappedKeylessRequest {
-    inner: KeylessRequest,
-    stats: Arc<KeyServerRequestStats>,
-    duration_recorder: Arc<HistogramRecorder<u64>>,
+#[derive(Clone)]
+pub(crate) struct RequestProcessContext {
+    pub(crate) msg_id: u32,
     create_time: Instant,
+    pub(crate) create_datetime: DateTime<Utc>,
+    duration_recorder: Arc<HistogramRecorder<u64>>,
+}
+
+impl RequestProcessContext {
+    fn new(msg_id: u32, duration_recorder: Arc<HistogramRecorder<u64>>) -> Self {
+        RequestProcessContext {
+            msg_id,
+            create_time: Instant::now(),
+            create_datetime: Utc::now(),
+            duration_recorder,
+        }
+    }
+
+    fn record_duration_stats(&self) {
+        let _ = self
+            .duration_recorder
+            .record(self.duration().as_nanos_u64());
+    }
+
+    pub(crate) fn duration(&self) -> Duration {
+        self.create_time.elapsed()
+    }
+}
+
+pub(crate) struct WrappedKeylessResponse {
+    inner: KeylessResponse,
+    ctx: RequestProcessContext,
+}
+
+impl WrappedKeylessResponse {
+    pub(crate) fn new(inner: KeylessResponse, ctx: RequestProcessContext) -> Self {
+        WrappedKeylessResponse { inner, ctx }
+    }
+}
+
+pub(crate) struct WrappedKeylessRequest {
+    pub(crate) inner: KeylessRequest,
+    pub(crate) stats: Arc<KeyServerRequestStats>,
+    ctx: RequestProcessContext,
     err_rsp: Option<KeylessErrorResponse>,
+    server_sem_permit: Option<OwnedSemaphorePermit>,
 }
 
 impl WrappedKeylessRequest {
@@ -52,10 +83,7 @@ impl WrappedKeylessRequest {
         server_stats: &Arc<KeyServerStats>,
         duration_recorder: &KeyServerDurationRecorder,
     ) -> Self {
-        let err_rsp = match req.verify_opcode() {
-            Ok(_) => None,
-            Err(r) => Some(r),
-        };
+        let err_rsp = req.verify_opcode().err();
         let (stats, duration_recorder) = match req.action {
             KeylessAction::Ping => (
                 server_stats.ping_pong.clone(),
@@ -85,17 +113,35 @@ impl WrappedKeylessRequest {
         };
         stats.add_total();
         stats.inc_alive();
+        let ctx = RequestProcessContext::new(req.id, duration_recorder);
         WrappedKeylessRequest {
             inner: req,
             stats,
-            duration_recorder,
-            create_time: Instant::now(),
+            ctx,
             err_rsp,
+            server_sem_permit: None,
         }
     }
 
     fn take_err_rsp(&mut self) -> Option<KeylessErrorResponse> {
         self.err_rsp.take()
+    }
+
+    pub(crate) fn process_by_openssl(&self, key: &PKey<Private>) -> KeylessResponse {
+        match self.inner.process(key) {
+            Ok(d) => {
+                self.stats.add_passed();
+                KeylessResponse::Data(d)
+            }
+            Err(e) => {
+                self.stats.add_by_error_code(e.error_code());
+                KeylessResponse::Error(e)
+            }
+        }
+    }
+
+    pub(crate) fn build_response(&self, rsp: KeylessResponse) -> WrappedKeylessResponse {
+        WrappedKeylessResponse::new(rsp, self.ctx.clone())
     }
 }
 
@@ -109,10 +155,9 @@ pub(crate) struct KeylessTaskContext {
     pub(crate) server_config: Arc<KeyServerConfig>,
     pub(crate) server_stats: Arc<KeyServerStats>,
     pub(crate) duration_recorder: KeyServerDurationRecorder,
-    pub(crate) peer_addr: SocketAddr,
-    pub(crate) local_addr: SocketAddr,
-    pub(crate) task_logger: Logger,
-    pub(crate) request_logger: Logger,
+    pub(crate) cc_info: ClientConnectionInfo,
+    pub(crate) task_logger: Option<Logger>,
+    pub(crate) request_logger: Option<Logger>,
     pub(crate) reload_notifier: broadcast::Receiver<ServerReloadCommand>,
     pub(crate) concurrency_limit: Option<Arc<Semaphore>>,
 }
@@ -122,27 +167,35 @@ pub(crate) struct KeylessTask {
     ctx: KeylessTaskContext,
     started: DateTime<Utc>,
     buf: Vec<u8>,
-}
-
-impl Drop for KeylessTask {
-    fn drop(&mut self) {
-        self.ctx.server_stats.dec_alive_task();
-    }
+    #[cfg(feature = "openssl-async-job")]
+    allow_openssl_async_job: bool,
+    allow_dispatch: bool,
+    _alive_guard: KeyServerAliveTaskGuard,
 }
 
 impl KeylessTask {
     pub(crate) fn new(ctx: KeylessTaskContext) -> Self {
-        ctx.server_stats.add_task();
-        ctx.server_stats.inc_alive_task();
-
+        let alive_guard = ctx.server_stats.add_task();
         let started = Utc::now();
-
         KeylessTask {
             id: g3_daemon::server::task::generate_uuid(&started),
             ctx,
             started,
             buf: Vec::with_capacity(crate::protocol::MESSAGE_PADDED_LENGTH + 2),
+            #[cfg(feature = "openssl-async-job")]
+            allow_openssl_async_job: false,
+            allow_dispatch: false,
+            _alive_guard: alive_guard,
         }
+    }
+
+    pub(crate) fn set_allow_dispatch(&mut self) {
+        self.allow_dispatch = true;
+    }
+
+    #[cfg(feature = "openssl-async-job")]
+    pub(crate) fn set_allow_openssl_async_job(&mut self) {
+        self.allow_openssl_async_job = true;
     }
 
     async fn timed_read_request<R>(
@@ -173,12 +226,14 @@ impl KeylessTask {
         if e.ignore_log() {
             return;
         }
-        slog_info!(self.ctx.task_logger, "{}", e;
-            "task_id" => LtUuid(&self.id),
-            "start_at" => LtDateTime(&self.started),
-            "server_addr" => self.ctx.local_addr,
-            "client_addr" => self.ctx.peer_addr,
-        );
+        if let Some(logger) = &self.ctx.task_logger {
+            slog_info!(logger, "{}", e;
+                "task_id" => LtUuid(&self.id),
+                "start_at" => LtDateTime(&self.started),
+                "server_addr" => self.ctx.cc_info.server_addr(),
+                "client_addr" => self.ctx.cc_info.client_addr(),
+            );
+        }
     }
 
     fn log_task_ok(&self) {

@@ -1,29 +1,18 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::HashSet;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use log::{debug, warn};
 use tokio::sync::Mutex;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
-use super::{registry, ArcBackend};
+use super::{ArcBackend, registry};
 use crate::config::backend::{AnyBackendConfig, BackendConfigDiffAction};
 
 use super::dummy_close::DummyCloseBackend;
@@ -37,7 +26,7 @@ static BACKEND_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 pub async fn load_all() -> anyhow::Result<()> {
     let _guard = BACKEND_OPS_LOCK.lock().await;
 
-    let mut new_names = HashSet::<MetricsName>::new();
+    let mut new_names = HashSet::<NodeName>::new();
 
     let all_config = crate::config::backend::get_all();
     for config in all_config {
@@ -45,12 +34,12 @@ pub async fn load_all() -> anyhow::Result<()> {
         new_names.insert(name.clone());
         match registry::get_config(name) {
             Some(old) => {
-                debug!("reloading backend {name}({})", config.backend_type());
+                debug!("reloading backend {name}({})", config.r#type());
                 reload_unlocked(old, config.as_ref().clone()).await?;
                 debug!("backend {name} reload OK");
             }
             None => {
-                debug!("creating backend {name}({})", config.backend_type());
+                debug!("creating backend {name}({})", config.r#type());
                 spawn_new_unlocked(config.as_ref().clone()).await?;
                 debug!("backend {name} create OK");
             }
@@ -69,8 +58,15 @@ pub async fn load_all() -> anyhow::Result<()> {
     Ok(())
 }
 
+pub(crate) fn get_backend(name: &NodeName) -> anyhow::Result<ArcBackend> {
+    match registry::get(name) {
+        Some(backend) => Ok(backend),
+        None => Err(anyhow!("no backend named {name} found")),
+    }
+}
+
 pub(crate) async fn reload(
-    name: &MetricsName,
+    name: &NodeName,
     position: Option<YamlDocPosition>,
 ) -> anyhow::Result<()> {
     let _guard = BACKEND_OPS_LOCK.lock().await;
@@ -107,14 +103,14 @@ pub(crate) async fn reload(
 
     debug!(
         "reloading backend {name}({}) from position {position}",
-        config.backend_type()
+        config.r#type()
     );
     reload_unlocked(old_config, config).await?;
     debug!("backend {name} reload OK");
     Ok(())
 }
 
-pub(crate) async fn update_dependency_to_discover(discover: &MetricsName, status: &str) {
+pub(crate) async fn update_dependency_to_discover(discover: &NodeName, status: &str) {
     let _guard = BACKEND_OPS_LOCK.lock().await;
 
     let mut backends = Vec::<ArcBackend>::new();
@@ -134,7 +130,7 @@ pub(crate) async fn update_dependency_to_discover(discover: &MetricsName, status
         let name = backend.name();
         debug!("backend {name}: will update discover {discover}");
         if let Err(e) = backend.update_discover() {
-            warn!("failed to update discover {discover} for backend {name}: {e:?}",);
+            warn!("failed to update discover {discover} for backend {name}: {e:?}");
         }
     }
 }
@@ -162,10 +158,10 @@ async fn reload_unlocked(old: AnyBackendConfig, new: AnyBackendConfig) -> anyhow
 }
 
 async fn reload_existed_unlocked(
-    name: &MetricsName,
+    name: &NodeName,
     new: Option<AnyBackendConfig>,
 ) -> anyhow::Result<()> {
-    registry::reload_existed(name, new).await?;
+    registry::reload_existed(name, new)?;
     crate::serve::update_dependency_to_backend(name, "reloaded").await;
     Ok(())
 }

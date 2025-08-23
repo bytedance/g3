@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
@@ -26,16 +15,18 @@ use serde_json::Value;
 use tokio::time::Instant;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
-use g3_types::net::{EgressInfo, Host, OpensslClientConfig, TcpSockSpeedLimitConfig};
+use g3_types::net::{EgressInfo, TcpSockSpeedLimitConfig};
 
 use super::{ProxyFloatEscaper, ProxyFloatEscaperConfig, ProxyFloatEscaperStats};
 use crate::module::http_forward::{ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection};
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectResult, UdpConnectTaskNotes,
+    ArcUdpConnectTaskRemoteStats, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
 };
 use crate::serve::ServerTaskNotes;
 
@@ -44,6 +35,7 @@ mod json;
 mod http;
 mod https;
 mod socks5;
+mod socks5s;
 
 const CONFIG_KEY_PEER_TYPE: &str = "type";
 const CONFIG_KEY_PEER_ID: &str = "id";
@@ -92,6 +84,7 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
     async fn tcp_setup_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
@@ -100,16 +93,16 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
     async fn tls_setup_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &OpensslClientConfig,
-        tls_name: &Host,
     ) -> TcpConnectResult;
 
     async fn new_http_forward_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
@@ -118,34 +111,35 @@ pub(super) trait NextProxyPeer: NextProxyPeerInternal {
     async fn new_https_forward_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &TlsConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
         task_stats: ArcHttpForwardTaskRemoteStats,
-        tls_config: &OpensslClientConfig,
-        tls_name: &Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError>;
 
     async fn udp_setup_connection(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &UdpConnectTaskConf<'_>,
         udp_notes: &mut UdpConnectTaskNotes,
-        _task_notes: &ServerTaskNotes,
-        _task_stats: ArcUdpConnectTaskRemoteStats,
+        task_notes: &ServerTaskNotes,
+        task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult;
 
     async fn udp_setup_relay(
         &self,
         escaper: &ProxyFloatEscaper,
+        task_conf: &UdpRelayTaskConf<'_>,
         udp_notes: &mut UdpRelayTaskNotes,
-        _task_notes: &ServerTaskNotes,
-        _task_stats: ArcUdpRelayTaskRemoteStats,
+        task_notes: &ServerTaskNotes,
+        task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult;
 }
 
 pub(super) type ArcNextProxyPeer = Arc<dyn NextProxyPeer + Send + Sync>;
 
 pub(super) fn parse_peer(
-    escaper_config: &Arc<ProxyFloatEscaperConfig>,
+    escaper_config: &ProxyFloatEscaperConfig,
     record: &Value,
 ) -> anyhow::Result<Option<ArcNextProxyPeer>> {
     let instant_now = Instant::now();
@@ -155,7 +149,7 @@ pub(super) fn parse_peer(
 }
 
 pub(super) fn parse_peers(
-    escaper_config: &Arc<ProxyFloatEscaperConfig>,
+    escaper_config: &ProxyFloatEscaperConfig,
     records: &[Value],
 ) -> anyhow::Result<PeerSet> {
     let mut peer_set = PeerSet::default();
@@ -198,7 +192,7 @@ impl PeerSet {
             .iter()
             .chain(self.named.values())
             .filter(|p| !p.is_expired())
-            .choose(&mut rand::thread_rng())
+            .choose(&mut rand::rng())
             .cloned()
     }
 

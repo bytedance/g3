@@ -1,30 +1,18 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::future::Future;
 use std::io;
 use std::pin::Pin;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
 
 use bytes::{Buf, Bytes, BytesMut};
 use h2::SendStream;
 use thiserror::Error;
 use tokio::io::{AsyncRead, ReadBuf};
 
-use g3_io_ext::LimitedCopyConfig;
+use g3_io_ext::StreamCopyConfig;
 
 #[derive(Debug, Error)]
 pub enum H2StreamBodyEncodeTransferError {
@@ -32,6 +20,8 @@ pub enum H2StreamBodyEncodeTransferError {
     ReadError(io::Error),
     #[error("send data failed: {0}")]
     SendDataFailed(h2::Error),
+    #[error("sender not in send state")]
+    SenderNotInSendState,
 }
 
 struct H2BodyEncodeTransferInternal {
@@ -42,7 +32,7 @@ struct H2BodyEncodeTransferInternal {
 }
 
 impl H2BodyEncodeTransferInternal {
-    fn new(copy_config: &LimitedCopyConfig) -> Self {
+    fn new(copy_config: &StreamCopyConfig) -> Self {
         H2BodyEncodeTransferInternal {
             buffer_size: copy_config.buffer_size(),
             yield_size: copy_config.yield_size(),
@@ -106,8 +96,10 @@ impl H2BodyEncodeTransferInternal {
                         )));
                     }
                     Poll::Ready(None) => {
-                        // only possible if the reserve capacity is 0 or not set
-                        unreachable!()
+                        self.chunk = Some(chunk);
+                        return Poll::Ready(Err(
+                            H2StreamBodyEncodeTransferError::SenderNotInSendState,
+                        ));
                     }
                     Poll::Pending => {
                         self.chunk = Some(chunk);
@@ -142,7 +134,7 @@ impl<'a, R> H2BodyEncodeTransfer<'a, R> {
     pub fn new(
         reader: &'a mut R,
         send_stream: &'a mut SendStream<Bytes>,
-        copy_config: &LimitedCopyConfig,
+        copy_config: &StreamCopyConfig,
     ) -> Self {
         H2BodyEncodeTransfer {
             reader,
@@ -174,7 +166,7 @@ impl<'a, R> H2BodyEncodeTransfer<'a, R> {
     }
 }
 
-impl<'a, R> Future for H2BodyEncodeTransfer<'a, R>
+impl<R> Future for H2BodyEncodeTransfer<'_, R>
 where
     R: AsyncRead + Unpin,
 {
@@ -198,7 +190,7 @@ impl<'a, R> ROwnedH2BodyEncodeTransfer<'a, R> {
     pub fn new(
         reader: R,
         send_stream: &'a mut SendStream<Bytes>,
-        copy_config: &LimitedCopyConfig,
+        copy_config: &StreamCopyConfig,
     ) -> Self {
         ROwnedH2BodyEncodeTransfer {
             reader,
@@ -230,7 +222,7 @@ impl<'a, R> ROwnedH2BodyEncodeTransfer<'a, R> {
     }
 }
 
-impl<'a, R> Future for ROwnedH2BodyEncodeTransfer<'a, R>
+impl<R> Future for ROwnedH2BodyEncodeTransfer<'_, R>
 where
     R: AsyncRead + Unpin,
 {

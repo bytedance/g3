@@ -1,25 +1,15 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::path::Path;
 
-use anyhow::{anyhow, Context};
-use yaml_rust::{yaml, Yaml};
+use anyhow::{Context, anyhow};
+use yaml_rust::{Yaml, yaml};
 
-use g3_types::metrics::MetricsName;
+use g3_macros::AnyConfig;
+use g3_types::metrics::NodeName;
 use g3_yaml::{HybridParser, YamlDocPosition};
 
 pub(crate) mod dummy_close;
@@ -43,56 +33,24 @@ pub(crate) enum BackendConfigDiffAction {
 }
 
 pub(crate) trait BackendConfig {
-    fn name(&self) -> &MetricsName;
+    fn name(&self) -> &NodeName;
     fn position(&self) -> Option<YamlDocPosition>;
-    fn backend_type(&self) -> &'static str;
+    fn r#type(&self) -> &'static str;
 
     fn diff_action(&self, new: &AnyBackendConfig) -> BackendConfigDiffAction;
 }
 
-#[derive(Clone)]
+#[derive(Clone, AnyConfig)]
+#[def_fn(name, &NodeName)]
+#[def_fn(r#type, &'static str)]
+#[def_fn(position, Option<YamlDocPosition>)]
+#[def_fn(diff_action, &Self, BackendConfigDiffAction)]
 pub(crate) enum AnyBackendConfig {
     DummyClose(dummy_close::DummyCloseBackendConfig),
     StreamTcp(stream_tcp::StreamTcpBackendConfig),
     KeylessTcp(keyless_tcp::KeylessTcpBackendConfig),
     #[cfg(feature = "quic")]
     KeylessQuic(keyless_quic::KeylessQuicBackendConfig),
-}
-
-macro_rules! impl_transparent0 {
-    ($f:tt, $v:ty) => {
-        pub(crate) fn $f(&self) -> $v {
-            match self {
-                AnyBackendConfig::DummyClose(s) => s.$f(),
-                AnyBackendConfig::StreamTcp(s) => s.$f(),
-                AnyBackendConfig::KeylessTcp(s) => s.$f(),
-                #[cfg(feature = "quic")]
-                AnyBackendConfig::KeylessQuic(s) => s.$f(),
-            }
-        }
-    };
-}
-
-macro_rules! impl_transparent1 {
-    ($f:tt, $v:ty, $p:ty) => {
-        pub(crate) fn $f(&self, p: $p) -> $v {
-            match self {
-                AnyBackendConfig::DummyClose(s) => s.$f(p),
-                AnyBackendConfig::StreamTcp(s) => s.$f(p),
-                AnyBackendConfig::KeylessTcp(s) => s.$f(p),
-                #[cfg(feature = "quic")]
-                AnyBackendConfig::KeylessQuic(s) => s.$f(p),
-            }
-        }
-    };
-}
-
-impl AnyBackendConfig {
-    impl_transparent0!(name, &MetricsName);
-    impl_transparent0!(backend_type, &'static str);
-    impl_transparent0!(position, Option<YamlDocPosition>);
-
-    impl_transparent1!(diff_action, BackendConfigDiffAction, &Self);
 }
 
 pub(crate) fn load_all(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {

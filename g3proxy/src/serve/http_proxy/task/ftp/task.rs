@@ -1,35 +1,23 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::borrow::Cow;
 use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
 use http::Method;
-use log::debug;
-use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite};
-use tokio::time::Instant;
+use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_ftp_client::{
     FtpClient, FtpFileFacts, FtpFileListError, FtpFileRetrieveStartError, FtpFileStatError,
     FtpFileStoreStartError, FtpSessionOpenError,
 };
 use g3_http::server::HttpProxyClientRequest;
-use g3_http::{HttpBodyReader, HttpBodyType};
-use g3_io_ext::{GlobalLimitGroup, LimitedCopy, LimitedCopyError, SizedReader};
+use g3_http::{HttpBodyDecodeReader, HttpBodyReader, HttpBodyType};
+use g3_io_ext::{GlobalLimitGroup, SizedReader, StreamCopy, StreamCopyError};
 use g3_types::acl::AclAction;
 use g3_types::net::ProxyRequestType;
 
@@ -42,7 +30,7 @@ use crate::config::server::ServerConfig;
 use crate::log::task::ftp_over_http::TaskLogForFtpOverHttp;
 use crate::module::ftp_over_http::{BoxFtpRemoteConnection, FtpOverHttpTaskNotes, FtpRequestPath};
 use crate::module::http_forward::HttpProxyClientResponse;
-use crate::module::tcp_connect::TcpConnectError;
+use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf};
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
@@ -62,6 +50,17 @@ pub(crate) struct FtpOverHttpTask<'a> {
     task_notes: ServerTaskNotes,
     ftp_notes: FtpOverHttpTaskNotes,
     task_stats: Arc<FtpOverHttpTaskStats>,
+    max_idle_count: usize,
+    started: bool,
+}
+
+impl Drop for FtpOverHttpTask<'_> {
+    fn drop(&mut self) {
+        if self.started {
+            self.post_stop();
+            self.started = false;
+        }
+    }
 }
 
 impl<'a> FtpOverHttpTask<'a> {
@@ -75,6 +74,10 @@ impl<'a> FtpOverHttpTask<'a> {
             &req.upstream,
             ctx.server_config.log_uri_max_chars,
         );
+        let max_idle_count = task_notes
+            .user_ctx()
+            .and_then(|c| c.user().task_max_idle_count())
+            .unwrap_or(ctx.server_config.task_idle_max_count);
         FtpOverHttpTask {
             ctx: Arc::clone(ctx),
             req: &req.inner,
@@ -82,6 +85,8 @@ impl<'a> FtpOverHttpTask<'a> {
             task_notes,
             ftp_notes,
             task_stats: Arc::new(FtpOverHttpTaskStats::default()),
+            max_idle_count,
+            started: false,
         }
     }
 
@@ -90,24 +95,28 @@ impl<'a> FtpOverHttpTask<'a> {
         self.should_close
     }
 
-    fn get_log_context(&self) -> TaskLogForFtpOverHttp {
+    fn get_log_context(&self) -> Option<TaskLogForFtpOverHttp<'_>> {
+        let Some(logger) = &self.ctx.task_logger else {
+            return None;
+        };
+
         let http_user_agent = self
             .req
             .end_to_end_headers
             .get(http::header::USER_AGENT)
             .map(|v| v.to_str());
-        TaskLogForFtpOverHttp {
+        Some(TaskLogForFtpOverHttp {
+            logger,
             task_notes: &self.task_notes,
             ftp_notes: &self.ftp_notes,
             http_user_agent,
-            total_time: self.task_notes.time_elapsed(),
             client_rd_bytes: self.task_stats.http_client.read.get_bytes(),
             client_wr_bytes: self.task_stats.http_client.write.get_bytes(),
             ftp_c_rd_bytes: self.task_stats.ftp_server.control_read.get_bytes(),
             ftp_c_wr_bytes: self.task_stats.ftp_server.control_write.get_bytes(),
             ftp_d_rd_bytes: self.task_stats.ftp_server.transfer_read.get_bytes(),
             ftp_d_wr_bytes: self.task_stats.ftp_server.transfer_write.get_bytes(),
-        }
+        })
     }
 
     pub(crate) async fn run<CDR, CDW>(
@@ -119,26 +128,16 @@ impl<'a> FtpOverHttpTask<'a> {
         CDW: AsyncWrite + Send + Unpin,
     {
         self.pre_start();
-        match self.run_ftp(clt_r, clt_w).await {
-            Ok(()) => {
-                self.get_log_context()
-                    .log(&self.ctx.task_logger, &ServerTaskError::Finished);
-            }
-            Err(e) => {
-                self.get_log_context().log(&self.ctx.task_logger, &e);
-            }
+        let e = match self.run_ftp(clt_r, clt_w).await {
+            Ok(()) => ServerTaskError::Finished,
+            Err(e) => e,
+        };
+        if let Some(log_ctx) = self.get_log_context() {
+            log_ctx.log(e);
         }
-        self.pre_stop();
     }
 
-    fn pre_start(&self) {
-        debug!(
-            "HttpProxy/FtpOverHttp: new client from {} to {} server {}, using escaper {}",
-            self.ctx.client_addr(),
-            self.ctx.server_config.server_type(),
-            self.ctx.server_config.name(),
-            self.ctx.server_config.escaper
-        );
+    fn pre_start(&mut self) {
         self.ctx.server_stats.task_ftp_over_http.add_task();
         self.ctx.server_stats.task_ftp_over_http.inc_alive_task();
 
@@ -148,9 +147,17 @@ impl<'a> FtpOverHttpTask<'a> {
                 s.req_alive.add_ftp_over_http();
             });
         }
+
+        if self.ctx.server_config.flush_task_log_on_created
+            && let Some(log_ctx) = self.get_log_context()
+        {
+            log_ctx.log_created();
+        }
+
+        self.started = true;
     }
 
-    fn pre_stop(&mut self) {
+    fn post_stop(&mut self) {
         self.ctx.server_stats.task_ftp_over_http.dec_alive_task();
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
@@ -372,7 +379,7 @@ impl<'a> FtpOverHttpTask<'a> {
         CDW: AsyncWrite + Send + Unpin,
     {
         // TODO fetch ftp custom upstream keepalive config
-        let mut tcp_client_misc_opts = self.ctx.server_config.tcp_misc_opts;
+        let tcp_client_misc_opts;
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             let user_ctx = user_ctx.clone();
@@ -400,16 +407,23 @@ impl<'a> FtpOverHttpTask<'a> {
             let action = user_ctx.check_upstream(self.ftp_notes.upstream());
             self.handle_user_upstream_acl_action(action, clt_w).await?;
 
+            // server level dst host/port acl rules
+            let action = self.ctx.check_upstream(self.ftp_notes.upstream());
+            self.handle_server_upstream_acl_action(action, clt_w)
+                .await?;
+
             // TODO merge user custom upstream keepalive config
             tcp_client_misc_opts = user_ctx
                 .user_config()
-                .tcp_client_misc_opts(&tcp_client_misc_opts);
-        }
+                .tcp_client_misc_opts(&self.ctx.server_config.tcp_misc_opts);
+        } else {
+            // server level dst host/port acl rules
+            let action = self.ctx.check_upstream(self.ftp_notes.upstream());
+            self.handle_server_upstream_acl_action(action, clt_w)
+                .await?;
 
-        // server level dst host/port acl rules
-        let action = self.ctx.check_upstream(self.ftp_notes.upstream());
-        self.handle_server_upstream_acl_action(action, clt_w)
-            .await?;
+            tcp_client_misc_opts = Cow::Borrowed(&self.ctx.server_config.tcp_misc_opts);
+        }
 
         // set client side socket options
         self.ctx
@@ -453,15 +467,53 @@ impl<'a> FtpOverHttpTask<'a> {
                         .await;
                 }
 
-                if let Some(HttpBodyType::ContentLength(size)) = self.req.body_type() {
+                if let Some(body_type) = self.req.body_type() {
                     let mut ftp_client = self.setup_ftp_client(clt_w, false).await?;
                     self.login(&mut ftp_client, clt_w).await?;
 
-                    let body_reader = HttpBodyReader::new_fixed_length(clt_r, size);
-                    self.upload(&mut ftp_client, clt_w, body_reader, size).await
+                    match body_type {
+                        HttpBodyType::ContentLength(size) => {
+                            let mut body_reader = HttpBodyReader::new_fixed_length(clt_r, size);
+                            self.upload(&mut ftp_client, clt_w, &mut body_reader, Some(size))
+                                .await
+                        }
+                        HttpBodyType::ReadUntilEnd => {
+                            let mut body_reader = HttpBodyReader::new_read_until_end(clt_r);
+                            self.should_close = true;
+                            self.upload(&mut ftp_client, clt_w, &mut body_reader, None)
+                                .await
+                        }
+                        HttpBodyType::Chunked => {
+                            let mut body_reader = HttpBodyDecodeReader::new_chunked(
+                                clt_r,
+                                self.ctx.server_config.body_line_max_len,
+                            );
+                            self.upload(&mut ftp_client, clt_w, &mut body_reader, None)
+                                .await?;
+                            tokio::time::timeout(
+                                self.ctx.server_config.timeout.recv_req_header,
+                                body_reader.trailer(128),
+                            )
+                            .await
+                            .map_err(|_| {
+                                ServerTaskError::ClientAppTimeout(
+                                    "time out to read HTTP body trailer",
+                                )
+                            })?
+                            .map_err(|e| {
+                                ServerTaskError::ClientAppError(anyhow!(
+                                    "invalid chunked body: {e}"
+                                ))
+                            })?;
+                            if !body_reader.finished() {
+                                // there may be trailer headers
+                                self.should_close = true;
+                            }
+                            Ok(())
+                        }
+                    }
                 } else {
-                    self.reply_bad_request(clt_w, "allow body with fixed content-length only")
-                        .await
+                    self.reply_bad_request(clt_w, "no body found").await
                 }
             }
             _ => self.reply_unimplemented(clt_w).await,
@@ -606,14 +658,13 @@ impl<'a> FtpOverHttpTask<'a> {
     where
         W: AsyncWrite + Unpin,
     {
+        let task_conf = TcpConnectTaskConf {
+            upstream: self.ftp_notes.upstream(),
+        };
         let escaper_connect_context = self
             .ctx
             .escaper
-            .new_ftp_connect_context(
-                Arc::clone(&self.ctx.escaper),
-                &self.task_notes,
-                self.ftp_notes.upstream(),
-            )
+            .new_ftp_connect_context(Arc::clone(&self.ctx.escaper), &task_conf, &self.task_notes)
             .await;
         let ftp_connection_provider =
             HttpProxyFtpConnectionProvider::new(&self.task_stats, escaper_connect_context);
@@ -633,6 +684,13 @@ impl<'a> FtpOverHttpTask<'a> {
                     .connection_provider()
                     .connect_context()
                     .fetch_control_tcp_notes(&mut self.ftp_notes.control_tcp_notes);
+
+                if self.ctx.server_config.flush_task_log_on_connected
+                    && let Some(log_ctx) = self.get_log_context()
+                {
+                    log_ctx.log_connected();
+                }
+
                 Ok(client)
             }
             Err((e, ftp_connection_provider)) => {
@@ -717,7 +775,19 @@ impl<'a> FtpOverHttpTask<'a> {
         };
 
         match r {
-            Ok(_) => Ok(()),
+            Ok(_) => {
+                self.task_notes.stage = ServerTaskStage::Replying;
+                let mut rsp = HttpProxyClientResponse::ok(self.req.version, self.should_close);
+                self.enable_custom_header_for_local_reply(&mut rsp);
+                rsp.reply_ok_header(clt_w).await.map_err(|e| {
+                    self.should_close = true;
+                    ServerTaskError::ClientTcpWriteFailed(e)
+                })?;
+
+                self.task_notes.stage = ServerTaskStage::Finished;
+                self.ftp_notes.rsp_status = rsp.status();
+                Ok(())
+            }
             Err(FtpFileStatError::FileUnavailable) => self.reply_file_unavailable(clt_w).await,
             Err(FtpFileStatError::ServiceNotAvailable) => {
                 self.reply_service_unavailable(clt_w).await
@@ -852,10 +922,10 @@ impl<'a> FtpOverHttpTask<'a> {
                 Ok(())
             }
             Err(e) => {
-                if let FtpFileListError::LocalIoCallbackFailed = e {
-                    if let Some(io_err) = receiver.take_io_error() {
-                        return Err(ServerTaskError::ClientTcpWriteFailed(io_err));
-                    }
+                if let FtpFileListError::LocalIoCallbackFailed = e
+                    && let Some(io_err) = receiver.take_io_error()
+                {
+                    return Err(ServerTaskError::ClientTcpWriteFailed(io_err));
                 }
 
                 receiver
@@ -1116,10 +1186,10 @@ impl<'a> FtpOverHttpTask<'a> {
                         }
                     }
                 } else {
-                    if let Some(end_size) = end_size {
-                        if end_size < start_size {
-                            return self.reply_range_not_satisfiable(clt_w, None).await;
-                        }
+                    if let Some(end_size) = end_size
+                        && end_size < start_size
+                    {
+                        return self.reply_range_not_satisfiable(clt_w, None).await;
                     }
                     self.reply_range_not_satisfiable(clt_w, Some(start_size))
                         .await
@@ -1150,11 +1220,10 @@ impl<'a> FtpOverHttpTask<'a> {
         W: AsyncWrite + Unpin,
     {
         let mut data_copy =
-            LimitedCopy::new(&mut data_stream, clt_w, &self.ctx.server_config.tcp_copy);
+            StreamCopy::new(&mut data_stream, clt_w, &self.ctx.server_config.tcp_copy);
 
-        let idle_duration = self.ctx.server_config.task_idle_check_duration;
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.register();
+        let mut log_interval = self.ctx.get_log_interval();
         let mut idle_count = 0;
         loop {
             tokio::select! {
@@ -1171,8 +1240,8 @@ impl<'a> FtpOverHttpTask<'a> {
                             .map_err(|e| ServerTaskError::UpstreamAppError(anyhow::Error::new(e)))?;
                     }
                     r.map_err(|e| match e {
-                        LimitedCopyError::ReadFailed(e) => ServerTaskError::UpstreamReadFailed(e),
-                        LimitedCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
+                        StreamCopyError::ReadFailed(e) => ServerTaskError::UpstreamReadFailed(e),
+                        StreamCopyError::WriteFailed(e) => ServerTaskError::ClientTcpWriteFailed(e),
                     })?;
 
                     self.task_notes.stage = ServerTaskStage::Finished;
@@ -1192,26 +1261,28 @@ impl<'a> FtpOverHttpTask<'a> {
                             self.task_notes.stage = ServerTaskStage::Finished;
                             Ok(data_copy.copied_size())
                         }
-                        Ok(Err(LimitedCopyError::ReadFailed(e))) => Err(ServerTaskError::UpstreamReadFailed(e)),
-                        Ok(Err(LimitedCopyError::WriteFailed(e))) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
+                        Ok(Err(StreamCopyError::ReadFailed(e))) => Err(ServerTaskError::UpstreamReadFailed(e)),
+                        Ok(Err(StreamCopyError::WriteFailed(e))) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                         Err(_) => Err(ServerTaskError::UpstreamAppTimeout("timeout to wait transfer end")),
                     };
                 }
-                _ = idle_interval.tick() => {
+                _ = log_interval.tick() => {
+                    if let Some(log_ctx) = self.get_log_context() {
+                        log_ctx.log_periodic();
+                    }
+                }
+                n = idle_interval.tick() => {
                     if data_copy.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
-                        let quit = if let Some(user_ctx) = self.task_notes.user_ctx() {
+                        if let Some(user_ctx) = self.task_notes.user_ctx() {
                             let user = user_ctx.user();
                             if user.is_blocked() {
                                 return Err(ServerTaskError::CanceledAsUserBlocked);
                             }
-                            idle_count >= user.task_max_idle_count()
-                        } else {
-                            idle_count >= self.ctx.server_config.task_idle_max_count
-                        };
+                        }
 
-                        if quit {
+                        if idle_count >= self.max_idle_count {
                             return if data_copy.no_cached_data() {
                                 Err(ServerTaskError::UpstreamAppTimeout("idle while reading data"))
                             } else {
@@ -1224,11 +1295,10 @@ impl<'a> FtpOverHttpTask<'a> {
                         data_copy.reset_active();
                     }
 
-                    if let Some(user_ctx) = self.task_notes.user_ctx() {
-                        if user_ctx.user().is_blocked() {
+                    if let Some(user_ctx) = self.task_notes.user_ctx()
+                        && user_ctx.user().is_blocked() {
                             return Err(ServerTaskError::CanceledAsUserBlocked);
                         }
-                    }
 
                     if self.ctx.server_quit_policy.force_quit() {
                         return Err(ServerTaskError::CanceledAsServerQuit)
@@ -1249,17 +1319,13 @@ impl<'a> FtpOverHttpTask<'a> {
             return Ok(());
         }
 
-        if let Some(v) = self.req.end_to_end_headers.get(http::header::EXPECT) {
-            if let Ok(s) = std::str::from_utf8(v.as_bytes()) {
-                if s.to_lowercase().eq("100-continue") {
-                    if let Err(e) =
-                        HttpProxyClientResponse::reply_continue(self.req.version, clt_w).await
-                    {
-                        self.should_close = true;
-                        return Err(ServerTaskError::ClientTcpWriteFailed(e));
-                    }
-                }
-            }
+        if let Some(v) = self.req.end_to_end_headers.get(http::header::EXPECT)
+            && let Ok(s) = std::str::from_utf8(v.as_bytes())
+            && s.to_lowercase().eq("100-continue")
+            && let Err(e) = HttpProxyClientResponse::reply_continue(self.req.version, clt_w).await
+        {
+            self.should_close = true;
+            return Err(ServerTaskError::ClientTcpWriteFailed(e));
         }
 
         Ok(())
@@ -1269,11 +1335,11 @@ impl<'a> FtpOverHttpTask<'a> {
         &mut self,
         ftp_client: &mut HttpProxyFtpClient,
         clt_w: &mut W,
-        body_reader: HttpBodyReader<'_, R>,
-        expected_size: u64,
+        body_reader: &mut R,
+        file_size: Option<u64>,
     ) -> ServerTaskResult<()>
     where
-        R: AsyncBufRead + Unpin,
+        R: AsyncRead + Unpin,
         W: AsyncWrite + Unpin,
     {
         match ftp_client
@@ -1295,28 +1361,29 @@ impl<'a> FtpOverHttpTask<'a> {
                     .await
                 {
                     Ok(copied_size) => {
-                        if copied_size != expected_size {
-                            self.reply_bad_gateway(
-                                clt_w,
-                                format!(
-                                    "uploaded {copied_size} bytes different than expected {expected_size}"
-                                ),
-                            )
-                            .await
-                        } else {
-                            let mut rsp =
-                                HttpProxyClientResponse::ok(self.req.version, self.should_close);
-                            self.enable_custom_header_for_local_reply(&mut rsp);
-                            match rsp.reply_ok_header(clt_w).await {
-                                Ok(_) => {
-                                    self.ftp_notes.rsp_status = rsp.status();
-                                    self.task_notes.stage = ServerTaskStage::Finished;
-                                    Ok(())
-                                }
-                                Err(e) => {
-                                    self.should_close = true;
-                                    Err(ServerTaskError::ClientTcpWriteFailed(e))
-                                }
+                        if let Some(file_size) = file_size
+                            && copied_size != file_size
+                        {
+                            return self.reply_bad_gateway(
+                                    clt_w,
+                                    format!(
+                                        "uploaded {copied_size} bytes different than expected {file_size}"
+                                    ),
+                                ).await;
+                        }
+
+                        let mut rsp =
+                            HttpProxyClientResponse::ok(self.req.version, self.should_close);
+                        self.enable_custom_header_for_local_reply(&mut rsp);
+                        match rsp.reply_ok_header(clt_w).await {
+                            Ok(_) => {
+                                self.ftp_notes.rsp_status = rsp.status();
+                                self.task_notes.stage = ServerTaskStage::Finished;
+                                Ok(())
+                            }
+                            Err(e) => {
+                                self.should_close = true;
+                                Err(ServerTaskError::ClientTcpWriteFailed(e))
                             }
                         }
                     }
@@ -1352,21 +1419,20 @@ impl<'a> FtpOverHttpTask<'a> {
         &'b mut self,
         ftp_client: &'b mut HttpProxyFtpClient,
         mut data_stream: S,
-        mut body_reader: HttpBodyReader<'_, R>,
+        body_reader: &mut R,
     ) -> ServerTaskResult<u64>
     where
         S: AsyncWrite + Unpin,
-        R: AsyncBufRead + Unpin,
+        R: AsyncRead + Unpin,
     {
-        let mut data_copy = LimitedCopy::new(
-            &mut body_reader,
+        let mut data_copy = StreamCopy::new(
+            body_reader,
             &mut data_stream,
             &self.ctx.server_config.tcp_copy,
         );
 
-        let idle_duration = self.ctx.server_config.task_idle_check_duration;
-        let mut idle_interval =
-            tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+        let mut idle_interval = self.ctx.idle_wheel.register();
+        let mut log_interval = self.ctx.get_log_interval();
         let mut idle_count = 0;
 
         loop {
@@ -1381,8 +1447,8 @@ impl<'a> FtpOverHttpTask<'a> {
                         .await
                         .map_err(|e| ServerTaskError::UpstreamAppError(anyhow::Error::new(e)))?;
                     r.map_err(|e| match e {
-                        LimitedCopyError::ReadFailed(e) => ServerTaskError::ClientTcpReadFailed(e),
-                        LimitedCopyError::WriteFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
+                        StreamCopyError::ReadFailed(e) => ServerTaskError::ClientTcpReadFailed(e),
+                        StreamCopyError::WriteFailed(e) => ServerTaskError::UpstreamWriteFailed(e),
                     })?;
                     return Ok(copied_size);
                 }
@@ -1398,21 +1464,23 @@ impl<'a> FtpOverHttpTask<'a> {
                         anyhow!("unexpected server end reply after {} bytes sent)", data_copy.copied_size())
                     ));
                 }
-                _ = idle_interval.tick() => {
+                _ = log_interval.tick() => {
+                    if let Some(log_ctx) = self.get_log_context() {
+                        log_ctx.log_periodic();
+                    }
+                }
+                n = idle_interval.tick() => {
                     if data_copy.is_idle() {
-                        idle_count += 1;
+                        idle_count += n;
 
-                        let quit = if let Some(user_ctx) = self.task_notes.user_ctx() {
+                        if let Some(user_ctx) = self.task_notes.user_ctx() {
                             let user = user_ctx.user();
                             if user.is_blocked() {
                                 return Err(ServerTaskError::CanceledAsUserBlocked);
                             }
-                            idle_count >= user.task_max_idle_count()
-                        } else {
-                            idle_count >= self.ctx.server_config.task_idle_max_count
-                        };
+                        }
 
-                        if quit {
+                        if idle_count >= self.max_idle_count {
                             return if data_copy.no_cached_data() {
                                 Err(ServerTaskError::ClientAppTimeout("idle while reading data"))
                             } else {
@@ -1425,11 +1493,10 @@ impl<'a> FtpOverHttpTask<'a> {
                         data_copy.reset_active();
                     }
 
-                    if let Some(user_ctx) = self.task_notes.user_ctx() {
-                        if user_ctx.user().is_blocked() {
+                    if let Some(user_ctx) = self.task_notes.user_ctx()
+                        && user_ctx.user().is_blocked() {
                             return Err(ServerTaskError::CanceledAsUserBlocked);
                         }
-                    }
 
                     if self.ctx.server_quit_policy.force_quit() {
                         return Err(ServerTaskError::CanceledAsServerQuit)

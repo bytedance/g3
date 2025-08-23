@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -60,13 +49,13 @@ impl Default for GlobalState {
 impl GlobalState {
     pub(super) const fn new(requests: Option<usize>, log_error_count: usize) -> Self {
         let total_left = match requests {
-            Some(v) => v,
-            None => 0,
+            Some(n) => AtomicUsize::new(n),
+            None => AtomicUsize::new(0),
         };
         GlobalState {
             check_total: AtomicBool::new(requests.is_some()),
             force_quit: AtomicBool::new(false),
-            total_left: AtomicUsize::new(total_left),
+            total_left,
             total_passed: AtomicUsize::new(0),
             total_failed: AtomicUsize::new(0),
             log_error_left: AtomicUsize::new(log_error_count),
@@ -130,6 +119,10 @@ impl GlobalState {
 
     pub(super) fn add_failed(&self) {
         self.total_failed.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn all_succeeded(&self) -> bool {
+        self.total_failed.load(Ordering::Relaxed) == 0
     }
 
     pub(super) fn summary(&self, total_time: Duration, distribution: &Histogram<u64>) {

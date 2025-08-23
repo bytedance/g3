@@ -3,6 +3,7 @@ name = "g3mkcert"
 version = "0.1.0"
 license.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -22,5 +23,6 @@ g3-build-env.workspace = true
 default = []
 vendored-openssl = ["openssl/vendored", "openssl-probe"]
 vendored-tongsuo = ["openssl/tongsuo", "openssl-probe"]
-vendored-aws-lc = ["openssl/aws-lc", "openssl-probe", "g3-types/aws-lc", "g3-tls-cert/aws-lc"]
-vendored-boringssl = ["openssl/boringssl", "openssl-probe", "g3-types/boringssl", "g3-tls-cert/boringssl"]
+vendored-boringssl = ["openssl/boringssl", "openssl-probe"]
+vendored-aws-lc = ["openssl/aws-lc", "openssl-probe"]
+vendored-aws-lc-fips = ["openssl/aws-lc-fips", "openssl-probe"]

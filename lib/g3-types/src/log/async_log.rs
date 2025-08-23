@@ -1,22 +1,10 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
 
-use flume::{Sender, TrySendError};
 use slog::{Drain, OwnedKVList, Record};
 
 use super::LogStats;
@@ -52,7 +40,7 @@ pub struct AsyncLogger<T, F>
 where
     F: AsyncLogFormatter<T>,
 {
-    sender: Sender<T>,
+    sender: kanal::Sender<T>,
     formatter: F,
     stats: Arc<LogStats>,
 }
@@ -61,7 +49,7 @@ impl<T, F> AsyncLogger<T, F>
 where
     F: AsyncLogFormatter<T>,
 {
-    pub fn new(sender: Sender<T>, formatter: F, stats: Arc<LogStats>) -> Self {
+    pub fn new(sender: kanal::Sender<T>, formatter: F, stats: Arc<LogStats>) -> Self {
         AsyncLogger {
             sender,
             formatter,
@@ -87,9 +75,9 @@ where
         match self.formatter.format_slog(record, logger_values) {
             Ok(v) => {
                 match self.sender.try_send(v) {
-                    Ok(_) => {}
-                    Err(TrySendError::Full(_)) => self.stats.drop.add_channel_overflow(),
-                    Err(TrySendError::Disconnected(_)) => self.stats.drop.add_channel_closed(),
+                    Ok(true) => {}
+                    Ok(false) => self.stats.drop.add_channel_overflow(),
+                    Err(_) => self.stats.drop.add_channel_closed(),
                 }
                 Ok(())
             }

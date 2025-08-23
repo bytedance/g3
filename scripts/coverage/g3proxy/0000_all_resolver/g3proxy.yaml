@@ -1,0 +1,21 @@
+---
+
+log: discard
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+resolver:
+  - name: cares1
+    type: c-ares
+  - name: cares2
+    type: c-ares
+    server: 127.0.0.1
+  - name: main
+    type: fail_over
+    primary: cares1
+    standby: cares2
+  - name: hickory
+    type: hickory
+    server: 127.0.0.1

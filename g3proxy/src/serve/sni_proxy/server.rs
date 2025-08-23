@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
@@ -30,17 +19,19 @@ use tokio_rustls::server::TlsStream;
 use g3_daemon::listen::{AcceptQuicServer, AcceptTcpServer, ListenStats, ListenTcpRuntime};
 use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_dpi::ProtocolPortMap;
+use g3_io_ext::IdleWheel;
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::{ClientHelloAcceptTask, CommonTaskContext, TcpStreamServerStats};
-use crate::audit::AuditHandle;
+use crate::audit::{AuditContext, AuditHandle};
 use crate::config::server::sni_proxy::SniProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
 use crate::serve::{
-    ArcServer, ArcServerStats, Server, ServerInternal, ServerQuitPolicy, ServerStats, WrapArcServer,
+    ArcServer, ArcServerInternal, ArcServerStats, Server, ServerInternal, ServerQuitPolicy,
+    ServerRegistry, ServerStats, WrapArcServer,
 };
 
 pub(crate) struct SniProxyServer {
@@ -51,11 +42,12 @@ pub(crate) struct SniProxyServer {
     server_tcp_portmap: Arc<ProtocolPortMap>,
     client_tcp_portmap: Arc<ProtocolPortMap>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
-    task_logger: Logger,
+    task_logger: Option<Logger>,
 
     escaper: ArcSwap<ArcEscaper>,
     audit_handle: ArcSwapOption<AuditHandle>,
     quit_policy: Arc<ServerQuitPolicy>,
+    idle_wheel: Arc<IdleWheel>,
     reload_version: usize,
 }
 
@@ -77,6 +69,7 @@ impl SniProxyServer {
         let client_tcp_portmap = Arc::new(config.client_tcp_portmap.clone());
 
         let task_logger = config.get_task_logger();
+        let idle_wheel = IdleWheel::spawn(config.task_idle_check_duration);
 
         server_stats.set_extra_tags(config.extra_metrics_tags.clone());
 
@@ -95,13 +88,16 @@ impl SniProxyServer {
             escaper: ArcSwap::new(escaper),
             audit_handle: ArcSwapOption::new(audit_handle),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
+            idle_wheel,
             reload_version: version,
         };
 
         Ok(server)
     }
 
-    pub(crate) fn prepare_initial(config: SniProxyServerConfig) -> anyhow::Result<ArcServer> {
+    pub(crate) fn prepare_initial(
+        config: SniProxyServerConfig,
+    ) -> anyhow::Result<ArcServerInternal> {
         let config = Arc::new(config);
         let server_stats = Arc::new(TcpStreamServerStats::new(config.name()));
         let listen_stats = Arc::new(ListenStats::new(config.name()));
@@ -112,7 +108,7 @@ impl SniProxyServer {
 
     fn prepare_reload(&self, config: AnyServerConfig) -> anyhow::Result<SniProxyServer> {
         if let AnyServerConfig::SniProxy(config) = config {
-            let config = Arc::new(*config);
+            let config = Arc::new(config);
             let server_stats = Arc::clone(&self.server_stats);
             let listen_stats = Arc::clone(&self.listen_stats);
 
@@ -122,8 +118,8 @@ impl SniProxyServer {
         } else {
             Err(anyhow!(
                 "config type mismatch: expect {}, actual {}",
-                self.config.server_type(),
-                config.server_type()
+                self.config.r#type(),
+                config.r#type()
             ))
         }
     }
@@ -145,44 +141,34 @@ impl SniProxyServer {
         false
     }
 
-    fn load_audit_handle(&self) -> Option<Arc<AuditHandle>> {
-        if let Some(handle) = &*self.audit_handle.load() {
-            if handle.do_task_audit() {
-                Some(handle.clone())
-            } else {
-                None
-            }
-        } else {
-            None
-        }
+    fn audit_context(&self) -> AuditContext {
+        AuditContext::new(self.audit_handle.load_full())
     }
 
     async fn run_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
         let ctx = CommonTaskContext {
-            server_config: Arc::clone(&self.config),
-            server_stats: Arc::clone(&self.server_stats),
-            server_quit_policy: Arc::clone(&self.quit_policy),
+            server_config: self.config.clone(),
+            server_stats: self.server_stats.clone(),
+            server_quit_policy: self.quit_policy.clone(),
+            idle_wheel: self.idle_wheel.clone(),
             escaper: self.escaper.load().as_ref().clone(),
-            audit_handle: self.load_audit_handle(),
             cc_info,
             task_logger: self.task_logger.clone(),
             server_tcp_portmap: Arc::clone(&self.server_tcp_portmap),
             client_tcp_portmap: Arc::clone(&self.client_tcp_portmap),
         };
-        ClientHelloAcceptTask::new(ctx).into_running(stream).await;
+        ClientHelloAcceptTask::new(ctx, self.audit_context())
+            .into_running(stream)
+            .await;
     }
 }
 
 impl ServerInternal for SniProxyServer {
     fn _clone_config(&self) -> AnyServerConfig {
-        AnyServerConfig::SniProxy(Box::new(self.config.as_ref().clone()))
+        AnyServerConfig::SniProxy(self.config.as_ref().clone())
     }
 
-    fn _update_config_in_place(&self, _flags: u64, _config: AnyServerConfig) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    fn _depend_on_server(&self, _name: &MetricsName) -> bool {
+    fn _depend_on_server(&self, _name: &NodeName) -> bool {
         false
     }
 
@@ -206,23 +192,31 @@ impl ServerInternal for SniProxyServer {
         Ok(())
     }
 
-    fn _reload_with_old_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
+    fn _reload_with_old_notifier(
+        &self,
+        config: AnyServerConfig,
+        _registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServerInternal> {
         let mut server = self.prepare_reload(config)?;
         server.reload_sender = self.reload_sender.clone();
         Ok(Arc::new(server))
     }
 
-    fn _reload_with_new_notifier(&self, config: AnyServerConfig) -> anyhow::Result<ArcServer> {
+    fn _reload_with_new_notifier(
+        &self,
+        config: AnyServerConfig,
+        _registry: &mut ServerRegistry,
+    ) -> anyhow::Result<ArcServerInternal> {
         let server = self.prepare_reload(config)?;
         Ok(Arc::new(server))
     }
 
-    fn _start_runtime(&self, server: &ArcServer) -> anyhow::Result<()> {
+    fn _start_runtime(&self, server: ArcServer) -> anyhow::Result<()> {
         let Some(listen_config) = &self.config.listen else {
             return Ok(());
         };
-        let runtime =
-            ListenTcpRuntime::new(WrapArcServer(server.clone()), server.get_listen_stats());
+        let listen_stats = server.get_listen_stats();
+        let runtime = ListenTcpRuntime::new(WrapArcServer(server), listen_stats);
         runtime
             .run_all_instances(
                 listen_config,
@@ -240,13 +234,13 @@ impl ServerInternal for SniProxyServer {
 
 impl BaseServer for SniProxyServer {
     #[inline]
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
     }
 
     #[inline]
-    fn server_type(&self) -> &'static str {
-        self.config.server_type()
+    fn r#type(&self) -> &'static str {
+        self.config.r#type()
     }
 
     #[inline]
@@ -276,15 +270,15 @@ impl AcceptQuicServer for SniProxyServer {
 
 #[async_trait]
 impl Server for SniProxyServer {
-    fn escaper(&self) -> &MetricsName {
+    fn escaper(&self) -> &NodeName {
         self.config.escaper()
     }
 
-    fn user_group(&self) -> &MetricsName {
+    fn user_group(&self) -> &NodeName {
         Default::default()
     }
 
-    fn auditor(&self) -> &MetricsName {
+    fn auditor(&self) -> &NodeName {
         self.config.auditor()
     }
 

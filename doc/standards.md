@@ -41,6 +41,8 @@ The code should comply to these, but should be more compliant to existing popula
     : The BSD syslog Protocol
  - [rfc5424](https://datatracker.ietf.org/doc/html/rfc5424)
     : The Syslog Protocol
+ - [rfc6587](https://datatracker.ietf.org/doc/html/rfc6587)
+    : Transmission of Syslog Messages over TCP
  - [CEE Log Syntax](https://cee.mitre.org/language/1.0-beta1/cls.html)
     : CEE Log Syntax (CLS) Specification
  - [CEE Log Transport](https://cee.mitre.org/language/1.0-beta1/clt.html)
@@ -53,7 +55,7 @@ The code should comply to these, but should be more compliant to existing popula
 
 ## StatsD
 
- - [the-dogstatsd-protocol](https://docs.datadoghq.com/developers/dogstatsd/datagram_shell?tab=metrics#the-dogstatsd-protocol)
+ - [the-dogstatsd-protocol](https://docs.datadoghq.com/developers/dogstatsd/datagram_shell)
     : The DogStatsD protocol
 
 ## PEN
@@ -117,6 +119,16 @@ The code should comply to these, but should be more compliant to existing popula
     : MIME Parameter Value and Encoded Word Extensions: Character Sets, Languages, and Continuations
 
 # Network Protocol
+
+## TCP
+
+ - [rfc9293](https://datatracker.ietf.org/doc/html/rfc9293)
+    : Transmission Control Protocol (TCP)
+
+## UDP
+
+ - [rfc8085](https://datatracker.ietf.org/doc/html/rfc8085)
+    : UDP Usage Guidelines
 
 ## Happy Eyeballs
 
@@ -200,6 +212,15 @@ The code should comply to these, but should be more compliant to existing popula
  - [GB/T 38636-2020](https://openstd.samr.gov.cn/bzgk/gb/newGbInfo?hcno=778097598DA2761E94A5FF3F77BD66DA)
     : Information security technology—Transport layer cryptography protocol(TLCP)
 
+## QUIC
+
+ - [rfc9000](https://datatracker.ietf.org/doc/html/rfc9000)
+    : QUIC: A UDP-Based Multiplexed and Secure Transport
+ - [rfc9001](https://datatracker.ietf.org/doc/html/rfc9001)
+    : Using TLS to Secure QUIC
+ - [rfc9369](https://datatracker.ietf.org/doc/html/rfc9369)
+    : QUIC Version 2
+
 ## HTTP
 
  - [rfc9110](https://datatracker.ietf.org/doc/html/rfc9110)
@@ -230,10 +251,17 @@ The code should comply to these, but should be more compliant to existing popula
     : HTTP Datagrams and the Capsule Protocol
  - [rfc9298](https://datatracker.ietf.org/doc/html/rfc9298)
     : Proxying UDP in HTTP
- - [draft-ietf-masque-connect-ip](https://datatracker.ietf.org/doc/draft-ietf-masque-connect-ip/13/)
+ - [rfc9484](https://datatracker.ietf.org/doc/html/rfc9484)
     : Proxying IP in HTTP
+ - [draft-schwartz-modern-http-proxies](https://datatracker.ietf.org/doc/html/draft-schwartz-modern-http-proxies-02)
+    : Template-Driven HTTP Request Proxying
  - [iana-http-upgrade-tokens](https://www.iana.org/assignments/http-upgrade-tokens/http-upgrade-tokens.xhtml)
     : Hypertext Transfer Protocol (HTTP) Upgrade Token Registry
+
+### Well-Known URI
+
+ - [rfc8615](https://datatracker.ietf.org/doc/html/rfc8615)
+    : Well-Known Uniform Resource Identifiers (URIs)
  - [iana-well-known-uris](https://www.iana.org/assignments/well-known-uris/well-known-uris.xhtml)
     : Well-Known URIs
 
@@ -519,6 +547,8 @@ The code should comply to these, but should be more compliant to existing popula
 
  - [rfc3507](https://datatracker.ietf.org/doc/html/rfc3507)
     : Internet Content Adaptation Protocol (ICAP)
+ - [ICAP Errata](https://www.measurement-factory.com/std/icap/)
+    : ICAP Errata - a comprehensive collection of RFC 3507 bugs
  - [draft-icap-ext-partial-content-07](http://www.icap-forum.org/documents/specification/draft-icap-ext-partial-content-07.txt)
     : ICAP Partial Content Extension
  - [draft-stecher-icap-subid-00](https://www.icap-forum.org/documents/specification/draft-stecher-icap-subid-00.txt)

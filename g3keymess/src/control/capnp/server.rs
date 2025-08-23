@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::str::FromStr;
@@ -21,7 +10,7 @@ use anyhow::anyhow;
 use capnp::capability::Promise;
 use capnp_rpc::pry;
 
-use g3_types::metrics::{MetricsName, MetricsTagName, MetricsTagValue};
+use g3_types::metrics::{MetricTagName, MetricTagValue, NodeName};
 
 use g3keymess_proto::server_capnp::server_control;
 
@@ -34,15 +23,15 @@ pub(super) struct ServerControlImpl {
 
 impl ServerControlImpl {
     pub(super) fn new_client(name: &str) -> anyhow::Result<server_control::Client> {
-        let name = unsafe { MetricsName::new_unchecked(name) };
+        let name = unsafe { NodeName::new_unchecked(name) };
         let server = crate::serve::get_server(&name)?;
         Ok(capnp_rpc::new_client(ServerControlImpl { server }))
     }
 
     fn do_add_metrics_tag(&self, name: &str, value: &str) -> anyhow::Result<()> {
         let name =
-            MetricsTagName::from_str(name).map_err(|e| anyhow!("invalid metrics tag name: {e}"))?;
-        let value = MetricsTagValue::from_str(value)
+            MetricTagName::from_str(name).map_err(|e| anyhow!("invalid metrics tag name: {e}"))?;
+        let value = MetricTagValue::from_str(value)
             .map_err(|e| anyhow!("invalid metrics tag value: {e}"))?;
         self.server.add_dynamic_metrics_tag(name, value);
         Ok(())

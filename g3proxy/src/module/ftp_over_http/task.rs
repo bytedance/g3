@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use http::{Method, Uri};
@@ -24,6 +13,7 @@ use super::FtpRequestPath;
 use crate::module::tcp_connect::TcpConnectTaskNotes;
 
 pub(crate) struct FtpOverHttpTaskNotes {
+    upstream: UpstreamAddr,
     pub(crate) method: Method,
     pub(crate) uri: Uri,
     pub(crate) uri_log_max_chars: usize,
@@ -48,7 +38,7 @@ impl FtpOverHttpTaskNotes {
             let s = authority.as_str();
 
             if let Some(at_pos) = memchr::memchr(b'@', s.as_bytes()) {
-                if let Some(p) = memchr::memchr(b':', s[0..at_pos].as_bytes()) {
+                if let Some(p) = memchr::memchr(b':', &s.as_bytes()[0..at_pos]) {
                     username = Username::from_encoded(&s[0..p]).ok();
                     password = Password::from_encoded(&s[p + 1..at_pos]).ok();
                 } else {
@@ -57,19 +47,19 @@ impl FtpOverHttpTaskNotes {
             }
         }
 
-        if let Some(v) = req.end_to_end_headers.get(http::header::AUTHORIZATION) {
-            if let Ok(HttpAuth::Basic(HttpBasicAuth {
+        if let Some(v) = req.end_to_end_headers.get(http::header::AUTHORIZATION)
+            && let Ok(HttpAuth::Basic(HttpBasicAuth {
                 username: u,
                 password: p,
                 ..
             })) = HttpAuth::try_from(v)
-            {
-                username = Some(u);
-                password = Some(p);
-            }
+        {
+            username = Some(u);
+            password = Some(p);
         }
 
         FtpOverHttpTaskNotes {
+            upstream: upstream.clone(),
             method: req.method.clone(),
             uri: req.uri.clone(),
             uri_log_max_chars,
@@ -77,8 +67,8 @@ impl FtpOverHttpTaskNotes {
             ftp_path: FtpRequestPath::from(&req.uri),
             ftp_user: username,
             ftp_pass: password,
-            control_tcp_notes: TcpConnectTaskNotes::new(upstream.clone()),
-            transfer_tcp_notes: TcpConnectTaskNotes::empty(),
+            control_tcp_notes: TcpConnectTaskNotes::default(),
+            transfer_tcp_notes: TcpConnectTaskNotes::default(),
         }
     }
 
@@ -94,6 +84,6 @@ impl FtpOverHttpTaskNotes {
 
     #[inline]
     pub(crate) fn upstream(&self) -> &UpstreamAddr {
-        &self.control_tcp_notes.upstream
+        &self.upstream
     }
 }

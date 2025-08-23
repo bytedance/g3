@@ -1,30 +1,27 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use anyhow::Context;
 use arc_swap::ArcSwap;
+use log::debug;
+use openssl::ssl::Ssl;
 use slog::Logger;
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
-use tokio::sync::{broadcast, Semaphore};
+#[cfg(feature = "openssl-async-job")]
+use tokio::runtime::{Handle, RuntimeFlavor};
+use tokio::sync::{Semaphore, broadcast};
 
 use g3_daemon::listen::ListenStats;
-use g3_daemon::server::ServerQuitPolicy;
-use g3_types::metrics::{MetricsName, MetricsTagName, MetricsTagValue, StaticMetricsTags};
+use g3_daemon::server::{ClientConnectionInfo, ServerQuitPolicy};
+use g3_openssl::SslAcceptor;
+use g3_types::metrics::{MetricTagMap, MetricTagName, MetricTagValue, NodeName};
+use g3_types::net::OpensslServerConfig;
 
 use super::{
     KeyServerDurationRecorder, KeyServerDurationStats, KeyServerRuntime, KeyServerStats,
@@ -36,14 +33,15 @@ pub(crate) struct KeyServer {
     config: Arc<KeyServerConfig>,
     server_stats: Arc<KeyServerStats>,
     listen_stats: Arc<ListenStats>,
+    tls_server_config: Option<OpensslServerConfig>,
     duration_recorder: KeyServerDurationRecorder,
     duration_stats: Arc<KeyServerDurationStats>,
     quit_policy: Arc<ServerQuitPolicy>,
     reload_sender: broadcast::Sender<ServerReloadCommand>,
     concurrency_limit: Option<Arc<Semaphore>>,
-    task_logger: Logger,
-    request_logger: Logger,
-    dynamic_metrics_tags: Arc<ArcSwap<StaticMetricsTags>>,
+    task_logger: Option<Logger>,
+    request_logger: Option<Logger>,
+    dynamic_metrics_tags: Arc<ArcSwap<MetricTagMap>>,
 }
 
 impl KeyServer {
@@ -54,9 +52,18 @@ impl KeyServer {
         duration_recorder: KeyServerDurationRecorder,
         duration_stats: Arc<KeyServerDurationStats>,
         concurrency_limit: Option<Arc<Semaphore>>,
-        dynamic_metrics_tags: Arc<ArcSwap<StaticMetricsTags>>,
-    ) -> Self {
+        dynamic_metrics_tags: Arc<ArcSwap<MetricTagMap>>,
+    ) -> anyhow::Result<Self> {
         let reload_sender = broadcast::Sender::new(16);
+
+        let tls_server_config = if let Some(builder) = &config.tls_server {
+            let server = builder
+                .build()
+                .context("failed to build tls server config")?;
+            Some(server)
+        } else {
+            None
+        };
 
         let task_logger = config.get_task_logger();
         let request_logger = config.get_request_logger();
@@ -76,10 +83,11 @@ impl KeyServer {
             duration_stats.set_extra_tags(Some(extra));
         }
 
-        KeyServer {
+        Ok(KeyServer {
             config: Arc::new(config),
             server_stats,
             listen_stats,
+            tls_server_config,
             duration_recorder,
             duration_stats,
             quit_policy: Arc::new(ServerQuitPolicy::default()),
@@ -88,10 +96,10 @@ impl KeyServer {
             task_logger,
             request_logger,
             dynamic_metrics_tags,
-        }
+        })
     }
 
-    pub(crate) fn prepare_initial(config: KeyServerConfig) -> KeyServer {
+    pub(crate) fn prepare_initial(config: KeyServerConfig) -> anyhow::Result<KeyServer> {
         let server_stats = KeyServerStats::new(config.name());
         let listen_stats = ListenStats::new(config.name());
         let (duration_recorder, duration_stats) =
@@ -112,7 +120,7 @@ impl KeyServer {
         )
     }
 
-    fn prepare_reload(&self, config: KeyServerConfig) -> KeyServer {
+    fn prepare_reload(&self, config: KeyServerConfig) -> anyhow::Result<KeyServer> {
         let concurrency_limit = if config.concurrency_limit > 0 {
             Some(Arc::new(Semaphore::new(config.concurrency_limit)))
         } else {
@@ -136,7 +144,7 @@ impl KeyServer {
     }
 
     #[inline]
-    pub(crate) fn name(&self) -> &MetricsName {
+    pub(crate) fn name(&self) -> &NodeName {
         self.config.name()
     }
 
@@ -158,11 +166,14 @@ impl KeyServer {
         self.config.clone()
     }
 
-    pub(super) fn reload_with_new_notifier(&self, config: KeyServerConfig) -> KeyServer {
-        self.prepare_reload(config)
+    pub(super) fn reload_with_new_notifier(
+        &self,
+        config: KeyServerConfig,
+    ) -> anyhow::Result<Arc<KeyServer>> {
+        self.prepare_reload(config).map(Arc::new)
     }
 
-    pub(crate) fn add_dynamic_metrics_tag(&self, name: MetricsTagName, value: MetricsTagValue) {
+    pub(crate) fn add_dynamic_metrics_tag(&self, name: MetricTagName, value: MetricTagValue) {
         let dynamic_tags = self.dynamic_metrics_tags.load();
         let mut dynamic_tags = dynamic_tags.as_ref().clone();
         dynamic_tags.insert(name, value);
@@ -211,35 +222,86 @@ impl KeyServer {
         self.duration_stats.set_offline();
     }
 
-    pub(super) async fn run_tcp_task(
-        &self,
-        stream: TcpStream,
-        peer_addr: SocketAddr,
-        local_addr: SocketAddr,
-    ) {
+    async fn run_task<R, W>(&self, cc_info: ClientConnectionInfo, clt_r: R, clt_w: W)
+    where
+        R: AsyncRead + Send + Unpin + 'static,
+        W: AsyncWrite + Send + Unpin + 'static,
+    {
         let ctx = KeylessTaskContext {
             server_config: self.config.clone(),
             server_stats: self.server_stats.clone(),
             duration_recorder: self.duration_recorder.clone(),
-            peer_addr,
-            local_addr,
+            cc_info,
             task_logger: self.task_logger.clone(),
             request_logger: self.request_logger.clone(),
             reload_notifier: self.reload_sender.subscribe(),
             concurrency_limit: self.concurrency_limit.clone(),
         };
 
-        let (r, w) = stream.into_split();
-        let task = KeylessTask::new(ctx);
+        let mut task = KeylessTask::new(ctx);
 
-        #[cfg(feature = "openssl-async-job")]
-        if self.config.multiplex_queue_depth > 1 {
-            task.into_multiplex_running(r, w).await
-        } else {
-            task.into_simplex_running(r, w).await
+        if g3_daemon::runtime::worker::worker_count() > 0 {
+            task.set_allow_dispatch();
         }
 
-        #[cfg(not(feature = "openssl-async-job"))]
-        task.into_simplex_running(r, w).await
+        #[cfg(feature = "openssl-async-job")]
+        if matches!(
+            Handle::current().runtime_flavor(),
+            RuntimeFlavor::CurrentThread
+        ) {
+            task.set_allow_openssl_async_job();
+        }
+
+        if self.config.multiplex_queue_depth > 1 {
+            task.into_multiplex_running(clt_r, clt_w).await
+        } else {
+            task.into_simplex_running(clt_r, clt_w).await
+        }
+    }
+
+    async fn run_tls_task(
+        &self,
+        tls_server: &OpensslServerConfig,
+        stream: TcpStream,
+        cc_info: ClientConnectionInfo,
+    ) {
+        let Ok(ssl) = Ssl::new(&tls_server.ssl_context) else {
+            self.listen_stats.add_dropped();
+            return;
+        };
+
+        let Ok(ssl_acceptor) = SslAcceptor::new(ssl, stream, tls_server.accept_timeout) else {
+            self.listen_stats.add_dropped();
+            return;
+        };
+
+        match ssl_acceptor.accept().await {
+            Ok(ssl_stream) => {
+                if ssl_stream.ssl().session_reused() {
+                    // Quick ACK is needed with session resumption
+                    cc_info.tcp_sock_try_quick_ack();
+                }
+                let (r, w) = tokio::io::split(ssl_stream);
+                self.run_task(cc_info, r, w).await
+            }
+            Err(e) => {
+                self.listen_stats.add_failed();
+                debug!(
+                    "{} - {} tls error: {e:?}",
+                    cc_info.sock_local_addr(),
+                    cc_info.sock_peer_addr()
+                );
+                // TODO record tls failure and add some sec policy
+            }
+        }
+    }
+
+    pub(super) async fn run_tcp_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
+        if let Some(tls_server) = &self.tls_server_config {
+            self.run_tls_task(tls_server, stream, cc_info).await
+        } else {
+            let (r, w) = stream.into_split();
+            self.run_task(cc_info, r, w).await
+        }
     }
 }

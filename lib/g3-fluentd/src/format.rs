@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::cell::RefCell;
@@ -20,7 +9,7 @@ use std::io;
 
 use chrono::Utc;
 use serde::ser::Serialize;
-use slog::{OwnedKVList, Record, Serializer, KV};
+use slog::{KV, OwnedKVList, Record, Serializer};
 
 use g3_types::log::AsyncLogFormatter;
 
@@ -85,7 +74,7 @@ impl FluentdFormatter {
                 let mut kv_formatter = FormatterKv(&mut buf);
                 logger_values.serialize(record, &mut kv_formatter)?;
                 record.kv().serialize(record, &mut kv_formatter)?;
-                kv_formatter.emit_arguments("msg", record.msg())?;
+                kv_formatter.emit_arguments("msg".into(), record.msg())?;
             }
         }
 
@@ -115,13 +104,13 @@ impl Serializer for CounterKV {
 
 struct FormatterKv<'a>(&'a mut Vec<u8>);
 
-impl<'a> FormatterKv<'a> {
-    fn write_key(&mut self, key: slog::Key) -> slog::Result {
+impl FormatterKv<'_> {
+    fn write_key(&mut self, key: &str) -> slog::Result {
         rmp::encode::write_str(&mut self.0, key).map_err(|e| slog::Error::Io(e.into()))
     }
 }
 
-impl<'a> Serializer for FormatterKv<'a> {
+impl Serializer for FormatterKv<'_> {
     fn emit_usize(&mut self, key: slog::Key, value: usize) -> slog::Result {
         self.emit_u64(key, value as u64)
     }
@@ -170,12 +159,12 @@ impl<'a> Serializer for FormatterKv<'a> {
     }
 
     fn emit_none(&mut self, key: slog::Key) -> slog::Result {
-        self.write_key(key)?;
+        self.write_key(key.as_str())?;
         rmp::encode::write_nil(&mut self.0).map_err(slog::Error::Io)
     }
 
     fn emit_str(&mut self, key: slog::Key, value: &str) -> slog::Result {
-        self.write_key(key)?;
+        self.write_key(key.as_str())?;
         rmp::encode::write_str(&mut self.0, value).map_err(|e| slog::Error::Io(e.into()))
     }
 
@@ -194,7 +183,7 @@ impl<'a> Serializer for FormatterKv<'a> {
     }
 
     fn emit_serde(&mut self, key: slog::Key, value: &dyn slog::SerdeValue) -> slog::Result {
-        self.write_key(key)?;
+        self.write_key(key.as_str())?;
         let mut serializer = rmp_serde::Serializer::new(&mut self.0);
         value.as_serde().serialize(&mut serializer).map_err(|e| {
             io::Error::other(format!("serde serialization error for key {key}: {e}"))

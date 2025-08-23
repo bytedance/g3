@@ -42,12 +42,23 @@ BUILD_DIR=$(mktemp -d "/tmp/build.${SOURCE_NAME}-${SOURCE_VERSION}.XXX")
 echo "==> Use temp build dir ${BUILD_DIR}"
 
 
-echo "==> cleaning local cargo checkouts"
-cargo cache --autoclean
+if [ -z "${NO_CARGO_CACHE_CLEAN}" ]
+then
+	echo "==> cleaning local cargo checkouts"
+	cargo cache --autoclean
+fi
 
  
 echo "==> adding source code from git"
 git archive --format=tar --prefix="${SOURCE_NAME}-${PKG_VERSION}/" "${GIT_REVISION}" | tar -C "${BUILD_DIR}" -xf -
+
+PROTO_DIR="${BUILD_DIR}/${SOURCE_NAME}-${PKG_VERSION}/${SOURCE_NAME}/proto"
+if [ -d ${PROTO_DIR} ]
+then
+	echo "==> generate capnp source files"
+	cargo run --bin capnp-generate -- ${PROTO_DIR}
+fi
+
 
 cd "${BUILD_DIR}/${SOURCE_NAME}-${PKG_VERSION}"
 
@@ -91,10 +102,10 @@ echo "==> generate license files for bundled crates"
 cargo metadata --format-version 1 | "${SCRIPT_DIR}"/bundle_license.py > LICENSE-BUNDLED
 
 
-if [ -f ${SOURCE_NAME}/doc/conf.py ]
+if [ -f sphinx/${SOURCE_NAME}/conf.py ]
 then
 	echo "==> building sphinx docs"
-	sphinx-build -b html ${SOURCE_NAME}/doc ${SOURCE_NAME}/doc/_build/html
+	sphinx-build -b html sphinx/${SOURCE_NAME} sphinx/${SOURCE_NAME}/_build/html
 fi
 
 

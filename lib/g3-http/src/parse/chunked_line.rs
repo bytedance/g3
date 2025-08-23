@@ -1,23 +1,13 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use atoi::FromRadix16;
 
 use super::HttpLineParseError;
 
+#[derive(Debug)]
 pub struct HttpChunkedLine<'a> {
     pub chunk_size: u64,
     pub extension: Option<&'a str>,
@@ -71,5 +61,29 @@ mod tests {
         let chunk = HttpChunkedLine::parse(b"1; ieof\r\n").unwrap();
         assert_eq!(chunk.chunk_size, 1);
         assert_eq!(chunk.extension, Some("ieof"));
+    }
+
+    #[test]
+    fn empty_input() {
+        let err = HttpChunkedLine::parse(b"").unwrap_err();
+        assert!(matches!(err, HttpLineParseError::InvalidChunkSize));
+    }
+
+    #[test]
+    fn no_suffix() {
+        let err = HttpChunkedLine::parse(b"1").unwrap_err();
+        assert!(matches!(err, HttpLineParseError::NotLongEnough));
+    }
+
+    #[test]
+    fn invalid_suffix() {
+        let err = HttpChunkedLine::parse(b"1X").unwrap_err();
+        assert!(matches!(err, HttpLineParseError::InvalidChunkSize));
+    }
+
+    #[test]
+    fn non_utf8_extension() {
+        let err = HttpChunkedLine::parse(b"1;\xFF").unwrap_err();
+        assert!(matches!(err, HttpLineParseError::InvalidUtf8Encoding(_)));
     }
 }

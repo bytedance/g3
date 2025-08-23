@@ -1,38 +1,20 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::error::Error;
-use std::fmt;
-use std::io::{self, IoSlice};
 use std::net::SocketAddr;
 use std::sync::Arc;
-use std::task::{ready, Context, Poll};
+use std::task::{Context, Poll, ready};
+use std::{fmt, io};
 
 use tokio::io::ReadBuf;
 use tokio::net::UdpSocket;
 
+use g3_io_sys::udp::{RecvMsgHdr, SendMsgHdr};
+
 use super::{AsyncUdpRecv, AsyncUdpSend, UdpSocketExt};
-#[cfg(any(
-    target_os = "linux",
-    target_os = "android",
-    target_os = "freebsd",
-    target_os = "netbsd",
-    target_os = "openbsd",
-))]
-use super::{RecvMsgHdr, SendMsgHdr};
 
 #[derive(Debug)]
 pub struct SendHalf(Arc<UdpSocket>);
@@ -91,13 +73,12 @@ impl AsyncUdpSend for SendHalf {
         self.0.poll_send(cx, buf)
     }
 
-    fn poll_sendmsg(
+    fn poll_sendmsg<const C: usize>(
         &mut self,
         cx: &mut Context<'_>,
-        iov: &[IoSlice<'_>],
-        target: Option<SocketAddr>,
+        hdr: &SendMsgHdr<'_, C>,
     ) -> Poll<io::Result<usize>> {
-        self.0.poll_sendmsg(cx, iov, target)
+        self.0.poll_sendmsg(cx, hdr)
     }
 
     #[cfg(any(
@@ -106,6 +87,7 @@ impl AsyncUdpSend for SendHalf {
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "solaris",
     ))]
     fn poll_batch_sendmsg<const C: usize>(
         &mut self,
@@ -113,6 +95,15 @@ impl AsyncUdpSend for SendHalf {
         msgs: &mut [SendMsgHdr<'_, C>],
     ) -> Poll<io::Result<usize>> {
         self.0.poll_batch_sendmsg(cx, msgs)
+    }
+
+    #[cfg(target_os = "macos")]
+    fn poll_batch_sendmsg_x<const C: usize>(
+        &mut self,
+        cx: &mut Context<'_>,
+        msgs: &mut [SendMsgHdr<'_, C>],
+    ) -> Poll<io::Result<usize>> {
+        self.0.poll_batch_sendmsg_x(cx, msgs)
     }
 }
 
@@ -143,12 +134,22 @@ impl AsyncUdpRecv for RecvHalf {
         Poll::Ready(Ok(buf.filled().len()))
     }
 
+    fn poll_recvmsg<const C: usize>(
+        &mut self,
+        cx: &mut Context<'_>,
+        hdr: &mut RecvMsgHdr<'_, C>,
+    ) -> Poll<io::Result<()>> {
+        self.0.poll_recvmsg(cx, hdr)
+    }
+
     #[cfg(any(
         target_os = "linux",
         target_os = "android",
         target_os = "freebsd",
         target_os = "netbsd",
         target_os = "openbsd",
+        target_os = "macos",
+        target_os = "solaris",
     ))]
     fn poll_batch_recvmsg<const C: usize>(
         &mut self,

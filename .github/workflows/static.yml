@@ -1,27 +1,34 @@
 name: StaticLinking
+permissions: { }
 
 on:
   push:
     paths-ignore:
       - 'ansible/**'
       - 'doc/**'
-      - 'demo/**'
+      - 'sphinx/**'
       - 'scripts/**'
-      - 'g3proxy/doc/**'
-      - 'g3tiles/doc/**'
     branches:
       - 'master'
-      - 'rel/**'
       - 'lts/**'
   pull_request:
+    paths-ignore:
+      - 'ansible/**'
+      - 'doc/**'
+      - 'sphinx/**'
+      - 'scripts/**'
     branches:
       - 'master'
-      - 'rel/**'
       - 'lts/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
   CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static
+  AWS_LC_SYS_PREBUILT_NASM: 1
 
 jobs:
   musl:
@@ -30,51 +37,51 @@ jobs:
     strategy:
       matrix:
         feature:
-          - vendored-openssl
-          - vendored-tongsuo
-          # - vendored-aws-lc
+          - vendored-openssl,rustls-ring
+          - vendored-tongsuo,rustls-ring
           # - vendored-boringssl
+          # - vendored-aws-lc
+          # - vendored-aws-lc-fips
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
       - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
         with:
+          toolchain: stable
           targets: x86_64-unknown-linux-musl
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install capnproto musl-tools
       - name: Cargo build
-        run: cargo build --target=x86_64-unknown-linux-musl --no-default-features --features ${{ matrix.feature }},quic,vendored-c-ares,hickory
+        run: cargo build --target=x86_64-unknown-linux-musl --no-default-features --features ${{ matrix.feature }},quic,vendored-c-ares
   msvc:
     name: msvc
     runs-on: windows-latest
     strategy:
       matrix:
         feature:
-          - vendored-openssl
-          - vendored-tongsuo
-          - vendored-aws-lc
-          - vendored-boringssl
+          - vendored-openssl,rustls-ring
+          - vendored-tongsuo,rustls-ring
+          - vendored-boringssl,rustls-ring
+          - vendored-aws-lc,rustls-aws-lc
     steps:
       - name: Install common tools
         run: choco install capnproto
       - name: Install nasm and ninja for BoringSSL
-        if: matrix.feature == 'vendored-boringssl'
+        if: contains(matrix.feature, 'vendored-boringssl')
         run: choco install nasm ninja
-      - name: Install nasm for AWS-LC
-        if: matrix.feature == 'vendored-aws-lc'
-        uses: ilammy/setup-nasm@v1
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
       - name: Install rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b # v1
         with:
+          toolchain: stable
           components: clippy
       - name: Cargo build
-        run: cargo build --no-default-features --features ${{ matrix.feature }},quic,vendored-c-ares,hickory
+        run: cargo build --no-default-features --features ${{ matrix.feature }},quic,vendored-c-ares

@@ -1,105 +1,141 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{LazyLock, Mutex};
+use std::sync::Mutex;
 
 use anyhow::anyhow;
+use foldhash::fast::FixedState;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use super::dummy_close::DummyCloseBackend;
-use super::ArcBackend;
+use super::{ArcBackend, ArcBackendInternal};
 use crate::config::backend::AnyBackendConfig;
 
-static RUNTIME_BACKEND_REGISTRY: LazyLock<Mutex<HashMap<MetricsName, ArcBackend>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+static RUNTIME_BACKEND_REGISTRY: Mutex<BackendRegistry> = Mutex::new(BackendRegistry::new());
 
-pub(super) fn add(name: MetricsName, connector: ArcBackend) {
-    let mut ht = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
-    if let Some(_old) = ht.insert(name, connector) {}
+pub(super) struct BackendRegistry {
+    inner: HashMap<NodeName, ArcBackendInternal, FixedState>,
 }
 
-pub(super) fn get(name: &MetricsName) -> Option<ArcBackend> {
-    let ht = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
-    ht.get(name).cloned()
+impl BackendRegistry {
+    const fn new() -> Self {
+        BackendRegistry {
+            inner: HashMap::with_hasher(FixedState::with_seed(0)),
+        }
+    }
+
+    fn add(&mut self, name: NodeName, connector: ArcBackendInternal) {
+        if let Some(_old) = self.inner.insert(name, connector) {}
+    }
+
+    fn get(&self, name: &NodeName) -> Option<ArcBackendInternal> {
+        self.inner.get(name).cloned()
+    }
+
+    fn del(&mut self, name: &NodeName) {
+        if let Some(_old) = self.inner.remove(name) {}
+    }
+
+    fn foreach<F>(&self, mut f: F)
+    where
+        F: FnMut(&NodeName, &ArcBackendInternal),
+    {
+        for (name, backend) in self.inner.iter() {
+            f(name, backend);
+        }
+    }
+
+    fn get_names(&self) -> HashSet<NodeName> {
+        self.inner.keys().cloned().collect()
+    }
+
+    fn get_config(&self, name: &NodeName) -> Option<AnyBackendConfig> {
+        self.inner.get(name).map(|g| g._clone_config())
+    }
+
+    pub(super) fn reload(
+        &mut self,
+        name: &NodeName,
+        config: Option<AnyBackendConfig>,
+    ) -> anyhow::Result<()> {
+        let Some(old_backend) = self.inner.get(name) else {
+            return Err(anyhow!("no backend with name {name} found"));
+        };
+
+        let old_backend = old_backend.clone();
+        let config = config.unwrap_or_else(|| old_backend._clone_config());
+        let backend = old_backend._reload(config, self)?;
+        self.add(name.clone(), backend);
+        Ok(())
+    }
+
+    pub(super) fn get_or_insert_default(&mut self, name: &NodeName) -> ArcBackend {
+        self.inner
+            .entry(name.clone())
+            .or_insert_with(|| DummyCloseBackend::prepare_default(name))
+            .clone()
+    }
 }
 
-pub(super) fn del(name: &MetricsName) {
-    let mut ht = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
-    if let Some(_old) = ht.remove(name) {}
+pub(super) fn add(name: NodeName, connector: ArcBackendInternal) {
+    let mut r = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
+    r.add(name, connector)
 }
 
-pub(crate) fn foreach<F>(mut f: F)
+pub(super) fn get(name: &NodeName) -> Option<ArcBackendInternal> {
+    let r = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
+    r.get(name)
+}
+
+pub(super) fn del(name: &NodeName) {
+    let mut r = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
+    r.del(name);
+}
+
+pub(super) fn foreach<F>(f: F)
 where
-    F: FnMut(&MetricsName, &ArcBackend),
+    F: FnMut(&NodeName, &ArcBackendInternal),
 {
-    let ht = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
-    for (name, backend) in ht.iter() {
-        f(name, backend)
-    }
+    let r = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
+    r.foreach(f);
 }
 
-pub(crate) fn get_names() -> HashSet<MetricsName> {
-    let mut names = HashSet::new();
-    let ht = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
-    for key in ht.keys() {
-        names.insert(key.clone());
-    }
-    names
+pub(crate) fn get_names() -> HashSet<NodeName> {
+    let r = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
+    r.get_names()
 }
 
-pub(super) fn get_config(name: &MetricsName) -> Option<AnyBackendConfig> {
-    let ht = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
-    ht.get(name).map(|g| g._clone_config())
+pub(super) fn get_config(name: &NodeName) -> Option<AnyBackendConfig> {
+    let r = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
+    r.get_config(name)
 }
 
 pub(super) fn update_config_in_place(
-    name: &MetricsName,
+    name: &NodeName,
     flags: u64,
     config: AnyBackendConfig,
 ) -> anyhow::Result<()> {
-    let ht = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
-    if let Some(backend) = ht.get(name) {
-        backend._update_config_in_place(flags, config)
-    } else {
-        Err(anyhow!("no backend with name {name} found"))
-    }
-}
-
-pub(super) async fn reload_existed(
-    name: &MetricsName,
-    config: Option<AnyBackendConfig>,
-) -> anyhow::Result<()> {
-    let Some(old_backend) = get(name) else {
+    let Some(backend) = get(name) else {
         return Err(anyhow!("no backend with name {name} found"));
     };
-    let config = config.unwrap_or_else(|| old_backend._clone_config());
-
-    // the _reload method is allowed to hold a registry lock
-    // a tokio mutex is needed if we lock this await inside
-    let backend = old_backend._lock_safe_reload(config).await?;
-
-    add(name.clone(), backend);
-    Ok(())
+    backend._update_config_in_place(flags, config)
 }
 
-pub(crate) fn get_or_insert_default(name: &MetricsName) -> ArcBackend {
-    let mut ht = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
-    ht.entry(name.clone())
-        .or_insert_with(|| DummyCloseBackend::prepare_default(name))
-        .clone()
+pub(super) fn reload_existed(
+    name: &NodeName,
+    config: Option<AnyBackendConfig>,
+) -> anyhow::Result<()> {
+    let mut r = RUNTIME_BACKEND_REGISTRY
+        .lock()
+        .map_err(|e| anyhow!("failed to lock backend registry: {e}"))?;
+    r.reload(name, config)
+}
+
+pub(crate) fn get_or_insert_default(name: &NodeName) -> ArcBackend {
+    let mut r = RUNTIME_BACKEND_REGISTRY.lock().unwrap();
+    r.get_or_insert_default(name)
 }

@@ -1,9 +1,9 @@
 [package]
 name = "g3-yaml"
-version = "0.5.0"
+version = "0.7.0"
 license.workspace = true
 edition.workspace = true
-rust-version = "1.66.0"
+rust-version.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,40 +18,29 @@ url.workspace = true
 rand.workspace = true
 ip_network = { workspace = true, optional = true }
 regex = { workspace = true, optional = true }
-rustls-pki-types = { workspace = true, optional = true }
-rustls-pemfile = { workspace = true, optional = true }
+rustls-pki-types = { workspace = true, optional = true, features = ["std"] }
 openssl = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
 g3-types.workspace = true
-g3-syslog = { workspace = true, optional = true }
-g3-fluentd = { workspace = true, optional = true }
-g3-statsd-client = { workspace = true, optional = true }
 g3-histogram = { workspace = true, optional = true }
-g3-ftp-client = { workspace = true, optional = true }
-g3-runtime = { workspace = true, optional = true }
 g3-compat = { workspace = true, optional = true }
 g3-dpi = { workspace = true, optional = true }
-g3-udpdump = { workspace = true, optional = true }
-g3-cert-agent = { workspace = true, optional = true }
-g3-icap-client = { workspace = true, optional = true }
 g3-geoip-types = { workspace = true, optional = true }
-g3-ip-locate = { workspace = true, optional = true }
+
+[dev-dependencies]
+chrono = { workspace = true, features = ["serde", "clock"] }
 
 [features]
 default = []
-syslog = ["dep:g3-syslog"]
-fluentd = ["dep:g3-fluentd", "rustls"]
-statsd = ["dep:g3-statsd-client"]
 histogram = ["dep:g3-histogram"]
+regex = ["dep:regex"]
 resolve = ["g3-types/resolve"]
-rustls = ["g3-types/rustls", "dep:rustls-pki-types", "dep:rustls-pemfile"]
+rustls = ["g3-types/rustls", "dep:rustls-pki-types"]
 openssl = ["g3-types/openssl", "dep:openssl"]
-tongsuo = ["openssl", "g3-types/tongsuo"]
+quinn = ["g3-types/quinn"]
 http = ["g3-types/http", "dep:http"]
-acl-rule = ["g3-types/acl-rule", "dep:ip_network", "dep:regex"]
+acl-rule = ["regex", "g3-types/acl-rule", "dep:ip_network"]
 route = ["g3-types/route"]
-ftp-client = ["g3-ftp-client"]
-sched = ["dep:g3-runtime", "dep:g3-compat"]
-dpi = ["dep:g3-dpi", "dep:g3-udpdump", "dep:g3-cert-agent"]
-audit = ["dep:g3-icap-client", "http"]
-geoip = ["dep:g3-geoip-types", "dep:g3-ip-locate"]
+sched = ["dep:g3-compat"]
+dpi = ["dep:g3-dpi", "acl-rule"]
+geoip = ["dep:g3-geoip-types"]

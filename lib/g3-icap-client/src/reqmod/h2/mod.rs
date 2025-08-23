@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
@@ -20,13 +9,14 @@ use std::time::Duration;
 
 use bytes::{BufMut, Bytes};
 use h2::client::SendRequest;
+use h2::ext::Protocol;
 use h2::{RecvStream, SendStream};
-use http::{Request, Response};
+use http::{Extensions, Request, Response};
 use tokio::time::Instant;
 
 use g3_h2::H2StreamFromChunkedTransfer;
 use g3_http::server::HttpAdaptedRequest;
-use g3_io_ext::{IdleCheck, LimitedCopyConfig};
+use g3_io_ext::{IdleCheck, StreamCopyConfig};
 use g3_types::net::HttpHeaderMap;
 
 use super::IcapReqmodClient;
@@ -43,14 +33,15 @@ mod recv_response;
 mod bidirectional;
 use bidirectional::{BidirectionalRecvHttpRequest, BidirectionalRecvIcapResponse};
 
+mod preview;
+
 mod forward_body;
 mod forward_header;
-mod preview;
 
 impl IcapReqmodClient {
     pub async fn h2_adapter<I: IdleCheck>(
         &self,
-        copy_config: LimitedCopyConfig,
+        copy_config: StreamCopyConfig,
         http_body_line_max_size: usize,
         http_trailer_max_size: usize,
         http_rsp_head_recv_timeout: Duration,
@@ -79,7 +70,7 @@ pub struct H2RequestAdapter<I: IdleCheck> {
     icap_client: Arc<IcapServiceClient>,
     icap_connection: IcapClientConnection,
     icap_options: Arc<IcapServiceOptions>,
-    copy_config: LimitedCopyConfig,
+    copy_config: StreamCopyConfig,
     http_body_line_max_size: usize,
     http_trailer_max_size: usize,
     http_rsp_head_recv_timeout: Duration,
@@ -94,7 +85,6 @@ pub struct ReqmodAdaptationRunState {
     pub dur_ups_send_header: Option<Duration>,
     pub dur_ups_send_all: Option<Duration>,
     pub dur_ups_recv_header: Option<Duration>,
-    pub(crate) icap_io_finished: bool,
     pub(crate) respond_shared_headers: Option<HttpHeaderMap>,
 }
 
@@ -105,7 +95,6 @@ impl ReqmodAdaptationRunState {
             dur_ups_send_header: None,
             dur_ups_send_all: None,
             dur_ups_recv_header: None,
-            icap_io_finished: false,
             respond_shared_headers: None,
         }
     }
@@ -140,7 +129,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         self.client_username = Some(user);
     }
 
-    fn push_extended_headers(&self, data: &mut Vec<u8>) {
+    fn push_extended_headers(&self, data: &mut Vec<u8>, extensions: Option<&Extensions>) {
         data.put_slice(b"X-Transformed-From: HTTP/2.0\r\n");
         if let Some(addr) = self.client_addr {
             crate::serialize::add_client_addr(data, addr);
@@ -148,6 +137,20 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         if let Some(user) = &self.client_username {
             crate::serialize::add_client_username(data, user);
         }
+        if let Some(ext) = extensions
+            && let Some(p) = ext.get::<Protocol>()
+        {
+            data.put_slice(b"X-HTTP-Upgrade: ");
+            data.put_slice(p.as_str().as_bytes());
+            data.put_slice(b"\r\n");
+        }
+    }
+
+    fn preview_size(&self) -> Option<usize> {
+        if self.icap_client.config.disable_preview {
+            return None;
+        }
+        self.icap_options.preview_size
     }
 
     pub async fn xfer(
@@ -160,7 +163,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         if clt_body.is_end_stream() {
             self.xfer_without_body(state, http_request, ups_send_request)
                 .await
-        } else if let Some(preview_size) = self.icap_options.preview_size {
+        } else if let Some(preview_size) = self.preview_size() {
             self.xfer_with_preview(
                 state,
                 http_request,
@@ -192,7 +195,7 @@ pub struct ReqmodRecvHttpResponseBody {
     icap_client: Arc<IcapServiceClient>,
     icap_keepalive: bool,
     icap_connection: IcapClientConnection,
-    copy_config: LimitedCopyConfig,
+    copy_config: StreamCopyConfig,
     http_body_line_max_size: usize,
     http_trailer_max_size: usize,
 }
@@ -203,7 +206,7 @@ impl ReqmodRecvHttpResponseBody {
         send_stream: &'a mut SendStream<Bytes>,
     ) -> H2StreamFromChunkedTransfer<'a, IcapClientReader> {
         H2StreamFromChunkedTransfer::new(
-            &mut self.icap_connection.1,
+            &mut self.icap_connection.reader,
             send_stream,
             &self.copy_config,
             self.http_body_line_max_size,
@@ -211,9 +214,10 @@ impl ReqmodRecvHttpResponseBody {
         )
     }
 
-    pub async fn save_connection(self) {
+    pub async fn save_connection(mut self) {
+        self.icap_connection.mark_reader_finished();
         if self.icap_keepalive {
-            self.icap_client.save_connection(self.icap_connection).await;
+            self.icap_client.save_connection(self.icap_connection);
         }
     }
 }

@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
@@ -31,6 +20,7 @@ use super::{
     CommonTaskContext, HttpRProxyCltWrapperStats, HttpRProxyForwardTask, HttpRProxyPipelineStats,
     HttpRProxyUntrustedTask,
 };
+use crate::audit::AuditContext;
 use crate::auth::{UserContext, UserGroup, UserRequestStats};
 use crate::config::server::ServerConfig;
 use crate::module::http_forward::{BoxHttpForwardContext, HttpProxyClientResponse};
@@ -214,13 +204,12 @@ where
                                     // close the connection if no host config found
                                     self.req_count.invalid += 1;
 
-                                    if !self.ctx.server_config.no_early_error_reply {
-                                        if let Some(stream_w) = &mut self.stream_writer {
-                                            let rsp = HttpProxyClientResponse::bad_request(
-                                                req.inner.version,
-                                            );
-                                            let _ = rsp.reply_err_to_request(stream_w).await;
-                                        }
+                                    if !self.ctx.server_config.no_early_error_reply
+                                        && let Some(stream_w) = &mut self.stream_writer
+                                    {
+                                        let rsp =
+                                            HttpProxyClientResponse::bad_request(req.inner.version);
+                                        let _ = rsp.reply_err_to_request(stream_w).await;
                                     }
 
                                     self.notify_reader_to_close();
@@ -240,10 +229,10 @@ where
                 Some(Err(rsp)) => {
                     // the response will always be `Connection: Close`
                     self.req_count.invalid += 1;
-                    if !self.ctx.server_config.no_early_error_reply {
-                        if let Some(stream_w) = &mut self.stream_writer {
-                            let _ = rsp.reply_err_to_request(stream_w).await;
-                        }
+                    if !self.ctx.server_config.no_early_error_reply
+                        && let Some(stream_w) = &mut self.stream_writer
+                    {
+                        let _ = rsp.reply_err_to_request(stream_w).await;
                     }
 
                     self.notify_reader_to_close();
@@ -273,10 +262,11 @@ where
         );
 
         if let Some(mut stream_w) = self.stream_writer.take() {
+            let mut audit_ctx = AuditContext::default();
             // check in final escaper so we can use route escapers
             let _ = self
                 .forward_context
-                .check_in_final_escaper(&task_notes, host.config.upstream())
+                .check_in_final_escaper(&task_notes, host.config.upstream(), &mut audit_ctx)
                 .await;
 
             match self.run_forward(&mut stream_w, req, host, task_notes).await {
@@ -357,11 +347,11 @@ where
                     untrusted_task.run(&mut clt_r, clt_w).await;
                     if untrusted_task.should_close() {
                         // close read end
-                        let _ = req.stream_sender.send(None).await;
+                        let _ = req.stream_sender.try_send(None);
                         LoopAction::Break
                     } else {
                         // reopen read end
-                        if req.stream_sender.send(clt_r).await.is_err() {
+                        if req.stream_sender.try_send(clt_r).is_err() {
                             // read end has closed, impossible as reader should be waiting this channel
                             LoopAction::Break
                         } else {
@@ -410,11 +400,11 @@ where
                     .await;
                 if forward_task.should_close() {
                     // close read end
-                    let _ = req.stream_sender.send(None).await;
+                    let _ = req.stream_sender.try_send(None);
                     LoopAction::Break
                 } else {
                     // reopen read end
-                    if req.stream_sender.send(clt_r).await.is_err() {
+                    if req.stream_sender.try_send(clt_r).is_err() {
                         // read end has closed, impossible as reader should be waiting this channel
                         LoopAction::Break
                     } else {

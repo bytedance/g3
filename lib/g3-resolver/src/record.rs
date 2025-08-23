@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::fmt;
@@ -21,12 +10,13 @@ use std::time::Duration;
 
 use tokio::time::Instant;
 
-use super::ResolveError;
+use super::{ResolveError, ResolveServerError};
 use crate::ResolveLocalError;
 
 #[derive(Clone, Copy, Debug)]
 pub enum ResolvedRecordSource {
     Cache,
+    Trash,
     Query,
 }
 
@@ -34,6 +24,7 @@ impl ResolvedRecordSource {
     pub const fn as_str(&self) -> &'static str {
         match self {
             ResolvedRecordSource::Cache => "cache",
+            ResolvedRecordSource::Trash => "trash",
             ResolvedRecordSource::Query => "query",
         }
     }
@@ -50,6 +41,7 @@ pub struct ResolvedRecord {
     pub domain: Arc<str>,
     pub created: Instant,
     pub expire: Option<Instant>,
+    pub vanish: Option<Instant>,
     pub result: Result<Vec<IpAddr>, ResolveError>,
 }
 
@@ -68,6 +60,18 @@ impl ResolvedRecord {
         self.result.is_err()
     }
 
+    pub fn is_expired(&self, now: Instant) -> bool {
+        self.expire.map(|expire| now >= expire).unwrap_or(true)
+    }
+
+    pub fn is_acceptable(&self) -> bool {
+        let Err(e) = self.result.as_ref() else {
+            return true;
+        };
+
+        matches!(e, ResolveError::FromServer(ResolveServerError::NotFound))
+    }
+
     pub fn timed_out(domain: Arc<str>, protective_cache_ttl: u32) -> Self {
         ResolvedRecord::failed(
             domain,
@@ -76,14 +80,43 @@ impl ResolvedRecord {
         )
     }
 
-    pub fn resolved(domain: Arc<str>, ttl: u32, ips: Vec<IpAddr>) -> Self {
+    pub fn resolved(
+        domain: Arc<str>,
+        ttl: u32,
+        min_ttl: u32,
+        max_ttl: u32,
+        ips: Vec<IpAddr>,
+    ) -> Self {
         let created = Instant::now();
-        let expire = created.checked_add(Duration::from_secs(ttl as u64));
+        let (expire_ttl, vanish_ttl) = if ttl > max_ttl + min_ttl {
+            (max_ttl, ttl)
+        } else if ttl > min_ttl + min_ttl {
+            (ttl - min_ttl, ttl)
+        } else if ttl > min_ttl {
+            (min_ttl, ttl)
+        } else {
+            (min_ttl, min_ttl + 1)
+        };
+        let expire = created.checked_add(Duration::from_secs(expire_ttl as u64));
+        let vanish = created.checked_add(Duration::from_secs(vanish_ttl as u64));
         ResolvedRecord {
             domain,
             created,
             expire,
+            vanish,
             result: Ok(ips),
+        }
+    }
+
+    pub fn empty(domain: Arc<str>, expire_ttl: u32) -> Self {
+        let created = Instant::now();
+        let expire = created.checked_add(Duration::from_secs(expire_ttl as u64));
+        ResolvedRecord {
+            domain,
+            created,
+            expire,
+            vanish: None,
+            result: Ok(Vec::new()),
         }
     }
 
@@ -94,6 +127,7 @@ impl ResolvedRecord {
             domain,
             created,
             expire,
+            vanish: None,
             result: Err(err),
         }
     }

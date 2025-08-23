@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::net::SocketAddr;
@@ -21,9 +10,11 @@ use log::{info, warn};
 use tokio::net::TcpStream;
 use tokio::sync::broadcast;
 
-use g3_daemon::listen::ListenStats;
+use g3_daemon::listen::{ListenAliveGuard, ListenStats};
+use g3_daemon::server::ClientConnectionInfo;
 use g3_io_ext::LimitedTcpListener;
-use g3_socket::util::native_socket_addr;
+use g3_socket::RawSocket;
+use g3_std_ext::net::SocketAddrExt;
 use g3_types::net::TcpListenConfig;
 
 use super::{KeyServer, ServerReloadCommand};
@@ -31,6 +22,7 @@ use super::{KeyServer, ServerReloadCommand};
 pub(super) struct KeyServerRuntime {
     server: Arc<KeyServer>,
     listen_stats: Arc<ListenStats>,
+    _alive_guard: Option<ListenAliveGuard>,
 }
 
 impl KeyServerRuntime {
@@ -38,21 +30,21 @@ impl KeyServerRuntime {
         KeyServerRuntime {
             server: Arc::clone(server),
             listen_stats: server.get_listen_stats(),
+            _alive_guard: None,
         }
     }
 
-    fn pre_start(&self) {
-        info!("started SRT {}", self.server.name(),);
-        self.listen_stats.add_running_runtime();
+    fn pre_start(&mut self) {
+        info!("started SRT {}", self.server.name());
+        self._alive_guard = Some(self.listen_stats.add_running_runtime());
     }
 
     fn pre_stop(&self) {
-        info!("stopping SRT {}", self.server.name(),);
+        info!("stopping SRT {}", self.server.name());
     }
 
     fn post_stop(&self) {
-        info!("stopped SRT {}", self.server.name(),);
-        self.listen_stats.del_running_runtime();
+        info!("stopped SRT {}", self.server.name());
     }
 
     async fn run(
@@ -94,8 +86,8 @@ impl KeyServerRuntime {
                                 self.listen_stats.add_accepted();
                                 self.run_task(
                                     stream,
-                                    native_socket_addr(peer_addr),
-                                    native_socket_addr(local_addr),
+                                    peer_addr.to_canonical(),
+                                    local_addr.to_canonical(),
                                 );
                                 Ok(())
                             }
@@ -120,13 +112,15 @@ impl KeyServerRuntime {
 
     fn run_task(&self, stream: TcpStream, peer_addr: SocketAddr, local_addr: SocketAddr) {
         let server = Arc::clone(&self.server);
+        let mut cc_info = ClientConnectionInfo::new(peer_addr, local_addr);
+        cc_info.set_tcp_raw_socket(RawSocket::from(&stream));
         tokio::spawn(async move {
-            server.run_tcp_task(stream, peer_addr, local_addr).await;
+            server.run_tcp_task(stream, cc_info).await;
         });
     }
 
     pub(super) fn into_running(
-        self,
+        mut self,
         listen_config: &TcpListenConfig,
         server_reload_sender: &broadcast::Sender<ServerReloadCommand>,
     ) -> anyhow::Result<()> {

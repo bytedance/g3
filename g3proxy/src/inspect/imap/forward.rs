@@ -1,17 +1,6 @@
 /*
- * Copyright 2024 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
 use anyhow::anyhow;
@@ -24,7 +13,7 @@ use g3_imap_proto::command::{Command, ParsedCommand};
 use g3_imap_proto::response::{
     BadResponse, ByeResponse, CommandData, CommandResult, Response, ServerStatus, UntaggedResponse,
 };
-use g3_io_ext::{LimitedCopy, LimitedCopyError, LimitedWriteExt};
+use g3_io_ext::{LimitedWriteExt, StreamCopy, StreamCopyError};
 
 use super::{ImapInterceptObject, ImapRelayBuf};
 use crate::config::server::ServerConfig;
@@ -88,32 +77,32 @@ where
             ));
         };
 
-        if cmd.parsed == ParsedCommand::Append {
-            if let Some(client) = self.ctx.audit_handle.icap_reqmod_client() {
-                match client
-                    .imap_message_adaptor(
-                        self.ctx.server_config.limited_copy_config(),
-                        self.ctx.idle_checker(),
-                        literal_size,
-                    )
-                    .await
-                {
-                    Ok(adapter) => {
-                        return self
-                            .relay_append_literal_with_adaptation(
-                                literal_size,
-                                clt_r,
-                                clt_w,
-                                ups_w,
-                                relay_buf,
-                                adapter,
-                            )
-                            .await;
-                    }
-                    Err(e) => {
-                        if !client.bypass() {
-                            return Err(ServerTaskError::InternalAdapterError(e));
-                        }
+        if cmd.parsed == ParsedCommand::Append
+            && let Some(client) = self.ctx.audit_handle.icap_reqmod_client()
+        {
+            match client
+                .imap_message_adaptor(
+                    self.ctx.server_config.limited_copy_config(),
+                    self.ctx.idle_checker(),
+                    literal_size,
+                )
+                .await
+            {
+                Ok(adapter) => {
+                    return self
+                        .relay_append_literal_with_adaptation(
+                            literal_size,
+                            clt_r,
+                            clt_w,
+                            ups_w,
+                            relay_buf,
+                            adapter,
+                        )
+                        .await;
+                }
+                Err(e) => {
+                    if !client.bypass() {
+                        return Err(ServerTaskError::InternalAdapterError(e));
                     }
                 }
             }
@@ -130,13 +119,11 @@ where
         if literal_size > cached.len() as u64 {
             let mut clt_r = clt_r.take(literal_size - cached.len() as u64);
 
-            let idle_duration = self.ctx.server_config.task_idle_check_duration();
-            let mut idle_interval =
-                tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+            let mut idle_interval = self.ctx.idle_wheel.register();
             let mut idle_count = 0;
             let max_idle_count = self.ctx.imap_interception().transfer_max_idle_count;
 
-            let mut clt_to_ups = LimitedCopy::new(&mut clt_r, ups_w, &Default::default());
+            let mut clt_to_ups = StreamCopy::new(&mut clt_r, ups_w, &Default::default());
 
             loop {
                 tokio::select! {
@@ -148,16 +135,16 @@ where
                                 // ups_w is already flushed
                                 Ok(())
                             }
-                            Err(LimitedCopyError::ReadFailed(e)) => {
+                            Err(StreamCopyError::ReadFailed(e)) => {
                                 let _ = clt_to_ups.write_flush().await;
                                 Err(ServerTaskError::ClientTcpReadFailed(e))
                             }
-                            Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
+                            Err(StreamCopyError::WriteFailed(e)) => Err(ServerTaskError::UpstreamWriteFailed(e)),
                         };
                     }
-                    _ = idle_interval.tick() => {
+                    n = idle_interval.tick() => {
                         if clt_to_ups.is_idle() {
-                            idle_count += 1;
+                            idle_count += n;
                             if idle_count >= max_idle_count {
                                 return if clt_to_ups.no_cached_data() {
                                     Err(ServerTaskError::ClientAppTimeout("idle while reading literal data"))
@@ -225,17 +212,16 @@ where
                     let mut body_reader = body.body_reader();
                     let mut sinker = tokio::io::sink();
                     let _ = tokio::io::copy(&mut body_reader, &mut sinker).await;
-                    if body_reader.finished() {
+                    if body_reader.trailer(128).await.is_ok() {
                         body.save_connection().await;
                     }
                 }
-                if let Some(cmd) = self.cmd_pipeline.ongoing_command() {
-                    if BadResponse::reply_append_blocked(clt_w, &cmd.tag)
+                if let Some(cmd) = self.cmd_pipeline.ongoing_command()
+                    && BadResponse::reply_append_blocked(clt_w, &cmd.tag)
                         .await
                         .is_ok()
-                    {
-                        let _ = ByeResponse::reply_blocked(clt_w).await;
-                    }
+                {
+                    let _ = ByeResponse::reply_blocked(clt_w).await;
                 }
                 Err(ServerTaskError::InternalAdapterError(anyhow!(
                     "blocked by icap server: {} - {}",
@@ -288,13 +274,11 @@ where
         if literal_size > cached.len() as u64 {
             let mut ups_r = ups_r.take(literal_size - cached.len() as u64);
 
-            let idle_duration = self.ctx.server_config.task_idle_check_duration();
-            let mut idle_interval =
-                tokio::time::interval_at(Instant::now() + idle_duration, idle_duration);
+            let mut idle_interval = self.ctx.idle_wheel.register();
             let mut idle_count = 0;
             let max_idle_count = self.ctx.imap_interception().transfer_max_idle_count;
 
-            let mut ups_to_clt = LimitedCopy::new(&mut ups_r, clt_w, &Default::default());
+            let mut ups_to_clt = StreamCopy::new(&mut ups_r, clt_w, &Default::default());
 
             loop {
                 tokio::select! {
@@ -306,16 +290,16 @@ where
                                 // clt_w is already flushed
                                 Ok(())
                             }
-                            Err(LimitedCopyError::ReadFailed(e)) => {
+                            Err(StreamCopyError::ReadFailed(e)) => {
                                 let _ = ups_to_clt.write_flush().await;
                                 Err(ServerTaskError::UpstreamReadFailed(e))
                             }
-                            Err(LimitedCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
+                            Err(StreamCopyError::WriteFailed(e)) => Err(ServerTaskError::ClientTcpWriteFailed(e)),
                         };
                     }
-                    _ = idle_interval.tick() => {
+                    n = idle_interval.tick() => {
                         if ups_to_clt.is_idle() {
-                            idle_count += 1;
+                            idle_count += n;
                             if idle_count >= max_idle_count {
                                 return if ups_to_clt.no_cached_data() {
                                     Err(ServerTaskError::UpstreamAppTimeout("idle while reading literal data"))

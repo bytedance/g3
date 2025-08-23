@@ -1,52 +1,41 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::{Arc, Mutex};
 
-use ahash::AHashMap;
 use arc_swap::ArcSwapOption;
+use foldhash::HashMap;
 
-use g3_types::metrics::{MetricsName, StaticMetricsTags};
+use g3_types::metrics::{MetricTagMap, NodeName};
 
 use super::{UserRequestStats, UserTrafficStats, UserUpstreamTrafficStats};
 use crate::auth::UserType;
 
 pub(crate) struct UserSiteStats {
     user: Arc<str>,
-    user_group: MetricsName,
-    site_id: MetricsName,
-    pub(crate) request: Mutex<AHashMap<String, Arc<UserRequestStats>>>,
-    pub(crate) client_io: Mutex<AHashMap<String, Arc<UserTrafficStats>>>,
-    pub(crate) remote_io: Mutex<AHashMap<String, Arc<UserUpstreamTrafficStats>>>,
+    user_group: NodeName,
+    site_id: NodeName,
+    pub(crate) request: Mutex<HashMap<NodeName, Arc<UserRequestStats>>>,
+    pub(crate) client_io: Mutex<HashMap<NodeName, Arc<UserTrafficStats>>>,
+    pub(crate) remote_io: Mutex<HashMap<NodeName, Arc<UserUpstreamTrafficStats>>>,
 }
 
 impl UserSiteStats {
-    pub(crate) fn new(user: Arc<str>, user_group: &MetricsName, site_id: &MetricsName) -> Self {
+    pub(crate) fn new(user: Arc<str>, user_group: &NodeName, site_id: &NodeName) -> Self {
         UserSiteStats {
             user,
             user_group: user_group.clone(),
             site_id: site_id.clone(),
-            request: Mutex::new(AHashMap::new()),
-            client_io: Mutex::new(AHashMap::new()),
-            remote_io: Mutex::new(AHashMap::new()),
+            request: Mutex::new(HashMap::default()),
+            client_io: Mutex::new(HashMap::default()),
+            remote_io: Mutex::new(HashMap::default()),
         }
     }
 
     #[inline]
-    pub(crate) fn user_group(&self) -> &MetricsName {
+    pub(crate) fn user_group(&self) -> &NodeName {
         &self.user_group
     }
 
@@ -58,14 +47,14 @@ impl UserSiteStats {
     pub(crate) fn fetch_request_stats(
         &self,
         user_type: UserType,
-        server: &MetricsName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server: &NodeName,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Arc<UserRequestStats> {
         let mut new_stats = None;
 
         let mut map = self.request.lock().unwrap();
         let stats = map
-            .entry(server.to_string())
+            .entry(server.clone())
             .or_insert_with(|| {
                 let stats = Arc::new(UserRequestStats::new(
                     &self.user_group,
@@ -90,14 +79,14 @@ impl UserSiteStats {
     pub(crate) fn fetch_traffic_stats(
         &self,
         user_type: UserType,
-        server: &MetricsName,
-        server_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        server: &NodeName,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Arc<UserTrafficStats> {
         let mut new_stats = None;
 
         let mut map = self.client_io.lock().unwrap();
         let stats = map
-            .entry(server.to_string())
+            .entry(server.clone())
             .or_insert_with(|| {
                 let stats = Arc::new(UserTrafficStats::new(
                     &self.user_group,
@@ -122,14 +111,14 @@ impl UserSiteStats {
     pub(crate) fn fetch_upstream_traffic_stats(
         &self,
         user_type: UserType,
-        escaper: &MetricsName,
-        escaper_extra_tags: &Arc<ArcSwapOption<StaticMetricsTags>>,
+        escaper: &NodeName,
+        escaper_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Arc<UserUpstreamTrafficStats> {
         let mut new_stats = None;
 
         let mut map = self.remote_io.lock().unwrap();
         let stats = map
-            .entry(escaper.to_string())
+            .entry(escaper.clone())
             .or_insert_with(|| {
                 let stats = Arc::new(UserUpstreamTrafficStats::new(
                     &self.user_group,

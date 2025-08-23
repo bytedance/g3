@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::hash::Hash;
@@ -20,6 +9,7 @@ use std::sync::Arc;
 
 use ahash::AHashMap;
 use radix_trie::{Trie, TrieCommon};
+use rustc_hash::{FxBuildHasher, FxHashMap};
 
 use crate::collection::NamedValue;
 use crate::net::Host;
@@ -27,8 +17,8 @@ use crate::resolve::reverse_idna_domain;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct HostMatch<T> {
-    exact_domain: Option<AHashMap<String, T>>,
-    exact_ip: Option<AHashMap<IpAddr, T>>,
+    exact_domain: Option<AHashMap<Arc<str>, T>>,
+    exact_ip: Option<FxHashMap<IpAddr, T>>,
     child_domain: Option<Trie<String, T>>,
     default: Option<T>,
 }
@@ -45,7 +35,7 @@ impl<T> Default for HostMatch<T> {
 }
 
 impl<T> HostMatch<T> {
-    pub fn add_exact_domain(&mut self, domain: String, v: T) -> Option<T> {
+    pub fn add_exact_domain(&mut self, domain: Arc<str>, v: T) -> Option<T> {
         self.exact_domain
             .get_or_insert(Default::default())
             .insert(domain, v)
@@ -71,17 +61,17 @@ impl<T> HostMatch<T> {
     pub fn get(&self, host: &Host) -> Option<&T> {
         match host {
             Host::Ip(ip) => {
-                if let Some(ht) = &self.exact_ip {
-                    if let Some(v) = ht.get(ip) {
-                        return Some(v);
-                    }
+                if let Some(ht) = &self.exact_ip
+                    && let Some(v) = ht.get(ip)
+                {
+                    return Some(v);
                 }
             }
             Host::Domain(domain) => {
-                if let Some(ht) = &self.exact_domain {
-                    if let Some(v) = ht.get(domain) {
-                        return Some(v);
-                    }
+                if let Some(ht) = &self.exact_domain
+                    && let Some(v) = ht.get(domain)
+                {
+                    return Some(v);
                 }
 
                 if let Some(trie) = &self.child_domain {
@@ -137,13 +127,13 @@ impl<T> HostMatch<Arc<T>> {
             let mut dst_ht = AHashMap::with_capacity(ht.len());
             for (k, v) in ht {
                 let dv = get_tmp(v)?;
-                dst_ht.insert(k.to_string(), dv);
+                dst_ht.insert(k.clone(), dv);
             }
             dst.exact_domain = Some(dst_ht);
         }
 
         if let Some(ht) = &self.exact_ip {
-            let mut dst_ht = AHashMap::with_capacity(ht.len());
+            let mut dst_ht = FxHashMap::with_capacity_and_hasher(ht.len(), FxBuildHasher);
             for (k, v) in ht {
                 let dv = get_tmp(v)?;
                 dst_ht.insert(*k, dv);
@@ -217,14 +207,14 @@ where
             let mut dst_ht = AHashMap::with_capacity(ht.len());
             for (k, v) in ht {
                 if let Some(dv) = values.get(v.name()) {
-                    dst_ht.insert(k.to_string(), dv.clone());
+                    dst_ht.insert(k.clone(), dv.clone());
                 }
             }
             dst.exact_domain = Some(dst_ht);
         }
 
         if let Some(ht) = &self.exact_ip {
-            let mut dst_ht = AHashMap::with_capacity(ht.len());
+            let mut dst_ht = FxHashMap::with_capacity_and_hasher(ht.len(), FxBuildHasher);
             for (k, v) in ht {
                 if let Some(dv) = values.get(v.name()) {
                     dst_ht.insert(*k, dv.clone());
@@ -243,12 +233,167 @@ where
             dst.child_domain = Some(dst_trie);
         }
 
-        if let Some(default) = &self.default {
-            if let Some(dv) = values.get(default.name()) {
-                dst.default = Some(dv.clone());
-            }
+        if let Some(default) = &self.default
+            && let Some(dv) = values.get(default.name())
+        {
+            dst.default = Some(dv.clone());
         }
 
         dst
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::Ipv4Addr;
+
+    // Helper struct for NamedValue impl
+    #[derive(Debug, PartialEq, Eq)]
+    struct TestValue(&'static str);
+
+    impl NamedValue for TestValue {
+        type Name = str;
+        type NameOwned = String;
+
+        fn name(&self) -> &str {
+            self.0
+        }
+        fn name_owned(&self) -> String {
+            self.0.to_string()
+        }
+    }
+
+    // Helper struct for try_build_arc tests
+    #[derive(Debug)]
+    struct Src(i32);
+    #[derive(Debug, PartialEq)]
+    struct Dst(i32);
+
+    #[test]
+    fn basic_operations() {
+        let mut hm = HostMatch::default();
+        assert!(hm.is_empty());
+
+        assert_eq!(hm.add_exact_domain(Arc::from("example.com"), 1), None);
+        assert_eq!(
+            hm.add_exact_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 2),
+            None
+        );
+        assert_eq!(hm.add_child_domain("test.com", 3), None);
+
+        assert_eq!(hm.set_default(4), None);
+        assert!(!hm.is_empty());
+
+        assert_eq!(hm.add_exact_domain(Arc::from("example.com"), 5), Some(1));
+    }
+
+    #[test]
+    fn get_matching() {
+        let mut hm = HostMatch::default();
+        hm.add_exact_domain(Arc::from("example.com"), 1);
+        hm.add_exact_ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 2);
+        hm.add_child_domain("sub.test.com", 3);
+        hm.set_default(4);
+
+        assert_eq!(hm.get(&Host::Domain(Arc::from("example.com"))), Some(&1));
+
+        assert_eq!(
+            hm.get(&Host::Ip(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))),
+            Some(&2)
+        );
+
+        assert_eq!(hm.get(&Host::Domain(Arc::from("a.sub.test.com"))), Some(&4));
+
+        assert_eq!(hm.get(&Host::Domain(Arc::from("unknown.com"))), Some(&4));
+        assert_eq!(
+            hm.get(&Host::Ip(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)))),
+            Some(&4)
+        );
+    }
+
+    #[test]
+    fn try_build_arc_success() {
+        let mut hm = HostMatch::default();
+        hm.add_exact_ip(IpAddr::V4(Ipv4Addr::LOCALHOST), Arc::new(Src(10)));
+        hm.set_default(Arc::new(Src(20)));
+
+        let result = hm.try_build_arc(|src| Ok::<_, &str>(Dst(src.0 * 2)));
+        assert!(result.is_ok());
+        let hm_dst = result.unwrap();
+
+        assert_eq!(
+            hm_dst.get(&Host::Ip(IpAddr::V4(Ipv4Addr::LOCALHOST))),
+            Some(&Arc::new(Dst(20)))
+        );
+        assert_eq!(hm_dst.get_default(), Some(&Arc::new(Dst(40))));
+    }
+
+    #[test]
+    fn try_build_arc_error() {
+        let mut hm = HostMatch::default();
+        hm.add_exact_domain(Arc::from("error.com"), Arc::new(Src(-1)));
+
+        let result = hm.try_build_arc(|src| {
+            if src.0 < 0 {
+                Err("Negative value")
+            } else {
+                Ok(Dst(src.0))
+            }
+        });
+
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn try_build_arc_reuse() {
+        let shared = Arc::new(Src(100));
+        let mut hm = HostMatch::default();
+        hm.add_exact_domain(Arc::from("a.com"), Arc::clone(&shared));
+        hm.add_exact_domain(Arc::from("b.com"), Arc::clone(&shared));
+
+        let hm_dst = hm.try_build_arc(|src| Ok::<_, ()>(Dst(src.0))).unwrap();
+        let a_val = hm_dst.get(&Host::Domain(Arc::from("a.com"))).unwrap();
+        let b_val = hm_dst.get(&Host::Domain(Arc::from("b.com"))).unwrap();
+
+        assert!(Arc::ptr_eq(a_val, b_val));
+    }
+
+    #[test]
+    fn get_all_values() {
+        let mut hm = HostMatch::<Arc<TestValue>>::default();
+        hm.add_exact_domain(Arc::from("a.com"), Arc::new(TestValue("a")));
+        hm.add_exact_ip(IpAddr::V4(Ipv4Addr::LOCALHOST), Arc::new(TestValue("b")));
+        hm.add_child_domain("c.com", Arc::new(TestValue("c")));
+        hm.set_default(Arc::new(TestValue("d")));
+
+        let values = hm.get_all_values();
+        assert_eq!(values.len(), 4);
+        assert_eq!(values.get("a").unwrap().0, "a");
+        assert_eq!(values.get("b").unwrap().0, "b");
+        assert_eq!(values.get("c").unwrap().0, "c");
+        assert_eq!(values.get("d").unwrap().0, "d");
+    }
+
+    #[test]
+    fn build_from() {
+        let mut hm_src = HostMatch::<Arc<TestValue>>::default();
+        hm_src.add_exact_domain(Arc::from("a.com"), Arc::new(TestValue("a")));
+        hm_src.set_default(Arc::new(TestValue("default")));
+
+        let mut values = AHashMap::new();
+        values.insert("a".to_string(), Arc::new("mapped_a"));
+        values.insert("default".to_string(), Arc::new("mapped_default"));
+
+        let hm_dst = hm_src.build_from(values);
+
+        assert_eq!(
+            hm_dst.get(&Host::Domain(Arc::from("a.com"))),
+            Some(&Arc::from("mapped_a"))
+        );
+        assert_eq!(
+            hm_dst.get(&Host::Domain(Arc::from("unknown.com"))),
+            Some(&Arc::from("mapped_default"))
+        );
     }
 }

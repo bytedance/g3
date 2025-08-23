@@ -1,20 +1,9 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::net::IpAddr;
 use std::sync::Arc;
 
@@ -24,26 +13,29 @@ use ip_network_table::IpNetworkTable;
 
 use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_resolver::ResolveError;
-use g3_types::metrics::MetricsName;
-use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr};
+use g3_types::metrics::NodeName;
+use g3_types::net::{Host, UpstreamAddr};
 
-use super::{ArcEscaper, Escaper, EscaperInternal, RouteEscaperStats};
+use super::{ArcEscaper, Escaper, EscaperInternal, EscaperRegistry, RouteEscaperStats};
+use crate::audit::AuditContext;
 use crate::config::escaper::route_resolved::RouteResolvedEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
 use crate::module::ftp_over_http::{
-    AnyFtpConnectContextParam, ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats,
-    BoxFtpConnectContext, BoxFtpRemoteConnection, DenyFtpConnectContext,
+    ArcFtpTaskRemoteControlStats, ArcFtpTaskRemoteTransferStats, BoxFtpConnectContext,
+    BoxFtpRemoteConnection, DenyFtpConnectContext,
 };
 use crate::module::http_forward::{
     ArcHttpForwardTaskRemoteStats, BoxHttpForwardConnection, BoxHttpForwardContext,
     RouteHttpForwardContext,
 };
-use crate::module::tcp_connect::{TcpConnectError, TcpConnectResult, TcpConnectTaskNotes};
+use crate::module::tcp_connect::{
+    TcpConnectError, TcpConnectResult, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
+};
 use crate::module::udp_connect::{
-    ArcUdpConnectTaskRemoteStats, UdpConnectError, UdpConnectResult, UdpConnectTaskNotes,
+    ArcUdpConnectTaskRemoteStats, UdpConnectResult, UdpConnectTaskConf, UdpConnectTaskNotes,
 };
 use crate::module::udp_relay::{
-    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskNotes,
+    ArcUdpRelayTaskRemoteStats, UdpRelaySetupResult, UdpRelayTaskConf, UdpRelayTaskNotes,
 };
 use crate::resolve::{ArcIntegratedResolverHandle, HappyEyeballsResolveJob};
 use crate::serve::ServerTaskNotes;
@@ -52,22 +44,26 @@ pub(super) struct RouteResolvedEscaper {
     config: RouteResolvedEscaperConfig,
     stats: Arc<RouteEscaperStats>,
     resolver_handle: ArcIntegratedResolverHandle,
-    next_table: BTreeMap<MetricsName, ArcEscaper>,
+    next_table: BTreeMap<NodeName, ArcEscaper>,
     lpm_table: IpNetworkTable<ArcEscaper>,
     default_next: ArcEscaper,
 }
 
 impl RouteResolvedEscaper {
-    fn new_obj(
+    fn new_obj<F>(
         config: RouteResolvedEscaperConfig,
         stats: Arc<RouteEscaperStats>,
-    ) -> anyhow::Result<ArcEscaper> {
+        mut fetch_escaper: F,
+    ) -> anyhow::Result<ArcEscaper>
+    where
+        F: FnMut(&NodeName) -> ArcEscaper,
+    {
         let resolver_handle = crate::resolve::get_handle(config.resolver())?;
 
         let mut next_table = BTreeMap::new();
         if let Some(escapers) = config.dependent_escaper() {
             for escaper in escapers {
-                let next = super::registry::get_or_insert_default(&escaper);
+                let next = fetch_escaper(&escaper);
                 next_table.insert(escaper, next);
             }
         }
@@ -98,15 +94,18 @@ impl RouteResolvedEscaper {
         config: RouteResolvedEscaperConfig,
     ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::new(RouteEscaperStats::new(config.name()));
-        RouteResolvedEscaper::new_obj(config, stats)
+        RouteResolvedEscaper::new_obj(config, stats, super::registry::get_or_insert_default)
     }
 
     fn prepare_reload(
         config: AnyEscaperConfig,
         stats: Arc<RouteEscaperStats>,
+        registry: &mut EscaperRegistry,
     ) -> anyhow::Result<ArcEscaper> {
         if let AnyEscaperConfig::RouteResolved(config) = config {
-            RouteResolvedEscaper::new_obj(config, stats)
+            RouteResolvedEscaper::new_obj(config, stats, |name| {
+                registry.get_or_insert_default(name)
+            })
         } else {
             Err(anyhow!("invalid escaper config type"))
         }
@@ -119,7 +118,7 @@ impl RouteResolvedEscaper {
                 let mut resolver_job = HappyEyeballsResolveJob::new_dyn(
                     self.config.resolve_strategy,
                     &self.resolver_handle,
-                    Arc::from(domain.as_str()),
+                    domain.clone(),
                 )?;
                 let v = resolver_job
                     .get_r1_or_first(self.config.resolution_delay, usize::MAX)
@@ -135,10 +134,10 @@ impl RouteResolvedEscaper {
     }
 
     fn select_next_by_ip(&self, ip: IpAddr) -> ArcEscaper {
-        if !self.lpm_table.is_empty() {
-            if let Some((_net, escaper)) = self.lpm_table.longest_match(ip) {
-                return Arc::clone(escaper);
-            }
+        if !self.lpm_table.is_empty()
+            && let Some((_net, escaper)) = self.lpm_table.longest_match(ip)
+        {
+            return Arc::clone(escaper);
         }
 
         Arc::clone(&self.default_next)
@@ -154,12 +153,8 @@ impl RouteResolvedEscaper {
 
 #[async_trait]
 impl Escaper for RouteResolvedEscaper {
-    fn name(&self) -> &MetricsName {
+    fn name(&self) -> &NodeName {
         self.config.name()
-    }
-
-    fn escaper_type(&self) -> &str {
-        self.config.escaper_type()
     }
 
     fn ref_route_stats(&self) -> Option<&Arc<RouteEscaperStats>> {
@@ -170,18 +165,20 @@ impl Escaper for RouteResolvedEscaper {
         Err(anyhow!("not implemented"))
     }
 
-    async fn tcp_setup_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn tcp_setup_connection(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
+        audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
-        match self.select_next(&tcp_notes.upstream).await {
+        match self.select_next(task_conf.upstream).await {
             Ok(escaper) => {
                 self.stats.add_request_passed();
                 escaper
-                    .tcp_setup_connection(tcp_notes, task_notes, task_stats)
+                    .tcp_setup_connection(task_conf, tcp_notes, task_notes, task_stats, audit_ctx)
                     .await
             }
             Err(e) => {
@@ -191,20 +188,20 @@ impl Escaper for RouteResolvedEscaper {
         }
     }
 
-    async fn tls_setup_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn tls_setup_connection(
+        &self,
+        task_conf: &TlsConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcTcpConnectionTaskRemoteStats,
-        tls_config: &'a OpensslClientConfig,
-        tls_name: &'a Host,
+        audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
-        match self.select_next(&tcp_notes.upstream).await {
+        match self.select_next(task_conf.tcp.upstream).await {
             Ok(escaper) => {
                 self.stats.add_request_passed();
                 escaper
-                    .tls_setup_connection(tcp_notes, task_notes, task_stats, tls_config, tls_name)
+                    .tls_setup_connection(task_conf, tcp_notes, task_notes, task_stats, audit_ctx)
                     .await
             }
             Err(e) => {
@@ -214,22 +211,19 @@ impl Escaper for RouteResolvedEscaper {
         }
     }
 
-    async fn udp_setup_connection<'a>(
-        &'a self,
-        udp_notes: &'a mut UdpConnectTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn udp_setup_connection(
+        &self,
+        task_conf: &UdpConnectTaskConf<'_>,
+        udp_notes: &mut UdpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         udp_notes.escaper.clone_from(&self.config.name);
-        let upstream = udp_notes
-            .upstream
-            .as_ref()
-            .ok_or(UdpConnectError::NoUpstreamSupplied)?;
-        match self.select_next(upstream).await {
+        match self.select_next(task_conf.upstream).await {
             Ok(escaper) => {
                 self.stats.add_request_passed();
                 escaper
-                    .udp_setup_connection(udp_notes, task_notes, task_stats)
+                    .udp_setup_connection(task_conf, udp_notes, task_notes, task_stats)
                     .await
             }
             Err(e) => {
@@ -239,18 +233,19 @@ impl Escaper for RouteResolvedEscaper {
         }
     }
 
-    async fn udp_setup_relay<'a>(
-        &'a self,
-        udp_notes: &'a mut UdpRelayTaskNotes,
-        task_notes: &'a ServerTaskNotes,
+    async fn udp_setup_relay(
+        &self,
+        task_conf: &UdpRelayTaskConf<'_>,
+        udp_notes: &mut UdpRelayTaskNotes,
+        task_notes: &ServerTaskNotes,
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         udp_notes.escaper.clone_from(&self.config.name);
-        match self.select_next(&udp_notes.initial_peer).await {
+        match self.select_next(task_conf.initial_peer).await {
             Ok(escaper) => {
                 self.stats.add_request_passed();
                 escaper
-                    .udp_setup_relay(udp_notes, task_notes, task_stats)
+                    .udp_setup_relay(task_conf, udp_notes, task_notes, task_stats)
                     .await
             }
             Err(e) => {
@@ -265,17 +260,17 @@ impl Escaper for RouteResolvedEscaper {
         Box::new(ctx)
     }
 
-    async fn new_ftp_connect_context<'a>(
-        &'a self,
+    async fn new_ftp_connect_context(
+        &self,
         _escaper: ArcEscaper,
-        task_notes: &'a ServerTaskNotes,
-        upstream: &'a UpstreamAddr,
+        task_conf: &TcpConnectTaskConf<'_>,
+        task_notes: &ServerTaskNotes,
     ) -> BoxFtpConnectContext {
-        match self.select_next(upstream).await {
+        match self.select_next(task_conf.upstream).await {
             Ok(escaper) => {
                 self.stats.add_request_passed();
                 escaper
-                    .new_ftp_connect_context(Arc::clone(&escaper), task_notes, upstream)
+                    .new_ftp_connect_context(Arc::clone(&escaper), task_conf, task_notes)
                     .await
             }
             Err(e) => {
@@ -291,33 +286,25 @@ impl Escaper for RouteResolvedEscaper {
 
 #[async_trait]
 impl EscaperInternal for RouteResolvedEscaper {
-    fn _resolver(&self) -> &MetricsName {
+    fn _resolver(&self) -> &NodeName {
         self.config.resolver()
     }
 
-    fn _dependent_escaper(&self) -> Option<BTreeSet<MetricsName>> {
-        let mut set = BTreeSet::new();
-        for escaper in self.next_table.keys() {
-            set.insert(escaper.clone());
-        }
-        Some(set)
+    fn _depend_on_escaper(&self, name: &NodeName) -> bool {
+        self.next_table.contains_key(name)
     }
 
     fn _clone_config(&self) -> AnyEscaperConfig {
         AnyEscaperConfig::RouteResolved(self.config.clone())
     }
 
-    fn _update_config_in_place(
+    fn _reload(
         &self,
-        _flags: u64,
-        _config: AnyEscaperConfig,
-    ) -> anyhow::Result<()> {
-        Ok(())
-    }
-
-    async fn _lock_safe_reload(&self, config: AnyEscaperConfig) -> anyhow::Result<ArcEscaper> {
+        config: AnyEscaperConfig,
+        registry: &mut EscaperRegistry,
+    ) -> anyhow::Result<ArcEscaper> {
         let stats = Arc::clone(&self.stats);
-        RouteResolvedEscaper::prepare_reload(config, stats)
+        RouteResolvedEscaper::prepare_reload(config, stats, registry)
     }
 
     async fn _check_out_next_escaper(
@@ -334,45 +321,47 @@ impl EscaperInternal for RouteResolvedEscaper {
         }
     }
 
-    async fn _new_http_forward_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+    async fn _new_http_forward_connection(
+        &self,
+        _task_conf: &TcpConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         tcp_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
 
-    async fn _new_https_forward_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+    async fn _new_https_forward_connection(
+        &self,
+        _task_conf: &TlsConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcHttpForwardTaskRemoteStats,
-        _tls_config: &'a OpensslClientConfig,
-        _tls_name: &'a Host,
     ) -> Result<BoxHttpForwardConnection, TcpConnectError> {
         tcp_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
 
-    async fn _new_ftp_control_connection<'a>(
-        &'a self,
-        tcp_notes: &'a mut TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+    async fn _new_ftp_control_connection(
+        &self,
+        _task_conf: &TcpConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteControlStats,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         tcp_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)
     }
 
-    async fn _new_ftp_transfer_connection<'a>(
-        &'a self,
-        transfer_tcp_notes: &'a mut TcpConnectTaskNotes,
-        _control_tcp_notes: &'a TcpConnectTaskNotes,
-        _task_notes: &'a ServerTaskNotes,
+    async fn _new_ftp_transfer_connection(
+        &self,
+        _task_conf: &TcpConnectTaskConf<'_>,
+        transfer_tcp_notes: &mut TcpConnectTaskNotes,
+        _control_tcp_notes: &TcpConnectTaskNotes,
+        _task_notes: &ServerTaskNotes,
         _task_stats: ArcFtpTaskRemoteTransferStats,
-        _context: AnyFtpConnectContextParam,
+        _ftp_server: &UpstreamAddr,
     ) -> Result<BoxFtpRemoteConnection, TcpConnectError> {
         transfer_tcp_notes.escaper.clone_from(&self.config.name);
         Err(TcpConnectError::MethodUnavailable)

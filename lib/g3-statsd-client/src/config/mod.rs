@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::io;
@@ -22,9 +11,12 @@ use std::os::unix::net::UnixDatagram;
 use std::path::PathBuf;
 use std::time::Duration;
 
-use g3_types::metrics::MetricsName;
+use g3_types::metrics::NodeName;
 
 use crate::{StatsdClient, StatsdMetricsSink};
+
+#[cfg(feature = "yaml")]
+mod yaml;
 
 const UDP_DEFAULT_PORT: u16 = 8125;
 
@@ -45,22 +37,26 @@ impl Default for StatsdBackend {
 #[derive(Debug, Clone)]
 pub struct StatsdClientConfig {
     backend: StatsdBackend,
-    prefix: MetricsName,
-    pub emit_duration: Duration,
+    prefix: NodeName,
+    cache_size: usize,
+    max_segment_size: Option<usize>,
+    pub emit_interval: Duration,
 }
 
 impl Default for StatsdClientConfig {
     fn default() -> Self {
-        StatsdClientConfig::with_prefix(MetricsName::default())
+        StatsdClientConfig::with_prefix(NodeName::default())
     }
 }
 
 impl StatsdClientConfig {
-    pub fn with_prefix(prefix: MetricsName) -> Self {
+    pub fn with_prefix(prefix: NodeName) -> Self {
         StatsdClientConfig {
             backend: StatsdBackend::default(),
             prefix,
-            emit_duration: Duration::from_millis(200),
+            cache_size: 256 * 1024,
+            max_segment_size: None,
+            emit_interval: Duration::from_millis(200),
         }
     }
 
@@ -68,7 +64,7 @@ impl StatsdClientConfig {
         self.backend = target;
     }
 
-    pub fn set_prefix(&mut self, prefix: MetricsName) {
+    pub fn set_prefix(&mut self, prefix: NodeName) {
         self.prefix = prefix;
     }
 
@@ -80,12 +76,22 @@ impl StatsdClientConfig {
                     SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
                 });
                 let socket = UdpSocket::bind(SocketAddr::new(bind_ip, 0))?;
-                StatsdMetricsSink::udp_with_capacity(*addr, socket, 1024)
+                StatsdMetricsSink::udp_with_capacity(
+                    *addr,
+                    socket,
+                    self.cache_size,
+                    self.max_segment_size,
+                )
             }
             #[cfg(unix)]
             StatsdBackend::Unix(path) => {
                 let socket = UnixDatagram::unbound()?;
-                StatsdMetricsSink::unix_with_capacity(path.clone(), socket, 4096)
+                StatsdMetricsSink::unix_with_capacity(
+                    path.clone(),
+                    socket,
+                    self.cache_size,
+                    self.max_segment_size,
+                )
             }
         };
 

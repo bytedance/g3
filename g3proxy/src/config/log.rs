@@ -1,109 +1,111 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::path::Path;
 
-use anyhow::{anyhow, Context};
+use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
 use g3_daemon::log::{LogConfig, LogConfigContainer};
+use g3_types::sync::GlobalInit;
 
-static mut RESOLVE_DEFAULT_LOG_CONFIG_CONTAINER: LogConfigContainer = LogConfigContainer::new();
-static mut ESCAPE_DEFAULT_LOG_CONFIG_CONTAINER: LogConfigContainer = LogConfigContainer::new();
-static mut AUDIT_DEFAULT_LOG_CONFIG_CONTAINER: LogConfigContainer = LogConfigContainer::new();
-static mut TASK_DEFAULT_LOG_CONFIG_CONTAINER: LogConfigContainer = LogConfigContainer::new();
+static RESOLVE_DEFAULT_LOG_CONFIG_CONTAINER: GlobalInit<LogConfigContainer> =
+    GlobalInit::new(LogConfigContainer::new());
+static ESCAPE_DEFAULT_LOG_CONFIG_CONTAINER: GlobalInit<LogConfigContainer> =
+    GlobalInit::new(LogConfigContainer::new());
+static AUDIT_DEFAULT_LOG_CONFIG_CONTAINER: GlobalInit<LogConfigContainer> =
+    GlobalInit::new(LogConfigContainer::new());
+static TASK_DEFAULT_LOG_CONFIG_CONTAINER: GlobalInit<LogConfigContainer> =
+    GlobalInit::new(LogConfigContainer::new());
 
 pub(crate) fn load(v: &Yaml, conf_dir: &Path) -> anyhow::Result<()> {
+    let mut default_log_config: Option<LogConfig> = None;
     match v {
         Yaml::String(s) => {
             let config = LogConfig::with_driver_name(s, crate::build::PKG_NAME)?;
-            unsafe {
-                RESOLVE_DEFAULT_LOG_CONFIG_CONTAINER.set_default(config.clone());
-                ESCAPE_DEFAULT_LOG_CONFIG_CONTAINER.set_default(config.clone());
-                AUDIT_DEFAULT_LOG_CONFIG_CONTAINER.set_default(config.clone());
-                TASK_DEFAULT_LOG_CONFIG_CONTAINER.set_default(config);
-            }
-            Ok(())
+            default_log_config = Some(config);
         }
         Yaml::Hash(map) => {
             g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
                 "default" => {
                     let config = LogConfig::parse_yaml(v, conf_dir, crate::build::PKG_NAME)
                         .context(format!("invalid value for key {k}"))?;
-                    unsafe {
-                        RESOLVE_DEFAULT_LOG_CONFIG_CONTAINER.set_default(config.clone());
-                        ESCAPE_DEFAULT_LOG_CONFIG_CONTAINER.set_default(config.clone());
-                        AUDIT_DEFAULT_LOG_CONFIG_CONTAINER.set_default(config.clone());
-                        TASK_DEFAULT_LOG_CONFIG_CONTAINER.set_default(config);
-                    }
+                    default_log_config = Some(config);
+                    Ok(())
+                }
+                "syslog" => {
+                    let config = LogConfig::parse_syslog_yaml(v, crate::build::PKG_NAME)
+                        .context(format!("invalid syslog config value for key {k}"))?;
+                    default_log_config = Some(config);
+                    Ok(())
+                }
+                "fluentd" => {
+                    let config = LogConfig::parse_fluentd_yaml(v, conf_dir, crate::build::PKG_NAME)
+                        .context(format!("invalid fluentd config value for key {k}"))?;
+                    default_log_config = Some(config);
                     Ok(())
                 }
                 "resolve" => {
                     let config = LogConfig::parse_yaml(v, conf_dir, crate::build::PKG_NAME)
                         .context(format!("invalid value for key {k}"))?;
-                    unsafe {
-                        RESOLVE_DEFAULT_LOG_CONFIG_CONTAINER.set(config);
-                    }
+                    RESOLVE_DEFAULT_LOG_CONFIG_CONTAINER.with_mut(|l| l.set(config));
                     Ok(())
                 }
                 "escape" => {
                     let config = LogConfig::parse_yaml(v, conf_dir, crate::build::PKG_NAME)
                         .context(format!("invalid value for key {k}"))?;
-                    unsafe {
-                        ESCAPE_DEFAULT_LOG_CONFIG_CONTAINER.set(config);
-                    }
+                    ESCAPE_DEFAULT_LOG_CONFIG_CONTAINER.with_mut(|l| l.set(config));
                     Ok(())
                 }
                 "audit" => {
                     let config = LogConfig::parse_yaml(v, conf_dir, crate::build::PKG_NAME)
                         .context(format!("invalid value for key {k}"))?;
-                    unsafe {
-                        AUDIT_DEFAULT_LOG_CONFIG_CONTAINER.set_default(config);
-                    }
+                    AUDIT_DEFAULT_LOG_CONFIG_CONTAINER.with_mut(|l| l.set(config));
                     Ok(())
                 }
                 "task" => {
                     let config = LogConfig::parse_yaml(v, conf_dir, crate::build::PKG_NAME)
                         .context(format!("invalid value for key {k}"))?;
-                    unsafe {
-                        TASK_DEFAULT_LOG_CONFIG_CONTAINER.set(config);
-                    }
+                    TASK_DEFAULT_LOG_CONFIG_CONTAINER.with_mut(|l| l.set(config));
                     Ok(())
                 }
                 _ => Err(anyhow!("invalid key {k}")),
             })?;
-            Ok(())
         }
-        Yaml::Null => Ok(()),
-        _ => Err(anyhow!("invalid value type")),
+        Yaml::Null => return Ok(()),
+        _ => return Err(anyhow!("invalid value type")),
     }
+    if let Some(config) = default_log_config {
+        RESOLVE_DEFAULT_LOG_CONFIG_CONTAINER.with_mut(|l| l.set_default(config.clone()));
+        ESCAPE_DEFAULT_LOG_CONFIG_CONTAINER.with_mut(|l| l.set_default(config.clone()));
+        AUDIT_DEFAULT_LOG_CONFIG_CONTAINER.with_mut(|l| l.set_default(config.clone()));
+        TASK_DEFAULT_LOG_CONFIG_CONTAINER.with_mut(|l| l.set_default(config));
+    }
+    Ok(())
 }
 
 pub(crate) fn get_resolve_default_config() -> LogConfig {
-    unsafe { RESOLVE_DEFAULT_LOG_CONFIG_CONTAINER.get(crate::build::PKG_NAME) }
+    RESOLVE_DEFAULT_LOG_CONFIG_CONTAINER
+        .as_ref()
+        .get(crate::build::PKG_NAME)
 }
 
 pub(crate) fn get_escape_default_config() -> LogConfig {
-    unsafe { ESCAPE_DEFAULT_LOG_CONFIG_CONTAINER.get(crate::build::PKG_NAME) }
+    ESCAPE_DEFAULT_LOG_CONFIG_CONTAINER
+        .as_ref()
+        .get(crate::build::PKG_NAME)
 }
 
 pub(crate) fn get_audit_default_config() -> LogConfig {
-    unsafe { AUDIT_DEFAULT_LOG_CONFIG_CONTAINER.get(crate::build::PKG_NAME) }
+    AUDIT_DEFAULT_LOG_CONFIG_CONTAINER
+        .as_ref()
+        .get(crate::build::PKG_NAME)
 }
 
 pub(crate) fn get_task_default_config() -> LogConfig {
-    unsafe { TASK_DEFAULT_LOG_CONFIG_CONTAINER.get(crate::build::PKG_NAME) }
+    TASK_DEFAULT_LOG_CONFIG_CONTAINER
+        .as_ref()
+        .get(crate::build::PKG_NAME)
 }

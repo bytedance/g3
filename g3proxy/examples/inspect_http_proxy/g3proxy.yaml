@@ -6,9 +6,10 @@ log: stdout
 
 auditor:
   - name: default
-    protocol_inspection: {}
-    tls_cert_generator: {}
-    tls_stream_dump: {}
+    protocol_inspection: { }
+    tls_cert_generator: { }
+    tls_ticketer: { }
+    tls_stream_dump: { }
     # icap_reqmod_service: icap://127.0.0.1:1344/echo
 
 server:
@@ -18,7 +19,7 @@ server:
     type: http_proxy
     listen:
       address: "[::]:8080"
-    tls_client: {}
+    tls_client: { }
   - name: socks
     escaper: default
     auditor: default
@@ -29,7 +30,6 @@ server:
 resolver:
   - name: default
     type: c-ares
-    server: 127.0.0.1
 
 escaper:
   - name: default

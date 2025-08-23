@@ -1,20 +1,12 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use openssl::error::ErrorStack;
+
 mod b64;
+
 pub(crate) use b64::B64CryptDecoder;
 pub use b64::B64CryptEncoder;
 
@@ -48,7 +40,7 @@ impl XCryptHash {
         }
     }
 
-    pub fn verify(&self, phrase: &[u8]) -> bool {
+    pub fn verify(&self, phrase: &[u8]) -> Result<bool, ErrorStack> {
         match self {
             XCryptHash::Md5(this) => this.verify(phrase),
             XCryptHash::Sha256(this) => this.verify(phrase),
@@ -64,7 +56,7 @@ mod tests {
     #[test]
     fn md5() {
         let crypt = XCryptHash::parse("$1$DDiGYGte$K/SAC4VvllDonGcP1EfaY1").unwrap();
-        assert!(crypt.verify("123456".as_bytes()));
+        assert!(crypt.verify("123456".as_bytes()).unwrap());
     }
 
     #[test]
@@ -72,7 +64,7 @@ mod tests {
         let crypt =
             XCryptHash::parse("$5$W9wFmTCpBILzJn18$X496nPJHVQ895fwotE3WPBLmxgxGD8ivpUhfmoKbtb7")
                 .unwrap();
-        assert!(crypt.verify("123456".as_bytes()));
+        assert!(crypt.verify("123456".as_bytes()).unwrap());
     }
 
     #[test]
@@ -80,6 +72,6 @@ mod tests {
         let s = "$6$yeDpErl4xq9E2vKP$\
             .reNyfNzRJyAJrlh38J1XGx/5QTfBy3IedVNdTqfWqSeZFPAbXzV85uNK9fdmXvGCxizHVcAiIoQ4uXMJWuB6/";
         let crypt = XCryptHash::parse(s).unwrap();
-        assert!(crypt.verify("123456".as_bytes()));
+        assert!(crypt.verify("123456".as_bytes()).unwrap());
     }
 }

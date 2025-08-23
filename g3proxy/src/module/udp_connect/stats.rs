@@ -1,17 +1,6 @@
 /*
- * Copyright 2023 ByteDance and/or its affiliates.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * SPDX-License-Identifier: Apache-2.0
+ * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
 use std::sync::Arc;
@@ -57,62 +46,46 @@ impl UdpConnectTaskRemoteStats for UserUpstreamTrafficStats {
 }
 
 #[derive(Clone)]
-pub(crate) struct UdpConnectRemoteWrapperStats<T> {
-    escaper: Arc<T>,
-    task: ArcUdpConnectTaskRemoteStats,
-    others: Vec<ArcUdpConnectTaskRemoteStats>,
+pub(crate) struct UdpConnectRemoteWrapperStats {
+    all: Vec<ArcUdpConnectTaskRemoteStats>,
 }
 
-impl<T: UdpConnectTaskRemoteStats> UdpConnectRemoteWrapperStats<T> {
-    pub(crate) fn new(escaper: &Arc<T>, task: ArcUdpConnectTaskRemoteStats) -> Self {
-        UdpConnectRemoteWrapperStats {
-            escaper: Arc::clone(escaper),
-            task,
-            others: Vec::with_capacity(2),
-        }
+impl UdpConnectRemoteWrapperStats {
+    pub(crate) fn new(
+        escaper: ArcUdpConnectTaskRemoteStats,
+        task: ArcUdpConnectTaskRemoteStats,
+    ) -> Self {
+        let mut all = Vec::with_capacity(4);
+        all.push(task);
+        all.push(escaper);
+        UdpConnectRemoteWrapperStats { all }
     }
 
     pub(crate) fn push_user_io_stats(&mut self, all: Vec<Arc<UserUpstreamTrafficStats>>) {
         for s in all {
-            self.others.push(s as ArcUdpConnectTaskRemoteStats);
+            self.all.push(s as ArcUdpConnectTaskRemoteStats);
         }
     }
 }
 
-impl<T: UdpConnectTaskRemoteStats> LimitedRecvStats for UdpConnectRemoteWrapperStats<T> {
+impl LimitedRecvStats for UdpConnectRemoteWrapperStats {
     fn add_recv_bytes(&self, size: usize) {
         let size = size as u64;
-        self.escaper.add_recv_bytes(size);
-        self.task.add_recv_bytes(size);
-        self.others
-            .iter()
-            .for_each(|stats| stats.add_recv_bytes(size));
+        self.all.iter().for_each(|stats| stats.add_recv_bytes(size));
     }
 
     fn add_recv_packets(&self, n: usize) {
-        self.escaper.add_recv_packets(n);
-        self.task.add_recv_packets(n);
-        self.others
-            .iter()
-            .for_each(|stats| stats.add_recv_packets(n));
+        self.all.iter().for_each(|stats| stats.add_recv_packets(n));
     }
 }
 
-impl<T: UdpConnectTaskRemoteStats> LimitedSendStats for UdpConnectRemoteWrapperStats<T> {
+impl LimitedSendStats for UdpConnectRemoteWrapperStats {
     fn add_send_bytes(&self, size: usize) {
         let size = size as u64;
-        self.escaper.add_send_bytes(size);
-        self.task.add_send_bytes(size);
-        self.others
-            .iter()
-            .for_each(|stats| stats.add_send_bytes(size));
+        self.all.iter().for_each(|stats| stats.add_send_bytes(size));
     }
 
     fn add_send_packets(&self, n: usize) {
-        self.escaper.add_send_packets(n);
-        self.task.add_send_packets(n);
-        self.others
-            .iter()
-            .for_each(|stats| stats.add_send_packets(n));
+        self.all.iter().for_each(|stats| stats.add_send_packets(n));
     }
 }
