@@ -106,7 +106,7 @@ impl HttpProxyServer {
             .map(|builder| Arc::new(builder.build()));
 
         let task_logger = config.get_task_logger();
-        let idle_wheel = IdleWheel::spawn(config.task_idle_check_duration);
+        let idle_wheel = IdleWheel::spawn(config.task_idle_check_interval);
 
         // always update extra metrics tags
         server_stats.set_extra_tags(config.extra_metrics_tags.clone());

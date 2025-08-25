@@ -319,9 +319,17 @@ Set misc udp socket options on created udp sockets.
 
 **default**: not set
 
-.. _conf_server_common_task_idle_check_duration:
-
 task_idle_check_duration
+------------------------
+
+**deprecated**
+
+.. versionchanged:: 1.11.3 change default value from 5min to 60s
+.. versionchanged:: 1.13.0 deprecated, use `task_idle_check_interval` instead
+
+.. _conf_server_common_task_idle_check_interval:
+
+task_idle_check_interval
 ------------------------
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
@@ -330,7 +338,7 @@ Set the idle check duration for task. The value will be up bound to seconds.
 
 **default**: 60s, **max**: 30min, **min**: 2s
 
-.. versionchanged:: 1.11.3 change default value from 5min to 60s
+.. versionadded:: 1.13.0
 
 .. _conf_server_common_task_idle_max_count:
 

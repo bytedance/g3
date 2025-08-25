@@ -8,6 +8,7 @@ use std::time::Duration;
 
 use anyhow::{Context, anyhow};
 use ascii::AsciiString;
+use log::warn;
 use yaml_rust::{Yaml, yaml};
 
 use g3_io_ext::StreamCopyConfig;
@@ -41,7 +42,7 @@ pub(crate) struct RustlsProxyServerConfig {
     pub(crate) client_hello_recv_timeout: Duration,
     pub(crate) hosts: HostMatch<Arc<RustlsHostConfig>>,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
-    pub(crate) task_idle_check_duration: Duration,
+    pub(crate) task_idle_check_interval: Duration,
     pub(crate) task_idle_max_count: usize,
     pub(crate) flush_task_log_on_created: bool,
     pub(crate) flush_task_log_on_connected: bool,
@@ -65,7 +66,7 @@ impl RustlsProxyServerConfig {
             client_hello_recv_timeout: Duration::from_secs(10),
             hosts: HostMatch::default(),
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
-            task_idle_check_duration: IDLE_CHECK_DEFAULT_DURATION,
+            task_idle_check_interval: IDLE_CHECK_DEFAULT_DURATION,
             task_idle_max_count: IDLE_CHECK_DEFAULT_MAX_COUNT,
             flush_task_log_on_created: false,
             flush_task_log_on_connected: false,
@@ -96,8 +97,8 @@ impl RustlsProxyServerConfig {
         if self.hosts.is_empty() {
             return Err(anyhow!("no host config set"));
         }
-        if self.task_idle_check_duration > IDLE_CHECK_MAXIMUM_DURATION {
-            self.task_idle_check_duration = IDLE_CHECK_MAXIMUM_DURATION;
+        if self.task_idle_check_interval > IDLE_CHECK_MAXIMUM_DURATION {
+            self.task_idle_check_interval = IDLE_CHECK_MAXIMUM_DURATION;
         }
         Ok(())
     }
@@ -152,7 +153,11 @@ impl RustlsProxyServerConfig {
                 Ok(())
             }
             "task_idle_check_duration" => {
-                self.task_idle_check_duration = g3_yaml::humanize::as_duration(v)
+                warn!("deprecated config key '{k}', please use 'task_idle_check_interval' instead");
+                self.set("task_idle_check_interval", v)
+            }
+            "task_idle_check_interval" => {
+                self.task_idle_check_interval = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
