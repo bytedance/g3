@@ -240,7 +240,7 @@ impl UserGroup {
         Ok(user_ctx)
     }
 
-    pub(crate) fn get_user(&self, username: &str) -> Option<(Arc<User>, UserType)> {
+    fn get_user(&self, username: &str) -> Option<(Arc<User>, UserType)> {
         if let Some(user) = self.static_users.get(username) {
             return Some((Arc::clone(user), UserType::Static));
         }
