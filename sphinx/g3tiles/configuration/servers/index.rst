@@ -165,9 +165,17 @@ Set a (remote) rolling TLS ticketer.
 
 .. versionadded:: 0.3.6
 
-.. _conf_server_common_task_idle_check_duration:
-
 task_idle_check_duration
+------------------------
+
+**deprecated**
+
+.. versionchanged:: 0.3.8 change default value from 5min to 60s
+.. versionchanged:: 0.4.0 deprecated, use `task_idle_check_interval` instead
+
+.. _conf_server_common_task_idle_check_interval:
+
+task_idle_check_interval
 ------------------------
 
 **optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
@@ -176,7 +184,7 @@ Set the idle check duration for task. The value will be up bound to seconds.
 
 **default**: 60s, **max**: 30min, **min**: 2s
 
-.. versionchanged:: 0.3.8 change default value from 5min to 60s
+.. versionadded:: 0.4.0
 
 .. _conf_server_common_task_idle_max_count:
 

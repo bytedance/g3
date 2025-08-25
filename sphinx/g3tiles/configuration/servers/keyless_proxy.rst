@@ -9,7 +9,7 @@ The following common keys are supported:
 
 * :ref:`shared_logger <conf_server_common_shared_logger>`
 * :ref:`ingress_network_filter <conf_server_common_ingress_network_filter>`
-* :ref:`task_idle_check_duration <conf_server_common_task_idle_check_duration>`
+* :ref:`task_idle_check_interval <conf_server_common_task_idle_check_interval>`
 * :ref:`task_idle_max_count <conf_server_common_task_idle_max_count>`
 * :ref:`extra_metrics_tags <conf_server_common_extra_metrics_tags>`
 

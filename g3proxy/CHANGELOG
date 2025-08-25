@@ -3,6 +3,7 @@ v1.13.0:
  - Compatibility: bump MSRV to 1.88.0
  - Deprecated: the following config options are deprecated:
      - tcp_conn_rate_limit/tcp_conn_limit_quota in user config, use connection_rate_limit instead
+     - task_idle_check_duration in server config, use task_idle_check_interval instead
 
 v1.12.0:
  - Feature: allow to connect to ICAP server via UNIX domain socket
