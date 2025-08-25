@@ -25,6 +25,7 @@
     + [Fault-Tolerant Resolution](#fault-tolerant-resolution)
     + [User Authentication and Authorization](#user-authentication-and-authorization)
     + [User Rate Limiting and Throttling](#user-rate-limiting-and-throttling)
+    + [User Ban](#user-ban)
 - [Advanced Usage](#advanced-usage)
     + [mTLS Client](#mtls-client)
     + [Unloading the Guomi TLCP Protocol](#unloading-the-guomi-tlcp-protocol)
@@ -41,6 +42,7 @@
     + [Custom User-Site MITM TLS Client Config](#custom-user-site-mitm-tls-client-config)
     + [Traffic Audit](#traffic-audit)
     + [Exporting Decrypted TLS Traffic](#exporting-decrypted-tls-traffic)
+    + [Task Idle Detection](#task-idle-detection)
     + [Performance Optimization](#performance-optimization)
 - [Scenario Design](#scenario-design)
     + [Multi-Region Acceleration](#multi-region-acceleration)
@@ -460,6 +462,18 @@ request_rate_limit: 2000/s  # New proxy request number rate limit
 request_max_alive: 2000     # Total concurrent task number limit
 ```
 
+### User Ban
+
+After a user is deleted, existing tasks for that user will not be cleared by default. To terminate these tasks, you must
+ban the user. Within a maximum of two [Task Idle Detection](#Task Idle Detection) intervals, any remaining tasks will be
+cleared and terminated.
+
+```yaml
+- name: foo
+  block_and_delay: 1s # Ban the user and delay the forbidden response to new requests according to the specified value.
+  # Other configurations can remain unchanged
+```
+
 ## Advanced Usage
 
 ### mTLS Client
@@ -810,6 +824,28 @@ When enabling traffic audit and TLS interception, you can configure the export o
 to [udpdump](https://www.wireshark.org/docs/man-pages/udpdump.html).
 
 For specific configurations, refer to [examples/inspect_http_proxy](examples/inspect_http_proxy).
+
+### Task Idle Detection
+
+All successful tasks have the ability to exit through idle detection during execution. The idle detection settings
+mainly include two aspects: the idle detection interval and the allowed idle count.
+
+Both can be configured in the server. The configuration examples are as follows:
+
+```yaml
+- name: foo
+  type: xxx                    # Valid for any server type
+  task_idle_check_interval: 1m # The default is 1 minute
+  task_idle_max_count: 5       # The default maximum count is 5 times. When this value is reached, the corresponding task will be terminated.
+```
+
+In addition, the allowed idle count can be configured separately in the user configuration, which will override the
+server configuration. The example is as follows:
+
+```yaml
+- name: foo
+  task_idle_max_count: 5
+```
 
 ### Performance Optimization
 
