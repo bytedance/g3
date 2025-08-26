@@ -116,3 +116,156 @@ impl FluentdClientConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use g3_yaml::{yaml_doc, yaml_str};
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn parse_map() {
+        let yaml = yaml_doc!(
+            r#"
+                address: "192.168.1.1:24224"
+                bind_ip: "10.0.0.1"
+                shared_key: "test_key"
+                username: "test_user"
+                password: "test_pass"
+                hostname: "test_host"
+                tcp_keepalive:
+                  idle_time: 60
+                  probe_interval: 10
+                  probe_count: 3
+                tls_client:
+                  handshake_timeout: 10s
+                tls_name: "example.com"
+                connect_timeout: "5s"
+                connect_delay: "1s"
+                write_timeout: "500ms"
+                flush_interval: "100ms"
+            "#
+        );
+        let config = FluentdClientConfig::parse_yaml(&yaml, None).unwrap();
+        assert_eq!(config.server_addr, "192.168.1.1:24224".parse().unwrap());
+        assert_eq!(config.bind.ip().unwrap().to_string(), "10.0.0.1");
+        assert_eq!(config.shared_key, "test_key");
+        assert_eq!(config.username, "test_user");
+        assert_eq!(config.password, "test_pass");
+        assert_eq!(config.hostname, "test_host");
+        assert_eq!(
+            config.tcp_keepalive.idle_time(),
+            std::time::Duration::from_secs(60)
+        );
+        assert_eq!(
+            config.tcp_keepalive.probe_interval(),
+            Some(std::time::Duration::from_secs(10))
+        );
+        assert_eq!(config.tcp_keepalive.probe_count(), Some(3));
+        assert_eq!(
+            config.tls_client.unwrap().handshake_timeout,
+            std::time::Duration::from_secs(10)
+        );
+        assert_eq!(config.tls_name.unwrap().to_string(), "example.com");
+        assert_eq!(config.connect_timeout, std::time::Duration::from_secs(5));
+        assert_eq!(config.connect_delay, std::time::Duration::from_secs(1));
+        assert_eq!(config.write_timeout, std::time::Duration::from_millis(500));
+        assert_eq!(config.flush_interval, std::time::Duration::from_millis(100));
+
+        let yaml = yaml_doc!(
+            r#"
+                addr: "127.0.0.1:8080"
+                bind: "192.168.1.1"
+                tls:
+                  handshake_timeout: 15s
+            "#
+        );
+        let config = FluentdClientConfig::parse_yaml(&yaml, None).unwrap();
+        assert_eq!(config.server_addr, "127.0.0.1:8080".parse().unwrap());
+        assert_eq!(config.bind.ip().unwrap().to_string(), "192.168.1.1");
+        assert_eq!(
+            config.tls_client.unwrap().handshake_timeout,
+            std::time::Duration::from_secs(15)
+        );
+
+        let yaml = yaml_doc!(
+            r#"
+                invalid_key: "value"
+            "#
+        );
+        assert!(FluentdClientConfig::parse_yaml(&yaml, None).is_err());
+
+        // Invalid address
+        let yaml = yaml_doc!(
+            r#"
+                address: 12345
+            "#
+        );
+        assert!(FluentdClientConfig::parse_yaml(&yaml, None).is_err());
+
+        // Invalid bind IP
+        let yaml = yaml_doc!(
+            r#"
+                bind_ip: "invalid_ip"
+            "#
+        );
+        assert!(FluentdClientConfig::parse_yaml(&yaml, None).is_err());
+
+        // Invalid duration
+        let yaml = yaml_doc!(
+            r#"
+                connect_timeout: "invalid_duration"
+            "#
+        );
+        assert!(FluentdClientConfig::parse_yaml(&yaml, None).is_err());
+
+        // Invalid TLS config
+        let yaml = yaml_doc!(
+            r#"
+                tls: "invalid_tls_config"
+            "#
+        );
+        assert!(FluentdClientConfig::parse_yaml(&yaml, None).is_err());
+    }
+
+    #[test]
+    fn parse_string() {
+        // Valid address
+        let yaml = yaml_str!("127.0.0.1:8080");
+        let config = FluentdClientConfig::parse_yaml(&yaml, None).unwrap();
+        assert_eq!(config.server_addr.port(), 8080);
+        assert_eq!(config.server_addr.ip().to_string(), "127.0.0.1");
+
+        // Invalid address
+        let yaml = yaml_str!("invalid-address");
+        assert!(FluentdClientConfig::parse_yaml(&yaml, None).is_err());
+    }
+
+    #[test]
+    fn parse_null() {
+        let config = FluentdClientConfig::parse_yaml(&Yaml::Null, None).unwrap();
+        assert_eq!(config.server_addr.port(), 24224);
+        assert!(config.shared_key.is_empty());
+        assert!(config.username.is_empty());
+        assert!(config.password.is_empty());
+    }
+
+    #[test]
+    fn parse_invalid_yaml_types() {
+        // Array
+        let yaml = Yaml::Array(vec![]);
+        assert!(FluentdClientConfig::parse_yaml(&yaml, None).is_err());
+
+        // Integer
+        let yaml = Yaml::Integer(123);
+        assert!(FluentdClientConfig::parse_yaml(&yaml, None).is_err());
+
+        // Boolean
+        let yaml = Yaml::Boolean(true);
+        assert!(FluentdClientConfig::parse_yaml(&yaml, None).is_err());
+
+        // Float
+        let yaml = Yaml::Real("1.23".to_string());
+        assert!(FluentdClientConfig::parse_yaml(&yaml, None).is_err());
+    }
+}
