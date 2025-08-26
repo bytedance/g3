@@ -99,3 +99,174 @@ impl RegisterConfig {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use g3_yaml::{yaml_doc, yaml_str};
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn default() {
+        let config = RegisterConfig::default();
+
+        assert!(config.upstream.is_empty());
+        assert_eq!(config.startup_retry(), 3);
+        assert_eq!(config.retry_interval(), Duration::from_secs(1));
+        assert_eq!(config.register_path.as_str(), "/register");
+        assert_eq!(config.ping_path.as_str(), "/ping");
+        assert_eq!(config.ping_interval, Duration::from_secs(60));
+        assert!(config.extra_data.is_empty());
+    }
+
+    #[test]
+    fn parse_string_upstream() {
+        let mut config = RegisterConfig::default();
+
+        // Ok case
+        let yaml = yaml_str!("127.0.0.1:8080");
+        assert!(config.parse(&yaml).is_ok());
+        assert_eq!(config.upstream.to_string(), "127.0.0.1:8080");
+
+        // Err case
+        let yaml = yaml_str!("invalid-address");
+        assert!(config.parse(&yaml).is_err());
+    }
+
+    #[test]
+    fn parse_invalid_yaml_type() {
+        let mut config = RegisterConfig::default();
+
+        let yaml = Yaml::Array(vec![]);
+        assert!(config.parse(&yaml).is_err());
+
+        let yaml = Yaml::Integer(123);
+        assert!(config.parse(&yaml).is_err());
+
+        let yaml = Yaml::Boolean(true);
+        assert!(config.parse(&yaml).is_err());
+    }
+
+    #[test]
+    fn parse_map_ok() {
+        let mut config = RegisterConfig::default();
+
+        let yaml = yaml_doc!(
+            r#"
+                upstream: "example.com:443"
+                startup_retry: "5"
+                retry_interval: 10
+                register_path: "/api/register?version=1"
+                ping_path: "/health"
+                ping_interval: "2m"
+                extra_data:
+                  service: "test-service"
+                  version: "1.0"
+            "#
+        );
+        assert!(config.parse(&yaml).is_ok());
+        assert_eq!(config.upstream.to_string(), "example.com:443");
+        assert_eq!(config.startup_retry(), 5);
+        assert_eq!(config.retry_interval(), Duration::from_secs(10));
+        assert_eq!(config.register_path.as_str(), "/api/register?version=1");
+        assert_eq!(config.ping_path.as_str(), "/health");
+        assert_eq!(config.ping_interval, Duration::from_secs(120));
+        assert_eq!(config.extra_data.len(), 2);
+
+        let yaml = yaml_doc!(
+            r#"
+                upstream: "10.0.0.1:8080"
+                startup_retry: 7
+                retry_interval: "3s"
+                register_path: "/register"
+                ping_path: "/ping"
+                ping_interval: "45s"
+                extra_data: {}
+            "#
+        );
+        assert!(config.parse(&yaml).is_ok());
+        assert_eq!(config.upstream.to_string(), "10.0.0.1:8080");
+        assert_eq!(config.startup_retry(), 7);
+        assert_eq!(config.retry_interval(), Duration::from_secs(3));
+        assert_eq!(config.register_path.as_str(), "/register");
+        assert_eq!(config.ping_path.as_str(), "/ping");
+        assert_eq!(config.ping_interval, Duration::from_secs(45));
+        assert!(config.extra_data.is_empty());
+    }
+
+    #[test]
+    fn parse_map_err() {
+        let mut config = RegisterConfig::default();
+
+        let yaml = yaml_doc!(
+            r#"
+                upstream: 12345
+            "#
+        );
+        assert!(config.parse(&yaml).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                startup_retry: -1
+            "#
+        );
+        assert!(config.parse(&yaml).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                retry_interval: "invalid"
+            "#
+        );
+        assert!(config.parse(&yaml).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                register_path: 123
+            "#
+        );
+        assert!(config.parse(&yaml).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                ping_path: []
+            "#
+        );
+        assert!(config.parse(&yaml).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                ping_interval: "not-a-duration"
+            "#
+        );
+        assert!(config.parse(&yaml).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                extra_data: "not-a-map"
+            "#
+        );
+        assert!(config.parse(&yaml).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                invalid_key: "value"
+            "#
+        );
+        assert!(config.parse(&yaml).is_err());
+    }
+
+    #[test]
+    fn parse_edge_cases() {
+        // Zero startup retry and very small interval
+        let mut config = RegisterConfig::default();
+        let yaml = yaml_doc!(
+            r#"
+                startup_retry: 0
+                retry_interval: "1ms"
+            "#
+        );
+        assert!(config.parse(&yaml).is_ok());
+        assert_eq!(config.startup_retry(), 0);
+        assert_eq!(config.retry_interval(), Duration::from_millis(1));
+    }
+}
