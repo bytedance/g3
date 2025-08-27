@@ -48,7 +48,7 @@ jobs:
           sudo apt-get install capnproto libc-ares-dev libssl-dev liblua5.4-dev
       - name: Install binutils
         run: |
-          cargo install cargo-binutils
+          cargo install cargo-binutils@0.3.6
       - name: run unit test
         run: |
           ./scripts/coverage/lib_unit_test.sh
@@ -81,7 +81,7 @@ jobs:
           sudo apt-get install libssl-dev
       - name: Install binutils
         run: |
-          cargo install cargo-binutils
+          cargo install cargo-binutils@0.3.6
       - name: run unit test
         run: |
           ./scripts/coverage/g3mkcert.sh
@@ -114,7 +114,7 @@ jobs:
           sudo apt-get install capnproto libssl-dev
       - name: Install binutils
         run: |
-          cargo install cargo-binutils
+          cargo install cargo-binutils@0.3.6
       - name: run unit test
         run: |
           ./scripts/coverage/g3keymess.sh
@@ -180,7 +180,7 @@ jobs:
           sudo apt-get install python3-requests python3-pycurl python3-dnspython python3-socks
       - name: Install binutils
         run: |
-          cargo install cargo-binutils
+          cargo install cargo-binutils@0.3.6
       - name: Install nginx
         run: |
           sudo apt-get install nginx-light
@@ -266,7 +266,7 @@ jobs:
           sudo apt-get install ca-certificates
       - name: Install binutils
         run: |
-          cargo install cargo-binutils
+          cargo install cargo-binutils@0.3.6
       - name: Install nginx
         run: |
           sudo apt-get install nginx-light
@@ -332,7 +332,7 @@ jobs:
           sudo apt-get install capnproto
       - name: Install binutils
         run: |
-          cargo install cargo-binutils
+          cargo install cargo-binutils@0.3.6
       - name: Install netcat-openbsd
         run: |
           sudo apt-get install netcat-openbsd
