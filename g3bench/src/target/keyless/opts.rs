@@ -633,7 +633,6 @@ fn add_keyless_args(cmd: Command) -> Command {
     .arg(
         Arg::new(ARG_SIGN)
             .help("Computes cryptographic signatures of data")
-            .num_args(0)
             .long(ARG_SIGN)
             .action(ArgAction::SetTrue)
             .requires(ARG_DIGEST_TYPE),
@@ -641,21 +640,18 @@ fn add_keyless_args(cmd: Command) -> Command {
     .arg(
         Arg::new(ARG_DECRYPT)
             .help("Decrypt data with the corresponding private key")
-            .num_args(0)
             .long(ARG_DECRYPT)
             .action(ArgAction::SetTrue),
     )
     .arg(
         Arg::new(ARG_ENCRYPT)
             .help("Encrypt data with the corresponding public key")
-            .num_args(0)
             .long(ARG_ENCRYPT)
             .action(ArgAction::SetTrue),
     )
     .arg(
         Arg::new(ARG_RSA_PRIVATE_ENCRYPT)
             .help("RSA Private Encrypt")
-            .num_args(0)
             .long(ARG_RSA_PRIVATE_ENCRYPT)
             .action(ArgAction::SetTrue)
             .requires(ARG_RSA_PADDING),
@@ -663,7 +659,6 @@ fn add_keyless_args(cmd: Command) -> Command {
     .arg(
         Arg::new(ARG_RSA_PUBLIC_DECRYPT)
             .help("RSA Public Decrypt")
-            .num_args(0)
             .long(ARG_RSA_PUBLIC_DECRYPT)
             .action(ArgAction::SetTrue)
             .requires(ARG_RSA_PADDING),
@@ -704,7 +699,6 @@ fn add_keyless_args(cmd: Command) -> Command {
         Arg::new(ARG_DUMP_RESULT)
             .help("Dump output use hex string")
             .action(ArgAction::SetTrue)
-            .num_args(0)
             .long(ARG_DUMP_RESULT),
     )
     .arg(

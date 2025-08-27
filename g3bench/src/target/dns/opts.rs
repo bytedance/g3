@@ -314,7 +314,6 @@ pub(super) fn add_dns_args(app: Command) -> Command {
             .help("Use tcp instead of udp")
             .action(ArgAction::SetTrue)
             .long(DNS_ARG_TCP)
-            .num_args(0)
             .conflicts_with(DNS_ARG_ENCRYPTION),
     )
     .arg(
