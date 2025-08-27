@@ -176,8 +176,7 @@ pub(super) fn add_cloudflare_args(app: Command) -> Command {
         Arg::new(ARG_NO_TLS)
             .help("Use no tls")
             .long(ARG_NO_TLS)
-            .action(ArgAction::SetTrue)
-            .num_args(0),
+            .action(ArgAction::SetTrue),
     )
     .arg(
         Arg::new(ARG_CONNECTION_POOL)
@@ -213,7 +212,6 @@ pub(super) fn add_cloudflare_args(app: Command) -> Command {
             .help("Disable multiplex usage on the connection")
             .long(ARG_NO_MULTIPLEX)
             .action(ArgAction::SetTrue)
-            .num_args(0)
             .conflicts_with(ARG_CONNECTION_POOL),
     )
     .append_socket_args()
