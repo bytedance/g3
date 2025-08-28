@@ -35,7 +35,7 @@ pub(crate) struct TcpTProxyServerConfig {
     pub(crate) listen_in_worker: bool,
     pub(crate) ingress_net_filter: Option<AclNetworkRuleBuilder>,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
-    pub(crate) task_idle_check_duration: Duration,
+    pub(crate) task_idle_check_interval: Duration,
     pub(crate) task_idle_max_count: usize,
     pub(crate) flush_task_log_on_created: bool,
     pub(crate) flush_task_log_on_connected: bool,
@@ -57,7 +57,7 @@ impl TcpTProxyServerConfig {
             listen_in_worker: false,
             ingress_net_filter: None,
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
-            task_idle_check_duration: IDLE_CHECK_DEFAULT_DURATION,
+            task_idle_check_interval: IDLE_CHECK_DEFAULT_DURATION,
             task_idle_max_count: IDLE_CHECK_DEFAULT_MAX_COUNT,
             flush_task_log_on_created: false,
             flush_task_log_on_connected: false,
@@ -149,7 +149,11 @@ impl TcpTProxyServerConfig {
                 Ok(())
             }
             "task_idle_check_duration" => {
-                self.task_idle_check_duration = g3_yaml::humanize::as_duration(v)
+                warn!("deprecated config key '{k}', please use 'task_idle_check_interval' instead");
+                self.set("task_idle_check_interval", v)
+            }
+            "task_idle_check_interval" => {
+                self.task_idle_check_interval = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
@@ -183,8 +187,8 @@ impl TcpTProxyServerConfig {
         if self.escaper.is_empty() {
             return Err(anyhow!("escaper is not set"));
         }
-        if self.task_idle_check_duration > IDLE_CHECK_MAXIMUM_DURATION {
-            self.task_idle_check_duration = IDLE_CHECK_MAXIMUM_DURATION;
+        if self.task_idle_check_interval > IDLE_CHECK_MAXIMUM_DURATION {
+            self.task_idle_check_interval = IDLE_CHECK_MAXIMUM_DURATION;
         }
 
         #[cfg(target_os = "linux")]

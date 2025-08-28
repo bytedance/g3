@@ -12,7 +12,7 @@ use tokio::sync::mpsc;
 
 use g3_io_ext::{ArcLimitedWriterStats, LimitedWriter};
 use g3_types::auth::UserAuthError;
-use g3_types::net::{HttpAuth, HttpBasicAuth};
+use g3_types::net::HttpAuth;
 use g3_types::route::HostMatch;
 
 use super::protocol::{HttpClientWriter, HttpRProxyRequest};
@@ -119,39 +119,26 @@ where
     ) -> Result<Option<UserContext>, UserAuthError> {
         if let Some(user_group) = &self.user_group {
             let mut user_ctx = match &req.inner.auth_info {
-                HttpAuth::None => {
-                    if let Some((user, user_type)) = user_group.get_anonymous_user() {
-                        let user_ctx = UserContext::new(
+                HttpAuth::None => user_group
+                    .get_anonymous_user()
+                    .map(|(user, user_type)| {
+                        UserContext::new(
                             None,
                             user,
                             user_type,
                             self.ctx.server_config.name(),
                             self.ctx.server_stats.share_extra_tags(),
-                        );
-                        user_ctx.check_client_addr(self.ctx.client_addr())?;
-                        user_ctx
-                    } else {
-                        return Err(UserAuthError::NoUserSupplied);
-                    }
-                }
-                HttpAuth::Basic(HttpBasicAuth {
-                    username, password, ..
-                }) => match user_group.get_user(username.as_original()) {
-                    Some((user, user_type)) => {
-                        let user_ctx = UserContext::new(
-                            Some(Arc::from(username.as_original())),
-                            user,
-                            user_type,
-                            self.ctx.server_config.name(),
-                            self.ctx.server_stats.share_extra_tags(),
-                        );
-                        user_ctx.check_client_addr(self.ctx.client_addr())?;
-                        user_ctx.check_password(password.as_original())?;
-                        user_ctx
-                    }
-                    None => return Err(UserAuthError::NoSuchUser),
-                },
+                        )
+                    })
+                    .ok_or(UserAuthError::NoUserSupplied)?,
+                HttpAuth::Basic(v) => user_group.check_user_with_password(
+                    &v.username,
+                    &v.password,
+                    self.ctx.server_config.name(),
+                    self.ctx.server_stats.share_extra_tags(),
+                )?,
             };
+            user_ctx.check_client_addr(self.ctx.client_addr())?;
 
             user_ctx.check_in_site(
                 self.ctx.server_config.name(),

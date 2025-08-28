@@ -65,7 +65,7 @@ pub(crate) struct HttpRProxyServerConfig {
     pub(crate) auth_realm: AsciiString,
     pub(crate) tcp_sock_speed_limit: TcpSockSpeedLimitConfig,
     pub(crate) timeout: HttpRProxyServerTimeoutConfig,
-    pub(crate) task_idle_check_duration: Duration,
+    pub(crate) task_idle_check_interval: Duration,
     pub(crate) task_idle_max_count: usize,
     pub(crate) flush_task_log_on_created: bool,
     pub(crate) flush_task_log_on_connected: bool,
@@ -105,7 +105,7 @@ impl HttpRProxyServerConfig {
             auth_realm: AsciiString::from_ascii("g3proxy").unwrap(),
             tcp_sock_speed_limit: TcpSockSpeedLimitConfig::default(),
             timeout: HttpRProxyServerTimeoutConfig::default(),
-            task_idle_check_duration: IDLE_CHECK_DEFAULT_DURATION,
+            task_idle_check_interval: IDLE_CHECK_DEFAULT_DURATION,
             task_idle_max_count: IDLE_CHECK_DEFAULT_MAX_COUNT,
             flush_task_log_on_created: false,
             flush_task_log_on_connected: false,
@@ -224,7 +224,11 @@ impl HttpRProxyServerConfig {
                 Ok(())
             }
             "task_idle_check_duration" => {
-                self.task_idle_check_duration = g3_yaml::humanize::as_duration(v)
+                warn!("deprecated config key '{k}', please use 'task_idle_check_interval' instead");
+                self.set("task_idle_check_interval", v)
+            }
+            "task_idle_check_interval" => {
+                self.task_idle_check_interval = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
@@ -364,8 +368,8 @@ impl HttpRProxyServerConfig {
             // not really necessary as we have set default realm value
             return Err(anyhow!("auth_realm is required is auth is enabled"));
         }
-        if self.task_idle_check_duration > IDLE_CHECK_MAXIMUM_DURATION {
-            self.task_idle_check_duration = IDLE_CHECK_MAXIMUM_DURATION;
+        if self.task_idle_check_interval > IDLE_CHECK_MAXIMUM_DURATION {
+            self.task_idle_check_interval = IDLE_CHECK_MAXIMUM_DURATION;
         }
 
         Ok(())

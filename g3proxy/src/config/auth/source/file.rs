@@ -88,12 +88,12 @@ impl UserDynamicFileSource {
             ConfigFileFormat::Yaml => {
                 let docs = yaml_rust::YamlLoader::load_from_str(&contents)
                     .map_err(|e| anyhow!("invalid yaml file {}: {e}", self.path.display()))?;
-                super::cache::parse_yaml(&docs)
+                UserConfig::parse_yaml_many(&docs)
             }
             ConfigFileFormat::Json => {
                 let doc = serde_json::Value::from_str(&contents)
                     .map_err(|e| anyhow!("invalid json file {}: {e}", self.path.display()))?;
-                super::cache::parse_json(&doc)
+                UserConfig::parse_json_many(&doc)
             }
         }
     }

@@ -36,3 +36,22 @@ impl Deref for HttpOriginalHeaderName {
         self.as_str()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn http_original_header_name_operations() {
+        let header_name = HttpOriginalHeaderName::from("Content-Type");
+        assert_eq!(header_name.as_str(), "Content-Type");
+
+        let header_name = HttpOriginalHeaderName::from("User-Agent");
+        let s: &str = &header_name;
+        assert_eq!(s, "User-Agent");
+
+        let header_name = HttpOriginalHeaderName::from("Accept");
+        let borrowed: &str = Borrow::<str>::borrow(&header_name);
+        assert_eq!(borrowed, "Accept");
+    }
+}

@@ -12,7 +12,7 @@ use yaml_rust::{Yaml, yaml};
 
 use g3_types::fs::ConfigFileFormat;
 
-use super::file::UserDynamicFileSource;
+use super::UserDynamicFileSource;
 use crate::config::auth::UserConfig;
 
 #[derive(Clone)]

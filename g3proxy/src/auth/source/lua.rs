@@ -11,8 +11,7 @@ use anyhow::anyhow;
 use log::warn;
 use mlua::{Function, Lua, Value};
 
-use crate::config::auth::UserConfig;
-use crate::config::auth::source::lua::UserDynamicLuaSource;
+use crate::config::auth::{UserConfig, UserDynamicLuaSource};
 
 const LUA_GLOBAL_VAR_FILE: &str = "__file__";
 
@@ -107,8 +106,7 @@ fn parse_content(script: &Path, content: &str) -> anyhow::Result<Vec<UserConfig>
             script.display(),
         )
     })?;
-
-    crate::config::auth::source::cache::parse_json(&doc)
+    UserConfig::parse_json_many(&doc)
 }
 
 async fn call_lua_fetch(script: PathBuf) -> anyhow::Result<String> {

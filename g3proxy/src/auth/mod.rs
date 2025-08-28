@@ -9,14 +9,15 @@ use std::sync::Arc;
 
 use ahash::AHashMap;
 use anyhow::anyhow;
-use arc_swap::ArcSwap;
+use arc_swap::{ArcSwap, ArcSwapOption};
 use chrono::Utc;
 use log::{info, warn};
 use tokio::sync::{mpsc, oneshot};
 
-use g3_types::metrics::NodeName;
+use g3_types::auth::{Password, UserAuthError, Username};
+use g3_types::metrics::{MetricTagMap, NodeName};
 
-use crate::config::auth::UserGroupConfig;
+use crate::config::auth::{UserConfig, UserGroupConfig};
 
 mod ops;
 pub use ops::load_all;
@@ -218,7 +219,28 @@ impl UserGroup {
             .map(|user| (user.clone(), UserType::Anonymous))
     }
 
-    pub(crate) fn get_user(&self, username: &str) -> Option<(Arc<User>, UserType)> {
+    pub(crate) fn check_user_with_password(
+        &self,
+        username: &Username,
+        password: &Password,
+        server_name: &NodeName,
+        server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
+    ) -> Result<UserContext, UserAuthError> {
+        let Some((user, user_type)) = self.get_user(username.as_original()) else {
+            return Err(UserAuthError::NoSuchUser);
+        };
+        let user_ctx = UserContext::new(
+            Some(Arc::from(username.as_original())),
+            user,
+            user_type,
+            server_name,
+            server_extra_tags,
+        );
+        user_ctx.check_password(password.as_original())?;
+        Ok(user_ctx)
+    }
+
+    fn get_user(&self, username: &str) -> Option<(Arc<User>, UserType)> {
         if let Some(user) = self.static_users.get(username) {
             return Some((Arc::clone(user), UserType::Static));
         }
@@ -276,7 +298,7 @@ impl UserGroup {
     pub(crate) async fn publish_dynamic_users(&self, contents: &str) -> anyhow::Result<()> {
         let doc = serde_json::Value::from_str(contents)
             .map_err(|e| anyhow!("the published contents is not valid json: {e}"))?;
-        let user_config = crate::config::auth::source::cache::parse_json(&doc)?;
+        let users = UserConfig::parse_json_many(&doc)?;
 
         // we should avoid corrupt write at process exit
         if !self.config.dynamic_cache.as_os_str().is_empty()
@@ -292,6 +314,6 @@ impl UserGroup {
             );
         }
 
-        source::publish_dynamic_users(self.config.as_ref(), user_config, &self.dynamic_users)
+        source::publish_dynamic_users(self.config.as_ref(), users, &self.dynamic_users)
     }
 }

@@ -232,46 +232,38 @@ impl SocksProxyNegotiationTask {
             SocksAuthMethod::User => {
                 if let Some(user_group) = &self.user_group {
                     let (username, password) = v5::auth::recv_user_from_client(&mut clt_r).await?;
-                    if let Some((user, user_type)) = user_group.get_user(username.as_original()) {
-                        let user_ctx = UserContext::new(
-                            Some(Arc::from(username.as_original())),
-                            user,
-                            user_type,
-                            self.ctx.server_config.name(),
-                            self.ctx.server_stats.share_extra_tags(),
-                        );
-                        if user_ctx.check_client_addr(self.ctx.client_addr()).is_err() {
-                            self.ctx.server_stats.forbidden.add_auth_failed();
-                            let _ = v5::auth::send_user_auth_failure(&mut clt_w).await;
-                            return Err(ServerTaskError::ClientAuthFailed);
-                        }
-                        match user_ctx.check_password(password.as_original()) {
-                            Ok(_) => {
-                                user_ctx.req_stats().conn_total.add_socks();
-                                v5::auth::send_user_auth_success(&mut clt_w)
-                                    .await
-                                    .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+                    match user_group.check_user_with_password(
+                        &username,
+                        &password,
+                        self.ctx.server_config.name(),
+                        self.ctx.server_stats.share_extra_tags(),
+                    ) {
+                        Ok(user_ctx) => {
+                            if user_ctx.check_client_addr(self.ctx.client_addr()).is_err() {
+                                self.ctx.server_stats.forbidden.add_auth_failed();
+                                let _ = v5::auth::send_user_auth_failure(&mut clt_w).await;
+                                return Err(ServerTaskError::ClientAuthFailed);
                             }
-                            Err(e) => {
-                                return if let Some(duration) = e.blocked_delay() {
-                                    self.ctx.server_stats.forbidden.add_user_blocked();
-                                    tokio::time::sleep(duration).await;
-                                    let _ = v5::Socks5Reply::ForbiddenByRule.send(&mut clt_w).await;
-                                    Err(ServerTaskError::ForbiddenByRule(
-                                        ServerTaskForbiddenError::UserBlocked,
-                                    ))
-                                } else {
-                                    self.ctx.server_stats.forbidden.add_auth_failed();
-                                    let _ = v5::auth::send_user_auth_failure(&mut clt_w).await;
-                                    Err(ServerTaskError::ClientAuthFailed)
-                                };
-                            }
+                            user_ctx.req_stats().conn_total.add_socks();
+                            v5::auth::send_user_auth_success(&mut clt_w)
+                                .await
+                                .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+                            Some(user_ctx)
                         }
-                        Some(user_ctx)
-                    } else {
-                        self.ctx.server_stats.forbidden.add_auth_failed();
-                        let _ = v5::auth::send_user_auth_failure(&mut clt_w).await;
-                        return Err(ServerTaskError::ClientAuthFailed);
+                        Err(e) => {
+                            return if let Some(duration) = e.blocked_delay() {
+                                self.ctx.server_stats.forbidden.add_user_blocked();
+                                tokio::time::sleep(duration).await;
+                                let _ = v5::Socks5Reply::ForbiddenByRule.send(&mut clt_w).await;
+                                Err(ServerTaskError::ForbiddenByRule(
+                                    ServerTaskForbiddenError::UserBlocked,
+                                ))
+                            } else {
+                                self.ctx.server_stats.forbidden.add_auth_failed();
+                                let _ = v5::auth::send_user_auth_failure(&mut clt_w).await;
+                                Err(ServerTaskError::ClientAuthFailed)
+                            };
+                        }
                     }
                 } else {
                     unreachable!()
