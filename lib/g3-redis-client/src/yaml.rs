@@ -69,3 +69,84 @@ impl RedisClientConfigBuilder {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use g3_types::net::{Host, RustlsClientConfigBuilder, UpstreamAddr};
+    use g3_yaml::yaml_doc;
+    use rustls_pki_types::ServerName;
+    use std::net::IpAddr;
+    use std::str::FromStr;
+    use std::time::Duration;
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn set_by_yaml_kv_ok() {
+        let mut builder = RedisClientConfigBuilder::default();
+        let yaml = yaml_doc!(
+            r#"
+                addr: "127.0.0.1:6380"
+                tls:
+                  no_session_cache: true
+                  disable_sni: true
+                  max_fragment_size: 1024
+                tls_name: "redis.example.com"
+                db: 5
+                username: "test_user"
+                password: "test_pass"
+                connect_timeout: "10s"
+                response_timeout: "5s"
+                "#
+        );
+        for (k, v) in yaml.as_hash().unwrap().iter() {
+            builder
+                .set_by_yaml_kv(k.as_str().unwrap(), v, None)
+                .unwrap();
+        }
+
+        let mut expected = RedisClientConfigBuilder::default();
+        expected.set_addr(UpstreamAddr::new(
+            Host::Ip(IpAddr::from_str("127.0.0.1").unwrap()),
+            6380,
+        ));
+        let mut tls = RustlsClientConfigBuilder::default();
+        tls.set_no_session_cache();
+        tls.set_disable_sni();
+        tls.set_max_fragment_size(1024);
+        expected.set_tls_client(tls);
+        expected.set_tls_name(ServerName::try_from("redis.example.com").unwrap());
+        expected.set_db(5);
+        expected.set_username("test_user".to_string());
+        expected.set_password("test_pass".to_string());
+        expected.set_connect_timeout(Duration::from_secs(10));
+        expected.set_response_timeout(Duration::from_secs(5));
+
+        assert_eq!(builder, expected);
+    }
+
+    #[test]
+    fn set_by_yaml_kv_err() {
+        let mut builder = RedisClientConfigBuilder::default();
+        let yaml = yaml_doc!(
+            r#"
+                invalid_key: "value"
+                address: false
+                tls_client: "invalid"
+                tls_name: "invalid..name"
+                db: -1.5
+                username: true
+                password: null
+                connect_timeout: "-10s"
+                read_timeout: "5xs"
+                "#
+        );
+        for (k, v) in yaml.as_hash().unwrap().iter() {
+            assert!(
+                builder
+                    .set_by_yaml_kv(k.as_str().unwrap(), v, None)
+                    .is_err()
+            );
+        }
+    }
+}

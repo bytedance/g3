@@ -162,3 +162,308 @@ impl StatsdClientConfig {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use g3_yaml::yaml_doc;
+    use std::net::Ipv4Addr;
+    use std::time::Duration;
+    use yaml_rust::YamlLoader;
+
+    fn default_node_name() -> NodeName {
+        NodeName::from_str("test").unwrap()
+    }
+
+    #[test]
+    fn parse_udp_yaml_err() {
+        let yaml = yaml_doc!(
+            r#"
+                invalid_key: "value"
+            "#
+        );
+        assert!(StatsdBackend::parse_udp_yaml(&yaml).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                address: "invalid-addr"
+            "#
+        );
+        assert!(StatsdBackend::parse_udp_yaml(&yaml).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                address: "127.0.0.1:8125"
+                bind_ip: "invalid-ip"
+            "#
+        );
+        assert!(StatsdBackend::parse_udp_yaml(&yaml).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                bind_ip: "127.0.0.1"
+            "#
+        );
+        assert!(StatsdBackend::parse_udp_yaml(&yaml).is_err());
+
+        let yaml = Yaml::Array(vec![]);
+        assert!(StatsdBackend::parse_udp_yaml(&yaml).is_err());
+
+        let yaml = Yaml::Integer(123);
+        assert!(StatsdBackend::parse_udp_yaml(&yaml).is_err());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn parse_unix_yaml_err() {
+        let yaml = yaml_doc!(
+            r#"
+                invalid_key: "value"
+            "#
+        );
+        assert!(StatsdBackend::parse_unix_yaml(&yaml).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                path: "relative/path"
+            "#
+        );
+        assert!(StatsdBackend::parse_unix_yaml(&yaml).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                path:
+            "#
+        );
+        assert!(StatsdBackend::parse_unix_yaml(&yaml).is_err());
+
+        let yaml = Yaml::Boolean(true);
+        assert!(StatsdBackend::parse_unix_yaml(&yaml).is_err());
+
+        let yaml = Yaml::Null;
+        assert!(StatsdBackend::parse_unix_yaml(&yaml).is_err());
+    }
+
+    #[test]
+    fn parse_yaml_ok() {
+        let yaml = yaml_doc!(
+            r#"
+                target_udp: "127.0.0.1:8125"
+                prefix: "myapp"
+                cache_size: "512KB"
+                max_segment_size: "1KB"
+                emit_duration: "500ms"
+            "#
+        );
+        let config = StatsdClientConfig::parse_yaml(&yaml, default_node_name()).unwrap();
+        match config.backend {
+            StatsdBackend::Udp(addr, bind) => {
+                assert_eq!(addr, SocketAddr::from_str("127.0.0.1:8125").unwrap());
+                assert_eq!(bind, None);
+            }
+            #[cfg(unix)]
+            _ => panic!("expected UDP backend"),
+        }
+        assert_eq!(config.prefix, NodeName::from_str("myapp").unwrap());
+        assert_eq!(config.cache_size, 512 * 1000);
+        assert_eq!(config.max_segment_size, Some(1000));
+        assert_eq!(config.emit_interval, Duration::from_millis(500));
+
+        let yaml = yaml_doc!(
+            r#"
+                backend_udp:
+                  address: "192.168.1.1:9125"
+                  bind_ip: "127.0.0.1"
+                prefix: "test.prefix"
+                cache_size: 1024
+                emit_interval: "1s"
+            "#
+        );
+        let config = StatsdClientConfig::parse_yaml(&yaml, default_node_name()).unwrap();
+        match config.backend {
+            StatsdBackend::Udp(addr, bind) => {
+                assert_eq!(addr, SocketAddr::from_str("192.168.1.1:9125").unwrap());
+                assert_eq!(
+                    bind,
+                    Some(IpAddr::V4(Ipv4Addr::from_str("127.0.0.1").unwrap()))
+                );
+            }
+            #[cfg(unix)]
+            _ => panic!("expected UDP backend"),
+        }
+        assert_eq!(config.prefix, NodeName::from_str("test.prefix").unwrap());
+        assert_eq!(config.cache_size, 1024);
+        assert_eq!(config.max_segment_size, None);
+        assert_eq!(config.emit_interval, Duration::from_secs(1));
+
+        let yaml = yaml_doc!(
+            r#"
+                target:
+                  udp:
+                    addr: "10.0.0.1:8126"
+                    bind: "0.0.0.0"
+                prefix: "nested.udp"
+            "#
+        );
+        let config = StatsdClientConfig::parse_yaml(&yaml, default_node_name()).unwrap();
+        match config.backend {
+            StatsdBackend::Udp(addr, bind) => {
+                assert_eq!(addr, SocketAddr::from_str("10.0.0.1:8126").unwrap());
+                assert_eq!(bind, Some(IpAddr::V4(Ipv4Addr::UNSPECIFIED)));
+            }
+            #[cfg(unix)]
+            _ => panic!("expected UDP backend"),
+        }
+        assert_eq!(config.prefix, NodeName::from_str("nested.udp").unwrap());
+
+        #[cfg(unix)]
+        {
+            let yaml = yaml_doc!(
+                r#"
+                    target_unix: "/tmp/statsd.sock"
+                    prefix: "unix.app"
+                "#
+            );
+            let config = StatsdClientConfig::parse_yaml(&yaml, default_node_name()).unwrap();
+            match config.backend {
+                StatsdBackend::Unix(path) => {
+                    assert_eq!(path, PathBuf::from("/tmp/statsd.sock"));
+                }
+                _ => panic!("expected Unix backend"),
+            }
+            assert_eq!(config.prefix, NodeName::from_str("unix.app").unwrap());
+
+            let yaml = yaml_doc!(
+                r#"
+                    backend_unix:
+                      path: "/var/run/statsd.sock"
+                    cache_size: "2MB"
+                "#
+            );
+            let config = StatsdClientConfig::parse_yaml(&yaml, default_node_name()).unwrap();
+            match config.backend {
+                StatsdBackend::Unix(path) => {
+                    assert_eq!(path, PathBuf::from("/var/run/statsd.sock"));
+                }
+                _ => panic!("expected Unix backend"),
+            }
+            assert_eq!(config.cache_size, 2 * 1000 * 1000);
+
+            let yaml = yaml_doc!(
+                r#"
+                    backend:
+                      unix:
+                        path: "/tmp/nested.sock"
+                    prefix: "nested.unix"
+                "#
+            );
+            let config = StatsdClientConfig::parse_yaml(&yaml, default_node_name()).unwrap();
+            match config.backend {
+                StatsdBackend::Unix(path) => {
+                    assert_eq!(path, PathBuf::from("/tmp/nested.sock"));
+                }
+                _ => panic!("expected Unix backend"),
+            }
+            assert_eq!(config.prefix, NodeName::from_str("nested.unix").unwrap());
+        }
+    }
+
+    #[test]
+    fn parse_yaml_err() {
+        let yaml = yaml_doc!(
+            r#"
+                invalid_key: "value"
+            "#
+        );
+        assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                target_udp: "invalid-address"
+            "#
+        );
+        assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                backend_udp: false
+            "#
+        );
+        assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
+
+        #[cfg(unix)]
+        {
+            let yaml = yaml_doc!(
+                r#"
+                    target_unix: "relative/path"
+                "#
+            );
+            assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
+
+            let yaml = yaml_doc!(
+                r#"
+                    backend_unix: 123
+                "#
+            );
+            assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
+        }
+
+        let yaml = yaml_doc!(
+            r#"
+                target: "not_a_map"
+            "#
+        );
+        assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                backend:
+                  invalid_backend: "value"
+            "#
+        );
+        assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                prefix: 123
+            "#
+        );
+        assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                cache_size: -1
+            "#
+        );
+        assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                max_segment_size: -100
+            "#
+        );
+        assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                emit_interval: "1xs"
+            "#
+        );
+        assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
+
+        let yaml = Yaml::Array(vec![]);
+        assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
+
+        let yaml = Yaml::Integer(123);
+        assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
+
+        let yaml = Yaml::Boolean(true);
+        assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
+
+        let yaml = Yaml::Real("1.23".to_string());
+        assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
+
+        let yaml = Yaml::Null;
+        assert!(StatsdClientConfig::parse_yaml(&yaml, default_node_name()).is_err());
+    }
+}
