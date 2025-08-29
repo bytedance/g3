@@ -51,9 +51,15 @@ impl IsoCountryCode {
         ALL_ALPHA3_CODES[*self as usize]
     }
 
-$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_variant_count.awk)
+    pub fn variant_count() -> usize {
+        Self::$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_variant_count.awk) as usize
+    }
 
+    pub fn continent(&self) -> ContinentCode {
+        match self {
 $(cat ${TMP_FILE} | awk -F'\t' -f iso3166_continent.awk)
+        }
+    }
 }
 
 impl fmt::Display for IsoCountryCode {
@@ -79,6 +85,92 @@ $(cat ${TMP_FILE} | awk -F'\t' -f iso3166_from_alpha3_str.awk)
             },
             _ => Err(()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn iso_country_code_name() {
+        assert_eq!(IsoCountryCode::AD.name(), "Andorra");
+        assert_eq!(IsoCountryCode::US.name(), "United States");
+        assert_eq!(IsoCountryCode::CN.name(), "China");
+        assert_eq!(IsoCountryCode::DE.name(), "Germany");
+        assert_eq!(IsoCountryCode::GB.name(), "United Kingdom");
+        assert_eq!(IsoCountryCode::FR.name(), "France");
+        assert_eq!(IsoCountryCode::JP.name(), "Japan");
+        assert_eq!(IsoCountryCode::AU.name(), "Australia");
+        assert_eq!(IsoCountryCode::CA.name(), "Canada");
+        assert_eq!(IsoCountryCode::BR.name(), "Brazil");
+    }
+
+    #[test]
+    fn iso_country_code_alpha2_code() {
+        assert_eq!(IsoCountryCode::AD.alpha2_code(), "AD");
+        assert_eq!(IsoCountryCode::US.alpha2_code(), "US");
+        assert_eq!(IsoCountryCode::CN.alpha2_code(), "CN");
+        assert_eq!(IsoCountryCode::DE.alpha2_code(), "DE");
+        assert_eq!(IsoCountryCode::GB.alpha2_code(), "GB");
+        assert_eq!(IsoCountryCode::FR.alpha2_code(), "FR");
+        assert_eq!(IsoCountryCode::JP.alpha2_code(), "JP");
+        assert_eq!(IsoCountryCode::AU.alpha2_code(), "AU");
+        assert_eq!(IsoCountryCode::CA.alpha2_code(), "CA");
+        assert_eq!(IsoCountryCode::BR.alpha2_code(), "BR");
+    }
+
+    #[test]
+    fn iso_country_code_alpha3_code() {
+        assert_eq!(IsoCountryCode::AD.alpha3_code(), "AND");
+        assert_eq!(IsoCountryCode::US.alpha3_code(), "USA");
+        assert_eq!(IsoCountryCode::CN.alpha3_code(), "CHN");
+        assert_eq!(IsoCountryCode::DE.alpha3_code(), "DEU");
+        assert_eq!(IsoCountryCode::GB.alpha3_code(), "GBR");
+        assert_eq!(IsoCountryCode::FR.alpha3_code(), "FRA");
+        assert_eq!(IsoCountryCode::JP.alpha3_code(), "JPN");
+        assert_eq!(IsoCountryCode::AU.alpha3_code(), "AUS");
+        assert_eq!(IsoCountryCode::CA.alpha3_code(), "CAN");
+        assert_eq!(IsoCountryCode::BR.alpha3_code(), "BRA");
+    }
+
+    #[test]
+    fn iso_country_code_variant_count() {
+        assert_eq!(IsoCountryCode::variant_count(), IsoCountryCode::$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_test_variant_count.awk) as usize);
+    }
+
+    #[test]
+    fn iso_country_code_continent() {
+$(cat ${TMP_FILE} | awk -F'\t' -f iso3166_test_continent.awk)
+    }
+
+    #[test]
+    fn iso_country_code_from_str() {
+        for (i, &alpha2_code) in ALL_ALPHA2_CODES.iter().enumerate() {
+            let expected_country = unsafe { std::mem::transmute::<u16, IsoCountryCode>(i as u16) };
+            assert_eq!(
+                IsoCountryCode::from_str(alpha2_code).unwrap(),
+                expected_country
+            );
+        }
+
+        for (i, &alpha3_code) in ALL_ALPHA3_CODES.iter().enumerate() {
+            let expected_country = unsafe { std::mem::transmute::<u16, IsoCountryCode>(i as u16) };
+            assert_eq!(
+                IsoCountryCode::from_str(alpha3_code).unwrap(),
+                expected_country
+            )
+        }
+
+        assert!(IsoCountryCode::from_str("XXX").is_err());
+        assert!(IsoCountryCode::from_str("ZZZ").is_err());
+        assert!(IsoCountryCode::from_str("ABC").is_err());
+
+        assert!(IsoCountryCode::from_str("").is_err());
+        assert!(IsoCountryCode::from_str("A").is_err());
+        assert!(IsoCountryCode::from_str("USAA").is_err());
+        assert!(IsoCountryCode::from_str("USAAA").is_err());
+        assert!(IsoCountryCode::from_str("United States").is_err());
     }
 }
 EOF

@@ -2264,3 +2264,340 @@ impl FromStr for IsoCountryCode {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn iso_country_code_name() {
+        assert_eq!(IsoCountryCode::AD.name(), "Andorra");
+        assert_eq!(IsoCountryCode::US.name(), "United States");
+        assert_eq!(IsoCountryCode::CN.name(), "China");
+        assert_eq!(IsoCountryCode::DE.name(), "Germany");
+        assert_eq!(IsoCountryCode::GB.name(), "United Kingdom");
+        assert_eq!(IsoCountryCode::FR.name(), "France");
+        assert_eq!(IsoCountryCode::JP.name(), "Japan");
+        assert_eq!(IsoCountryCode::AU.name(), "Australia");
+        assert_eq!(IsoCountryCode::CA.name(), "Canada");
+        assert_eq!(IsoCountryCode::BR.name(), "Brazil");
+    }
+
+    #[test]
+    fn iso_country_code_alpha2_code() {
+        assert_eq!(IsoCountryCode::AD.alpha2_code(), "AD");
+        assert_eq!(IsoCountryCode::US.alpha2_code(), "US");
+        assert_eq!(IsoCountryCode::CN.alpha2_code(), "CN");
+        assert_eq!(IsoCountryCode::DE.alpha2_code(), "DE");
+        assert_eq!(IsoCountryCode::GB.alpha2_code(), "GB");
+        assert_eq!(IsoCountryCode::FR.alpha2_code(), "FR");
+        assert_eq!(IsoCountryCode::JP.alpha2_code(), "JP");
+        assert_eq!(IsoCountryCode::AU.alpha2_code(), "AU");
+        assert_eq!(IsoCountryCode::CA.alpha2_code(), "CA");
+        assert_eq!(IsoCountryCode::BR.alpha2_code(), "BR");
+    }
+
+    #[test]
+    fn iso_country_code_alpha3_code() {
+        assert_eq!(IsoCountryCode::AD.alpha3_code(), "AND");
+        assert_eq!(IsoCountryCode::US.alpha3_code(), "USA");
+        assert_eq!(IsoCountryCode::CN.alpha3_code(), "CHN");
+        assert_eq!(IsoCountryCode::DE.alpha3_code(), "DEU");
+        assert_eq!(IsoCountryCode::GB.alpha3_code(), "GBR");
+        assert_eq!(IsoCountryCode::FR.alpha3_code(), "FRA");
+        assert_eq!(IsoCountryCode::JP.alpha3_code(), "JPN");
+        assert_eq!(IsoCountryCode::AU.alpha3_code(), "AUS");
+        assert_eq!(IsoCountryCode::CA.alpha3_code(), "CAN");
+        assert_eq!(IsoCountryCode::BR.alpha3_code(), "BRA");
+    }
+
+    #[test]
+    fn iso_country_code_variant_count() {
+        assert_eq!(IsoCountryCode::variant_count(), IsoCountryCode::AN as usize);
+    }
+
+    #[test]
+    fn iso_country_code_continent() {
+        assert_eq!(IsoCountryCode::AD.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::AE.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::AF.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::AG.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::AI.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::AL.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::AM.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::AO.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::AQ.continent(), ContinentCode::AN);
+        assert_eq!(IsoCountryCode::AR.continent(), ContinentCode::SA);
+        assert_eq!(IsoCountryCode::AS.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::AT.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::AU.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::AW.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::AX.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::AZ.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::BA.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::BB.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::BD.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::BE.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::BF.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::BG.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::BH.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::BI.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::BJ.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::BL.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::BM.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::BN.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::BO.continent(), ContinentCode::SA);
+        assert_eq!(IsoCountryCode::BQ.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::BR.continent(), ContinentCode::SA);
+        assert_eq!(IsoCountryCode::BS.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::BT.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::BV.continent(), ContinentCode::AN);
+        assert_eq!(IsoCountryCode::BW.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::BY.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::BZ.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::CA.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::CC.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::CD.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::CF.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::CG.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::CH.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::CI.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::CK.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::CL.continent(), ContinentCode::SA);
+        assert_eq!(IsoCountryCode::CM.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::CN.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::CO.continent(), ContinentCode::SA);
+        assert_eq!(IsoCountryCode::CR.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::CU.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::CV.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::CW.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::CX.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::CY.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::CZ.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::DE.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::DJ.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::DK.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::DM.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::DO.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::DZ.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::EC.continent(), ContinentCode::SA);
+        assert_eq!(IsoCountryCode::EE.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::EG.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::EH.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::ER.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::ES.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::ET.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::FI.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::FJ.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::FK.continent(), ContinentCode::SA);
+        assert_eq!(IsoCountryCode::FM.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::FO.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::FR.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::GA.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::GB.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::GD.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::GE.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::GF.continent(), ContinentCode::SA);
+        assert_eq!(IsoCountryCode::GG.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::GH.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::GI.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::GL.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::GM.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::GN.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::GP.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::GQ.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::GR.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::GS.continent(), ContinentCode::AN);
+        assert_eq!(IsoCountryCode::GT.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::GU.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::GW.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::GY.continent(), ContinentCode::SA);
+        assert_eq!(IsoCountryCode::HK.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::HM.continent(), ContinentCode::AN);
+        assert_eq!(IsoCountryCode::HN.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::HR.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::HT.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::HU.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::ID.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::IE.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::IL.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::IM.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::IN.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::IO.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::IQ.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::IR.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::IS.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::IT.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::JE.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::JM.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::JO.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::JP.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::KE.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::KG.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::KH.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::KI.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::KM.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::KN.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::KP.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::KR.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::XK.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::KW.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::KY.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::KZ.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::LA.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::LB.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::LC.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::LI.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::LK.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::LR.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::LS.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::LT.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::LU.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::LV.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::LY.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::MA.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::MC.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::MD.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::ME.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::MF.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::MG.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::MH.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::MK.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::ML.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::MM.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::MN.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::MO.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::MP.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::MQ.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::MR.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::MS.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::MT.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::MU.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::MV.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::MW.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::MX.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::MY.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::MZ.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::NA.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::NC.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::NE.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::NF.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::NG.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::NI.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::NL.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::NO.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::NP.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::NR.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::NU.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::NZ.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::OM.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::PA.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::PE.continent(), ContinentCode::SA);
+        assert_eq!(IsoCountryCode::PF.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::PG.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::PH.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::PK.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::PL.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::PM.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::PN.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::PR.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::PS.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::PT.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::PW.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::PY.continent(), ContinentCode::SA);
+        assert_eq!(IsoCountryCode::QA.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::RE.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::RO.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::RS.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::RU.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::RW.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::SA.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::SB.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::SC.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::SD.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::SS.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::SE.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::SG.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::SH.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::SI.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::SJ.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::SK.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::SL.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::SM.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::SN.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::SO.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::SR.continent(), ContinentCode::SA);
+        assert_eq!(IsoCountryCode::ST.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::SV.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::SX.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::SY.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::SZ.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::TC.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::TD.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::TF.continent(), ContinentCode::AN);
+        assert_eq!(IsoCountryCode::TG.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::TH.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::TJ.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::TK.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::TL.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::TM.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::TN.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::TO.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::TR.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::TT.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::TV.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::TW.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::TZ.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::UA.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::UG.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::UM.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::US.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::UY.continent(), ContinentCode::SA);
+        assert_eq!(IsoCountryCode::UZ.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::VA.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::VC.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::VE.continent(), ContinentCode::SA);
+        assert_eq!(IsoCountryCode::VG.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::VI.continent(), ContinentCode::NA);
+        assert_eq!(IsoCountryCode::VN.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::VU.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::WF.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::WS.continent(), ContinentCode::OC);
+        assert_eq!(IsoCountryCode::YE.continent(), ContinentCode::AS);
+        assert_eq!(IsoCountryCode::YT.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::ZA.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::ZM.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::ZW.continent(), ContinentCode::AF);
+        assert_eq!(IsoCountryCode::CS.continent(), ContinentCode::EU);
+        assert_eq!(IsoCountryCode::AN.continent(), ContinentCode::NA);
+    }
+
+    #[test]
+    fn iso_country_code_from_str() {
+        for (i, &alpha2_code) in ALL_ALPHA2_CODES.iter().enumerate() {
+            let expected_country = unsafe { std::mem::transmute::<u16, IsoCountryCode>(i as u16) };
+            assert_eq!(
+                IsoCountryCode::from_str(alpha2_code).unwrap(),
+                expected_country
+            );
+        }
+
+        for (i, &alpha3_code) in ALL_ALPHA3_CODES.iter().enumerate() {
+            let expected_country = unsafe { std::mem::transmute::<u16, IsoCountryCode>(i as u16) };
+            assert_eq!(
+                IsoCountryCode::from_str(alpha3_code).unwrap(),
+                expected_country
+            )
+        }
+
+        assert!(IsoCountryCode::from_str("XXX").is_err());
+        assert!(IsoCountryCode::from_str("ZZZ").is_err());
+        assert!(IsoCountryCode::from_str("ABC").is_err());
+
+        assert!(IsoCountryCode::from_str("").is_err());
+        assert!(IsoCountryCode::from_str("A").is_err());
+        assert!(IsoCountryCode::from_str("USAA").is_err());
+        assert!(IsoCountryCode::from_str("USAAA").is_err());
+        assert!(IsoCountryCode::from_str("United States").is_err());
+    }
+}
