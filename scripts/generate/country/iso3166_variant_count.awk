@@ -12,8 +12,6 @@ $1 ~ "^#.*" {
 }
 
 END {
-	print "    pub fn variant_count() -> usize {";
-	print "        Self::"LAST_CODE" as usize";
-	print "    }";
+	print LAST_CODE;
 }
 
