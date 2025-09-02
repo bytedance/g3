@@ -61,7 +61,10 @@ pub fn command() -> Command {
 
 pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Result<ExitCode> {
     let mut h3_args = opts::parse_h3_args(cmd_args)?;
-    h3_args.resolve_target_address(proc_args).await?;
+    h3_args
+        .connect
+        .resolve_target_address(proc_args, &h3_args.common.target)
+        .await?;
     let h3_args = Arc::new(h3_args);
 
     let runtime_stats = Arc::new(HttpRuntimeStats::new_udp(COMMAND));
