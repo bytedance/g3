@@ -1,6 +1,6 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
- * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2025 ByteDance and/or its affiliates.
  */
 
 use std::process::ExitCode;
@@ -8,33 +8,34 @@ use std::sync::Arc;
 
 use clap::{ArgMatches, Command};
 
-use super::{BenchTarget, BenchTaskContext, ProcArgs};
+use crate::ProcArgs;
 use crate::module::http::{HttpHistogram, HttpHistogramRecorder, HttpRuntimeStats};
+use crate::target::BenchTarget;
 
 mod opts;
-use opts::BenchHttpArgs;
+use opts::H1WebsocketArgs;
 
 mod task;
-use task::HttpTaskContext;
+use task::H1WebsocketTaskContext;
 
-pub const COMMAND: &str = "h1";
+pub(super) const COMMAND: &str = "h1";
 
-struct HttpTarget {
-    args: Arc<BenchHttpArgs>,
+struct H1WebsocketTarget {
+    args: Arc<H1WebsocketArgs>,
     proc_args: Arc<ProcArgs>,
     stats: Arc<HttpRuntimeStats>,
     histogram: Option<HttpHistogram>,
     histogram_recorder: HttpHistogramRecorder,
 }
 
-impl BenchTarget<HttpRuntimeStats, HttpHistogram, HttpTaskContext> for HttpTarget {
-    fn new_context(&self) -> anyhow::Result<HttpTaskContext> {
-        HttpTaskContext::new(
+impl BenchTarget<HttpRuntimeStats, HttpHistogram, H1WebsocketTaskContext> for H1WebsocketTarget {
+    fn new_context(&self) -> anyhow::Result<H1WebsocketTaskContext> {
+        Ok(H1WebsocketTaskContext::new(
             self.args.clone(),
             self.proc_args.clone(),
             self.stats.clone(),
             self.histogram_recorder.clone(),
-        )
+        ))
     }
 
     fn fetch_runtime_stats(&self) -> Arc<HttpRuntimeStats> {
@@ -46,25 +47,25 @@ impl BenchTarget<HttpRuntimeStats, HttpHistogram, HttpTaskContext> for HttpTarge
     }
 }
 
-pub fn command() -> Command {
-    opts::add_http_args(Command::new(COMMAND))
+pub(super) fn command() -> Command {
+    opts::add_h1_websocket_args(Command::new(COMMAND).about("Test websocket over http1.1"))
 }
 
 pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Result<ExitCode> {
-    let mut http_args = opts::parse_http_args(cmd_args)?;
-    http_args
+    let mut websocket_args = opts::parse_h1_websocket_args(cmd_args)?;
+    websocket_args
         .connect
-        .resolve_target_address(proc_args, &http_args.common.target)
+        .resolve_target_address(proc_args, &websocket_args.common.target)
         .await?;
 
     let (histogram, histogram_recorder) = HttpHistogram::new();
-    let target = HttpTarget {
-        args: Arc::new(http_args),
+    let target = H1WebsocketTarget {
+        args: Arc::new(websocket_args),
         proc_args: Arc::clone(proc_args),
-        stats: Arc::new(HttpRuntimeStats::new_tcp(COMMAND)),
+        stats: Arc::new(HttpRuntimeStats::new_tcp(crate::target::h1::COMMAND)),
         histogram: Some(histogram),
         histogram_recorder,
     };
 
-    super::run(target, proc_args).await
+    crate::target::run(target, proc_args).await
 }

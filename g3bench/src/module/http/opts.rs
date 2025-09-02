@@ -95,7 +95,7 @@ impl HttpClientArgs {
         Ok(req)
     }
 
-    pub(crate) fn parse_http_args(args: &ArgMatches) -> anyhow::Result<Self> {
+    pub(crate) fn parse_args(args: &ArgMatches) -> anyhow::Result<Self> {
         let url = if let Some(v) = args.get_one::<String>(HTTP_ARG_URL) {
             Url::parse(v).context(format!("invalid {HTTP_ARG_URL} value"))?
         } else {

@@ -15,10 +15,8 @@ use g3_http::HttpBodyReader;
 use g3_http::client::HttpForwardRemoteResponse;
 use g3_io_ext::{LimitedReader, LimitedWriter};
 
-use super::{
-    BenchHttpArgs, BenchTaskContext, HttpHistogramRecorder, HttpRuntimeStats, ProcArgs,
-    SavedHttpForwardConnection,
-};
+use super::{BenchHttpArgs, BenchTaskContext, HttpHistogramRecorder, HttpRuntimeStats, ProcArgs};
+use crate::module::http::SavedHttpForwardConnection;
 use crate::target::BenchError;
 
 pub(super) struct HttpTaskContext {
@@ -36,9 +34,9 @@ pub(super) struct HttpTaskContext {
 
 impl HttpTaskContext {
     pub(super) fn new(
-        args: &Arc<BenchHttpArgs>,
-        proc_args: &Arc<ProcArgs>,
-        runtime_stats: &Arc<HttpRuntimeStats>,
+        args: Arc<BenchHttpArgs>,
+        proc_args: Arc<ProcArgs>,
+        runtime_stats: Arc<HttpRuntimeStats>,
         histogram_recorder: HttpHistogramRecorder,
     ) -> anyhow::Result<Self> {
         let mut hdr_buf = Vec::with_capacity(1024);
@@ -48,11 +46,11 @@ impl HttpTaskContext {
         let req_header_fixed_len = hdr_buf.len();
 
         Ok(HttpTaskContext {
-            args: Arc::clone(args),
-            proc_args: Arc::clone(proc_args),
+            args: args.clone(),
+            proc_args: proc_args.clone(),
             saved_connection: None,
             reuse_conn_count: 0,
-            runtime_stats: Arc::clone(runtime_stats),
+            runtime_stats: runtime_stats.clone(),
             histogram_recorder,
             req_header: hdr_buf,
             req_header_fixed_len,

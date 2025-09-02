@@ -57,7 +57,7 @@ pub(super) fn add_h2_args(app: Command) -> Command {
 }
 
 pub(super) fn parse_h2_args(args: &ArgMatches) -> anyhow::Result<BenchH2Args> {
-    let common = HttpClientArgs::parse_http_args(args)?;
+    let common = HttpClientArgs::parse_args(args)?;
     let mut h2_args = BenchH2Args::new(common);
 
     if let Some(c) = args.get_one::<usize>(HTTP_ARG_CONNECTION_POOL)

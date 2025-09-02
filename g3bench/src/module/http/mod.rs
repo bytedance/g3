@@ -11,8 +11,8 @@ pub(crate) use opts::{AppendHttpArgs, HttpClientArgs};
 
 mod connection;
 pub(crate) use connection::{
-    AppendH1ConnectArgs, AppendH2ConnectArgs, BoxHttpForwardReader, BoxHttpForwardWriter,
-    H1ConnectArgs, H2ConnectArgs,
+    AppendH1ConnectArgs, AppendH2ConnectArgs, H1ConnectArgs, H2ConnectArgs,
+    SavedHttpForwardConnection,
 };
 #[cfg(feature = "quic")]
 pub(crate) use connection::{AppendH3ConnectArgs, H3ConnectArgs};

@@ -27,6 +27,7 @@ pub mod keyless;
 pub mod openssl;
 pub mod rustls;
 pub mod thrift;
+pub mod websocket;
 
 #[cfg_attr(feature = "quic", path = "h3/mod.rs")]
 #[cfg_attr(not(feature = "quic"), path = "no_h3.rs")]
