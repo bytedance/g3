@@ -92,18 +92,19 @@ pub(crate) fn compute_upstream_from_username(
         // if a later non-floating key appears, all earlier non-floating must be present
         let mut saw_missing_required = false;
         for key in &cfg.keys_for_host {
+            let key_s = key.as_str();
             let is_floating = cfg.floating_keys.contains(key);
-            match parsed.params.get(key) {
+            match parsed.params.get(key_s) {
                 Some(_v) => {
                     if saw_missing_required && !is_floating {
                         debug!(
                             "username-params: hierarchy violation at key '{}' (floating={})",
-                            key.as_str(),
+                            key_s,
                             is_floating
                         );
                         return Err(anyhow!(
                             "key {} requires its ancestor keys to be present",
-                            key.as_str()
+                            key_s
                         ));
                     }
                 }
