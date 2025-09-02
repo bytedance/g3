@@ -36,6 +36,7 @@ set -x
 . "${RUN_DIR}"/target_openssl.sh
 . "${RUN_DIR}"/target_rustls.sh
 . "${RUN_DIR}"/target_thrift_tcp.sh
+. "${RUN_DIR}"/target_websocket.sh
 
 set +x
 

@@ -130,7 +130,7 @@ pub(super) fn add_http_args(app: Command) -> Command {
 }
 
 pub(super) fn parse_http_args(args: &ArgMatches) -> anyhow::Result<BenchHttpArgs> {
-    let common = HttpClientArgs::parse_http_args(args)?;
+    let common = HttpClientArgs::parse_args(args)?;
     let mut h1_args = BenchHttpArgs::new(common);
 
     if args.get_flag(HTTP_ARG_NO_KEEPALIVE) {

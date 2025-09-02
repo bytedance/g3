@@ -11,6 +11,7 @@ anyhow.workspace = true
 clap.workspace = true
 humanize-rs.workspace = true
 http = { workspace = true, optional = true }
+hex.workspace = true
 g3-types = { workspace = true, optional = true }
 
 [features]

@@ -11,9 +11,6 @@ use clap::{ArgMatches, Command};
 use super::{BenchTarget, BenchTaskContext, ProcArgs};
 use crate::module::http::{HttpHistogram, HttpHistogramRecorder, HttpRuntimeStats};
 
-mod connection;
-use connection::SavedHttpForwardConnection;
-
 mod opts;
 use opts::BenchHttpArgs;
 
@@ -33,9 +30,9 @@ struct HttpTarget {
 impl BenchTarget<HttpRuntimeStats, HttpHistogram, HttpTaskContext> for HttpTarget {
     fn new_context(&self) -> anyhow::Result<HttpTaskContext> {
         HttpTaskContext::new(
-            &self.args,
-            &self.proc_args,
-            &self.stats,
+            self.args.clone(),
+            self.proc_args.clone(),
+            self.stats.clone(),
             self.histogram_recorder.clone(),
         )
     }
