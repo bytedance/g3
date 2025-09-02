@@ -13,3 +13,5 @@ pub(crate) use h2::{AppendH2ConnectArgs, H2ConnectArgs};
 
 #[cfg(feature = "quic")]
 mod h3;
+#[cfg(feature = "quic")]
+pub(crate) use h3::{AppendH3ConnectArgs, H3ConnectArgs};
