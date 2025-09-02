@@ -9,6 +9,7 @@ pub(crate) use h1::{
 };
 
 mod h2;
+pub(crate) use h2::{AppendH2ConnectArgs, H2ConnectArgs};
 
 #[cfg(feature = "quic")]
 mod h3;
