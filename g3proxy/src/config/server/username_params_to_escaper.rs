@@ -54,7 +54,84 @@ impl UsernameParamsToEscaperConfig {
             strip_suffix_for_auth: true,
         }
     }
+}
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn parse_minimal_and_aliases() {
+        let s = r#"
+        username_params_to_escaper_addr:
+          keys: [a, b, c]
+          floating: [c]
+          require_hierarchy: false
+          reject_unknown_keys: false
+          reject_duplicate_keys: false
+          separator: ":"
+          suffix: "svc.local"
+          global_label: "g"
+          http_port: 20000
+          socks_port: 20001
+          auth_strip_suffix: false
+        "#;
+        let docs = YamlLoader::load_from_str(s).unwrap();
+        let root = &docs[0]["username_params_to_escaper_addr"];
+        let map = root.as_hash().unwrap();
+        let c = UsernameParamsToEscaperConfig::parse(map, None).unwrap();
+
+        assert_eq!(c.keys_for_host, vec!["a", "b", "c"]);
+        assert_eq!(c.floating_keys, vec!["c"]);
+        assert!(!c.require_hierarchy);
+        assert!(!c.reject_unknown_keys);
+        assert!(!c.reject_duplicate_keys);
+        assert_eq!(c.separator, ":");
+        assert_eq!(c.domain_suffix.as_deref(), Some(".svc.local"));
+        assert_eq!(c.global_label, "g");
+        assert_eq!(c.http_port, 20000);
+        assert_eq!(c.socks5_port, 20001);
+        assert!(!c.strip_suffix_for_auth);
+    }
+
+    #[test]
+    fn suffix_for_host_works() {
+        let mut c = UsernameParamsToEscaperConfig::new(None);
+        // no suffix
+        assert_eq!(c.suffix_for_host("foo").as_ref(), "foo");
+
+        // with suffix
+        c.domain_suffix = Some(".example".to_string());
+        assert_eq!(c.suffix_for_host("foo").as_ref(), "foo.example");
+
+        // suffix normalized from non-dot value
+        let s = r#"
+        username_params_to_escaper_addr:
+          keys_for_host: [x]
+          domain_suffix: "svc.local"
+        "#;
+        let docs = YamlLoader::load_from_str(s).unwrap();
+        let map = docs[0]["username_params_to_escaper_addr"].as_hash().unwrap();
+        let c2 = UsernameParamsToEscaperConfig::parse(map, None).unwrap();
+        assert_eq!(c2.domain_suffix.as_deref(), Some(".svc.local"));
+    }
+
+    #[test]
+    fn invalid_floating_key_rejected() {
+        let s = r#"
+        username_params_to_escaper_addr:
+          keys_for_host: [a]
+          floating_keys: [b]
+        "#;
+        let docs = YamlLoader::load_from_str(s).unwrap();
+        let map = docs[0]["username_params_to_escaper_addr"].as_hash().unwrap();
+        let r = UsernameParamsToEscaperConfig::parse(map, None);
+        assert!(r.is_err());
+    }
+}
+
+impl UsernameParamsToEscaperConfig {
     pub(crate) fn parse(map: &yaml::Hash, position: Option<YamlDocPosition>) -> anyhow::Result<Self> {
         let mut c = Self::new(position);
         g3_yaml::foreach_kv(map, |k, v| c.set(k, v))?;
