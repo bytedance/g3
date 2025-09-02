@@ -4,9 +4,7 @@
  */
 
 mod h1;
-pub(crate) use h1::{
-    AppendH1ConnectArgs, BoxHttpForwardReader, BoxHttpForwardWriter, H1ConnectArgs,
-};
+pub(crate) use h1::{AppendH1ConnectArgs, H1ConnectArgs, SavedHttpForwardConnection};
 
 mod h2;
 pub(crate) use h2::{AppendH2ConnectArgs, H2ConnectArgs};

@@ -5,6 +5,8 @@
 
 pub mod humanize;
 
+pub mod data;
+
 #[cfg(feature = "limit")]
 pub mod limit;
 

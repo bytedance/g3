@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use anyhow::{Context, anyhow};
+use anyhow::Context;
 use clap::{Arg, ArgAction, ArgGroup, ArgMatches, Command, value_parser};
 
 use super::protocol::{BinaryMessageBuilder, CompactMessageBuilder, ThriftMessageBuilder};
@@ -32,9 +32,7 @@ pub(super) struct ThriftGlobalArgs {
 impl ThriftGlobalArgs {
     pub(super) fn parse_args(args: &ArgMatches) -> anyhow::Result<Self> {
         let name = args.get_one::<String>(ARG_METHOD).unwrap();
-        let encoded = args.get_one::<String>(ARG_PAYLOAD).unwrap();
-        let payload = hex::decode(encoded)
-            .map_err(|e| anyhow!("not valid hex encoded request struct: {e}"))?;
+        let payload = g3_clap::data::get(args, ARG_PAYLOAD, true)?;
 
         let request_builder = if args.get_flag(ARG_BINARY) {
             let request = BinaryMessageBuilder::new_call(name)

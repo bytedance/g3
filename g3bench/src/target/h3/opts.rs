@@ -55,7 +55,7 @@ pub(super) fn add_h3_args(app: Command) -> Command {
 }
 
 pub(super) fn parse_h3_args(args: &ArgMatches) -> anyhow::Result<BenchH3Args> {
-    let common = HttpClientArgs::parse_http_args(args)?;
+    let common = HttpClientArgs::parse_args(args)?;
     let mut h3_args = BenchH3Args::new(common);
 
     if let Some(c) = args.get_one::<usize>(HTTP_ARG_CONNECTION_POOL)

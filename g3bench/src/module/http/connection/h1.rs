@@ -11,7 +11,7 @@ use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use url::Url;
 
-use g3_io_ext::AsyncStream;
+use g3_io_ext::{AsyncStream, LimitedReader, LimitedWriter};
 use g3_openssl::SslStream;
 use g3_types::collection::{SelectiveVec, WeightedValue};
 use g3_types::net::{
@@ -27,9 +27,23 @@ use crate::module::socket::{AppendSocketArgs, SocketArgs};
 const HTTP_ARG_PROXY: &str = "proxy";
 const HTTP_ARG_PROXY_TUNNEL: &str = "proxy-tunnel";
 
-pub(crate) type BoxHttpForwardWriter = Box<dyn AsyncWrite + Send + Unpin>;
-pub(crate) type BoxHttpForwardReader = Box<dyn AsyncRead + Send + Unpin>;
+pub(crate) type BoxHttpForwardWriter = Box<dyn AsyncWrite + Send + Sync + Unpin>;
+pub(crate) type BoxHttpForwardReader = Box<dyn AsyncRead + Send + Sync + Unpin>;
 pub(crate) type BoxHttpForwardConnection = (BoxHttpForwardReader, BoxHttpForwardWriter);
+
+pub(crate) struct SavedHttpForwardConnection {
+    pub(crate) reader: BufReader<LimitedReader<BoxHttpForwardReader>>,
+    pub(crate) writer: LimitedWriter<BoxHttpForwardWriter>,
+}
+
+impl SavedHttpForwardConnection {
+    pub(crate) fn new(
+        reader: BufReader<LimitedReader<BoxHttpForwardReader>>,
+        writer: LimitedWriter<BoxHttpForwardWriter>,
+    ) -> Self {
+        SavedHttpForwardConnection { reader, writer }
+    }
+}
 
 pub(crate) trait AppendH1ConnectArgs {
     fn append_h1_connect_args(self) -> Self;
@@ -109,7 +123,7 @@ impl H1ConnectArgs {
         stats: &HttpRuntimeStats,
     ) -> anyhow::Result<BoxHttpForwardConnection>
     where
-        S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
+        S: AsyncRead + AsyncWrite + Unpin + Send + Sync + 'static,
     {
         let tls_stream = self
             .target_tls
