@@ -34,12 +34,12 @@ impl ParsedUsernameParams {
                 .ok_or_else(|| anyhow!("invalid token: missing key"))?;
             let v = kv
                 .next()
-                .ok_or_else(|| anyhow!("invalid token: missing value for key {k}"))?;
+                .ok_or_else(|| anyhow!("invalid token: missing value for key {}", k))?;
             if k.is_empty() || v.is_empty() {
                 return Err(anyhow!("empty key or value in username params"));
             }
             if params.contains_key(k) {
-                return Err(anyhow!("duplicate key {k}"));
+                return Err(anyhow!("duplicate key {}", k));
             }
             params.insert(k.to_string(), v.to_string());
         }
@@ -68,8 +68,9 @@ pub(crate) fn compute_upstream_from_username(
     inbound: InboundKind,
 ) -> anyhow::Result<UpstreamAddr> {
     debug!(
-        "username-params: inbound={:?} original='{}'",
-        inbound, username_original
+        "username-params: inbound={:?} original_len={}",
+        inbound,
+        username_original.len()
     );
     let parsed = ParsedUsernameParams::parse(username_original)?;
     debug!(
@@ -80,9 +81,9 @@ pub(crate) fn compute_upstream_from_username(
     // validate keys
     if cfg.reject_unknown_keys {
         for k in parsed.params.keys() {
-            if !cfg.keys_for_host.iter().any(|x| x == k) {
-                debug!("username-params: reject unknown key '{}'", k);
-                return Err(anyhow!("unknown key {k}"));
+            if !cfg.keys_for_host.contains(k) {
+                debug!("username-params: reject unknown key '{}'", k.as_str());
+                return Err(anyhow!("unknown key {}", k.as_str()));
             }
         }
     }
@@ -91,16 +92,18 @@ pub(crate) fn compute_upstream_from_username(
         // if a later non-floating key appears, all earlier non-floating must be present
         let mut saw_missing_required = false;
         for key in &cfg.keys_for_host {
-            let is_floating = cfg.floating_keys.iter().any(|k| k == key);
+            let is_floating = cfg.floating_keys.contains(key);
             match parsed.params.get(key) {
                 Some(_v) => {
                     if saw_missing_required && !is_floating {
                         debug!(
                             "username-params: hierarchy violation at key '{}' (floating={})",
-                            key, is_floating
+                            key.as_str(),
+                            is_floating
                         );
                         return Err(anyhow!(
-                            "key {key} requires its ancestor keys to be present"
+                            "key {} requires its ancestor keys to be present",
+                            key.as_str()
                         ));
                     }
                 }
