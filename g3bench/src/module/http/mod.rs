@@ -8,3 +8,8 @@ pub(crate) use stats::{HttpHistogram, HttpHistogramRecorder, HttpRuntimeStats};
 
 mod opts;
 pub(crate) use opts::{AppendHttpArgs, HttpClientArgs};
+
+mod connection;
+pub(crate) use connection::{
+    AppendH1ConnectArgs, BoxHttpForwardReader, BoxHttpForwardWriter, H1ConnectArgs,
+};
