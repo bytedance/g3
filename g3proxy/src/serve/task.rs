@@ -166,3 +166,29 @@ impl ServerTaskNotes {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use g3_daemon::server::ClientConnectionInfo;
+    use g3_types::net::{Host, UpstreamAddr};
+
+    #[test]
+    fn override_next_proxy_helpers() {
+        let cc = ClientConnectionInfo::new(
+            "127.0.0.1:10000".parse().unwrap(),
+            "127.0.0.1:20000".parse().unwrap(),
+        );
+        let mut notes = ServerTaskNotes::new(cc, None, Duration::from_secs(0));
+        assert!(notes.override_next_proxy().is_none());
+
+        let addr = UpstreamAddr::from_host_str_and_port("127.0.0.1", 8080).unwrap();
+        notes.set_override_next_proxy(addr.clone());
+        let got = notes.override_next_proxy().unwrap();
+        assert_eq!(got.port(), 8080);
+        match got.host() {
+            Host::Ip(ip) => assert_eq!(ip.to_string(), "127.0.0.1"),
+            _ => panic!("expected ip host"),
+        }
+    }
+}
