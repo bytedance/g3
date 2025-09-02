@@ -302,7 +302,10 @@ impl ProxyHttpEscaper {
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, TcpConnectError> {
-        let peer_proxy = self.get_next_proxy(task_notes, task_conf.upstream.host());
+        let peer_proxy = task_notes
+            .override_next_proxy()
+            .cloned()
+            .unwrap_or_else(|| self.get_next_proxy(task_notes, task_conf.upstream.host()).clone());
 
         match peer_proxy.host() {
             Host::Ip(ip) => {

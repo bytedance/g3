@@ -8,11 +8,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ahash::AHashMap;
+use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::mpsc;
 
 use g3_io_ext::{ArcLimitedWriterStats, LimitedWriter};
-use g3_types::auth::UserAuthError;
+use g3_types::auth::{UserAuthError, Username};
 use g3_types::net::{HttpAuth, HttpHeaderMap, HttpProxySubProtocol};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest};
@@ -134,12 +135,27 @@ where
                         )
                     })
                     .ok_or(UserAuthError::NoUserSupplied)?,
-                HttpAuth::Basic(v) => user_group.check_user_with_password(
-                    &v.username,
-                    &v.password,
-                    self.ctx.server_config.name(),
-                    self.ctx.server_stats.share_extra_tags(),
-                )?,
+                HttpAuth::Basic(v) => {
+                    // optionally strip "+params" suffix before auth
+                    let mut base_username: Option<Username> = None;
+                    if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr {
+                        if cfg.strip_suffix_for_auth {
+                            let base = crate::serve::username_params::ParsedUsernameParams::auth_base(
+                                v.username.as_original(),
+                            );
+                            if base != v.username.as_original() {
+                                base_username = Username::from_original(base).ok();
+                            }
+                        }
+                    }
+                    let username_ref = base_username.as_ref().unwrap_or(&v.username);
+                    user_group.check_user_with_password(
+                        username_ref,
+                        &v.password,
+                        self.ctx.server_config.name(),
+                        self.ctx.server_stats.share_extra_tags(),
+                    )?
+                }
             };
             user_ctx.check_client_addr(self.ctx.client_addr())?;
 
@@ -241,12 +257,54 @@ where
         user_ctx: Option<UserContext>,
     ) -> LoopAction {
         let path_selection = self.get_egress_path_selection(&mut req.inner.end_to_end_headers);
-        let task_notes = ServerTaskNotes::with_path_selection(
+        let mut task_notes = ServerTaskNotes::with_path_selection(
             self.ctx.cc_info.clone(),
             user_ctx,
             req.time_accepted.elapsed(),
             path_selection,
         );
+
+        // -vvv: log each incoming HTTP connection/request
+        debug!(
+            "new http request from {} to server {} (method={} uri={} escaper={})",
+            self.ctx.client_addr(),
+            self.ctx.server_config.name(),
+            req.inner.method,
+            req.inner.uri,
+            self.ctx.server_config.escaper
+        );
+
+        // Optional: compute username-param-derived escaper address and store override
+        if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr {
+            if let HttpAuth::Basic(v) = &req.inner.auth_info {
+                match crate::serve::username_params::compute_upstream_from_username(
+                    cfg,
+                    v.username.as_original(),
+                    crate::serve::username_params::InboundKind::Http,
+                ) {
+                    Ok(addr) => {
+                        task_notes.set_override_next_proxy(addr);
+                        debug!(
+                            "[{}] http username params -> next proxy {}",
+                            self.ctx.server_config.name(),
+                            task_notes
+                                .override_next_proxy()
+                                .map(|a| a.to_string())
+                                .unwrap_or_else(|| "<none>".into())
+                        );
+                    }
+                    Err(_e) => {
+                        // Bad request: unsupported param combo or invalid params
+                        if let Some(stream_w) = &mut self.stream_writer {
+                            let rsp = HttpProxyClientResponse::bad_request(req.inner.version);
+                            let _ = rsp.reply_err_to_request(stream_w).await;
+                        }
+                        self.notify_reader_to_close();
+                        return LoopAction::Break;
+                    }
+                }
+            }
+        }
 
         let mut audit_ctx = self.audit_ctx.clone();
         let remote_protocol = match req.client_protocol {

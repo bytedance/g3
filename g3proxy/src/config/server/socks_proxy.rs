@@ -81,6 +81,8 @@ pub(crate) struct SocksProxyServerConfig {
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
     pub(crate) transmute_udp_echo_ip: Option<FxHashMap<IpAddr, IpAddr>>,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
+    // Optional: derive next-hop escaper addr from username params
+    pub(crate) username_params_to_escaper_addr: Option<super::username_params_to_escaper::UsernameParamsToEscaperConfig>,
 }
 
 impl SocksProxyServerConfig {
@@ -116,6 +118,7 @@ impl SocksProxyServerConfig {
             udp_misc_opts: Default::default(),
             transmute_udp_echo_ip: None,
             extra_metrics_tags: None,
+            username_params_to_escaper_addr: None,
         }
     }
 
@@ -160,6 +163,17 @@ impl SocksProxyServerConfig {
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 self.extra_metrics_tags = Some(Arc::new(tags));
                 Ok(())
+            }
+            "username_params_to_escaper_addr" => {
+                match v {
+                    Yaml::Hash(map) => {
+                        let c = super::username_params_to_escaper::UsernameParamsToEscaperConfig::parse(map, self.position.clone())
+                            .context(format!("invalid username_params_to_escaper_addr value for key {k}"))?;
+                        self.username_params_to_escaper_addr = Some(c);
+                        Ok(())
+                    }
+                    _ => Err(anyhow!("invalid map value for key {k}")),
+                }
             }
             "listen" => {
                 let config = g3_yaml::value::as_tcp_listen_config(v)
