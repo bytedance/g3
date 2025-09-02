@@ -1,0 +1,113 @@
+---
+# Minimal end-to-end example: derive next-hop escaper address from proxy username params.
+#
+# Highlights
+# - HTTP server on 13128 and SOCKS5 server on 11080
+# - Username format: base+key1=val1+key2=val2
+# - Keys are ordered and optional; hierarchy can be enforced (child requires parent)
+# - Computed service host = join(values, '-') or 'global' when no params
+# - Port chosen by inbound protocol: 10000 (HTTP), 10001 (SOCKS5)
+# - Base username is used for auth (suffix stripped)
+
+user_group:
+  - name: default
+    static_users:
+      - name: user
+        # DEMO ONLY: accept any password (token: null). For real use, set a token:
+        #   token:
+        #     salt: <hex>
+        #     md5:  <hex>
+        #     sha1: <hex>
+        # Or:
+        #   token: "$6$mysalt$..."
+        token: ~
+
+server:
+  - name: http-in
+    type: http_proxy
+    escaper: dyn_http_chain
+    user_group: default
+    listen:
+      # Bind IPv4 explicitly to avoid OS-dependent v6-only sockets
+      address: "127.0.0.1:13128"
+    # Map username params to next-hop escaper host:port
+    username_params_to_escaper_addr:
+      # Optional independent (floating) key 'opt' can appear alone or append hierarchically
+      keys_for_host: [label1, label2, label3, label4, opt]
+      floating_keys: [opt]
+      require_hierarchy: true
+      reject_unknown_keys: true
+      reject_duplicate_keys: true
+      separator: "-"
+      # for local testing use ".localhost"
+      # k8s note: c-ares doesn't expand ndots
+      # so use FQDN (e.g. domain_suffix: ".default.svc.cluster.local")
+      domain_suffix: ".localhost"
+      global_label: "global"
+      http_port: 10000
+      socks5_port: 10001
+      strip_suffix_for_auth: true
+
+  - name: socks-in
+    type: socks_proxy
+    escaper: dyn_socks_chain
+    user_group: default
+    listen:
+      # Bind IPv4 explicitly to avoid OS-dependent v6-only sockets
+      address: "127.0.0.1:11080"
+    enable_udp_associate: true
+    username_params_to_escaper_addr:
+      # Optional independent (floating) key 'opt' can appear alone or append hierarchically
+      keys_for_host: [label1, label2, label3, label4, opt]
+      floating_keys: [opt]
+      require_hierarchy: true
+      reject_unknown_keys: true
+      reject_duplicate_keys: true
+      separator: "-"
+      # for local testing use ".localhost"
+      # k8s note: c-ares doesn't expand ndots
+      # so use FQDN (e.g. domain_suffix: ".default.svc.cluster.local")
+      domain_suffix: ".localhost"
+      global_label: "global"
+      http_port: 10000
+      socks5_port: 10001
+      strip_suffix_for_auth: true
+
+resolver:
+  - name: sys
+    type: c-ares
+
+escaper:
+  # NOTE ABOUT proxy_addr BELOW
+  # - proxy_addr is required by proxy_* escapers so they can initialize.
+  # - In this example, the next-hop is computed from the username params per connection,
+  #   so these proxy_addr values are placeholders and are NOT used when params are present.
+  # - If you want a meaningful fallback (e.g., when no username params are supplied
+  #   and you allow anonymous), set proxy_addr to your actual default next-hop, e.g.:
+  #     HTTP  -> 127.0.0.1:10000
+  #     SOCKS -> 127.0.0.1:10001
+
+  # HTTP chaining escaper; overridden per-connection by computed host:port
+  - name: dyn_http_chain
+    type: proxy_http
+    resolver: sys
+    proxy_addr:
+      - "127.0.0.1:3128"   # fallback only; overridden when username params present
+
+  # SOCKS5 chaining escaper; overridden per-connection by computed host:port
+  - name: dyn_socks_chain
+    type: proxy_socks5
+    resolver: sys
+    proxy_addr:
+      - "127.0.0.1:1080"   # fallback only; overridden when username params present
+
+# Testing tips
+# - HTTP:  curl -x http://user+label1=foo+label2=bar:password123@127.0.0.1:8080 http://example.com/
+#   => chosen svc: foo-bar:10000 (mapped to 127.0.0.1:10000)
+# - SOCKS5: curl --socks5 user+label1=foo+label2=bar:password123@127.0.0.1:11080 http://example.com/
+#   => chosen svc: foo-bar:10001 (mapped to 127.0.0.1:10001)
+# - Floating only (independent): curl -x http://user+opt=o123:password@127.0.0.1:8080 http://example.com/
+#   => chosen svc: o123:10000
+# - Combined (hierarchical + floating): curl -x http://user+label1=foo+opt=o123:password@127.0.0.1:8080 http://example.com/
+#   => chosen svc: foo-o123:10000
+log: stdout
