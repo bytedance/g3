@@ -11,5 +11,6 @@ pub(crate) use opts::{AppendHttpArgs, HttpClientArgs};
 
 mod connection;
 pub(crate) use connection::{
-    AppendH1ConnectArgs, BoxHttpForwardReader, BoxHttpForwardWriter, H1ConnectArgs,
+    AppendH1ConnectArgs, AppendH2ConnectArgs, BoxHttpForwardReader, BoxHttpForwardWriter,
+    H1ConnectArgs, H2ConnectArgs,
 };
