@@ -13,6 +13,7 @@ use uuid::Uuid;
 
 use g3_daemon::server::ClientConnectionInfo;
 use g3_types::limit::GaugeSemaphorePermit;
+use g3_types::net::UpstreamAddr;
 
 use crate::auth::UserContext;
 use crate::escape::EgressPathSelection;
@@ -57,6 +58,8 @@ pub(crate) struct ServerTaskNotes {
     pub(crate) wait_time: Duration,
     pub(crate) ready_time: Duration,
     pub(crate) egress_path_selection: Option<EgressPathSelection>,
+    // optional, per-connection override for next-hop proxy (escaper peer)
+    override_next_proxy: Option<UpstreamAddr>,
     /// the following fields should not be cloned
     pub(crate) user_req_alive_permit: Option<GaugeSemaphorePermit>,
 }
@@ -88,6 +91,7 @@ impl ServerTaskNotes {
             wait_time,
             ready_time: Duration::default(),
             egress_path_selection,
+            override_next_proxy: None,
             user_req_alive_permit: None,
         }
     }
@@ -131,6 +135,17 @@ impl ServerTaskNotes {
             .as_ref()
             .and_then(|ctx| ctx.user_config().egress_path_selection.as_ref())
             .or(self.egress_path_selection.as_ref())
+    }
+
+    // Username-derived escaper override helpers
+    #[inline]
+    pub(crate) fn set_override_next_proxy(&mut self, addr: UpstreamAddr) {
+        self.override_next_proxy = Some(addr);
+    }
+
+    #[inline]
+    pub(crate) fn override_next_proxy(&self) -> Option<&UpstreamAddr> {
+        self.override_next_proxy.as_ref()
     }
 
     #[inline]
