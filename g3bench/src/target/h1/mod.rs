@@ -12,7 +12,7 @@ use super::{BenchTarget, BenchTaskContext, ProcArgs};
 use crate::module::http::{HttpHistogram, HttpHistogramRecorder, HttpRuntimeStats};
 
 mod connection;
-use connection::{BoxHttpForwardConnection, SavedHttpForwardConnection};
+use connection::SavedHttpForwardConnection;
 
 mod opts;
 use opts::BenchHttpArgs;
@@ -55,7 +55,10 @@ pub fn command() -> Command {
 
 pub async fn run(proc_args: &Arc<ProcArgs>, cmd_args: &ArgMatches) -> anyhow::Result<ExitCode> {
     let mut http_args = opts::parse_http_args(cmd_args)?;
-    http_args.resolve_target_address(proc_args).await?;
+    http_args
+        .connect
+        .resolve_target_address(proc_args, &http_args.common.target)
+        .await?;
 
     let (histogram, histogram_recorder) = HttpHistogram::new();
     let target = HttpTarget {
