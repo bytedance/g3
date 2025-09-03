@@ -30,6 +30,7 @@ impl HickoryDriverConfig {
                 self.server_port = Some(port);
                 Ok(())
             }
+            #[cfg(feature = "hickory")]
             "encryption" | "encrypt" => {
                 let config = g3_yaml::value::as_dns_encryption_protocol_builder(v, lookup_dir)
                     .context(format!("invalid dns encryption config value for key {k}"))?;
