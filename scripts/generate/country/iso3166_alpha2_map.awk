@@ -39,7 +39,6 @@ $1 ~ "^#.*" {
 }
 
 END {
-    print "const ALPHA2_FAST_MAP: &[IsoCountryCode] = &[";
     for (i = 0; i < 26; i++) {
         for (j = 0; j < 26; j++) {
             c = CHARS[i]""CHARS[j];
@@ -51,5 +50,4 @@ END {
             }
         }
     }
-    print "];";
 }
