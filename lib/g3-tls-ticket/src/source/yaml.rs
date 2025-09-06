@@ -29,3 +29,60 @@ impl TicketSourceConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use g3_yaml::yaml_doc;
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn parse_yaml_ok() {
+        let yaml = yaml_doc!(
+            r#"
+                type: "redis"
+                enc_key: "tls_ticket_enc"
+                dec_set: "tls_ticket_dec"
+                addr: "127.0.0.1:6379"
+            "#
+        );
+        let config = TicketSourceConfig::parse_yaml(&yaml, None).unwrap();
+        assert!(matches!(config, TicketSourceConfig::Redis(_)));
+
+        let TicketSourceConfig::Redis(redis_config) = config;
+        assert!(redis_config.build().is_ok());
+    }
+
+    #[test]
+    fn parse_yaml_err() {
+        let yaml = yaml_doc!(
+            r#"
+                type: "unsupported"
+                addr: "127.0.0.1:6379"
+            "#
+        );
+        assert!(TicketSourceConfig::parse_yaml(&yaml, None).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                addr: "127.0.0.1:6379"
+            "#
+        );
+        assert!(TicketSourceConfig::parse_yaml(&yaml, None).is_err());
+
+        let yaml = Yaml::Integer(123);
+        assert!(TicketSourceConfig::parse_yaml(&yaml, None).is_err());
+
+        let yaml = Yaml::Boolean(true);
+        assert!(TicketSourceConfig::parse_yaml(&yaml, None).is_err());
+
+        let yaml = Yaml::Array(vec![]);
+        assert!(TicketSourceConfig::parse_yaml(&yaml, None).is_err());
+
+        let yaml = Yaml::Real("1.23".to_string());
+        assert!(TicketSourceConfig::parse_yaml(&yaml, None).is_err());
+
+        let yaml = Yaml::Null;
+        assert!(TicketSourceConfig::parse_yaml(&yaml, None).is_err());
+    }
+}

@@ -131,3 +131,270 @@ impl IcapServiceConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use g3_yaml::{yaml_doc, yaml_str};
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn parse_reqmod_service_from_string() {
+        // Valid ICAP URL
+        let yaml = yaml_str!("icap://example.com:1344/service");
+        let config = IcapServiceConfig::parse_reqmod_service_yaml(&yaml, None).unwrap();
+        assert_eq!(config.method, IcapMethod::Reqmod);
+        assert_eq!(config.url.to_string(), "icap://example.com:1344/service");
+
+        // Valid ICAPS URL
+        let yaml = yaml_str!("icaps://secure.example.com:1344/service");
+        let config = IcapServiceConfig::parse_reqmod_service_yaml(&yaml, None).unwrap();
+        assert_eq!(config.method, IcapMethod::Reqmod);
+        assert_eq!(
+            config.url.to_string(),
+            "icaps://secure.example.com:1344/service"
+        );
+        assert!(config.tls_client.is_some());
+
+        // Invalid URL format
+        let yaml = yaml_str!("invalid-url");
+        assert!(IcapServiceConfig::parse_reqmod_service_yaml(&yaml, None).is_err());
+    }
+
+    #[test]
+    fn parse_respmod_service_from_string() {
+        // Valid ICAP URL
+        let yaml = yaml_str!("icap://example.com:1344/service");
+        let config = IcapServiceConfig::parse_respmod_service_yaml(&yaml, None).unwrap();
+        assert_eq!(config.method, IcapMethod::Respmod);
+        assert_eq!(config.url.to_string(), "icap://example.com:1344/service");
+
+        // Valid ICAPS URL
+        let yaml = yaml_str!("icaps://secure.example.com:1344/service");
+        let config = IcapServiceConfig::parse_respmod_service_yaml(&yaml, None).unwrap();
+        assert_eq!(config.method, IcapMethod::Respmod);
+        assert_eq!(
+            config.url.to_string(),
+            "icaps://secure.example.com:1344/service"
+        );
+        assert!(config.tls_client.is_some());
+
+        // Invalid URL scheme
+        let yaml = yaml_str!("https://example.com:1344/service");
+        assert!(IcapServiceConfig::parse_respmod_service_yaml(&yaml, None).is_err());
+    }
+
+    #[test]
+    fn parse_reqmod_service_from_map() {
+        let yaml = yaml_doc!(
+            r#"
+                url: "icap://example.com:1344/service"
+                tls_name: "example.com"
+                tcp_keepalive:
+                  idle_time: 60
+                  probe_interval: 10
+                  probe_count: 3
+                icap_connection_pool:
+                  max_idle_count: 10
+                  idle_timeout: 30s
+                disable_preview: true
+                respond_shared_names:
+                  - "X-Header-1"
+                  - "X-Header-2"
+                bypass: false
+            "#
+        );
+        let config = IcapServiceConfig::parse_reqmod_service_yaml(&yaml, None).unwrap();
+        assert_eq!(config.method, IcapMethod::Reqmod);
+        assert_eq!(config.url.to_string(), "icap://example.com:1344/service");
+        assert_eq!(
+            config.tls_name,
+            rustls_pki_types::ServerName::try_from("example.com").unwrap()
+        );
+        assert_eq!(
+            config.tcp_keepalive.idle_time(),
+            std::time::Duration::from_secs(60)
+        );
+        assert_eq!(
+            config.tcp_keepalive.probe_interval(),
+            Some(std::time::Duration::from_secs(10))
+        );
+        assert_eq!(config.tcp_keepalive.probe_count(), Some(3));
+        assert_eq!(config.connection_pool.max_idle_count(), 10);
+        assert_eq!(
+            config.connection_pool.idle_timeout(),
+            std::time::Duration::from_secs(30)
+        );
+        assert!(config.disable_preview);
+        assert_eq!(config.respond_shared_names.len(), 2);
+        assert!(config.respond_shared_names.contains("x-header-1"));
+        assert!(config.respond_shared_names.contains("x-header-2"));
+        assert!(!config.bypass);
+
+        #[cfg(unix)]
+        {
+            let yaml = yaml_doc!(
+                r#"
+                    url: "icap://example.com:1344/service"
+                    use_unix_socket: "/tmp/icap.sock"
+                    respond_shared_names: []
+                "#
+            );
+            let config = IcapServiceConfig::parse_reqmod_service_yaml(&yaml, None).unwrap();
+            assert_eq!(config.method, IcapMethod::Reqmod);
+            assert_eq!(
+                config.use_unix_socket,
+                Some(std::path::PathBuf::from("/tmp/icap.sock"))
+            );
+            assert!(config.respond_shared_names.is_empty());
+        }
+    }
+
+    #[test]
+    fn parse_respmod_service_from_map() {
+        let yaml = yaml_doc!(
+            r#"
+                url: "icaps://secure.example.com:1344/service"
+                tls_client:
+                  no_session_cache: true
+                tls_name: "secure.example.com"
+                connection_pool:
+                  check_interval: 15s
+                  min_idle_count: 5
+                icap_max_header_size: "8KB"
+                no_preview: false
+                preview_data_read_timeout: "1s"
+                respond_shared_names: "X-Single-Header"
+                bypass: true
+            "#
+        );
+        let config = IcapServiceConfig::parse_respmod_service_yaml(&yaml, None).unwrap();
+        assert_eq!(config.method, IcapMethod::Respmod);
+        assert_eq!(
+            config.url.to_string(),
+            "icaps://secure.example.com:1344/service"
+        );
+        let mut tls_client = g3_types::net::RustlsClientConfigBuilder::default();
+        tls_client.set_no_session_cache();
+        assert_eq!(config.tls_client.unwrap(), tls_client);
+        assert_eq!(
+            config.tls_name,
+            rustls_pki_types::ServerName::try_from("secure.example.com").unwrap()
+        );
+        assert_eq!(
+            config.connection_pool.check_interval(),
+            std::time::Duration::from_secs(15)
+        );
+        assert_eq!(config.connection_pool.min_idle_count(), 5);
+        assert_eq!(config.icap_max_header_size, 8 * 1000);
+        assert!(!config.disable_preview);
+        assert_eq!(
+            config.preview_data_read_timeout,
+            std::time::Duration::from_secs(1)
+        );
+        assert!(config.respond_shared_names.contains("x-single-header"));
+        assert!(config.bypass);
+    }
+
+    #[test]
+    fn parse_yaml_err() {
+        let yaml = Yaml::Array(vec![]);
+        assert!(IcapServiceConfig::parse_reqmod_service_yaml(&yaml, None).is_err());
+
+        let yaml = Yaml::Integer(123);
+        assert!(IcapServiceConfig::parse_reqmod_service_yaml(&yaml, None).is_err());
+
+        let yaml = Yaml::Boolean(true);
+        assert!(IcapServiceConfig::parse_respmod_service_yaml(&yaml, None).is_err());
+
+        let yaml = Yaml::Real("1.23".to_string());
+        assert!(IcapServiceConfig::parse_respmod_service_yaml(&yaml, None).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                tls_name: "example.com"
+            "#
+        );
+        assert!(IcapServiceConfig::parse_reqmod_service_yaml(&yaml, None).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                unknown_key: "value"
+            "#
+        );
+        assert!(IcapServiceConfig::parse_reqmod_service_yaml(&yaml, None).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                tls_name: 123
+            "#
+        );
+        assert!(IcapServiceConfig::parse_reqmod_service_yaml(&yaml, None).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                tcp_keepalive: "invalid"
+            "#
+        );
+        assert!(IcapServiceConfig::parse_reqmod_service_yaml(&yaml, None).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                pool: "invalid"
+            "#
+        );
+        assert!(IcapServiceConfig::parse_reqmod_service_yaml(&yaml, None).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                icap_max_header_size: "16XB"
+            "#
+        );
+        assert!(IcapServiceConfig::parse_reqmod_service_yaml(&yaml, None).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                tls_client: 123
+            "#
+        );
+        assert!(IcapServiceConfig::parse_respmod_service_yaml(&yaml, None).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                disable_preview: 0
+            "#
+        );
+        assert!(IcapServiceConfig::parse_respmod_service_yaml(&yaml, None).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                preview_data_read_timeout: "-1s"
+            "#
+        );
+        assert!(IcapServiceConfig::parse_respmod_service_yaml(&yaml, None).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                respond_shared_names: false
+            "#
+        );
+        assert!(IcapServiceConfig::parse_respmod_service_yaml(&yaml, None).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                bypass: "invalid"
+            "#
+        );
+        assert!(IcapServiceConfig::parse_respmod_service_yaml(&yaml, None).is_err());
+
+        #[cfg(unix)]
+        {
+            let yaml = yaml_doc!(
+                r#"
+                    use_unix_socket: 123
+                "#
+            );
+            assert!(IcapServiceConfig::parse_respmod_service_yaml(&yaml, None).is_err());
+        }
+    }
+}

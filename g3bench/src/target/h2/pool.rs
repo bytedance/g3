@@ -65,8 +65,11 @@ impl H2ConnectionUnlocked {
         self.runtime_stats.add_conn_attempt();
         let new_h2s = match tokio::time::timeout(
             self.args.common.connect_timeout,
-            self.args
-                .new_h2_connection(&self.runtime_stats, &self.proc_args),
+            self.args.connect.new_h2_connection(
+                &self.args.common.target,
+                &self.runtime_stats,
+                &self.proc_args,
+            ),
         )
         .await
         {

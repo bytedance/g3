@@ -55,3 +55,122 @@ impl StreamDumpConfig {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use g3_yaml::{yaml_doc, yaml_str};
+    use std::net::SocketAddr;
+    use std::str::FromStr;
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn parse_map_ok() {
+        let yaml = yaml_doc!(
+            r#"
+                peer: "127.0.0.1:8080"
+                socket_buffer:
+                  recv: 65536
+                  send: 32768
+                misc_opts:
+                  time_to_live: 64
+                  type_of_service: 32
+                packet_size: 1500
+                client_side: true
+            "#
+        );
+        let config = StreamDumpConfig::parse_yaml(&yaml).unwrap();
+        assert_eq!(config.peer, SocketAddr::from_str("127.0.0.1:8080").unwrap());
+        assert_eq!(config.buffer.recv_size(), Some(65536));
+        assert_eq!(config.buffer.send_size(), Some(32768));
+        assert_eq!(config.opts.time_to_live, Some(64));
+        assert_eq!(config.opts.type_of_service, Some(32));
+        assert_eq!(config.packet_size, 1500);
+        assert!(config.client_side);
+    }
+
+    #[test]
+    fn parse_map_err() {
+        let yaml = yaml_doc!(
+            r#"
+                invalid_key: "value"
+            "#
+        );
+        assert!(StreamDumpConfig::parse_yaml(&yaml).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                peer: true
+            "#
+        );
+        assert!(StreamDumpConfig::parse_yaml(&yaml).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                socket_buffer: "not_a_map"
+            "#
+        );
+        assert!(StreamDumpConfig::parse_yaml(&yaml).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                misc_opts: "invalid_opts"
+            "#
+        );
+        assert!(StreamDumpConfig::parse_yaml(&yaml).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                packet_size: -100
+            "#
+        );
+        assert!(StreamDumpConfig::parse_yaml(&yaml).is_err());
+
+        let yaml = yaml_doc!(
+            r#"
+                client_side: "not_a_boolean"
+            "#
+        );
+        assert!(StreamDumpConfig::parse_yaml(&yaml).is_err());
+    }
+
+    #[test]
+    fn parse_string() {
+        // Valid address
+        let yaml = yaml_str!("192.168.1.100:3000");
+        let config = StreamDumpConfig::parse_yaml(&yaml).unwrap();
+        assert_eq!(
+            config.peer,
+            SocketAddr::from_str("192.168.1.100:3000").unwrap()
+        );
+
+        let yaml = yaml_str!("[::1]:8080");
+        let config = StreamDumpConfig::parse_yaml(&yaml).unwrap();
+        assert_eq!(config.peer, SocketAddr::from_str("[::1]:8080").unwrap());
+
+        // Invalid address
+        let yaml = yaml_str!("invalid-address");
+        assert!(StreamDumpConfig::parse_yaml(&yaml).is_err());
+
+        let yaml = yaml_str!("127.0.0.1"); // Missing port
+        assert!(StreamDumpConfig::parse_yaml(&yaml).is_err());
+    }
+
+    #[test]
+    fn parse_invalid_yaml_types() {
+        let yaml = Yaml::Array(vec![]);
+        assert!(StreamDumpConfig::parse_yaml(&yaml).is_err());
+
+        let yaml = Yaml::Integer(123);
+        assert!(StreamDumpConfig::parse_yaml(&yaml).is_err());
+
+        let yaml = Yaml::Boolean(true);
+        assert!(StreamDumpConfig::parse_yaml(&yaml).is_err());
+
+        let yaml = Yaml::Real("1.23".to_string());
+        assert!(StreamDumpConfig::parse_yaml(&yaml).is_err());
+
+        let yaml = Yaml::Null;
+        assert!(StreamDumpConfig::parse_yaml(&yaml).is_err());
+    }
+}

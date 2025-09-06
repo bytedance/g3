@@ -64,7 +64,6 @@ pub fn as_dns_encryption_protocol_builder(
 }
 
 #[cfg(test)]
-#[cfg(feature = "rustls")]
 mod tests {
     use super::*;
     use std::fs;
