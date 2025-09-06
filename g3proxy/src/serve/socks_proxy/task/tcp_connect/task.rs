@@ -489,9 +489,8 @@ impl StreamTransitTask for SocksProxyTcpConnectTask {
     }
 
     fn log_client_shutdown(&self) {
-        if let Some(log_ctx) = self.get_log_context() {
-            log_ctx.log_client_shutdown();
-        }
+        // Intentionally no-op to avoid duplicate INFO lines.
+        // We emit a single final Finished log for this task, matching HTTP behavior.
     }
 
     fn log_upstream_shutdown(&self) {

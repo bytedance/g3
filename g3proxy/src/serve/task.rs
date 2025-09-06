@@ -13,6 +13,7 @@ use uuid::Uuid;
 
 use g3_daemon::server::ClientConnectionInfo;
 use g3_types::limit::GaugeSemaphorePermit;
+use g3_types::net::UpstreamAddr;
 
 use crate::auth::UserContext;
 use crate::escape::EgressPathSelection;
@@ -57,6 +58,8 @@ pub(crate) struct ServerTaskNotes {
     pub(crate) wait_time: Duration,
     pub(crate) ready_time: Duration,
     pub(crate) egress_path_selection: Option<EgressPathSelection>,
+    // optional, per-connection override for next-hop proxy (escaper peer)
+    override_next_proxy: Option<UpstreamAddr>,
     /// the following fields should not be cloned
     pub(crate) user_req_alive_permit: Option<GaugeSemaphorePermit>,
 }
@@ -88,6 +91,7 @@ impl ServerTaskNotes {
             wait_time,
             ready_time: Duration::default(),
             egress_path_selection,
+            override_next_proxy: None,
             user_req_alive_permit: None,
         }
     }
@@ -133,6 +137,17 @@ impl ServerTaskNotes {
             .or(self.egress_path_selection.as_ref())
     }
 
+    // Username-derived escaper override helpers
+    #[inline]
+    pub(crate) fn set_override_next_proxy(&mut self, addr: UpstreamAddr) {
+        self.override_next_proxy = Some(addr);
+    }
+
+    #[inline]
+    pub(crate) fn override_next_proxy(&self) -> Option<&UpstreamAddr> {
+        self.override_next_proxy.as_ref()
+    }
+
     #[inline]
     pub(crate) fn task_created_instant(&self) -> Instant {
         self.create_ins
@@ -148,6 +163,32 @@ impl ServerTaskNotes {
         self.ready_time = self.create_ins.elapsed();
         if let Some(user_ctx) = &self.user_ctx {
             user_ctx.record_task_ready(self.ready_time);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use g3_daemon::server::ClientConnectionInfo;
+    use g3_types::net::{Host, UpstreamAddr};
+
+    #[test]
+    fn override_next_proxy_helpers() {
+        let cc = ClientConnectionInfo::new(
+            "127.0.0.1:10000".parse().unwrap(),
+            "127.0.0.1:20000".parse().unwrap(),
+        );
+        let mut notes = ServerTaskNotes::new(cc, None, Duration::from_secs(0));
+        assert!(notes.override_next_proxy().is_none());
+
+        let addr = UpstreamAddr::from_host_str_and_port("127.0.0.1", 8080).unwrap();
+        notes.set_override_next_proxy(addr.clone());
+        let got = notes.override_next_proxy().unwrap();
+        assert_eq!(got.port(), 8080);
+        match got.host() {
+            Host::Ip(ip) => assert_eq!(ip.to_string(), "127.0.0.1"),
+            _ => panic!("expected ip host"),
         }
     }
 }
