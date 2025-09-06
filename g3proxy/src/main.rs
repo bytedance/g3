@@ -4,7 +4,7 @@
  */
 
 use anyhow::Context;
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 
 use g3_daemon::control::{QuitAction, UpgradeAction};
 
@@ -52,6 +52,20 @@ fn main() -> anyhow::Result<()> {
         }
     };
     debug!("loaded config from {}", config_file.display());
+
+    // Log sticky refresh throttling interval (env-tunable)
+    {
+        let d = g3proxy::sticky::refresh_min_interval();
+        info!(
+            "sticky: refresh_min_interval = {}",
+            humantime::format_duration(d)
+        );
+        if d.is_zero() {
+            warn!(
+                "sticky: refresh_min_interval is 0; throttling disabled and may spawn excessive refresh tasks"
+            );
+        }
+    }
 
     if proc_args.daemon_config.test_config {
         info!("the format of the config file is ok");

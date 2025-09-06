@@ -1068,3 +1068,31 @@ Each node's Proxy is configured with the following functions:
       tls_client: {} # Configure TLS parameters
       # ... Configure proxy parameters to the relay proxy address in the POP2 region
   ```
+# Sticky Sessions
+
+- Username modifiers: use `+` to add params to the base username.
+  - Examples:
+    - `user+sticky=60s+session_id=abc123`
+    - `user+session_id=cart42`
+    - `user+rotate=1` (disables stickiness)
+  - Works with HTTP Basic (Proxy-Authorization) and SOCKS5 username.
+- Behavior:
+  - `sticky`: sliding TTL (default 60s) refreshed after each successful request.
+  - `session_id`: optional correlation key; sticky is active with or without it. change it to get a different random upstream programmatically.
+  - `rotate=1`: overrides and disables sticky.
+  - Stickiness is implemented via HRW (rendezvous hashing) across current A records and shared via Redis.
+  - Keying: `prefix:host:port|<base_user>[|<canonical_params>]` where `<canonical_params>` is the sorted unknown params plus `session_id` when provided; `sticky`/`rotate` are not part of the key.
+- Response headers (HTTP):
+  - `X-Sticky-Session: on|off`
+  - `X-Sticky-Expires-At: <RFC3339 timestamp>` (present when `on`).
+  - Logs include a non-reversible hash of the sticky key (not the raw key) for privacy.
+- Config:
+  - Global (only) in main YAML:
+    ```yaml
+    sticky:
+      url: redis://redis.default.svc.cluster.local:6379/0
+      prefix: g3proxy:sticky
+      default_ttl: 60s
+      max_ttl: 1h
+    ```
+    Per-server overrides are not supported; sticky settings are process-global.

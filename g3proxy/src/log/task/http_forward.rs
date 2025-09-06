@@ -4,6 +4,8 @@
  */
 
 use slog::{Logger, slog_info};
+use std::hash::{Hash, Hasher};
+use fnv::FnvHasher;
 
 use g3_slog_types::{
     LtDateTime, LtDuration, LtHttpMethod, LtHttpUri, LtIpAddr, LtUpstreamAddr, LtUuid,
@@ -36,6 +38,25 @@ impl TaskLogForHttpForward<'_> {
             return;
         }
 
+        let mut sticky_key_hash: Option<String> = None;
+        let mut sticky_requested = false;
+        let mut sticky_effective = false;
+        let mut sticky_rotate = false;
+        let mut sticky_ttl = None;
+        let mut sticky_session_id: Option<&str> = None;
+        if let Some(s) = self.task_notes.sticky() {
+            sticky_requested = true;
+            sticky_effective = s.enabled();
+            sticky_rotate = s.rotate;
+            sticky_ttl = Some(LtDuration(s.effective_ttl()));
+            sticky_session_id = s.session_id.as_deref();
+            // hash the sticky key to avoid logging raw identifiers
+            let k = crate::sticky::build_sticky_key(s, self.upstream);
+            let mut hasher = FnvHasher::with_key(0xcbf29ce484222325);
+            k.hash(&mut hasher);
+            sticky_key_hash = Some(format!("{:016x}", hasher.finish()));
+        }
+
         slog_info!(self.logger, "";
             "task_type" => "HttpForward",
             "task_id" => LtUuid(&self.task_notes.id),
@@ -51,6 +72,12 @@ impl TaskLogForHttpForward<'_> {
             "uri" => LtHttpUri::new(&self.http_notes.uri, self.http_notes.uri_log_max_chars),
             "user_agent" => self.http_user_agent,
             "wait_time" => LtDuration(self.task_notes.wait_time),
+            "sticky_requested" => sticky_requested,
+            "sticky_effective" => sticky_effective,
+            "sticky_rotate" => sticky_rotate,
+            "sticky_ttl" => sticky_ttl,
+            "sticky_session_id" => sticky_session_id,
+            "sticky_key_hash" => sticky_key_hash,
         )
     }
 
@@ -59,6 +86,24 @@ impl TaskLogForHttpForward<'_> {
             && user_ctx.skip_log()
         {
             return;
+        }
+
+        let mut sticky_key_hash: Option<String> = None;
+        let mut sticky_requested = false;
+        let mut sticky_effective = false;
+        let mut sticky_rotate = false;
+        let mut sticky_ttl = None;
+        let mut sticky_session_id: Option<&str> = None;
+        if let Some(s) = self.task_notes.sticky() {
+            sticky_requested = true;
+            sticky_effective = s.enabled();
+            sticky_rotate = s.rotate;
+            sticky_ttl = Some(LtDuration(s.effective_ttl()));
+            sticky_session_id = s.session_id.as_deref();
+            let k = crate::sticky::build_sticky_key(s, self.upstream);
+            let mut hasher = FnvHasher::with_key(0xcbf29ce484222325);
+            k.hash(&mut hasher);
+            sticky_key_hash = Some(format!("{:016x}", hasher.finish()));
         }
 
         slog_info!(self.logger, "";
@@ -85,6 +130,14 @@ impl TaskLogForHttpForward<'_> {
             "user_agent" => self.http_user_agent,
             "wait_time" => LtDuration(self.task_notes.wait_time),
             "ready_time" => LtDuration(self.task_notes.ready_time),
+            "sticky_requested" => sticky_requested,
+            "sticky_effective" => sticky_effective,
+            "sticky_rotate" => sticky_rotate,
+            "sticky_ttl" => sticky_ttl,
+            "sticky_session_id" => sticky_session_id,
+            "sticky_key_hash" => sticky_key_hash,
+            "sticky_enabled" => self.tcp_notes.sticky_enabled,
+            "sticky_expires_at" => self.tcp_notes.sticky_expires_at.as_ref().map(LtDateTime),
         )
     }
 
@@ -93,6 +146,24 @@ impl TaskLogForHttpForward<'_> {
             && user_ctx.skip_log()
         {
             return;
+        }
+
+        let mut sticky_key_hash: Option<String> = None;
+        let mut sticky_requested = false;
+        let mut sticky_effective = false;
+        let mut sticky_rotate = false;
+        let mut sticky_ttl = None;
+        let mut sticky_session_id: Option<&str> = None;
+        if let Some(s) = self.task_notes.sticky() {
+            sticky_requested = true;
+            sticky_effective = s.enabled();
+            sticky_rotate = s.rotate;
+            sticky_ttl = Some(LtDuration(s.effective_ttl()));
+            sticky_session_id = s.session_id.as_deref();
+            let k = crate::sticky::build_sticky_key(s, self.upstream);
+            let mut hasher = FnvHasher::with_key(0xcbf29ce484222325);
+            k.hash(&mut hasher);
+            sticky_key_hash = Some(format!("{:016x}", hasher.finish()));
         }
 
         slog_info!(self.logger, "";
@@ -130,6 +201,14 @@ impl TaskLogForHttpForward<'_> {
             "c_wr_bytes" => self.client_wr_bytes,
             "r_rd_bytes" => self.remote_rd_bytes,
             "r_wr_bytes" => self.remote_wr_bytes,
+            "sticky_requested" => sticky_requested,
+            "sticky_effective" => sticky_effective,
+            "sticky_rotate" => sticky_rotate,
+            "sticky_ttl" => sticky_ttl,
+            "sticky_session_id" => sticky_session_id,
+            "sticky_key_hash" => sticky_key_hash,
+            "sticky_enabled" => self.tcp_notes.sticky_enabled,
+            "sticky_expires_at" => self.tcp_notes.sticky_expires_at.as_ref().map(LtDateTime),
         )
     }
 
@@ -138,6 +217,24 @@ impl TaskLogForHttpForward<'_> {
             && user_ctx.skip_log()
         {
             return;
+        }
+
+        let mut sticky_key_hash: Option<String> = None;
+        let mut sticky_requested = false;
+        let mut sticky_effective = false;
+        let mut sticky_rotate = false;
+        let mut sticky_ttl = None;
+        let mut sticky_session_id: Option<&str> = None;
+        if let Some(s) = self.task_notes.sticky() {
+            sticky_requested = true;
+            sticky_effective = s.enabled();
+            sticky_rotate = s.rotate;
+            sticky_ttl = Some(LtDuration(s.effective_ttl()));
+            sticky_session_id = s.session_id.as_deref();
+            let k = crate::sticky::build_sticky_key(s, self.upstream);
+            let mut hasher = FnvHasher::with_key(0xcbf29ce484222325);
+            k.hash(&mut hasher);
+            sticky_key_hash = Some(format!("{:016x}", hasher.finish()));
         }
 
         slog_info!(self.logger, "{}", e;
@@ -176,6 +273,14 @@ impl TaskLogForHttpForward<'_> {
             "c_wr_bytes" => self.client_wr_bytes,
             "r_rd_bytes" => self.remote_rd_bytes,
             "r_wr_bytes" => self.remote_wr_bytes,
+            "sticky_requested" => sticky_requested,
+            "sticky_effective" => sticky_effective,
+            "sticky_rotate" => sticky_rotate,
+            "sticky_ttl" => sticky_ttl,
+            "sticky_session_id" => sticky_session_id,
+            "sticky_key_hash" => sticky_key_hash,
+            "sticky_enabled" => self.tcp_notes.sticky_enabled,
+            "sticky_expires_at" => self.tcp_notes.sticky_expires_at.as_ref().map(LtDateTime),
         )
     }
 }

@@ -13,6 +13,7 @@ pub mod resolve;
 pub mod serve;
 pub mod signal;
 pub mod stat;
+pub mod sticky;
 
 mod build;
 mod inspect;

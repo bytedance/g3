@@ -62,6 +62,9 @@ pub(crate) struct TcpConnectTaskNotes {
     pub(crate) egress: Option<EgressInfo>,
     pub(crate) chained: TcpConnectChainedNotes,
     pub(crate) duration: Duration,
+    // sticky session info (when enabled)
+    pub(crate) sticky_enabled: bool,
+    pub(crate) sticky_expires_at: Option<DateTime<Utc>>,
 }
 
 impl TcpConnectTaskNotes {
@@ -75,5 +78,7 @@ impl TcpConnectTaskNotes {
         self.egress = None;
         self.chained.reset();
         self.duration = Duration::ZERO;
+        self.sticky_enabled = false;
+        self.sticky_expires_at = None;
     }
 }

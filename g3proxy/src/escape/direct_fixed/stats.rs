@@ -29,6 +29,10 @@ pub(crate) struct DirectFixedEscaperStats {
     pub(crate) interface: EscaperInterfaceStats,
     pub(crate) udp: EscaperUdpStats,
     pub(crate) tcp: EscaperTcpStats,
+    // sticky metrics
+    sticky_hit: std::sync::atomic::AtomicU64,
+    sticky_miss: std::sync::atomic::AtomicU64,
+    sticky_set: std::sync::atomic::AtomicU64,
 }
 
 impl DirectFixedEscaperStats {
@@ -41,6 +45,9 @@ impl DirectFixedEscaperStats {
             interface: Default::default(),
             udp: Default::default(),
             tcp: Default::default(),
+            sticky_hit: Default::default(),
+            sticky_miss: Default::default(),
+            sticky_set: Default::default(),
         }
     }
 
@@ -197,5 +204,17 @@ impl UdpConnectTaskRemoteStats for DirectFixedEscaperStats {
 
     fn add_send_packets(&self, n: usize) {
         self.udp.io.add_out_packets(n);
+    }
+}
+
+impl DirectFixedEscaperStats {
+    pub(crate) fn add_sticky_hit(&self) {
+        self.sticky_hit.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+    pub(crate) fn add_sticky_miss(&self) {
+        self.sticky_miss.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+    pub(crate) fn add_sticky_set(&self) {
+        self.sticky_set.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
     }
 }
