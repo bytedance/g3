@@ -47,6 +47,7 @@
 - [场景设计](#场景设计)
     + [多区域加速](#多区域加速)
     + [双出口容灾](#双出口容灾)
+ - [粘性会话](#粘性会话)
 
 ## 如何安装
 
@@ -1032,7 +1033,7 @@ flowchart LR
       escaper: local
       tls_server: {} # 配置TLS参数
   ```
-
+  
   注意，如果IDC内GW需要支持Socks5 UDP协议，则relay应该配置成UDP代理，需要使用[SOCKS 代理](#socks代理)。
 
 - route
@@ -1057,3 +1058,32 @@ flowchart LR
       tls_client: {} # 配置TLS参数
       # ... 配置代理参数 指向POP2区域的 relay代理地址
   ```
+
+# 粘性会话
+
+- 用户名修饰符：使用 `+` 在基础用户名后追加参数。
+  - 示例：
+    - `user+sticky=60s+session_id=abc123`
+    - `user+session_id=cart42`
+    - `user+rotate=1`（禁用粘性）
+  - 适用于 HTTP Basic（Proxy-Authorization）和 SOCKS5 用户名。
+- 行为：
+  - `sticky`：滑动 TTL（默认 60s），每次成功请求后刷新。
+  - `session_id`：可选关联键；无论是否提供都启用粘性。修改该值可编程地获得不同的随机上游。
+  - `rotate=1`：显式覆盖并关闭粘性。
+  - 粘性通过 HRW（rendezvous hashing，重合哈希）在当前 A 记录集合上实现，并通过 Redis 共享。
+  - 构键规则：`prefix:host:port|<base_user>[|<canonical_params>]`，其中 `<canonical_params>` 为排序后的未知参数，加上提供时的 `session_id`；`sticky`/`rotate` 不参与构键。
+- 响应头（HTTP）：
+  - `X-Sticky-Session: on|off`
+  - `X-Sticky-Expires-At: <RFC3339 timestamp>`（为 `on` 时返回）。
+  - 日志包含粘性键的不可逆哈希（非原始键）以保护隐私。
+- 配置：
+  - 仅支持在主 YAML 中全局配置：
+    ```yaml
+    sticky:
+      url: redis://redis.default.svc.cluster.local:6379/0
+      prefix: g3proxy:sticky
+      default_ttl: 60s
+      max_ttl: 1h
+    ```
+    不支持按 server 级别的覆盖；粘性设置为进程全局。

@@ -47,6 +47,7 @@
 - [Scenario Design](#scenario-design)
     + [Multi-Region Acceleration](#multi-region-acceleration)
     + [Dual Exit Disaster Recovery](#dual-exit-disaster-recovery)
+- [Sticky Sessions](#sticky-sessions)
 
 ## Installation
 
