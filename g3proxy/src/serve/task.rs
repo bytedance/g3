@@ -16,6 +16,7 @@ use g3_types::limit::GaugeSemaphorePermit;
 
 use crate::auth::UserContext;
 use crate::escape::EgressPathSelection;
+use crate::sticky::StickyDecision;
 
 #[derive(Clone, Copy)]
 pub(crate) enum ServerTaskStage {
@@ -59,6 +60,7 @@ pub(crate) struct ServerTaskNotes {
     pub(crate) egress_path_selection: Option<EgressPathSelection>,
     /// the following fields should not be cloned
     pub(crate) user_req_alive_permit: Option<GaugeSemaphorePermit>,
+    sticky: Option<StickyDecision>,
 }
 
 impl ServerTaskNotes {
@@ -89,6 +91,7 @@ impl ServerTaskNotes {
             ready_time: Duration::default(),
             egress_path_selection,
             user_req_alive_permit: None,
+            sticky: None,
         }
     }
 
@@ -131,6 +134,16 @@ impl ServerTaskNotes {
             .as_ref()
             .and_then(|ctx| ctx.user_config().egress_path_selection.as_ref())
             .or(self.egress_path_selection.as_ref())
+    }
+
+    #[inline]
+    pub(crate) fn sticky(&self) -> Option<&StickyDecision> {
+        self.sticky.as_ref()
+    }
+
+    #[inline]
+    pub(crate) fn set_sticky(&mut self, decision: StickyDecision) {
+        self.sticky = Some(decision);
     }
 
     #[inline]

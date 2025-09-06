@@ -23,6 +23,7 @@ pub(crate) mod escaper;
 pub(crate) mod log;
 pub(crate) mod resolver;
 pub(crate) mod server;
+pub(crate) mod sticky;
 
 pub fn load() -> anyhow::Result<&'static Path> {
     let config_file =
@@ -68,6 +69,7 @@ fn reload_doc(map: &yaml::Hash) -> anyhow::Result<()> {
         g3_daemon::opts::config_dir().ok_or_else(|| anyhow!("no valid config dir has been set"))?;
     g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
         "runtime" | "worker" | "log" | "stat" | "controller" => Ok(()),
+        "sticky" => sticky::load(v, conf_dir),
         "escaper" => escaper::load_all(v, conf_dir),
         "server" => server::load_all(v, conf_dir),
         "resolver" => resolver::load_all(v, conf_dir),
@@ -87,6 +89,7 @@ fn load_doc(map: &yaml::Hash) -> anyhow::Result<()> {
         "log" => log::load(v, conf_dir),
         "stat" => g3_daemon::stat::config::load(v, crate::build::PKG_NAME),
         "controller" => g3_daemon::control::config::load(v),
+        "sticky" => sticky::load(v, conf_dir),
         "escaper" => escaper::load_all(v, conf_dir),
         "server" => server::load_all(v, conf_dir),
         "resolver" => resolver::load_all(v, conf_dir),

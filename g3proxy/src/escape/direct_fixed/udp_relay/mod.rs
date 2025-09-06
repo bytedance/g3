@@ -42,6 +42,8 @@ impl DirectFixedEscaper {
             &self.egress_net_filter,
             &self.resolver_handle,
             self.config.resolve_strategy,
+            task_notes.sticky().cloned(),
+            self.config.happy_eyeballs.resolution_delay(),
         );
 
         if !self.config.no_ipv4 {

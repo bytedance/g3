@@ -103,7 +103,7 @@ impl DirectFloatEscaper {
     async fn fixed_try_connect(
         &self,
         peer_ip: IpAddr,
-        config: DirectTcpConnectConfig<'_>,
+        config: &DirectTcpConnectConfig<'_>,
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
@@ -355,18 +355,63 @@ impl DirectFloatEscaper {
 
         match task_conf.upstream.host() {
             Host::Ip(ip) => {
-                self.fixed_try_connect(*ip, config, task_conf, tcp_notes, task_notes)
+                self.fixed_try_connect(*ip, &config, task_conf, tcp_notes, task_notes)
                     .await
             }
             Host::Domain(domain) => {
-                let resolver_job = self.resolve_happy(
+                let mut resolver_job = self.resolve_happy(
                     domain.clone(),
                     self.get_resolve_strategy(task_notes),
                     task_notes,
                 )?;
 
-                self.happy_try_connect(resolver_job, config, task_conf, tcp_notes, task_notes)
-                    .await
+                // Try sticky selection if requested
+                if let Some(decision) = task_notes.sticky()
+                    && decision.enabled()
+                    && !decision.rotate
+                {
+                    // Use all resolved IPs for HRW selection to avoid bias
+                    let mut ips = resolver_job
+                        .get_r1_or_first(
+                            self.config.happy_eyeballs.resolution_delay(),
+                            usize::MAX,
+                        )
+                        .await?;
+                    if let Some((pick, key, cache_hit)) = crate::sticky::choose_sticky_ip(decision, task_conf.upstream, &ips).await {
+                        if cache_hit { self.stats.add_sticky_hit(); } else { self.stats.add_sticky_miss(); }
+                        // try the picked ip directly first
+                        match self.fixed_try_connect(pick, &config, task_conf, tcp_notes, task_notes).await {
+                            Ok((stream, bind)) => {
+                                // mark sticky headers and refresh/set TTL
+                                tcp_notes.sticky_enabled = true;
+                                let ttl = decision.effective_ttl();
+                                let now = chrono::Utc::now();
+                                tcp_notes.sticky_expires_at = Some(crate::sticky::compute_expiry(now, ttl));
+                                // sliding TTL: refresh on success
+                                crate::sticky::redis_set_ip(&key, pick, ttl).await;
+                                self.stats.add_sticky_set();
+                                return Ok((stream, bind));
+                            }
+                            Err(_) => {
+                                // fallback: continue without sticky guarantee
+                                // put picked ip at front so it's attempted first
+                                // ensure unique start
+                                ips.retain(|ip| *ip != pick);
+                                ips.insert(0, pick);
+                                // merge into resolver path and proceed
+                                // rebuild a new job to keep logic simple
+                                let resolver_job = self.resolve_happy(
+                                    domain.clone(),
+                                    self.get_resolve_strategy(task_notes),
+                                    task_notes,
+                                )?;
+                                return self.happy_try_connect(resolver_job, config, task_conf, tcp_notes, task_notes).await;
+                            }
+                        }
+                    }
+                }
+
+                self.happy_try_connect(resolver_job, config, task_conf, tcp_notes, task_notes).await
             }
         }
     }
@@ -408,7 +453,7 @@ impl DirectFloatEscaper {
 
             self.fixed_try_connect(
                 control_addr.ip(),
-                config,
+                &config,
                 task_conf,
                 new_tcp_notes,
                 task_notes,
@@ -417,7 +462,7 @@ impl DirectFloatEscaper {
         } else {
             match task_conf.upstream.host() {
                 Host::Ip(ip) => {
-                    self.fixed_try_connect(*ip, config, task_conf, new_tcp_notes, task_notes)
+                    self.fixed_try_connect(*ip, &config, task_conf, new_tcp_notes, task_notes)
                         .await
                 }
                 Host::Domain(domain) => {

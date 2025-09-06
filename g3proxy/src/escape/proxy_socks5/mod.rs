@@ -58,6 +58,7 @@ pub(super) struct ProxySocks5Escaper {
     proxy_nodes: SelectiveVec<WeightedUpstreamAddr>,
     resolver_handle: Option<ArcIntegratedResolverHandle>,
     escape_logger: Option<Logger>,
+    static_proxy_ip_ports: Vec<(std::net::IpAddr, u16)>,
 }
 
 impl ProxySocks5Escaper {
@@ -84,12 +85,22 @@ impl ProxySocks5Escaper {
 
         stats.set_extra_tags(config.extra_metrics_tags.clone());
 
+        let static_proxy_ip_ports: Vec<(std::net::IpAddr, u16)> = config
+            .proxy_nodes
+            .iter()
+            .filter_map(|n| match n.inner().host() {
+                Host::Ip(ip) => Some((*ip, n.inner().port())),
+                _ => None,
+            })
+            .collect();
+
         let escaper = ProxySocks5Escaper {
             config: Arc::new(config),
             stats,
             proxy_nodes,
             resolver_handle,
             escape_logger,
+            static_proxy_ip_ports,
         };
 
         Ok(Arc::new(escaper))

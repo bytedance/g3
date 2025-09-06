@@ -18,6 +18,7 @@ use super::udp_connect::SocksProxyUdpConnectTask;
 use super::{CommonTaskContext, SocksProxyCltWrapperStats};
 use crate::audit::AuditContext;
 use crate::auth::{UserContext, UserGroup};
+use g3_types::auth::Username;
 use crate::config::server::ServerConfig;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
@@ -211,6 +212,7 @@ impl SocksProxyNegotiationTask {
             .await
             .map_err(ServerTaskError::ClientTcpWriteFailed)?;
 
+        let mut sticky_decision: Option<crate::sticky::StickyDecision> = None;
         let user_ctx = match auth_method {
             SocksAuthMethod::None => {
                 if let Some(user_group) = &self.user_group {
@@ -232,8 +234,12 @@ impl SocksProxyNegotiationTask {
             SocksAuthMethod::User => {
                 if let Some(user_group) = &self.user_group {
                     let (username, password) = v5::auth::recv_user_from_client(&mut clt_r).await?;
+                    let (base, decision) = crate::sticky::parse_username_and_decision(username.as_original());
+                    sticky_decision = Some(decision);
+                    let base_user = Username::from_original(&base)
+                        .map_err(|_| ServerTaskError::ClientAuthFailed)?;
                     match user_group.check_user_with_password(
-                        &username,
+                        &base_user,
                         &password,
                         self.ctx.server_config.name(),
                         self.ctx.server_stats.share_extra_tags(),
@@ -274,11 +280,12 @@ impl SocksProxyNegotiationTask {
 
         let req = v5::Socks5Request::recv(&mut clt_r).await?;
 
-        let task_notes = ServerTaskNotes::new(
+        let mut task_notes = ServerTaskNotes::new(
             self.ctx.cc_info.clone(),
             user_ctx,
             self.time_accepted.elapsed(),
         );
+        if let Some(dec) = sticky_decision { task_notes.set_sticky(dec); }
         match req.command {
             SocksCommand::TcpConnect => {
                 let task = SocksProxyTcpConnectTask::new(

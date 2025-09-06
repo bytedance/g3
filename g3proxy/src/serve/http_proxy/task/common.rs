@@ -110,6 +110,12 @@ impl CommonTaskContext {
                 rsp.set_outgoing_ip(addr.ip());
             }
         }
+
+        // DX sticky headers
+        rsp.add_extra_header(http_header::sticky_session_line(tcp_notes.sticky_enabled));
+        if let Some(exp) = &tcp_notes.sticky_expires_at {
+            rsp.add_extra_header(http_header::sticky_expires_at_line(exp));
+        }
     }
 
     pub(crate) fn set_custom_header_for_adaptation_error_reply(

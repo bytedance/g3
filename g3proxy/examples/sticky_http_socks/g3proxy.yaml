@@ -1,0 +1,56 @@
+sticky:
+  url: redis://localhost:6379/0
+  prefix: g3proxy:sticky
+  # default sticky TTL and maximum permitted TTL
+  default_ttl: 60s
+  max_ttl: 1h
+
+server:
+  - name: http
+    type: http_proxy
+    escaper: http
+    user_group: users
+    listen:
+      address: "[::]:13128"
+    flush_task_log_on_created: true
+  - name: socks
+    type: socks_proxy
+    escaper: socks5
+    enable_udp_associate: true
+    user_group: users
+    listen:
+      address: "[::]:11080"
+    flush_task_log_on_created: true
+
+escaper:
+  - name: http
+    type: proxy_http
+    proxy_addr: myservice.test:80
+    no_ipv6: true
+    resolver: default
+    resolve_strategy: IPv4Only
+    tcp_sock_speed_limit: 80M
+  - name: socks5
+    type: proxy_socks5
+    proxy_addr: myservice.test:1080
+    no_ipv6: true
+    resolver: default
+    resolve_strategy: IPv4Only
+    tcp_sock_speed_limit: 80M
+
+resolver:
+  - name: default
+    type: c-ares
+    # for dev purposes we're running coredns via docker on
+    # port 5300 to test/demo handling multiple A records.
+    # just can just remove the line below (server: ...)
+    # and resolver will use /etc/resolv.conf
+    server: 127.0.0.1:5300
+
+user_group:
+  - name: users
+    static_users:
+      - name: user
+        token: ~
+
+log: stdout

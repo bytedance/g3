@@ -48,6 +48,7 @@ capnp-rpc.workspace = true
 capnp.workspace = true
 itoa.workspace = true
 redis = { workspace = true, features = ["aio", "tokio-comp"] }
+humantime = "2.1"
 ascii.workspace = true
 ahash.workspace = true
 foldhash.workspace = true
@@ -60,7 +61,7 @@ kanal = { workspace = true, features = ["async"] }
 lru.workspace = true
 regex.workspace = true
 mlua = { workspace = true, features = ["send"], optional = true }
-pyo3 = { workspace = true, features = ["auto-initialize"], optional = true }
+pyo3 = { workspace = true, optional = true }
 g3-cert-agent = { workspace = true, features = ["yaml"] }
 g3-daemon = { workspace = true, features = ["event-log"] }
 g3-datetime.workspace = true
