@@ -214,6 +214,7 @@ impl SocksProxyNegotiationTask {
             .map_err(ServerTaskError::ClientTcpWriteFailed)?;
 
         let mut username_for_mapping: Option<String> = None;
+        let mut sticky_decision: Option<crate::sticky::StickyDecision> = None;
         let user_ctx = match auth_method {
             SocksAuthMethod::None => {
                 if let Some(user_group) = &self.user_group {
@@ -237,6 +238,11 @@ impl SocksProxyNegotiationTask {
                     let (username, password) = v5::auth::recv_user_from_client(&mut clt_r).await?;
                     // preserve original username for mapping
                     let username_original = username.as_original().to_string();
+                    // parse sticky decision from the original username
+                    let (_base_for_sticky, decision) =
+                        crate::sticky::parse_username_and_decision(&username_original);
+                    sticky_decision = Some(decision);
+
                     // optionally strip suffix for auth
                     let mut base_username: Option<Username> = None;
                     if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr
@@ -316,7 +322,6 @@ impl SocksProxyNegotiationTask {
                 }
             }
         }
-
         let mut task_notes = ServerTaskNotes::new(
             self.ctx.cc_info.clone(),
             user_ctx,
@@ -333,6 +338,7 @@ impl SocksProxyNegotiationTask {
                     .unwrap_or_else(|| "<none>".into())
             );
         }
+        if let Some(dec) = sticky_decision { task_notes.set_sticky(dec); }
         match req.command {
             SocksCommand::TcpConnect => {
                 let task = SocksProxyTcpConnectTask::new(
