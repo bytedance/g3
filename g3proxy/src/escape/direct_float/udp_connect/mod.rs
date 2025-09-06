@@ -120,9 +120,22 @@ impl DirectFloatEscaper {
             wrapper_stats,
         );
 
+        let send = if let Some(decision) = task_notes.sticky()
+            && decision.enabled()
+            && !decision.rotate
+        {
+            let key = crate::sticky::build_sticky_key(decision, task_conf.upstream);
+            let ttl = decision.effective_ttl();
+            Box::new(DirectUdpConnectRemoteSend::new_with_sticky(send, key, ttl))
+                as Box<dyn g3_io_ext::UdpCopyRemoteSend + Unpin + Send + Sync>
+        } else {
+            Box::new(DirectUdpConnectRemoteSend::new(send))
+                as Box<dyn g3_io_ext::UdpCopyRemoteSend + Unpin + Send + Sync>
+        };
+
         Ok((
             Box::new(DirectUdpConnectRemoteRecv::new(recv)),
-            Box::new(DirectUdpConnectRemoteSend::new(send)),
+            send,
             self.escape_logger.clone(),
         ))
     }

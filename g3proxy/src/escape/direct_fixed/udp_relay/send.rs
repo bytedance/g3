@@ -5,6 +5,7 @@
 
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::time::{Duration, Instant};
 use std::num::NonZero;
 use std::sync::Arc;
 use std::task::{Context, Poll, ready};
@@ -28,7 +29,8 @@ use g3_types::resolve::ResolveStrategy;
 
 use super::DirectFixedEscaperStats;
 use crate::auth::UserContext;
-use crate::resolve::{ArcIntegratedResolverHandle, ArriveFirstResolveJob};
+use crate::resolve::{ArcIntegratedResolverHandle, ArriveFirstResolveJob, HappyEyeballsResolveJob};
+use crate::sticky::StickyDecision;
 
 const LRU_CACHE_SIZE: NonZero<usize> = NonZero::new(16).unwrap();
 
@@ -46,6 +48,9 @@ pub(crate) struct DirectUdpRelayRemoteSend<T> {
     resolver_job: Option<ArriveFirstResolveJob>,
     resolve_retry_domain: Option<Arc<str>>,
     resolved_lru: LruCache<Arc<str>, IpAddr>,
+    sticky: Option<StickyDecision>,
+    resolution_delay: Duration,
+    last_refresh: Option<Instant>,
 }
 
 impl<T> DirectUdpRelayRemoteSend<T> {
@@ -55,6 +60,8 @@ impl<T> DirectUdpRelayRemoteSend<T> {
         egress_net_filter: &Arc<AclNetworkRule>,
         resolver_handle: &ArcIntegratedResolverHandle,
         resolve_strategy: ResolveStrategy,
+        sticky: Option<StickyDecision>,
+        resolution_delay: Duration,
     ) -> Self {
         DirectUdpRelayRemoteSend {
             escaper_stats: Arc::clone(escaper_stats),
@@ -70,7 +77,14 @@ impl<T> DirectUdpRelayRemoteSend<T> {
             resolver_job: None,
             resolve_retry_domain: None,
             resolved_lru: LruCache::new(LRU_CACHE_SIZE),
+            sticky,
+            resolution_delay,
+            last_refresh: None,
         }
+    }
+
+    pub(crate) fn prime_domain_ip(&mut self, domain: Arc<str>, ip: IpAddr) {
+        self.resolved_lru.push(domain, ip);
     }
 }
 
@@ -100,71 +114,104 @@ where
     ) -> Poll<Result<usize, UdpRelayRemoteError>> {
         match to.host() {
             Host::Ip(ip) => self.poll_send_ip_packet(cx, buf, SocketAddr::new(*ip, to.port())),
-            Host::Domain(domain) => match self.resolved_lru.get(domain) {
-                Some(ip) => {
+            Host::Domain(domain) => {
+                if let Some(ip) = self.resolved_lru.get(domain) {
+                    // refresh TTL on use for sliding expiration
+                    if let Some(sticky) = &self.sticky 
+                        && sticky.enabled() 
+                        && !sticky.rotate 
+                    {
+                        let now = Instant::now();
+                        let do_refresh = match self.last_refresh {
+                            None => true,
+                            Some(t) => now.duration_since(t) >= crate::sticky::refresh_min_interval(),
+                        };
+                        if do_refresh {
+                            self.last_refresh = Some(now);
+                            let key = crate::sticky::build_sticky_key(sticky, to);
+                            let ttl = sticky.effective_ttl();
+                            tokio::spawn(async move { crate::sticky::redis_refresh_ttl(&key, ttl).await; });
+                        }
+                    }
                     let to_addr = SocketAddr::new(*ip, to.port());
-                    self.poll_send_ip_packet(cx, buf, to_addr)
+                    return self.poll_send_ip_packet(cx, buf, to_addr);
                 }
-                None => {
-                    loop {
-                        if let Some(mut resolver_job) = self.resolver_job.take() {
-                            match resolver_job.poll_best_addr(cx) {
-                                Poll::Pending => {
-                                    self.resolver_job = Some(resolver_job);
-                                    return Poll::Pending;
-                                }
-                                Poll::Ready(Ok(ip)) => {
-                                    self.resolved_lru.push(resolver_job.domain, ip);
-                                    return self.poll_send_ip_packet(
-                                        cx,
-                                        buf,
-                                        SocketAddr::new(ip, to.port()),
-                                    );
-                                }
-                                Poll::Ready(Err(e)) => {
-                                    if let Some(domain) = self.resolve_retry_domain.take() {
-                                        if self.resolver_handle.is_closed() {
-                                            match crate::resolve::get_handle(
-                                                self.resolver_handle.name(),
-                                            ) {
-                                                Ok(handle) => {
-                                                    self.resolver_handle = handle;
-                                                    let resolver_job = ArriveFirstResolveJob::new(
-                                                        &self.resolver_handle,
-                                                        self.resolve_strategy,
-                                                        domain,
-                                                    )?;
-                                                    self.resolver_job = Some(resolver_job);
-                                                    // no retry by leaving resolve_retry_domain to None
+
+                // Resolve and send; background HRW + Redis set/refresh
+                loop {
+                    if let Some(mut resolver_job) = self.resolver_job.take() {
+                        match resolver_job.poll_best_addr(cx) {
+                            Poll::Pending => {
+                                self.resolver_job = Some(resolver_job);
+                                return Poll::Pending;
+                            }
+                            Poll::Ready(Ok(ip)) => {
+                                self.resolved_lru.push(resolver_job.domain, ip);
+                                if let Some(sticky) = &self.sticky 
+                                    && sticky.enabled() 
+                                    && !sticky.rotate 
+                                {
+                                    let resolver = self.resolver_handle.clone();
+                                    let strategy = self.resolve_strategy;
+                                    let d = domain.clone();
+                                    let upstream = to.clone();
+                                    let s = sticky.clone();
+                                    let stats = self.escaper_stats.clone();
+                                    let delay = self.resolution_delay;
+                                    tokio::spawn(async move {
+                                        if let Ok(mut job) = HappyEyeballsResolveJob::new_dyn(strategy, &resolver, d.clone()) {
+                                            if let Ok(ips) = job.get_r1_or_first(delay, usize::MAX).await {
+                                                if let Some((hrw_ip, key, hit)) = crate::sticky::choose_sticky_ip(&s, &upstream, &ips).await {
+                                                    if hit { stats.add_sticky_hit(); } else { stats.add_sticky_miss(); }
+                                                    if hit {
+                                                        crate::sticky::redis_refresh_ttl(&key, s.effective_ttl()).await;
+                                                    } else {
+                                                        crate::sticky::redis_set_ip(&key, hrw_ip, s.effective_ttl()).await;
+                                                        stats.add_sticky_set();
+                                                    }
                                                 }
-                                                Err(_) => return Poll::Ready(Err(
-                                                    UdpRelayRemoteError::DomainNotResolved(
-                                                        ResolveError::FromLocal(
-                                                            ResolveLocalError::NoResolverRunning,
-                                                        ),
-                                                    ),
-                                                )),
                                             }
-                                        } else {
-                                            return Poll::Ready(Err(e.into()));
+                                        }
+                                    });
+                                }
+                                return self.poll_send_ip_packet(cx, buf, SocketAddr::new(ip, to.port()));
+                            }
+                            Poll::Ready(Err(e)) => {
+                                if let Some(domain) = self.resolve_retry_domain.take() {
+                                    if self.resolver_handle.is_closed() {
+                                        match crate::resolve::get_handle(self.resolver_handle.name()) {
+                                            Ok(handle) => {
+                                                self.resolver_handle = handle;
+                                                let resolver_job = ArriveFirstResolveJob::new(
+                                                    &self.resolver_handle,
+                                                    self.resolve_strategy,
+                                                    domain,
+                                                )?;
+                                                self.resolver_job = Some(resolver_job);
+                                            }
+                                            Err(_) => return Poll::Ready(Err(UdpRelayRemoteError::DomainNotResolved(
+                                                ResolveError::FromLocal(ResolveLocalError::NoResolverRunning),
+                                            ))),
                                         }
                                     } else {
                                         return Poll::Ready(Err(e.into()));
                                     }
+                                } else {
+                                    return Poll::Ready(Err(e.into()));
                                 }
-                            };
-                        } else {
-                            let resolver_job = ArriveFirstResolveJob::new(
-                                &self.resolver_handle,
-                                self.resolve_strategy,
-                                domain.clone(),
-                            )?;
-                            self.resolver_job = Some(resolver_job);
-                            self.resolve_retry_domain = Some(domain.clone());
-                        }
+                            }
+                        };
+                    } else {
+                        let resolver_job = ArriveFirstResolveJob::new(
+                            &self.resolver_handle,
+                            self.resolve_strategy,
+                            domain.clone(),
+                        )?;
+                        self.resolver_job = Some(resolver_job);
+                        self.resolve_retry_domain = Some(domain.clone());
                     }
                 }
-            },
+            }
         }
     }
 

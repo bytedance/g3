@@ -12,7 +12,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::mpsc;
 
 use g3_io_ext::{ArcLimitedWriterStats, LimitedWriter};
-use g3_types::auth::UserAuthError;
+use g3_types::auth::{UserAuthError, Username};
 use g3_types::net::{HttpAuth, HttpHeaderMap, HttpProxySubProtocol};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest};
@@ -72,6 +72,7 @@ pub(crate) struct HttpProxyPipelineWriterTask<CDR, CDW> {
     wrapper_stats: ArcLimitedWriterStats,
     pipeline_stats: Arc<HttpProxyPipelineStats>,
     req_count: RequestCount,
+    sticky_decision: Option<crate::sticky::StickyDecision>,
 }
 
 enum LoopAction {
@@ -113,6 +114,7 @@ where
             wrapper_stats: clt_w_stats,
             pipeline_stats: Arc::clone(pipeline_stats),
             req_count: RequestCount::default(),
+            sticky_decision: None,
         }
     }
 
@@ -121,8 +123,11 @@ where
         req: &HttpProxyRequest<CDR>,
     ) -> Result<Option<UserContext>, UserAuthError> {
         if let Some(user_group) = &self.user_group {
+            // parse sticky modifiers only for Basic auth
             let mut user_ctx = match &req.inner.auth_info {
-                HttpAuth::None => user_group
+                HttpAuth::None => {
+                    self.sticky_decision = None;
+                    user_group
                     .get_anonymous_user()
                     .map(|(user, user_type)| {
                         UserContext::new(
@@ -133,13 +138,20 @@ where
                             self.ctx.server_stats.share_extra_tags(),
                         )
                     })
-                    .ok_or(UserAuthError::NoUserSupplied)?,
-                HttpAuth::Basic(v) => user_group.check_user_with_password(
-                    &v.username,
-                    &v.password,
-                    self.ctx.server_config.name(),
-                    self.ctx.server_stats.share_extra_tags(),
-                )?,
+                    .ok_or(UserAuthError::NoUserSupplied)?
+                }
+                HttpAuth::Basic(v) => {
+                    let (base, decision) = crate::sticky::parse_username_and_decision(v.username.as_original());
+                    self.sticky_decision = Some(decision);
+                    let base_user = Username::from_original(&base)
+                        .map_err(|_| UserAuthError::NoSuchUser)?;
+                    user_group.check_user_with_password(
+                        &base_user,
+                        &v.password,
+                        self.ctx.server_config.name(),
+                        self.ctx.server_stats.share_extra_tags(),
+                    )?
+                }
             };
             user_ctx.check_client_addr(self.ctx.client_addr())?;
 
@@ -241,12 +253,16 @@ where
         user_ctx: Option<UserContext>,
     ) -> LoopAction {
         let path_selection = self.get_egress_path_selection(&mut req.inner.end_to_end_headers);
-        let task_notes = ServerTaskNotes::with_path_selection(
+        let mut task_notes = ServerTaskNotes::with_path_selection(
             self.ctx.cc_info.clone(),
             user_ctx,
             req.time_accepted.elapsed(),
             path_selection,
         );
+
+        if let Some(dec) = &self.sticky_decision {
+            task_notes.set_sticky(dec.clone());
+        }
 
         let mut audit_ctx = self.audit_ctx.clone();
         let remote_protocol = match req.client_protocol {

@@ -22,6 +22,10 @@ const OUTGOING_IP: &str = "x-bd-outgoing-ip";
 const REMOTE_CONNECTION_INFO: &str = "x-bd-remote-connection-info";
 const DYNAMIC_EGRESS_INFO: &str = "x-bd-dynamic-egress-info";
 
+// sticky session headers (DX)
+const STICKY_SESSION: &str = "x-sticky-session";
+const STICKY_EXPIRES_AT: &str = "x-sticky-expires-at";
+
 thread_local! {
     static TL_BUF: RefCell<Vec<u8>> = RefCell::new(Vec::with_capacity(256));
 }
@@ -154,5 +158,77 @@ pub(crate) fn set_outgoing_ip(headers: &mut HttpHeaderMap, addr: SocketAddr) {
         headers.append(HeaderName::from_static(OUTGOING_IP), unsafe {
             HttpHeaderValue::from_string_unchecked(addr.ip().to_string())
         });
+    }
+}
+
+pub(crate) fn sticky_session_line(enabled: bool) -> String {
+    let v = if enabled { "on" } else { "off" };
+    format!("X-Sticky-Session: {v}\r\n")
+}
+
+pub(crate) fn sticky_expires_at_line(dt: &DateTime<Utc>) -> String {
+    let s = dt
+        .format_with_items(g3_datetime::format::std::RFC3339_FIXED_MICROSECOND.iter())
+        .to_string();
+    format!("X-Sticky-Expires-At: {s}\r\n")
+}
+
+pub(crate) fn set_sticky_session(headers: &mut HttpHeaderMap, enabled: bool) {
+    let v = if enabled { "on" } else { "off" };
+    headers.append(HeaderName::from_static(STICKY_SESSION), unsafe {
+        HttpHeaderValue::from_string_unchecked(v.to_string())
+    });
+}
+
+pub(crate) fn set_sticky_expires_at(headers: &mut HttpHeaderMap, dt: &DateTime<Utc>) {
+    let s = dt
+        .format_with_items(g3_datetime::format::std::RFC3339_FIXED_MICROSECOND.iter())
+        .to_string();
+    headers.append(HeaderName::from_static(STICKY_EXPIRES_AT), unsafe {
+        HttpHeaderValue::from_string_unchecked(s)
+    });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use http::HeaderName;
+
+    #[test]
+    fn sticky_header_lines() {
+        let on = sticky_session_line(true);
+        assert!(on.to_ascii_lowercase().starts_with("x-sticky-session: on"));
+        let ts = DateTime::<Utc>::from_timestamp(1_700_000_000, 0).unwrap();
+        let exp = sticky_expires_at_line(&ts);
+        assert!(exp.to_ascii_lowercase().starts_with("x-sticky-expires-at:"));
+    }
+
+    #[test]
+    fn set_sticky_headers() {
+        let mut map = HttpHeaderMap::default();
+        set_sticky_session(&mut map, true);
+        assert!(map.contains_key(HeaderName::from_static(STICKY_SESSION)));
+        let ts = DateTime::<Utc>::from_timestamp(1_700_000_000, 0).unwrap();
+        set_sticky_expires_at(&mut map, &ts);
+        assert!(map.contains_key(HeaderName::from_static(STICKY_EXPIRES_AT)));
+    }
+
+    #[test]
+    fn set_upstream_and_outgoing_headers_once() {
+        use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+        let mut map = HttpHeaderMap::default();
+        let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(10,0,0,1)), 8080);
+        set_upstream_addr(&mut map, addr);
+        set_upstream_addr(&mut map, addr); // should not duplicate
+        let mut n = 0;
+        for _ in map.get_all(HeaderName::from_static(UPSTREAM_ADDR)).iter() { n += 1; }
+        assert_eq!(n, 1);
+
+        let mut map2 = HttpHeaderMap::default();
+        set_outgoing_ip(&mut map2, addr);
+        set_outgoing_ip(&mut map2, addr);
+        let mut n2 = 0;
+        for _ in map2.get_all(HeaderName::from_static(OUTGOING_IP)).iter() { n2 += 1; }
+        assert_eq!(n2, 1);
     }
 }

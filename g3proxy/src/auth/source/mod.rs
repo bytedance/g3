@@ -18,7 +18,7 @@ use crate::config::auth::{UserConfig, UserDynamicSource};
 #[cfg(feature = "lua")]
 mod lua;
 
-#[cfg(feature = "python")]
+#[cfg(all(feature = "python", not(test)))]
 mod python;
 
 pub(super) async fn load_initial_users(
@@ -33,7 +33,7 @@ pub(super) async fn load_initial_users(
                 .fetch_cached_records(&group_config.dynamic_cache)
                 .await?
         }
-        #[cfg(feature = "python")]
+        #[cfg(all(feature = "python", not(test)))]
         UserDynamicSource::Python(config) => {
             config
                 .fetch_cached_records(&group_config.dynamic_cache)
@@ -81,7 +81,7 @@ pub(super) fn new_fetch_job(
                 UserDynamicSource::Lua(config) => {
                     lua::fetch_records(config, &group_config.dynamic_cache).await
                 }
-                #[cfg(feature = "python")]
+                #[cfg(all(feature = "python", not(test)))]
                 UserDynamicSource::Python(config) => {
                     python::fetch_records(config, &group_config.dynamic_cache).await
                 }
