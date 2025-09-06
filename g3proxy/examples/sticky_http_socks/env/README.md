@@ -1,6 +1,6 @@
 # Sticky HTTP/SOCKS Env
 
-This directory provides a small, local environment to simulate three upstream proxies behind a single hostname for the `examples/sticky_http_socks` demo. It sets up:
+This directory provides a small, local environment to set up three upstream proxies behind a single hostname for the `examples/sticky_http_socks` demo. It sets up:
 
 - `myservice.test` DNS that round-robins to `10.10.0.2`, `10.10.0.3`, `10.10.0.4` via CoreDNS.
 - Loopback IP aliases for those addresses on your host.
