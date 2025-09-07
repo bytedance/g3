@@ -24,13 +24,21 @@ use std::str::FromStr;
 
 use crate::ContinentCode;
 
+const ALL_COUNTRY_NAMES: &[&str] = &[
 $(cat ${TMP_FILE} | awk -F'\t' -f iso3166_names.awk)
+];
 
+const ALL_ALPHA2_CODES: &[&str] = &[
 $(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha2.awk)
+];
 
+const ALL_ALPHA3_CODES: &[&str] = &[
 $(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha3.awk)
+];
 
+const ALPHA2_FAST_MAP: &[IsoCountryCode] = &[
 $(cat ${TMP_FILE} | awk -F'\t' -f iso3166_alpha2_map.awk)
+];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[repr(u16)]

@@ -1,8 +1,4 @@
 
-BEGIN {
-	print "const ALL_ALPHA2_CODES: &[&str] = &[";
-}
-
 $1 ~ "^#.*" {
 	next;
 }
@@ -10,8 +6,3 @@ $1 ~ "^#.*" {
 {
 	print "    \""$1"\", /* "$5" */";
 }
-
-END {
-	print "];";
-}
-
