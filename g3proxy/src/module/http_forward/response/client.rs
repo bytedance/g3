@@ -46,6 +46,7 @@ pub(crate) struct HttpProxyClientResponse {
     version: Version,
     close: bool,
     extra_headers: Vec<String>,
+    custom_error_message: Option<String>,
 }
 
 impl HttpProxyClientResponse {
@@ -61,6 +62,7 @@ impl HttpProxyClientResponse {
             version,
             close,
             extra_headers: Vec::new(),
+            custom_error_message: None,
         }
     }
 
@@ -74,6 +76,11 @@ impl HttpProxyClientResponse {
 
     pub(crate) fn set_outgoing_ip(&mut self, ip: IpAddr) {
         self.extra_headers.push(http_header::outgoing_ip(ip));
+    }
+
+    #[inline]
+    pub(crate) fn set_error_message<S: Into<String>>(&mut self, msg: S) {
+        self.custom_error_message = Some(msg.into());
     }
 
     #[inline]
@@ -508,14 +515,26 @@ impl HttpProxyClientResponse {
     {
         let code = self.status.as_str();
         let reason = self.canonical_reason();
-        let body = format!(
-            "<html>\n\
-             <head><title>{code} {reason}</title></head>\n\
-             <body>\n\
-             <div style=\"text-align: center;\"><h1>{code} {reason}</h1></div>\n\
-             </body>\n\
-             </html>\n"
-        );
+        let body = if let Some(msg) = &self.custom_error_message {
+            format!(
+                "<html>\n\
+                 <head><title>{code} {reason}</title></head>\n\
+                 <body>\n\
+                 <div style=\"text-align: center;\"><h1>{}</h1></div>\n\
+                 </body>\n\
+                 </html>\n",
+                msg
+            )
+        } else {
+            format!(
+                "<html>\n\
+                 <head><title>{code} {reason}</title></head>\n\
+                 <body>\n\
+                 <div style=\"text-align: center;\"><h1>{code} {reason}</h1></div>\n\
+                 </body>\n\
+                 </html>\n"
+            )
+        };
 
         let mut header = Vec::<u8>::with_capacity(Self::RESPONSE_BUFFER_SIZE);
         write!(

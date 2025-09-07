@@ -12,6 +12,7 @@ use tokio::time::Instant;
 use g3_io_ext::{AsyncStream, LimitedReader, LimitedWriter};
 use g3_socks::{SocksAuthMethod, SocksCommand, SocksVersion, v4a, v5};
 use g3_types::auth::Username;
+use g3_types::net::UpstreamAddr;
 
 use super::tcp_connect::SocksProxyTcpConnectTask;
 use super::udp_associate::SocksProxyUdpAssociateTask;
@@ -294,20 +295,23 @@ impl SocksProxyNegotiationTask {
         let req = v5::Socks5Request::recv(&mut clt_r).await?;
 
         // compute mapping after auth success but before task creation; deny on error
-        let mut override_next: Option<g3_types::net::UpstreamAddr> = None;
+        let mut override_next: Option<UpstreamAddr> = None;
         if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr {
             if let Some(name) = &username_for_mapping {
-                match crate::serve::username_params::compute_upstream_from_username(
-                    cfg,
-                    name,
-                    crate::serve::username_params::InboundKind::Socks5,
-                ) {
-                    Ok(a) => override_next = Some(a),
-                    Err(_e) => {
-                        let _ = v5::Socks5Reply::ForbiddenByRule.send(&mut clt_w).await;
-                        return Err(ServerTaskError::ForbiddenByRule(
-                            ServerTaskForbiddenError::DestDenied,
-                        ));
+                // Only attempt mapping when at least one known key appears
+                if crate::serve::username_params::username_has_known_key(cfg, name) {
+                    match crate::serve::username_params::compute_upstream_from_username(
+                        cfg,
+                        name,
+                        crate::serve::username_params::InboundKind::Socks5,
+                    ) {
+                        Ok(a) => override_next = Some(a),
+                        Err(_e) => {
+                            let _ = v5::Socks5Reply::ForbiddenByRule.send(&mut clt_w).await;
+                            return Err(ServerTaskError::ForbiddenByRule(
+                                ServerTaskForbiddenError::DestDenied,
+                            ));
+                        }
                     }
                 }
             }

@@ -340,7 +340,7 @@ For HTTP and SOCKS5 proxy servers, you can derive the chained next-hop address f
 ordered key-value pairs after the base name: `base+key1=val1+key2=val2+...`.
 
 - Enable per server with `username_params_to_escaper_addr`.
-- The host is built by joining configured keys’ values using a separator; with no keys, a `global_label` is used.
+- The host is built by joining configured keys’ values using a separator; if no recognized keys are present, no override is applied and the escaper’s default `proxy_addr` is used.
 - The port is selected based on inbound protocol (HTTP/SOCKS5), both configurable.
 - Unknown keys and hierarchy violations (e.g., child without parent) can be rejected.
 
@@ -359,7 +359,6 @@ server:
       separator: "-"
       # Optional suffix (e.g., for local testing):
       # domain_suffix: ".localhost"
-      global_label: "global"
       http_port: 10000
       socks5_port: 10001
       strip_suffix_for_auth: true
@@ -367,13 +366,13 @@ server:
 
 Behavior:
 - Username `user+label1=foo+label2=bar` → host `foo-bar`, port `10000` for HTTP inbound.
+- If no recognized keys are present, no override is applied (the escaper’s `proxy_addr` acts as fallback).
 - Invalid params cause HTTP 400 Bad Request; SOCKS5 replies with a standard error code and denies the request.
 
 Escaper fallback note:
 - Proxy chaining escapers (proxy_http/proxy_socks5/…) must define at least one `proxy_addr` to initialize.
 - When username params are present (and auth succeeds), the computed host:port overrides `proxy_addr` for that connection.
-- If you want a real fallback for requests without username params (e.g., anonymous), set `proxy_addr` to your default next‑hop
-  (for this example: HTTP → 127.0.0.1:10000, SOCKS5 → 127.0.0.1:10001). Otherwise the placeholder values are never used.
+- When no recognized keys are present in the username, no override is applied; the configured `proxy_addr` is used.
 
 ### Connection Throttling
 
