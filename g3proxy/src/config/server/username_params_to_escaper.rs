@@ -96,14 +96,14 @@ mod tests {
     }
 
     #[test]
-    fn suffix_for_host_works() {
+    fn to_fqdn_works() {
         let mut c = UsernameParamsToEscaperConfig::new(None);
         // no suffix
-        assert_eq!(c.suffix_for_host("foo").as_ref(), "foo");
+        assert_eq!(c.to_fqdn("foo").as_ref(), "foo");
 
         // with suffix
         c.domain_suffix = Some(".example".to_string());
-        assert_eq!(c.suffix_for_host("foo").as_ref(), "foo.example");
+        assert_eq!(c.to_fqdn("foo").as_ref(), "foo.example");
 
         // suffix normalized from non-dot value
         let s = r#"
@@ -201,9 +201,7 @@ impl UsernameParamsToEscaperConfig {
         if self.keys_for_host.iter().any(|k| k.is_empty()) {
             return Err(anyhow!("keys_for_host contains empty key"));
         }
-        if self.separator.is_empty() {
-            return Err(anyhow!("separator must not be empty"));
-        }
+        // allow empty separator when only one label or when explicitly desired
         // ensure floating keys are included in keys_for_host
         for fk in &self.floating_keys {
             if !self.keys_for_host.iter().any(|k| k == fk) {
@@ -213,7 +211,7 @@ impl UsernameParamsToEscaperConfig {
         Ok(())
     }
 
-    pub(crate) fn suffix_for_host<'a>(&'a self, host: &'a str) -> Cow<'a, str> {
+    pub(crate) fn to_fqdn<'a>(&'a self, host: &'a str) -> Cow<'a, str> {
         if let Some(sfx) = &self.domain_suffix {
             if sfx.is_empty() {
                 Cow::Borrowed(host)

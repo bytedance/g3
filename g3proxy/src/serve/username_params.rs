@@ -62,6 +62,28 @@ pub(crate) enum InboundKind {
     Socks5,
 }
 
+// Quick check to decide whether a username contains at least one known key pattern
+// without fully parsing. This is used to decide if we should attempt mapping.
+pub(crate) fn username_has_known_key(
+    cfg: &UsernameParamsToEscaperConfig,
+    username_original: &str,
+) -> bool {
+    if !username_original.contains('+') {
+        return false;
+    }
+    for k in &cfg.keys_for_host {
+        // look for "+key=" pattern to avoid false positives
+        let mut pat = String::with_capacity(k.len() + 2);
+        pat.push('+');
+        pat.push_str(k);
+        pat.push('=');
+        if username_original.contains(&pat) {
+            return true;
+        }
+    }
+    false
+}
+
 pub(crate) fn compute_upstream_from_username(
     cfg: &UsernameParamsToEscaperConfig,
     username_original: &str,
@@ -136,24 +158,26 @@ pub(crate) fn compute_upstream_from_username(
     };
 
     // Build label or use global
-    let label = if parts.is_empty() {
-        debug!("username-params: no parts, using global_label='{}'", cfg.global_label);
-        cfg.global_label.clone()
-    } else {
-        // join with the configured separator
-        let mut s = String::new();
-        for (i, v) in parts.iter().enumerate() {
-            if i > 0 {
-                s.push_str(&cfg.separator);
-            }
-            s.push_str(v);
+    if parts.is_empty() {
+        // No effective known keys provided; let caller fall back to escaper defaults (no override)
+        return Err(anyhow!("no known keys provided in username params"));
+    }
+
+    // join with the configured separator
+    let mut label = String::new();
+    for (i, v) in parts.iter().enumerate() {
+        if i > 0 {
+            label.push_str(&cfg.separator);
         }
-        debug!("username-params: joined label='{}' separator='{}'", s, cfg.separator);
-        s
-    };
+        label.push_str(v);
+    }
+    debug!(
+        "username-params: joined label='{}' separator='{}'",
+        label, cfg.separator
+    );
 
     // Apply optional suffix
-    let full_host_cow = cfg.suffix_for_host(&label);
+    let full_host_cow = cfg.to_fqdn(&label);
     let full_host = full_host_cow.as_ref();
     if !matches!(full_host_cow, std::borrow::Cow::Borrowed(_)) {
         debug!(
@@ -219,16 +243,7 @@ mod tests {
         assert!(ParsedUsernameParams::parse("user+label1=foo+label1=baz").is_err());
     }
 
-    #[test]
-    fn compute_global_defaults() {
-        let cfg = cfg_with_keys(&["label1", "label2", "label3", "label4"]);
-        let ups = compute_upstream_from_username(&cfg, "user", InboundKind::Http).unwrap();
-        assert_eq!(ups.port(), 10000);
-        match ups.host() {
-            Host::Domain(d) => assert_eq!(d.as_ref(), "global"),
-            _ => panic!("expected domain host"),
-        }
-    }
+    // removed: we no longer override when no params are present
 
     #[test]
     fn compute_join_and_ports() {
@@ -260,15 +275,12 @@ mod tests {
         // unknown keys rejected
         assert!(compute_upstream_from_username(&cfg, "user+x=y", InboundKind::Http).is_err());
 
-        // allow unknown keys when disabled
+        // allow unknown keys when disabled; but no known keys -> no override should be applied by callers
+        // we still treat direct call with only unknown keys as an error now
         cfg.reject_unknown_keys = false;
-        let ups = compute_upstream_from_username(&cfg, "user+x=y", InboundKind::Http).unwrap();
-        match ups.host() {
-            Host::Domain(d) => assert_eq!(d.as_ref(), "global"),
-            _ => panic!("expected domain host"),
-        }
+        assert!(compute_upstream_from_username(&cfg, "user+x=y", InboundKind::Http).is_err());
 
-        // hierarchy enforced: region without country should error
+        // hierarchy enforced: label 2 without label1 must error
         cfg.reject_unknown_keys = true;
         cfg.require_hierarchy = true;
         assert!(compute_upstream_from_username(&cfg, "user+label2=b", InboundKind::Http).is_err());

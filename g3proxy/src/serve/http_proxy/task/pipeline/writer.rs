@@ -277,30 +277,33 @@ where
         // Optional: compute username-param-derived escaper address and store override
         if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr {
             if let HttpAuth::Basic(v) = &req.inner.auth_info {
-                match crate::serve::username_params::compute_upstream_from_username(
-                    cfg,
-                    v.username.as_original(),
-                    crate::serve::username_params::InboundKind::Http,
-                ) {
-                    Ok(addr) => {
-                        task_notes.set_override_next_proxy(addr);
-                        debug!(
-                            "[{}] http username params -> next proxy {}",
-                            self.ctx.server_config.name(),
-                            task_notes
-                                .override_next_proxy()
-                                .map(|a| a.to_string())
-                                .unwrap_or_else(|| "<none>".into())
-                        );
-                    }
-                    Err(_e) => {
-                        // Bad request: unsupported param combo or invalid params
-                        if let Some(stream_w) = &mut self.stream_writer {
-                            let rsp = HttpProxyClientResponse::bad_request(req.inner.version);
-                            let _ = rsp.reply_err_to_request(stream_w).await;
+                let u = v.username.as_original();
+                if crate::serve::username_params::username_has_known_key(cfg, u) {
+                    match crate::serve::username_params::compute_upstream_from_username(
+                        cfg,
+                        u,
+                        crate::serve::username_params::InboundKind::Http,
+                    ) {
+                        Ok(addr) => {
+                            task_notes.set_override_next_proxy(addr);
+                            debug!(
+                                "[{}] http username params -> next proxy {}",
+                                self.ctx.server_config.name(),
+                                task_notes
+                                    .override_next_proxy()
+                                    .map(|a| a.to_string())
+                                    .unwrap_or_else(|| "<none>".into())
+                            );
                         }
-                        self.notify_reader_to_close();
-                        return LoopAction::Break;
+                        Err(_e) => {
+                            // Bad request: unsupported param combo or invalid params
+                            if let Some(stream_w) = &mut self.stream_writer {
+                                let rsp = HttpProxyClientResponse::bad_request(req.inner.version);
+                                let _ = rsp.reply_err_to_request(stream_w).await;
+                            }
+                            self.notify_reader_to_close();
+                            return LoopAction::Break;
+                        }
                     }
                 }
             }

@@ -160,6 +160,23 @@ impl<'a> HttpProxyForwardTask<'a> {
     where
         W: AsyncWrite + Unpin,
     {
+        // If the next-hop was derived from username params and DNS failed,
+        // treat it as a bad request (400) instead of origin DNS error.
+        if matches!(e, TcpConnectError::ResolveFailed(_))
+            && self.task_notes.override_next_proxy().is_some()
+        {
+            let mut rsp = HttpProxyClientResponse::bad_request(self.req.version);
+            rsp.set_error_message("Proxy targeting didn't find a match");
+            // no custom header is set for 400
+            if rsp.reply_err_to_request(clt_w).await.is_err() {
+                self.should_close = true;
+            } else {
+                self.http_notes.rsp_status = rsp.status();
+                self.should_close = true;
+            }
+            return;
+        }
+
         let mut rsp = HttpProxyClientResponse::from_tcp_connect_error(
             e,
             self.req.version,

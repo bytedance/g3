@@ -11,7 +11,7 @@ use tokio::time::Instant;
 
 use g3_io_ext::LimitedStream;
 use g3_socket::BindAddr;
-use g3_types::net::{ConnectError, Host};
+use g3_types::net::ConnectError;
 
 use super::ProxySocks5Escaper;
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
@@ -295,30 +295,25 @@ impl ProxySocks5Escaper {
         }
     }
 
-    async fn tcp_connect_to(
+    async fn connect_via_peer(
         &self,
+        peer_proxy: &g3_types::net::UpstreamAddr,
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, TcpConnectError> {
-        let peer_proxy = task_notes
-            .override_next_proxy()
-            .cloned()
-            .unwrap_or_else(|| self.get_next_proxy(task_notes, task_conf.upstream.host()).clone());
-
         match peer_proxy.host() {
-            Host::Ip(ip) => {
+            g3_types::net::Host::Ip(ip) => {
                 self.fixed_try_connect(
-                    SocketAddr::new(*ip, peer_proxy.port()),
+                    std::net::SocketAddr::new(*ip, peer_proxy.port()),
                     task_conf,
                     tcp_notes,
                     task_notes,
                 )
                 .await
             }
-            Host::Domain(domain) => {
+            g3_types::net::Host::Domain(domain) => {
                 let resolver_job = self.resolve_happy(domain.clone())?;
-
                 self.happy_try_connect(
                     resolver_job,
                     peer_proxy.port(),
@@ -329,6 +324,21 @@ impl ProxySocks5Escaper {
                 .await
             }
         }
+    }
+
+    async fn tcp_connect_to(
+        &self,
+        task_conf: &TcpConnectTaskConf<'_>,
+        tcp_notes: &mut TcpConnectTaskNotes,
+        task_notes: &ServerTaskNotes,
+    ) -> Result<TcpStream, TcpConnectError> {
+        let peer_proxy = task_notes
+            .override_next_proxy()
+            .unwrap_or_else(|| self.get_next_proxy(task_notes, task_conf.upstream.host()));
+
+        self
+            .connect_via_peer(peer_proxy, task_conf, tcp_notes, task_notes)
+            .await
     }
 
     pub(super) async fn tcp_new_connection(

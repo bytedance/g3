@@ -31,6 +31,7 @@ use super::{
     AnyServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT,
     IDLE_CHECK_MAXIMUM_DURATION, ServerConfig, ServerConfigDiffAction,
 };
+use super::username_params_to_escaper::UsernameParamsToEscaperConfig;
 
 const SERVER_CONFIG_TYPE: &str = "HttpProxy";
 
@@ -98,7 +99,7 @@ pub(crate) struct HttpProxyServerConfig {
     pub(crate) steal_forwarded_for: bool,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
     // Optional: derive next-hop escaper addr from username params
-    pub(crate) username_params_to_escaper_addr: Option<super::username_params_to_escaper::UsernameParamsToEscaperConfig>,
+    pub(crate) username_params_to_escaper_addr: Option<UsernameParamsToEscaperConfig>,
 }
 
 impl HttpProxyServerConfig {
@@ -196,7 +197,7 @@ impl HttpProxyServerConfig {
             "username_params_to_escaper_addr" => {
                 match v {
                     Yaml::Hash(map) => {
-                        let c = super::username_params_to_escaper::UsernameParamsToEscaperConfig::parse(map, self.position.clone())
+                        let c = UsernameParamsToEscaperConfig::parse(map, self.position.clone())
                             .context(format!("invalid username_params_to_escaper_addr value for key {k}"))?;
                         self.username_params_to_escaper_addr = Some(c);
                         Ok(())
