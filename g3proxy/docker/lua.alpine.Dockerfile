@@ -22,7 +22,5 @@ COPY --from=lua /usr/local/lib/luarocks /usr/local/lib/luarocks
 COPY --from=builder /usr/src/g3/target/release-lto/g3proxy /usr/bin/
 COPY --from=builder /usr/src/g3/target/release-lto/g3proxy-ctl /usr/bin/
 COPY --from=builder /usr/src/g3/target/release-lto/g3proxy-lua /usr/bin/
-# libcares fix: https://github.com/bytedance/g3/issues/901
-COPY --from=builder /usr/lib/libcares.so.* /usr/lib/
 ENTRYPOINT ["/usr/bin/g3proxy"]
 CMD ["-Vvv"]
