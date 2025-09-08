@@ -520,10 +520,9 @@ impl HttpProxyClientResponse {
                 "<html>\n\
                  <head><title>{code} {reason}</title></head>\n\
                  <body>\n\
-                 <div style=\"text-align: center;\"><h1>{}</h1></div>\n\
+                 <div style=\"text-align: center;\"><h1>{msg}</h1></div>\n\
                  </body>\n\
                  </html>\n",
-                msg
             )
         } else {
             format!(
