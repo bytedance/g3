@@ -219,7 +219,6 @@ mod tests {
         c.require_hierarchy = true;
         c.reject_unknown_keys = true;
         c.floating_keys = Vec::new();
-        c.global_label = "global".to_string();
         c.http_port = 10000;
         c.socks5_port = 10001;
         c
