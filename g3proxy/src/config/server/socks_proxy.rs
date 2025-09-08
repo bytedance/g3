@@ -27,6 +27,7 @@ use super::{
     AnyServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT,
     IDLE_CHECK_MAXIMUM_DURATION, ServerConfig, ServerConfigDiffAction,
 };
+use super::username_params_to_escaper::UsernameParamsToEscaperConfig;
 
 const SERVER_CONFIG_TYPE: &str = "SocksProxy";
 
@@ -81,6 +82,8 @@ pub(crate) struct SocksProxyServerConfig {
     pub(crate) udp_misc_opts: UdpMiscSockOpts,
     pub(crate) transmute_udp_echo_ip: Option<FxHashMap<IpAddr, IpAddr>>,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
+    // Optional: derive next-hop escaper addr from username params
+    pub(crate) username_params_to_escaper_addr: Option<UsernameParamsToEscaperConfig>,
 }
 
 impl SocksProxyServerConfig {
@@ -116,6 +119,7 @@ impl SocksProxyServerConfig {
             udp_misc_opts: Default::default(),
             transmute_udp_echo_ip: None,
             extra_metrics_tags: None,
+            username_params_to_escaper_addr: None,
         }
     }
 
@@ -160,6 +164,17 @@ impl SocksProxyServerConfig {
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 self.extra_metrics_tags = Some(Arc::new(tags));
                 Ok(())
+            }
+            "username_params_to_escaper_addr" => {
+                match v {
+                    Yaml::Hash(map) => {
+                        let c = UsernameParamsToEscaperConfig::parse(map, self.position.clone())
+                            .context(format!("invalid username_params_to_escaper_addr value for key {k}"))?;
+                        self.username_params_to_escaper_addr = Some(c);
+                        Ok(())
+                    }
+                    _ => Err(anyhow!("invalid map value for key {k}")),
+                }
             }
             "listen" => {
                 let config = g3_yaml::value::as_tcp_listen_config(v)
@@ -425,5 +440,33 @@ impl ServerConfig for SocksProxyServerConfig {
     #[inline]
     fn task_max_idle_count(&self) -> usize {
         self.task_idle_max_count
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn parse_with_username_params_section() {
+        let s = r#"---
+type: socks_proxy
+name: s1
+escaper: e1
+username_params_to_escaper_addr:
+  keys_for_host: [k1, k2]
+  require_hierarchy: false
+  floating_keys: [k2]
+  separator: "+"
+"#;
+        let docs = YamlLoader::load_from_str(s).unwrap();
+        let map = docs[0].as_hash().unwrap();
+        let cfg = SocksProxyServerConfig::parse(map, None).unwrap();
+        let u = cfg.username_params_to_escaper_addr.as_ref().unwrap();
+        assert_eq!(u.keys_for_host, vec!["k1", "k2"]);
+        assert_eq!(u.floating_keys, vec!["k2"]);
+        assert!(!u.require_hierarchy);
+        assert_eq!(u.separator, "+");
     }
 }

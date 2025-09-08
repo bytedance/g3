@@ -334,6 +334,46 @@ escaper:
     tls_name: example.com # If the proxy address does not contain a domain name, and you need to verify the certificate with DNS Name, you need to set it
 ```
 
+#### Username Params → Next-Hop Escaper
+
+For HTTP and SOCKS5 proxy servers, you can derive the chained next-hop address from the client username by appending
+ordered key-value pairs after the base name: `base+key1=val1+key2=val2+...`.
+
+- Enable per server with `username_params_to_escaper_addr`.
+- The host is built by joining configured keys’ values using a separator; if no recognized keys are present, no override is applied and the escaper’s default `proxy_addr` is used.
+- The port is selected based on inbound protocol (HTTP/SOCKS5), both configurable.
+- Unknown keys and hierarchy violations (e.g., child without parent) can be rejected.
+
+Example configuration:
+
+```yaml
+server:
+  - name: http-in
+    type: http_proxy
+    escaper: chain
+    username_params_to_escaper_addr:
+      keys_for_host: [label1, label2, label3]
+      require_hierarchy: true
+      reject_unknown_keys: true
+      reject_duplicate_keys: true
+      separator: "-"
+      # Optional suffix (e.g., for local testing):
+      # domain_suffix: ".localhost"
+      http_port: 10000
+      socks5_port: 10001
+      strip_suffix_for_auth: true
+```
+
+Behavior:
+- Username `user+label1=foo+label2=bar` → host `foo-bar`, port `10000` for HTTP inbound.
+- If no recognized keys are present, no override is applied (the escaper’s `proxy_addr` acts as fallback).
+- Invalid params cause HTTP 400 Bad Request; SOCKS5 replies with a standard error code and denies the request.
+
+Escaper fallback note:
+- Proxy chaining escapers (proxy_http/proxy_socks5/…) must define at least one `proxy_addr` to initialize.
+- When username params are present (and auth succeeds), the computed host:port overrides `proxy_addr` for that connection.
+- When no recognized keys are present in the username, no override is applied; the configured `proxy_addr` is used.
+
 ### Connection Throttling
 
 All servers, escapers, users support per-connection throttling. Set the same key in the corresponding server &

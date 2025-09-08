@@ -1,0 +1,69 @@
+---
+
+log: journal
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+resolver:
+  - name: cares1
+    type: c-ares
+    server:
+      - 127.0.0.1
+
+escaper:
+  # Chaining via HTTP proxy; per-connection next-hop overridden by username params
+  - name: chained_http
+    type: proxy_http
+    resolver: cares1
+    # placeholder; overridden when username params are present
+    proxy_addr: 127.0.0.1:3128
+
+  # Chaining via SOCKS5 proxy; per-connection next-hop overridden by username params
+  - name: chained_socks
+    type: proxy_socks5
+    resolver: cares1
+    # placeholder; overridden when username params are present
+    proxy_addr: 127.0.0.1:1080
+
+user-group:
+  - name: default
+    static_users:
+      - name: user
+        # Accept any password for coverage run
+        token: ~
+
+server:
+  - name: http
+    type: http_proxy
+    listen: 127.0.0.1:13080
+    escaper: chained_http
+    user-group: default
+    # exercise username params mapping in HTTP pipeline
+    username_params_to_escaper_addr:
+      keys_for_host: [label1, label2, opt]
+      floating_keys: [opt]
+      require_hierarchy: true
+      separator: "-"
+      domain_suffix: ".localhost"
+      http_port: 9       # discard port to avoid accidental external connections
+      socks5_port: 9
+      strip_suffix_for_auth: true
+
+  - name: socks
+    type: socks_proxy
+    listen: 127.0.0.1:11081
+    escaper: chained_socks
+    user-group: default
+    enable_udp_associate: true
+    # exercise username params mapping in SOCKS negotiation
+    username_params_to_escaper_addr:
+      keys_for_host: [label1, label2, opt]
+      floating_keys: [opt]
+      require_hierarchy: true
+      separator: "+"
+      domain_suffix: ".localhost"
+      http_port: 9
+      socks5_port: 9
+      strip_suffix_for_auth: true

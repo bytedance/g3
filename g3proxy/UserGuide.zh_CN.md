@@ -312,6 +312,45 @@ escaper:
     tls_name: example.com # 代理地址不包含域名时，如果需要用DNS Name验证证书，则需要设置
 ```
 
+#### 用户名参数 → 串联下一跳地址
+
+对于 HTTP 和 SOCKS5 代理入口，可以通过在用户名后追加有序的键值对，动态计算串联下一跳的地址：`base+key1=val1+key2=val2+...`。
+
+- 在对应入口下启用 `username_params_to_escaper_addr` 即可生效。
+- 计算主机名：按配置的键顺序取值并用分隔符拼接；若用户名中未包含任意已配置的键，则不进行覆盖，继续使用 escaper 的默认 `proxy_addr`。
+- 端口：根据入站协议选择（HTTP / SOCKS5），均可配置。
+- 可配置是否拒绝未知键、是否强制层级（例如子键必须有父键）。
+
+示例配置：
+
+```yaml
+server:
+  - name: http-in
+    type: http_proxy
+    escaper: chain
+    username_params_to_escaper_addr:
+      keys_for_host: [label1, label2, label3]
+      require_hierarchy: true
+      reject_unknown_keys: true
+      reject_duplicate_keys: true
+      separator: "-"
+      # 可选后缀（例如本地测试）：
+      # domain_suffix: ".localhost"
+      http_port: 10000
+      socks5_port: 10001
+      strip_suffix_for_auth: true
+```
+
+行为说明：
+- 用户名 `user+label1=foo+label2=bar` → 主机 `foo-bar`，HTTP 入站端口 `10000`。
+- 若用户名中未包含任意已配置的键，则不进行覆盖，继续使用 escaper 的 `proxy_addr`。
+- 非法参数（未知键或层级违例）会导致 HTTP 返回 400 Bad Request；SOCKS5 返回标准错误码并拒绝请求。
+
+出口回退说明：
+- 代理串联出口（proxy_http / proxy_socks5 / …）在初始化时必须配置至少一个 `proxy_addr`。
+- 当用户名参数存在且认证成功时，计算得到的 host:port 会覆盖该连接的 `proxy_addr`。
+- 当用户名中没有任何已配置的键时，不进行覆盖，直接使用 `proxy_addr` 作为回退。
+
 ### 连接限速
 
 server、escaper、user维度均支持设置单连接限速，配置key相同，在对应的server & escaper & user里设置：

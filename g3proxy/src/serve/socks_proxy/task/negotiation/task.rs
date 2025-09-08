@@ -11,6 +11,8 @@ use tokio::time::Instant;
 
 use g3_io_ext::{AsyncStream, LimitedReader, LimitedWriter};
 use g3_socks::{SocksAuthMethod, SocksCommand, SocksVersion, v4a, v5};
+use g3_types::auth::Username;
+use g3_types::net::UpstreamAddr;
 
 use super::tcp_connect::SocksProxyTcpConnectTask;
 use super::udp_associate::SocksProxyUdpAssociateTask;
@@ -211,6 +213,7 @@ impl SocksProxyNegotiationTask {
             .await
             .map_err(ServerTaskError::ClientTcpWriteFailed)?;
 
+        let mut username_for_mapping: Option<String> = None;
         let user_ctx = match auth_method {
             SocksAuthMethod::None => {
                 if let Some(user_group) = &self.user_group {
@@ -232,8 +235,23 @@ impl SocksProxyNegotiationTask {
             SocksAuthMethod::User => {
                 if let Some(user_group) = &self.user_group {
                     let (username, password) = v5::auth::recv_user_from_client(&mut clt_r).await?;
+                    // preserve original username for mapping
+                    let username_original = username.as_original().to_string();
+                    // optionally strip suffix for auth
+                    let mut base_username: Option<Username> = None;
+                    if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr
+                        && cfg.strip_suffix_for_auth
+                    {
+                        let base = crate::serve::username_params::ParsedUsernameParams::auth_base(
+                            &username_original,
+                        );
+                        if base != username_original {
+                            base_username = Username::from_original(base).ok();
+                        }
+                    }
+                    let username_ref = base_username.as_ref().unwrap_or(&username);
                     match user_group.check_user_with_password(
-                        &username,
+                        username_ref,
                         &password,
                         self.ctx.server_config.name(),
                         self.ctx.server_stats.share_extra_tags(),
@@ -248,6 +266,8 @@ impl SocksProxyNegotiationTask {
                             v5::auth::send_user_auth_success(&mut clt_w)
                                 .await
                                 .map_err(ServerTaskError::ClientTcpWriteFailed)?;
+                            // store original username for later mapping
+                            username_for_mapping = Some(username_original);
                             Some(user_ctx)
                         }
                         Err(e) => {
@@ -274,11 +294,45 @@ impl SocksProxyNegotiationTask {
 
         let req = v5::Socks5Request::recv(&mut clt_r).await?;
 
-        let task_notes = ServerTaskNotes::new(
+        // compute mapping after auth success but before task creation; deny on error
+        let mut override_next: Option<UpstreamAddr> = None;
+        if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr
+            && let Some(name) = &username_for_mapping
+        {
+            // Only attempt mapping when at least one known key appears
+            if crate::serve::username_params::username_has_known_key(cfg, name) {
+                match crate::serve::username_params::compute_upstream_from_username(
+                    cfg,
+                    name,
+                    crate::serve::username_params::InboundKind::Socks5,
+                ) {
+                    Ok(a) => override_next = Some(a),
+                    Err(_e) => {
+                        let _ = v5::Socks5Reply::ForbiddenByRule.send(&mut clt_w).await;
+                        return Err(ServerTaskError::ForbiddenByRule(
+                            ServerTaskForbiddenError::DestDenied,
+                        ));
+                    }
+                }
+            }
+        }
+
+        let mut task_notes = ServerTaskNotes::new(
             self.ctx.cc_info.clone(),
             user_ctx,
             self.time_accepted.elapsed(),
         );
+        if let Some(a) = override_next.take() {
+            task_notes.set_override_next_proxy(a);
+            debug!(
+                "[{}] socks username params -> next proxy {}",
+                self.ctx.server_config.name(),
+                task_notes
+                    .override_next_proxy()
+                    .map(|a| a.to_string())
+                    .unwrap_or_else(|| "<none>".into())
+            );
+        }
         match req.command {
             SocksCommand::TcpConnect => {
                 let task = SocksProxyTcpConnectTask::new(

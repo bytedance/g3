@@ -34,6 +34,7 @@ pub(crate) mod http_rproxy;
 pub(crate) mod sni_proxy;
 pub(crate) mod socks_proxy;
 pub(crate) mod tcp_stream;
+pub(crate) mod username_params_to_escaper;
 #[cfg(any(
     target_os = "linux",
     target_os = "freebsd",
@@ -120,6 +121,7 @@ pub(crate) trait ServerConfig {
 }
 
 #[derive(Clone, Debug, AnyConfig)]
+#[allow(clippy::large_enum_variant)]
 #[def_fn(name, &NodeName)]
 #[def_fn(position, Option<YamlDocPosition>)]
 #[def_fn(r#type, &'static str)]

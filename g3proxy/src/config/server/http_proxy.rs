@@ -31,6 +31,7 @@ use super::{
     AnyServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT,
     IDLE_CHECK_MAXIMUM_DURATION, ServerConfig, ServerConfigDiffAction,
 };
+use super::username_params_to_escaper::UsernameParamsToEscaperConfig;
 
 const SERVER_CONFIG_TYPE: &str = "HttpProxy";
 
@@ -97,6 +98,8 @@ pub(crate) struct HttpProxyServerConfig {
     pub(crate) egress_path_selection_header: Option<HeaderName>,
     pub(crate) steal_forwarded_for: bool,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
+    // Optional: derive next-hop escaper addr from username params
+    pub(crate) username_params_to_escaper_addr: Option<UsernameParamsToEscaperConfig>,
 }
 
 impl HttpProxyServerConfig {
@@ -145,6 +148,7 @@ impl HttpProxyServerConfig {
             egress_path_selection_header: None,
             steal_forwarded_for: false,
             extra_metrics_tags: None,
+            username_params_to_escaper_addr: None,
         }
     }
 
@@ -189,6 +193,17 @@ impl HttpProxyServerConfig {
                     .context(format!("invalid static metrics tags value for key {k}"))?;
                 self.extra_metrics_tags = Some(Arc::new(tags));
                 Ok(())
+            }
+            "username_params_to_escaper_addr" => {
+                match v {
+                    Yaml::Hash(map) => {
+                        let c = UsernameParamsToEscaperConfig::parse(map, self.position.clone())
+                            .context(format!("invalid username_params_to_escaper_addr value for key {k}"))?;
+                        self.username_params_to_escaper_addr = Some(c);
+                        Ok(())
+                    }
+                    _ => Err(anyhow!("invalid map value for key {k}")),
+                }
             }
             "listen" => {
                 let config = g3_yaml::value::as_tcp_listen_config(v)
@@ -500,5 +515,35 @@ impl ServerConfig for HttpProxyServerConfig {
     #[inline]
     fn task_max_idle_count(&self) -> usize {
         self.task_idle_max_count
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn parse_with_username_params_section() {
+        let s = r#"---
+type: http_proxy
+name: s1
+escaper: e1
+username_params_to_escaper_addr:
+  keys_for_host: [k1, k2]
+  require_hierarchy: true
+  floating_keys: [k2]
+  http_port: 12345
+  socks5_port: 23456
+"#;
+        let docs = YamlLoader::load_from_str(s).unwrap();
+        let map = docs[0].as_hash().unwrap();
+        let cfg = HttpProxyServerConfig::parse(map, None).unwrap();
+        let u = cfg.username_params_to_escaper_addr.as_ref().unwrap();
+        assert_eq!(u.keys_for_host, vec!["k1", "k2"]);
+        assert_eq!(u.floating_keys, vec!["k2"]);
+        assert!(u.require_hierarchy);
+        assert_eq!(u.http_port, 12345);
+        assert_eq!(u.socks5_port, 23456);
     }
 }
