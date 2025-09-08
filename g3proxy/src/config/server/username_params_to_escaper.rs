@@ -27,8 +27,6 @@ pub(crate) struct UsernameParamsToEscaperConfig {
     pub(crate) separator: String,
     /// optional domain suffix appended to computed host (e.g., ".svc.local")
     pub(crate) domain_suffix: Option<String>,
-    /// label used when 0 kv pairs (global)
-    pub(crate) global_label: String,
     /// default port for HTTP proxy upstream selection
     pub(crate) http_port: u16,
     /// default port for SOCKS5 proxy upstream selection
@@ -48,7 +46,6 @@ impl UsernameParamsToEscaperConfig {
             reject_duplicate_keys: true,
             separator: "-".to_string(),
             domain_suffix: None,
-            global_label: "global".to_string(),
             http_port: 10000,
             socks5_port: 10001,
             strip_suffix_for_auth: true,
@@ -72,7 +69,6 @@ mod tests {
           reject_duplicate_keys: false
           separator: ":"
           suffix: "svc.local"
-          global_label: "g"
           http_port: 20000
           socks_port: 20001
           auth_strip_suffix: false
@@ -89,7 +85,6 @@ mod tests {
         assert!(!c.reject_duplicate_keys);
         assert_eq!(c.separator, ":");
         assert_eq!(c.domain_suffix.as_deref(), Some(".svc.local"));
-        assert_eq!(c.global_label, "g");
         assert_eq!(c.http_port, 20000);
         assert_eq!(c.socks5_port, 20001);
         assert!(!c.strip_suffix_for_auth);
@@ -173,10 +168,6 @@ impl UsernameParamsToEscaperConfig {
                     s.insert(0, '.');
                 }
                 self.domain_suffix = Some(s);
-                Ok(())
-            }
-            "global_label" => {
-                self.global_label = g3_yaml::value::as_string(v)?;
                 Ok(())
             }
             "http_port" => {
