@@ -124,8 +124,8 @@ impl HttpProxyConnectTask {
     {
         // If the next-hop was derived from username params and DNS failed,
         // treat it as a bad request (400) instead of origin DNS error.
-        if matches!(e, TcpConnectError::ResolveFailed(_))
-            && self.task_notes.override_next_proxy().is_some()
+        if self.task_notes.override_next_proxy().is_some()
+            && matches!(e, TcpConnectError::ResolveFailed(_))
         {
             let mut rsp = HttpProxyClientResponse::bad_request(self.http_version);
             rsp.set_error_message("Proxy targeting didn't find a match");
