@@ -1421,7 +1421,7 @@ impl<'a> HttpProxyForwardTask<'a> {
                         return Err(ServerTaskError::CanceledAsServerQuit)
                     }
                 }
-            };
+            }
         }
         drop(idle_interval);
 
