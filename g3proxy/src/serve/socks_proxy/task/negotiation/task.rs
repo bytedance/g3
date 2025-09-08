@@ -239,14 +239,14 @@ impl SocksProxyNegotiationTask {
                     let username_original = username.as_original().to_string();
                     // optionally strip suffix for auth
                     let mut base_username: Option<Username> = None;
-                    if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr {
-                        if cfg.strip_suffix_for_auth {
-                            let base = crate::serve::username_params::ParsedUsernameParams::auth_base(
-                                &username_original,
-                            );
-                            if base != username_original {
-                                base_username = Username::from_original(base).ok();
-                            }
+                    if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr
+                        && cfg.strip_suffix_for_auth
+                    {
+                        let base = crate::serve::username_params::ParsedUsernameParams::auth_base(
+                            &username_original,
+                        );
+                        if base != username_original {
+                            base_username = Username::from_original(base).ok();
                         }
                     }
                     let username_ref = base_username.as_ref().unwrap_or(&username);
@@ -296,22 +296,22 @@ impl SocksProxyNegotiationTask {
 
         // compute mapping after auth success but before task creation; deny on error
         let mut override_next: Option<UpstreamAddr> = None;
-        if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr {
-            if let Some(name) = &username_for_mapping {
-                // Only attempt mapping when at least one known key appears
-                if crate::serve::username_params::username_has_known_key(cfg, name) {
-                    match crate::serve::username_params::compute_upstream_from_username(
-                        cfg,
-                        name,
-                        crate::serve::username_params::InboundKind::Socks5,
-                    ) {
-                        Ok(a) => override_next = Some(a),
-                        Err(_e) => {
-                            let _ = v5::Socks5Reply::ForbiddenByRule.send(&mut clt_w).await;
-                            return Err(ServerTaskError::ForbiddenByRule(
-                                ServerTaskForbiddenError::DestDenied,
-                            ));
-                        }
+        if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr
+            && let Some(name) = &username_for_mapping
+        {
+            // Only attempt mapping when at least one known key appears
+            if crate::serve::username_params::username_has_known_key(cfg, name) {
+                match crate::serve::username_params::compute_upstream_from_username(
+                    cfg,
+                    name,
+                    crate::serve::username_params::InboundKind::Socks5,
+                ) {
+                    Ok(a) => override_next = Some(a),
+                    Err(_e) => {
+                        let _ = v5::Socks5Reply::ForbiddenByRule.send(&mut clt_w).await;
+                        return Err(ServerTaskError::ForbiddenByRule(
+                            ServerTaskForbiddenError::DestDenied,
+                        ));
                     }
                 }
             }

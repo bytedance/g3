@@ -53,6 +53,98 @@ impl UsernameParamsToEscaperConfig {
     }
 }
 
+impl UsernameParamsToEscaperConfig {
+    pub(crate) fn parse(map: &yaml::Hash, position: Option<YamlDocPosition>) -> anyhow::Result<Self> {
+        let mut c = Self::new(position);
+        g3_yaml::foreach_kv(map, |k, v| c.set(k, v))?;
+        c.check()?;
+        Ok(c)
+    }
+
+    fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
+        match g3_yaml::key::normalize(k).as_str() {
+            "keys_for_host" | "keys" => {
+                self.keys_for_host = g3_yaml::value::as_list(v, g3_yaml::value::as_string)
+                    .context(format!("invalid string list value for key {k}"))?;
+                Ok(())
+            }
+            "require_hierarchy" => {
+                self.require_hierarchy = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            "reject_unknown_keys" => {
+                self.reject_unknown_keys = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            "floating_keys" | "floating" => {
+                self.floating_keys = g3_yaml::value::as_list(v, g3_yaml::value::as_string)
+                    .context(format!("invalid string list value for key {k}"))?;
+                Ok(())
+            }
+            "reject_duplicate_keys" => {
+                self.reject_duplicate_keys = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            "separator" => {
+                self.separator = g3_yaml::value::as_string(v)?;
+                Ok(())
+            }
+            "domain_suffix" | "suffix" => {
+                let mut s = g3_yaml::value::as_string(v)?;
+                if !s.is_empty() && !s.starts_with('.') {
+                    s.insert(0, '.');
+                }
+                self.domain_suffix = Some(s);
+                Ok(())
+            }
+            "http_port" => {
+                self.http_port = g3_yaml::value::as_u16(v)
+                    .context(format!("invalid u16 port value for key {k}"))?;
+                Ok(())
+            }
+            "socks5_port" | "socks_port" => {
+                self.socks5_port = g3_yaml::value::as_u16(v)
+                    .context(format!("invalid u16 port value for key {k}"))?;
+                Ok(())
+            }
+            "strip_suffix_for_auth" | "auth_strip_suffix" => {
+                self.strip_suffix_for_auth = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            _ => Err(anyhow!("invalid key {k}")),
+        }
+    }
+
+    fn check(&mut self) -> anyhow::Result<()> {
+        if self.keys_for_host.iter().any(|k| k.is_empty()) {
+            return Err(anyhow!("keys_for_host contains empty key"));
+        }
+        // allow empty separator when only one label or when explicitly desired
+        // ensure floating keys are included in keys_for_host
+        for fk in &self.floating_keys {
+            if !self.keys_for_host.iter().any(|k| k == fk) {
+                return Err(anyhow!("floating key {fk} must be listed in keys_for_host"));
+            }
+        }
+        Ok(())
+    }
+
+    pub(crate) fn to_fqdn<'a>(&'a self, host: &'a str) -> Cow<'a, str> {
+        if let Some(sfx) = &self.domain_suffix {
+            if sfx.is_empty() {
+                Cow::Borrowed(host)
+            } else {
+                let mut s = String::with_capacity(host.len() + sfx.len());
+                s.push_str(host);
+                s.push_str(sfx);
+                Cow::Owned(s)
+            }
+        } else {
+            Cow::Borrowed(host)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -123,97 +215,5 @@ mod tests {
         let map = docs[0]["username_params_to_escaper_addr"].as_hash().unwrap();
         let r = UsernameParamsToEscaperConfig::parse(map, None);
         assert!(r.is_err());
-    }
-}
-
-impl UsernameParamsToEscaperConfig {
-    pub(crate) fn parse(map: &yaml::Hash, position: Option<YamlDocPosition>) -> anyhow::Result<Self> {
-        let mut c = Self::new(position);
-        g3_yaml::foreach_kv(map, |k, v| c.set(k, v))?;
-        c.check()?;
-        Ok(c)
-    }
-
-    fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
-        match g3_yaml::key::normalize(k).as_str() {
-            "keys_for_host" | "keys" => {
-                self.keys_for_host = g3_yaml::value::as_list(v, |v| g3_yaml::value::as_string(v))
-                    .context(format!("invalid string list value for key {k}"))?;
-                Ok(())
-            }
-            "require_hierarchy" => {
-                self.require_hierarchy = g3_yaml::value::as_bool(v)?;
-                Ok(())
-            }
-            "reject_unknown_keys" => {
-                self.reject_unknown_keys = g3_yaml::value::as_bool(v)?;
-                Ok(())
-            }
-            "floating_keys" | "floating" => {
-                self.floating_keys = g3_yaml::value::as_list(v, |v| g3_yaml::value::as_string(v))
-                    .context(format!("invalid string list value for key {k}"))?;
-                Ok(())
-            }
-            "reject_duplicate_keys" => {
-                self.reject_duplicate_keys = g3_yaml::value::as_bool(v)?;
-                Ok(())
-            }
-            "separator" => {
-                self.separator = g3_yaml::value::as_string(v)?;
-                Ok(())
-            }
-            "domain_suffix" | "suffix" => {
-                let mut s = g3_yaml::value::as_string(v)?;
-                if !s.is_empty() && !s.starts_with('.') {
-                    s.insert(0, '.');
-                }
-                self.domain_suffix = Some(s);
-                Ok(())
-            }
-            "http_port" => {
-                self.http_port = g3_yaml::value::as_u16(v)
-                    .context(format!("invalid u16 port value for key {k}"))?;
-                Ok(())
-            }
-            "socks5_port" | "socks_port" => {
-                self.socks5_port = g3_yaml::value::as_u16(v)
-                    .context(format!("invalid u16 port value for key {k}"))?;
-                Ok(())
-            }
-            "strip_suffix_for_auth" | "auth_strip_suffix" => {
-                self.strip_suffix_for_auth = g3_yaml::value::as_bool(v)?;
-                Ok(())
-            }
-            _ => Err(anyhow!("invalid key {k}")),
-        }
-    }
-
-    fn check(&mut self) -> anyhow::Result<()> {
-        if self.keys_for_host.iter().any(|k| k.is_empty()) {
-            return Err(anyhow!("keys_for_host contains empty key"));
-        }
-        // allow empty separator when only one label or when explicitly desired
-        // ensure floating keys are included in keys_for_host
-        for fk in &self.floating_keys {
-            if !self.keys_for_host.iter().any(|k| k == fk) {
-                return Err(anyhow!("floating key {fk} must be listed in keys_for_host"));
-            }
-        }
-        Ok(())
-    }
-
-    pub(crate) fn to_fqdn<'a>(&'a self, host: &'a str) -> Cow<'a, str> {
-        if let Some(sfx) = &self.domain_suffix {
-            if sfx.is_empty() {
-                Cow::Borrowed(host)
-            } else {
-                let mut s = String::with_capacity(host.len() + sfx.len());
-                s.push_str(host);
-                s.push_str(sfx);
-                Cow::Owned(s)
-            }
-        } else {
-            Cow::Borrowed(host)
-        }
     }
 }

@@ -383,34 +383,6 @@ impl SocksProxyServerConfig {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use yaml_rust::YamlLoader;
-
-    #[test]
-    fn parse_with_username_params_section() {
-        let s = r#"---
-type: socks_proxy
-name: s1
-escaper: e1
-username_params_to_escaper_addr:
-  keys_for_host: [k1, k2]
-  require_hierarchy: false
-  floating_keys: [k2]
-  separator: "+"
-"#;
-        let docs = YamlLoader::load_from_str(s).unwrap();
-        let map = docs[0].as_hash().unwrap();
-        let cfg = SocksProxyServerConfig::parse(map, None).unwrap();
-        let u = cfg.username_params_to_escaper_addr.as_ref().unwrap();
-        assert_eq!(u.keys_for_host, vec!["k1", "k2"]);
-        assert_eq!(u.floating_keys, vec!["k2"]);
-        assert!(!u.require_hierarchy);
-        assert_eq!(u.separator, "+");
-    }
-}
-
 impl ServerConfig for SocksProxyServerConfig {
     fn name(&self) -> &NodeName {
         &self.name
@@ -468,5 +440,33 @@ impl ServerConfig for SocksProxyServerConfig {
     #[inline]
     fn task_max_idle_count(&self) -> usize {
         self.task_idle_max_count
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use yaml_rust::YamlLoader;
+
+    #[test]
+    fn parse_with_username_params_section() {
+        let s = r#"---
+type: socks_proxy
+name: s1
+escaper: e1
+username_params_to_escaper_addr:
+  keys_for_host: [k1, k2]
+  require_hierarchy: false
+  floating_keys: [k2]
+  separator: "+"
+"#;
+        let docs = YamlLoader::load_from_str(s).unwrap();
+        let map = docs[0].as_hash().unwrap();
+        let cfg = SocksProxyServerConfig::parse(map, None).unwrap();
+        let u = cfg.username_params_to_escaper_addr.as_ref().unwrap();
+        assert_eq!(u.keys_for_host, vec!["k1", "k2"]);
+        assert_eq!(u.floating_keys, vec!["k2"]);
+        assert!(!u.require_hierarchy);
+        assert_eq!(u.separator, "+");
     }
 }
