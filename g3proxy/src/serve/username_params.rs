@@ -198,14 +198,14 @@ pub(crate) fn compute_upstream_from_username(
             "username-params: mapping '{}' to 127.0.0.1 due to .localhost",
             full_host
         );
-        return Ok(UpstreamAddr::from_host_str_and_port("127.0.0.1", port)?);
+        return UpstreamAddr::from_host_str_and_port("127.0.0.1", port);
     }
 
     debug!(
         "username-params: final next-hop host='{}' port={}",
         full_host, port
     );
-    Ok(UpstreamAddr::from_host_str_and_port(full_host, port)?)
+    UpstreamAddr::from_host_str_and_port(full_host, port)
 }
 
 #[cfg(test)]

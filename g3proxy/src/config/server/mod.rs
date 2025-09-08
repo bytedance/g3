@@ -121,6 +121,7 @@ pub(crate) trait ServerConfig {
 }
 
 #[derive(Clone, Debug, AnyConfig)]
+#[allow(clippy::large_enum_variant)]
 #[def_fn(name, &NodeName)]
 #[def_fn(position, Option<YamlDocPosition>)]
 #[def_fn(r#type, &'static str)]
