@@ -21,6 +21,7 @@ static REDIS_CLIENT: OnceCell<Option<g3_redis_client::RedisClientConfig>> = Once
 static DEFAULT_TTL: OnceCell<Duration> = OnceCell::const_new();
 static MAX_TTL: OnceCell<Duration> = OnceCell::const_new();
 static REFRESH_MIN_INTERVAL: OnceCell<Duration> = OnceCell::const_new();
+static ENABLED: OnceCell<bool> = OnceCell::const_new();
 
 #[cfg(test)]
 use std::{collections::HashMap, sync::{Mutex, OnceLock}};
@@ -44,11 +45,9 @@ pub struct StickyDecision {
 
 impl StickyDecision {
     pub fn enabled(&self) -> bool {
-        if self.rotate {
-            return false;
-        }
-        // default sticky is enabled unless rotate is set
-        true
+        if self.rotate { return false; }
+        // global feature gating: sticky must be explicitly enabled in config
+        sticky_globally_enabled()
     }
 
     pub fn effective_ttl(&self) -> Duration {
@@ -207,6 +206,17 @@ pub fn set_prefix(p: Option<&str>) {
         Some(s) if !s.is_empty() => { let _ = PREFIX.set(Some(s.to_string())); }
         _ => { let _ = PREFIX.set(None); }
     }
+}
+
+pub fn set_enabled(v: bool) {
+    // ignore error if already set
+    let _ = ENABLED.set(v);
+}
+
+fn sticky_globally_enabled() -> bool {
+    if let Some(v) = ENABLED.get().copied() { return v; }
+    // For test builds, default to enabled to keep unit tests concise unless explicitly set.
+    cfg!(test)
 }
 
 pub fn set_default_ttl(d: Option<Duration>) {

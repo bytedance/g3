@@ -14,11 +14,20 @@ pub(crate) fn load(v: &Yaml, _conf_dir: &Path) -> anyhow::Result<()> {
             Ok(())
         }
         Yaml::Hash(map) => {
+            let mut enabled: Option<bool> = None;
             let mut url: Option<String> = None;
             let mut prefix: Option<String> = None;
             let mut default_ttl: Option<std::time::Duration> = None;
             let mut max_ttl: Option<std::time::Duration> = None;
             g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
+                "enabled" => {
+                    if let Yaml::Boolean(b) = v {
+                        enabled = Some(*b);
+                        Ok(())
+                    } else {
+                        Err(anyhow!("invalid sticky enabled value"))
+                    }
+                }
                 "url" | "redis" => {
                     if let Yaml::String(s) = v {
                         url = Some(s.clone());
@@ -49,6 +58,7 @@ pub(crate) fn load(v: &Yaml, _conf_dir: &Path) -> anyhow::Result<()> {
                 }
                 _ => Ok(()),
             })?;
+            if let Some(e) = enabled { crate::sticky::set_enabled(e); }
             if let Some(u) = url.as_deref() {
                 crate::sticky::set_redis_url(Some(u));
             }
