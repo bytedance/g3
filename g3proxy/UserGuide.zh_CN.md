@@ -1069,7 +1069,7 @@ flowchart LR
   - 适用于 HTTP Basic（Proxy-Authorization）和 SOCKS5 用户名。
 - 行为：
   - `sticky`：滑动 TTL（默认 60s），每次成功请求后刷新。
-  - `session_id`：可选关联键；无论是否提供都启用粘性。修改该值可编程地获得不同的随机上游。
+  - `session_id`：可选关联键；当全局启用粘性时，无论是否提供该参数都会生效。修改该值可确定性地映射到不同上游。
   - `rotate=1`：显式覆盖并关闭粘性。
   - 粘性通过 HRW（rendezvous hashing，重合哈希）在当前 A 记录集合上实现，并通过 Redis 共享。
   - 构键规则：`prefix:host:port|<base_user>[|<canonical_params>]`，其中 `<canonical_params>` 为排序后的未知参数，加上提供时的 `session_id`；`sticky`/`rotate` 不参与构键。
@@ -1077,13 +1077,15 @@ flowchart LR
   - `X-Sticky-Session: on|off`
   - `X-Sticky-Expires-At: <RFC3339 timestamp>`（为 `on` 时返回）。
   - 日志包含粘性键的不可逆哈希（非原始键）以保护隐私。
-- 配置：
+- 配置（按需启用）：
   - 仅支持在主 YAML 中全局配置：
     ```yaml
     sticky:
+      enabled: true            # 必须显式开启（默认：false）
       url: redis://redis.default.svc.cluster.local:6379/0
       prefix: g3proxy:sticky
       default_ttl: 60s
       max_ttl: 1h
     ```
-    不支持按 server 级别的覆盖；粘性设置为进程全局。
+    - 若未配置 `enabled` 或为 false，则即使用户名里带有修饰符也不会启用粘性。
+    - 不支持按 server 级别的覆盖；粘性设置为进程全局。

@@ -1,4 +1,5 @@
 sticky:
+  enabled: true
   url: redis://localhost:6379/0
   prefix: g3proxy:sticky
   # default sticky TTL and maximum permitted TTL
