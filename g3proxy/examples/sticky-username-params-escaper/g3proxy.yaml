@@ -1,0 +1,74 @@
+# Go to sticky_http_socks and username-params-escaper examples to learn more.
+# Those have many more comments.
+# This one is deliberately kept minimal.
+sticky:
+  enabled: true
+  url: redis://localhost:6379/0
+  prefix: g3proxy:sticky
+  default_ttl: 60s
+  max_ttl: 1h
+
+server:
+  - name: http-in
+    type: http_proxy
+    escaper: dyn_http_chain
+    user_group: default
+    listen:
+      address: "127.0.0.1:13128"
+    username_params_to_escaper_addr:
+      keys_for_host: [label1, label2, label3, label4, opt]
+      floating_keys: [opt]
+      require_hierarchy: true
+      reject_unknown_keys: false
+      reject_duplicate_keys: true
+      separator: "-"
+      domain_suffix: ".localhost"
+      http_port: 10000
+      socks5_port: 10001
+      strip_suffix_for_auth: true
+
+  - name: socks-in
+    type: socks_proxy
+    escaper: dyn_socks_chain
+    user_group: default
+    listen:
+      address: "127.0.0.1:11080"
+    enable_udp_associate: true
+    username_params_to_escaper_addr:
+      keys_for_host: [label1, label2, label3, label4, opt]
+      floating_keys: [opt]
+      require_hierarchy: true
+      reject_unknown_keys: false
+      reject_duplicate_keys: true
+      separator: "-"
+      domain_suffix: ".localhost"
+      http_port: 10000
+      socks5_port: 10001
+      strip_suffix_for_auth: true
+
+resolver:
+  - name: sys
+    type: c-ares
+    server: 127.0.0.1:5300
+
+escaper:
+  - name: dyn_http_chain
+    type: proxy_http
+    resolver: sys
+    proxy_addr:
+      - myservice.test:80
+
+  - name: dyn_socks_chain
+    type: proxy_socks5
+    resolver: sys
+    proxy_addr:
+      - myservice.test:1080
+
+user_group:
+  - name: default
+    static_users:
+      - name: user
+        # DEMO ONLY: accept any password (token: null).
+        token: ~
+
+log: stdout
