@@ -69,7 +69,7 @@ impl ProxySocks5Escaper {
         )
         .map_err(TcpConnectError::SetupSocketFailed)?;
         Ok((sock, bind))
-    }
+}
 
     async fn fixed_try_connect(
         &self,
@@ -306,15 +306,102 @@ impl ProxySocks5Escaper {
             .unwrap_or_else(|| self.get_next_proxy(task_notes, task_conf.upstream.host()));
         match peer_proxy.host() {
             g3_types::net::Host::Ip(ip) => {
-                self.fixed_try_connect(
-                    SocketAddr::new(*ip, peer_proxy.port()),
-                    task_conf,
-                    tcp_notes,
-                    task_notes,
-                )
-                .await
+                // Sticky over static IP list: choose and persist
+                if let Some(decision) = task_notes.sticky()
+                    && decision.enabled()
+                    && !decision.rotate
+                {
+                    if self.static_proxy_ip_ports.len() >= 2 {
+                        let ips: Vec<IpAddr> =
+                            self.static_proxy_ip_ports.iter().map(|(ip, _)| *ip).collect();
+                        if let Some((pick, key, _hit)) =
+                            crate::sticky::choose_sticky_ip(decision, task_conf.upstream, &ips)
+                                .await
+                        {
+                            let port = self
+                                .static_proxy_ip_ports
+                                .iter()
+                                .find_map(|(ipx, p)| if *ipx == pick { Some(*p) } else { None })
+                                .unwrap_or(peer_proxy.port());
+                            let peer = SocketAddr::new(pick, port);
+                            match self
+                                .fixed_try_connect(peer, task_conf, tcp_notes, task_notes)
+                                .await
+                            {
+                                Ok(stream) => {
+                                    tcp_notes.sticky_enabled = true;
+                                    let ttl = decision.effective_ttl();
+                                    let now = chrono::Utc::now();
+                                    tcp_notes.sticky_expires_at =
+                                        Some(crate::sticky::compute_expiry(now, ttl));
+                                    crate::sticky::redis_set_ip(&key, pick, ttl).await;
+                                    return Ok(stream);
+                                }
+                                Err(_) => {
+                                    // fallback to regular connect
+                                }
+                            }
+                        }
+                    }
+                }
+
+                self
+                    .fixed_try_connect(
+                        SocketAddr::new(*ip, peer_proxy.port()),
+                        task_conf,
+                        tcp_notes,
+                        task_notes,
+                    )
+                    .await
             }
             g3_types::net::Host::Domain(domain) => {
+                // Try sticky selection if requested
+                if let Some(decision) = task_notes.sticky()
+                    && decision.enabled()
+                    && !decision.rotate
+                {
+                    let mut resolver_job = self.resolve_happy(domain.clone())?;
+                    // Use all resolved IPs for HRW selection to avoid bias
+                    let ips = resolver_job
+                        .get_r1_or_first(
+                            self.config.happy_eyeballs.resolution_delay(),
+                            usize::MAX,
+                        )
+                        .await?;
+                    if let Some((pick, key, _cache_hit)) =
+                        crate::sticky::choose_sticky_ip(decision, task_conf.upstream, &ips).await
+                    {
+                        let peer = SocketAddr::new(pick, peer_proxy.port());
+                        match self
+                            .fixed_try_connect(peer, task_conf, tcp_notes, task_notes)
+                            .await
+                        {
+                            Ok(stream) => {
+                                tcp_notes.sticky_enabled = true;
+                                let ttl = decision.effective_ttl();
+                                let now = chrono::Utc::now();
+                                tcp_notes.sticky_expires_at =
+                                    Some(crate::sticky::compute_expiry(now, ttl));
+                                crate::sticky::redis_set_ip(&key, pick, ttl).await;
+                                return Ok(stream);
+                            }
+                            Err(_) => {
+                                // fallback to regular connect
+                            }
+                        }
+                    }
+                    // rebuild to proceed normal path
+                    let resolver_job = self.resolve_happy(domain.clone())?;
+                    return self
+                        .happy_try_connect(
+                            resolver_job,
+                            peer_proxy.port(),
+                            task_conf,
+                            tcp_notes,
+                            task_notes,
+                        )
+                        .await;
+                }
                 let resolver_job = self.resolve_happy(domain.clone())?;
                 self.happy_try_connect(
                     resolver_job,
@@ -348,5 +435,35 @@ impl ProxySocks5Escaper {
         );
 
         Ok(stream)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::sticky::{parse_username_and_decision, build_sticky_key};
+    use std::net::IpAddr;
+
+    #[test]
+    fn sticky_key_contains_target() {
+        let ups: g3_types::net::UpstreamAddr = "example.com:443".parse().unwrap();
+        let (_base, d) = parse_username_and_decision("u+session_id=s1");
+        let k = build_sticky_key(&d, &ups);
+        assert!(k.contains("example.com:443"));
+        assert!(k.contains("|u"));
+        assert!(k.contains("session_id=s1"));
+    }
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn sticky_pick_from_list() {
+        let ups: g3_types::net::UpstreamAddr = "example.org:1080".parse().unwrap();
+        let (_base, d) = parse_username_and_decision("u+sticky=30s");
+        let ips: Vec<IpAddr> = vec![
+            "192.0.2.10".parse().unwrap(),
+            "192.0.2.11".parse().unwrap(),
+        ];
+        let r = crate::sticky::choose_sticky_ip(&d, &ups, &ips).await;
+        assert!(r.is_some());
+        let (pick, _key, _hit) = r.unwrap();
+        assert!(ips.contains(&pick));
     }
 }

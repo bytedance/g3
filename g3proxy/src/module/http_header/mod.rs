@@ -8,6 +8,7 @@ mod standard;
 
 pub(crate) use custom::{
     dynamic_egress_info, outgoing_ip, remote_connection_info, set_dynamic_egress_info,
-    set_outgoing_ip, set_remote_connection_info, set_upstream_addr, set_upstream_id, upstream_addr,
+    set_outgoing_ip, set_remote_connection_info, set_sticky_expires_at, set_sticky_session,
+    set_upstream_addr, set_upstream_id, sticky_expires_at_line, sticky_session_line, upstream_addr,
 };
 pub(crate) use standard::proxy_authorization_basic_pass;

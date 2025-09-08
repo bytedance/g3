@@ -73,6 +73,7 @@ pub(crate) struct HttpProxyPipelineWriterTask<CDR, CDW> {
     wrapper_stats: ArcLimitedWriterStats,
     pipeline_stats: Arc<HttpProxyPipelineStats>,
     req_count: RequestCount,
+    sticky_decision: Option<crate::sticky::StickyDecision>,
 }
 
 enum LoopAction {
@@ -114,6 +115,7 @@ where
             wrapper_stats: clt_w_stats,
             pipeline_stats: Arc::clone(pipeline_stats),
             req_count: RequestCount::default(),
+            sticky_decision: None,
         }
     }
 
@@ -122,8 +124,11 @@ where
         req: &HttpProxyRequest<CDR>,
     ) -> Result<Option<UserContext>, UserAuthError> {
         if let Some(user_group) = &self.user_group {
+            // parse sticky modifiers only for Basic auth
             let mut user_ctx = match &req.inner.auth_info {
-                HttpAuth::None => user_group
+                HttpAuth::None => {
+                    self.sticky_decision = None;
+                    user_group
                     .get_anonymous_user()
                     .map(|(user, user_type)| {
                         UserContext::new(
@@ -134,9 +139,15 @@ where
                             self.ctx.server_stats.share_extra_tags(),
                         )
                     })
-                    .ok_or(UserAuthError::NoUserSupplied)?,
+                    .ok_or(UserAuthError::NoUserSupplied)?
+                }
                 HttpAuth::Basic(v) => {
-                    // optionally strip "+params" suffix before auth
+                    // always parse sticky parameters from the original username
+                    let (_base_for_sticky, decision) =
+                        crate::sticky::parse_username_and_decision(v.username.as_original());
+                    self.sticky_decision = Some(decision);
+
+                    // optionally strip "+params" suffix before auth (configurable)
                     let mut base_username: Option<Username> = None;
                     if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr
                         && cfg.strip_suffix_for_auth
@@ -307,6 +318,9 @@ where
                     }
                 }
             }
+        }
+        if let Some(dec) = &self.sticky_decision {
+            task_notes.set_sticky(dec.clone());
         }
 
         let mut audit_ctx = self.audit_ctx.clone();

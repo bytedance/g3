@@ -18,9 +18,9 @@ pub(crate) mod lua;
 #[cfg(feature = "lua")]
 pub(crate) use lua::UserDynamicLuaSource;
 
-#[cfg(feature = "python")]
+#[cfg(all(feature = "python", not(test)))]
 pub(crate) mod python;
-#[cfg(feature = "python")]
+#[cfg(all(feature = "python", not(test)))]
 pub(crate) use python::UserDynamicPythonSource;
 
 const CONFIG_KEY_SOURCE_TYPE: &str = "type";
@@ -30,7 +30,7 @@ pub(crate) enum UserDynamicSource {
     File(Arc<UserDynamicFileSource>),
     #[cfg(feature = "lua")]
     Lua(Arc<UserDynamicLuaSource>),
-    #[cfg(feature = "python")]
+    #[cfg(all(feature = "python", not(test)))]
     Python(Arc<UserDynamicPythonSource>),
 }
 
@@ -50,7 +50,7 @@ impl UserDynamicSource {
                         let source = UserDynamicLuaSource::parse_map(map, lookup_dir)?;
                         Ok(UserDynamicSource::Lua(Arc::new(source)))
                     }
-                    #[cfg(feature = "python")]
+                    #[cfg(all(feature = "python", not(test)))]
                     "python" => {
                         let source = UserDynamicPythonSource::parse_map(map, lookup_dir)?;
                         Ok(UserDynamicSource::Python(Arc::new(source)))

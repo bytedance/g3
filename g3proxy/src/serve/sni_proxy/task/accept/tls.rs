@@ -96,7 +96,7 @@ mod tests {
     use super::*;
     use std::sync::Arc;
 
-    #[tokio::test]
+    #[tokio::test(flavor = "current_thread")]
     async fn single_read() {
         let data: &[u8] = &[
             0x16, //
@@ -138,7 +138,7 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "current_thread")]
     async fn multi_read() {
         let data: &[u8] = &[
             0x16, //
@@ -187,7 +187,7 @@ mod tests {
         );
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "current_thread")]
     async fn multi_record() {
         const RECORD_1_BYTES: &[u8] = &[
             0x16, 0x03, 0x01, 0x00, 0x64, 0x01, 0x00, 0x01, 0x8a, 0x03, 0x03, 0x02, 0x86, 0x70,

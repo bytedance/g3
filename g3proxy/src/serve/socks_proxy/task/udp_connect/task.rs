@@ -557,6 +557,18 @@ impl SocksProxyUdpConnectTask {
             .await?;
         self.task_notes.stage = ServerTaskStage::Connected;
 
+        // Sticky: set/refresh TTL after first packet success
+        if let Some(decision) = self.task_notes.sticky()
+            && decision.enabled()
+            && !decision.rotate
+            && let Some(next) = self.udp_notes.next
+        {
+            let key = crate::sticky::build_sticky_key(decision, &upstream);
+            let ttl = decision.effective_ttl();
+            // set now; subsequent traffic may further refresh via other layers if needed
+            crate::sticky::redis_set_ip(&key, next.ip(), ttl).await;
+        }
+
         if self.ctx.server_config.flush_task_log_on_connected
             && let Some(log_ctx) = self.get_log_context()
         {

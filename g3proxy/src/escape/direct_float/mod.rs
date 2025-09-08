@@ -295,6 +295,21 @@ impl DirectFloatEscaper {
         match ups.host() {
             Host::Ip(ip) => Ok(SocketAddr::new(*ip, ups.port())),
             Host::Domain(domain) => {
+                // Try sticky rendezvous selection if requested
+                if let Some(decision) = task_notes.sticky()
+                    && decision.enabled()
+                    && !decision.rotate
+                {
+                    let mut resolver_job =
+                        HappyEyeballsResolveJob::new_dyn(resolve_strategy, &self.resolver_handle, domain.clone())?;
+                    let ips = resolver_job
+                        .get_r1_or_first(self.config.happy_eyeballs.resolution_delay(), usize::MAX)
+                        .await?;
+                    if let Some((ip, _key, cache_hit)) = crate::sticky::choose_sticky_ip(decision, ups, &ips).await {
+                        if cache_hit { self.stats.add_sticky_hit(); } else { self.stats.add_sticky_miss(); }
+                        return Ok(SocketAddr::new(ip, ups.port()));
+                    }
+                }
                 if let Some(user_ctx) = task_notes.user_ctx()
                     && let Some(redirect) = user_ctx.user().resolve_redirection()
                     && let Some(v) = redirect.query_first(domain, resolve_strategy.query)
