@@ -47,7 +47,6 @@ server:
       require_hierarchy: true
       separator: "-"
       domain_suffix: ".localhost"
-      global_label: "global"
       http_port: 9       # discard port to avoid accidental external connections
       socks5_port: 9
       strip_suffix_for_auth: true
@@ -65,8 +64,6 @@ server:
       require_hierarchy: true
       separator: "+"
       domain_suffix: ".localhost"
-      global_label: "global"
       http_port: 9
       socks5_port: 9
       strip_suffix_for_auth: true
-
