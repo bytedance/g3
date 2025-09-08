@@ -298,15 +298,17 @@ impl ProxyHttpEscaper {
 
     async fn connect_via_peer(
         &self,
-        peer_proxy: &g3_types::net::UpstreamAddr,
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, TcpConnectError> {
+        let peer_proxy = task_notes
+            .override_next_proxy()
+            .unwrap_or_else(|| self.get_next_proxy(task_notes, task_conf.upstream.host()));
         match peer_proxy.host() {
             g3_types::net::Host::Ip(ip) => {
                 self.fixed_try_connect(
-                    std::net::SocketAddr::new(*ip, peer_proxy.port()),
+                    SocketAddr::new(*ip, peer_proxy.port()),
                     task_conf,
                     tcp_notes,
                     task_notes,
@@ -327,21 +329,6 @@ impl ProxyHttpEscaper {
         }
     }
 
-    async fn tcp_connect_to(
-        &self,
-        task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
-        task_notes: &ServerTaskNotes,
-    ) -> Result<TcpStream, TcpConnectError> {
-        let peer_proxy = task_notes
-            .override_next_proxy()
-            .unwrap_or_else(|| self.get_next_proxy(task_notes, task_conf.upstream.host()));
-
-        self
-            .connect_via_peer(peer_proxy, task_conf, tcp_notes, task_notes)
-            .await
-    }
-
     pub(super) async fn tcp_new_connection(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
@@ -349,7 +336,7 @@ impl ProxyHttpEscaper {
         task_notes: &ServerTaskNotes,
     ) -> Result<LimitedStream<TcpStream>, TcpConnectError> {
         let stream = self
-            .tcp_connect_to(task_conf, tcp_notes, task_notes)
+            .connect_via_peer(task_conf, tcp_notes, task_notes)
             .await?;
 
         let limit_config = &self.config.general.tcp_sock_speed_limit;

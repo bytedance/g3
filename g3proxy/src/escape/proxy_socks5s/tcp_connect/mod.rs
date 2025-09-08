@@ -297,37 +297,6 @@ impl ProxySocks5sEscaper {
 
     async fn connect_via_peer(
         &self,
-        peer_proxy: &g3_types::net::UpstreamAddr,
-        task_conf: &TcpConnectTaskConf<'_>,
-        tcp_notes: &mut TcpConnectTaskNotes,
-        task_notes: &ServerTaskNotes,
-    ) -> Result<TcpStream, TcpConnectError> {
-        match peer_proxy.host() {
-            g3_types::net::Host::Ip(ip) => {
-                self.fixed_try_connect(
-                    std::net::SocketAddr::new(*ip, peer_proxy.port()),
-                    task_conf,
-                    tcp_notes,
-                    task_notes,
-                )
-                .await
-            }
-            g3_types::net::Host::Domain(domain) => {
-                let resolver_job = self.resolve_happy(domain.clone())?;
-                self.happy_try_connect(
-                    resolver_job,
-                    peer_proxy.port(),
-                    task_conf,
-                    tcp_notes,
-                    task_notes,
-                )
-                .await
-            }
-        }
-    }
-
-    async fn tcp_connect_to(
-        &self,
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
@@ -335,12 +304,30 @@ impl ProxySocks5sEscaper {
         let peer_proxy = task_notes
             .override_next_proxy()
             .unwrap_or_else(|| self.get_next_proxy(task_notes, task_conf.upstream.host()));
-
-        let stream = self
-            .connect_via_peer(peer_proxy, task_conf, tcp_notes, task_notes)
-            .await?;
-
-        Ok((peer_proxy.clone(), stream))
+        match peer_proxy.host() {
+            g3_types::net::Host::Ip(ip) => {
+                let stream = self.fixed_try_connect(
+                    SocketAddr::new(*ip, peer_proxy.port()),
+                    task_conf,
+                    tcp_notes,
+                    task_notes,
+                )
+                .await?;
+                Ok((peer_proxy.clone(), stream))
+            }
+            g3_types::net::Host::Domain(domain) => {
+                let resolver_job = self.resolve_happy(domain.clone())?;
+                let stream = self.happy_try_connect(
+                    resolver_job,
+                    peer_proxy.port(),
+                    task_conf,
+                    tcp_notes,
+                    task_notes,
+                )
+                .await?;
+                Ok((peer_proxy.clone(), stream))
+            }
+        }
     }
 
     pub(super) async fn tcp_new_connection(
@@ -350,7 +337,7 @@ impl ProxySocks5sEscaper {
         task_notes: &ServerTaskNotes,
     ) -> Result<(UpstreamAddr, LimitedStream<TcpStream>), TcpConnectError> {
         let (peer, stream) = self
-            .tcp_connect_to(task_conf, tcp_notes, task_notes)
+            .connect_via_peer(task_conf, tcp_notes, task_notes)
             .await?;
 
         let limit_config = &self.config.general.tcp_sock_speed_limit;
