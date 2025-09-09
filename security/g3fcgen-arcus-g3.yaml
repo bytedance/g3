@@ -1,0 +1,56 @@
+# G3FCGen configuration for Arcus-G3 Multi-Tenant SWG
+# This configuration provides multi-tenant fake certificate generation
+
+# Global configuration
+global:
+  default_ttl: 3600  # 1 hour
+  max_ttl: 86400     # 24 hours
+  cleanup_interval: 300  # 5 minutes
+  max_cache_size: 1000
+  keep_serial: false
+  append_ca_cert: true
+
+# CA certificate configuration
+ca:
+  certificate: "ca.crt"
+  private_key: "ca.key"
+  password: null
+  additional_certs: []
+
+# Backend configuration
+backend:
+  type: "openssl"
+  worker_threads: 4
+  queue_size: 1024
+  generation_timeout: 30
+  stats:
+    enabled: true
+    export_interval: 60
+    export_destination: "console"
+
+# Tenant-specific configurations
+tenants:
+  # Example tenant configurations
+  # tenant-1:
+  #   tenant_id: "550e8400-e29b-41d4-a716-446655440000"
+  #   ttl: 7200  # 2 hours
+  #   cache_size: 500
+  #   cleanup_interval: 180  # 3 minutes
+  #   allowed_hostnames:
+  #     - "*.example.com"
+  #     - "*.tenant1.com"
+  #   denied_hostnames:
+  #     - "*.malicious.com"
+  #   custom_ca_cert: "tenant1-ca.crt"
+  #   custom_ca_key: "tenant1-ca.key"
+
+  # tenant-2:
+  #   tenant_id: "660e8400-e29b-41d4-a716-446655440001"
+  #   ttl: 1800  # 30 minutes
+  #   cache_size: 200
+  #   cleanup_interval: 120  # 2 minutes
+  #   allowed_hostnames:
+  #     - "*.tenant2.com"
+  #   denied_hostnames: []
+  #   custom_ca_cert: null
+  #   custom_ca_key: null
