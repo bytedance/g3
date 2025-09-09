@@ -34,17 +34,21 @@ serde_yaml = "0.9"
 toml = "0.8"
 
 # HTTP/Network
+http = "1.3"
 hyper = { version = "1.7", features = ["full"] }
 hyper-util = "0.1"
 reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
 rustls = "0.23"
 rustls-native-certs = "0.8"
+rustls-pemfile = "2.1"
 
 # Error handling
 anyhow = "1.0"
 thiserror = "2.0"
 
 # Logging
+log = "0.4"
+slog = "2.7"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-opentelemetry = "0.28"
@@ -61,6 +65,8 @@ redis = "0.26"
 ring = "0.17"
 webpki = "0.22"
 x509-parser = "0.16"
+openssl = "0.10"
+openssl-sys = "0.9"
 
 # Monitoring
 prometheus = "0.14"
@@ -73,19 +79,83 @@ chrono = { version = "0.4", features = ["serde"] }
 regex = "1.11"
 url = "2.5"
 base64 = "0.22"
+humanize-rs = "0.1"
 
-# G3 Project dependencies (to be added when integrating)
-# g3-daemon = { path = "../g3/lib/g3-daemon" }
-# g3-types = { path = "../g3/lib/g3-types" }
-# g3-runtime = { path = "../g3/lib/g3-runtime" }
-# g3-resolver = { path = "../g3/lib/g3-resolver" }
-# g3-socket = { path = "../g3/lib/g3-socket" }
-# g3-socks = { path = "../g3/lib/g3-socks" }
-# g3-http = { path = "../g3/lib/g3-http" }
-# g3-icap-client = { path = "../g3/lib/g3-icap-client" }
-# g3-openssl = { path = "../g3/lib/g3-openssl" }
-# g3-tls-cert = { path = "../g3/lib/g3-tls-cert" }
-# g3-statsd-client = { path = "../g3/lib/g3-statsd-client" }
+# Additional dependencies for G3 integration
+idna = "0.5"
+libc = "0.2"
+percent-encoding = "2.3"
+rand = "0.8"
+rustc-hash = "1.1"
+fnv = "1.0"
+foldhash = "0.2"
+crc32fast = "1.5"
+smallvec = "1.13"
+smol_str = "0.2"
+memchr = "2.7"
+constant_time_eq = "0.3"
+num-traits = "0.2"
+arc-swap = "1.7"
+ahash = "0.8"
+fastrand = "2.1"
+blake3 = "1.5"
+hex = "0.4"
+ip_network = "0.4"
+ip_network_table = "0.2"
+radix_trie = "0.2"
+rustls-pki-types = "1.4"
+quinn = "0.11"
+webpki-roots = "1.0"
+lru = "0.12"
+bytes = "1.7"
+kanal = "2.0"
+indexmap = "2.3"
+brotli = "8.0"
+rustix = "0.40"
+windows-sys = "0.52"
+
+# G3 Project dependencies
+g3-daemon = { path = "lib/g3-daemon" }
+g3-types = { path = "lib/g3-types" }
+g3-runtime = { path = "lib/g3-runtime" }
+g3-resolver = { path = "lib/g3-resolver" }
+g3-socket = { path = "lib/g3-socket" }
+g3-socks = { path = "lib/g3-socks" }
+g3-http = { path = "lib/g3-http" }
+g3-icap-client = { path = "lib/g3-icap-client" }
+g3-openssl = { path = "lib/g3-openssl" }
+g3-tls-cert = { path = "lib/g3-tls-cert" }
+g3-statsd-client = { path = "lib/g3-statsd-client" }
+g3-yaml = { path = "lib/g3-yaml" }
+g3-json = { path = "lib/g3-json" }
+g3-msgpack = { path = "lib/g3-msgpack" }
+g3-fluentd = { path = "lib/g3-fluentd" }
+g3-syslog = { path = "lib/g3-syslog" }
+g3-stdlog = { path = "lib/g3-stdlog" }
+g3-slog-types = { path = "lib/g3-slog-types" }
+g3-io-ext = { path = "lib/g3-io-ext" }
+g3-io-sys = { path = "lib/g3-io-sys" }
+g3-std-ext = { path = "lib/g3-std-ext" }
+g3-compat = { path = "lib/g3-compat" }
+g3-macros = { path = "lib/g3-macros" }
+g3-build-env = { path = "lib/g3-build-env" }
+g3-clap = { path = "lib/g3-clap" }
+g3-ctl = { path = "lib/g3-ctl" }
+g3-datetime = { path = "lib/g3-datetime" }
+g3-dpi = { path = "lib/g3-dpi" }
+g3-ftp-client = { path = "lib/g3-ftp-client" }
+g3-geoip-db = { path = "lib/g3-geoip-db" }
+g3-geoip-types = { path = "lib/g3-geoip-types" }
+g3-h2 = { path = "lib/g3-h2" }
+g3-hickory-client = { path = "lib/g3-hickory-client" }
+g3-histogram = { path = "lib/g3-histogram" }
+g3-imap-proto = { path = "lib/g3-imap-proto" }
+g3-journal = { path = "lib/g3-journal" }
+g3-redis-client = { path = "lib/g3-redis-client" }
+g3-smtp-proto = { path = "lib/g3-smtp-proto" }
+g3-tls-ticket = { path = "lib/g3-tls-ticket" }
+g3-udpdump = { path = "lib/g3-udpdump" }
+g3-xcrypt = { path = "lib/g3-xcrypt" }
 
 [profile.dev]
 debug = true

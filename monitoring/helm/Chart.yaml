@@ -1,0 +1,20 @@
+apiVersion: v2
+name: arcus-g3-monitoring
+description: Monitoring and observability stack for Arcus-G3 SWG
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - monitoring
+  - observability
+  - prometheus
+  - grafana
+  - jaeger
+  - elasticsearch
+  - kibana
+home: https://github.com/your-org/arcus-g3
+sources:
+  - https://github.com/your-org/arcus-g3
+maintainers:
+  - name: Arcus-G3 Team
+    email: team@arcus-g3.com

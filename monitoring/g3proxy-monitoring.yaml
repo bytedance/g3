@@ -1,0 +1,261 @@
+# G3Proxy monitoring configuration for Arcus-G3
+# This configuration enables comprehensive monitoring and observability
+
+# Runtime configuration
+runtime:
+  thread_number: 8
+  log_level: info
+
+# Statistics configuration
+stat:
+  target:
+    udp: "127.0.0.1:8125"  # StatsD endpoint
+  prefix: "arcus_g3_proxy"
+  emit_interval: 30s
+  emit_duration: 200ms
+
+# Logging configuration
+log:
+  - level: info
+    format: json
+    output:
+      - type: file
+        path: "/var/log/arcus-g3/g3proxy.log"
+        rotation:
+          max_size: "100MB"
+          max_files: 10
+      - type: syslog
+        facility: local0
+        tag: "arcus-g3-proxy"
+
+# Server configuration
+server:
+  - name: arcus_g3_http_proxy
+    type: http_proxy
+    escaper: tenant_router
+    user_group: tenant_users
+    listen:
+      address: "[::]:8080"
+    tls_client: {}
+    metrics:
+      enabled: true
+      port: 9090
+      path: "/metrics"
+      format: "prometheus"
+    
+  - name: arcus_g3_https_proxy
+    type: https_proxy
+    escaper: tenant_router
+    user_group: tenant_users
+    listen:
+      address: "[::]:8443"
+    tls_server:
+      cert: "/etc/arcus-g3/certs/server.crt"
+      key: "/etc/arcus-g3/certs/server.key"
+    tls_client: {}
+    metrics:
+      enabled: true
+      port: 9091
+      path: "/metrics"
+      format: "prometheus"
+
+# User group configuration
+user_group:
+  - name: tenant_users
+    source:
+      type: file
+      path: "/etc/arcus-g3/users.json"
+    metrics:
+      enabled: true
+      track_per_user: true
+      track_per_tenant: true
+
+# Escaper configuration
+escaper:
+  - name: tenant_router
+    type: route_upstream
+    rules:
+      - child_match: "internal.tenant-a.com"
+        next: direct_access
+      - child_match: "internal.tenant-b.com"
+        next: direct_access
+      - regex_match: ".*\\.blocked\\..*"
+        next: deny_access
+    fallback_next: internet_access
+    metrics:
+      enabled: true
+      track_per_tenant: true
+      track_per_rule: true
+    
+  - name: direct_access
+    type: direct
+    metrics:
+      enabled: true
+      
+  - name: deny_access
+    type: deny
+    metrics:
+      enabled: true
+      
+  - name: internet_access
+    type: proxy_https
+    proxy:
+      host: "upstream-proxy.example.com"
+      port: 8080
+    metrics:
+      enabled: true
+
+# Resolver configuration
+resolver:
+  - name: dns_resolver
+    type: hickory
+    nameservers:
+      - "8.8.8.8"
+      - "8.8.4.4"
+    metrics:
+      enabled: true
+      track_queries: true
+      track_errors: true
+
+# Auditor configuration
+auditor:
+  - name: traffic_auditor
+    type: file
+    path: "/var/log/arcus-g3/audit.log"
+    format: json
+    fields:
+      - timestamp
+      - tenant_id
+      - user_id
+      - request_id
+      - method
+      - url
+      - status
+      - response_time
+      - bytes_sent
+      - bytes_received
+    metrics:
+      enabled: true
+      track_per_tenant: true
+      track_per_user: true
+
+# Metrics configuration
+metrics:
+  prometheus:
+    enabled: true
+    port: 9090
+    path: "/metrics"
+    namespace: "arcus_g3"
+    labels:
+      service: "g3proxy"
+      version: "1.0.0"
+      environment: "production"
+  
+  statsd:
+    enabled: true
+    host: "127.0.0.1"
+    port: 8125
+    prefix: "arcus_g3"
+    tags:
+      service: "g3proxy"
+      version: "1.0.0"
+  
+  custom_metrics:
+    - name: "tenant_requests_total"
+      type: "counter"
+      help: "Total requests per tenant"
+      labels: ["tenant_id", "tenant_name", "service"]
+    
+    - name: "user_requests_total"
+      type: "counter"
+      help: "Total requests per user"
+      labels: ["user_id", "tenant_id", "service"]
+    
+    - name: "security_events_total"
+      type: "counter"
+      help: "Total security events"
+      labels: ["event_type", "severity", "tenant_id", "source"]
+    
+    - name: "audit_events_total"
+      type: "counter"
+      help: "Total audit events"
+      labels: ["event_type", "tenant_id", "user_id", "action"]
+    
+    - name: "performance_metrics"
+      type: "gauge"
+      help: "Performance metrics"
+      labels: ["metric_name", "tenant_id", "service"]
+    
+    - name: "error_metrics"
+      type: "counter"
+      help: "Error metrics"
+      labels: ["error_type", "tenant_id", "service", "severity"]
+
+# Tracing configuration
+tracing:
+  jaeger:
+    enabled: true
+    endpoint: "http://jaeger:14268/api/traces"
+    service_name: "arcus-g3-proxy"
+    tags:
+      service: "g3proxy"
+      version: "1.0.0"
+      environment: "production"
+  
+  sampling:
+    rate: 0.1  # 10% sampling rate
+    max_traces_per_second: 100
+  
+  context:
+    tenant_id: true
+    user_id: true
+    request_id: true
+    session_id: true
+
+# Health check configuration
+health_check:
+  enabled: true
+  port: 8081
+  path: "/health"
+  interval: 30s
+  timeout: 5s
+  checks:
+    - name: "database"
+      type: "tcp"
+      host: "localhost"
+      port: 5432
+    - name: "redis"
+      type: "tcp"
+      host: "localhost"
+      port: 6379
+    - name: "upstream_proxy"
+      type: "http"
+      url: "http://upstream-proxy.example.com:8080/health"
+
+# Alerting configuration
+alerts:
+  enabled: true
+  rules:
+    - name: "high_error_rate"
+      condition: "rate(http_requests_total{status=~\"5..\"}[5m]) / rate(http_requests_total[5m]) > 0.1"
+      duration: "5m"
+      severity: "warning"
+      message: "High error rate detected: {{ $value }}%"
+    
+    - name: "high_response_time"
+      condition: "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1"
+      duration: "5m"
+      severity: "warning"
+      message: "High response time detected: {{ $value }}s"
+    
+    - name: "tenant_isolation_violation"
+      condition: "arcus_g3_tenant_isolation_violations_total > 0"
+      duration: "1m"
+      severity: "critical"
+      message: "Tenant isolation violation detected"
+    
+    - name: "security_event_rate"
+      condition: "rate(arcus_g3_security_events_total[5m]) > 10"
+      duration: "5m"
+      severity: "warning"
+      message: "High security event rate: {{ $value }} events/sec"

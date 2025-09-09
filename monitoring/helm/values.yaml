@@ -1,0 +1,233 @@
+# Default values for arcus-g3-monitoring
+# This is a YAML-formatted file.
+
+# Global settings
+global:
+  namespace: monitoring
+  storageClass: ""
+
+# Prometheus configuration
+prometheus:
+  enabled: true
+  image:
+    repository: prom/prometheus
+    tag: v2.48.0
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 9090
+  
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  
+  storage:
+    size: "10Gi"
+    storageClass: ""
+  
+  retention: "30d"
+
+# Grafana configuration
+grafana:
+  enabled: true
+  image:
+    repository: grafana/grafana
+    tag: 10.2.0
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 3000
+  
+  adminPassword: "admin"
+  
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  
+  storage:
+    size: "5Gi"
+    storageClass: ""
+  
+  plugins:
+    - grafana-piechart-panel
+    - grafana-worldmap-panel
+
+# Jaeger configuration
+jaeger:
+  enabled: true
+  image:
+    repository: jaegertracing/all-in-one
+    tag: 1.51
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    uiPort: 16686
+    collectorPort: 14268
+  
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+# Elasticsearch configuration
+elasticsearch:
+  enabled: true
+  image:
+    repository: docker.elastic.co/elasticsearch/elasticsearch
+    tag: 8.11.0
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 9200
+  
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+  
+  storage:
+    size: "20Gi"
+    storageClass: ""
+  
+  security:
+    enabled: false
+
+# Logstash configuration
+logstash:
+  enabled: true
+  image:
+    repository: docker.elastic.co/logstash/logstash
+    tag: 8.11.0
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    beatsPort: 5044
+    tcpPort: 5000
+  
+  resources:
+    requests:
+      memory: "1Gi"
+      cpu: "500m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+
+# Kibana configuration
+kibana:
+  enabled: true
+  image:
+    repository: docker.elastic.co/kibana/kibana
+    tag: 8.11.0
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 5601
+  
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+
+# Filebeat configuration
+filebeat:
+  enabled: true
+  image:
+    repository: docker.elastic.co/beats/filebeat
+    tag: 8.11.0
+    pullPolicy: IfNotPresent
+  
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "250m"
+
+# Redis configuration
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: 7.2-alpine
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 6379
+  
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "250m"
+  
+  storage:
+    size: "5Gi"
+    storageClass: ""
+
+# Node Exporter configuration
+nodeExporter:
+  enabled: true
+  image:
+    repository: prom/node-exporter
+    tag: v1.7.0
+    pullPolicy: IfNotPresent
+  
+  service:
+    type: ClusterIP
+    port: 9100
+  
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "100m"
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: monitoring.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: grafana
+  tls: []
+
+# ServiceMonitor configuration for Prometheus Operator
+serviceMonitor:
+  enabled: false
+  namespace: monitoring
+  labels: {}
+  interval: 30s
+  scrapeTimeout: 10s
