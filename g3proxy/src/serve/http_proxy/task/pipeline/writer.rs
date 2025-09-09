@@ -127,36 +127,34 @@ where
             // parse sticky modifiers only for Basic auth
             let mut user_ctx = match &req.inner.auth_info {
                 HttpAuth::None => {
-                    // clear sticky decision when anonymous
                     self.sticky_decision = None;
                     user_group
-                        .get_anonymous_user()
-                        .map(|(user, user_type)| {
-                            UserContext::new(
-                                None,
-                                user,
-                                user_type,
-                                self.ctx.server_config.name(),
-                                self.ctx.server_stats.share_extra_tags(),
-                            )
-                        })
-                        .ok_or(UserAuthError::NoUserSupplied)?
+                    .get_anonymous_user()
+                    .map(|(user, user_type)| {
+                        UserContext::new(
+                            None,
+                            user,
+                            user_type,
+                            self.ctx.server_config.name(),
+                            self.ctx.server_stats.share_extra_tags(),
+                        )
+                    })
+                    .ok_or(UserAuthError::NoUserSupplied)?
                 }
                 HttpAuth::Basic(v) => {
-                    // parse sticky modifiers for this connection from the original username
+                    // always parse sticky parameters from the original username
                     let (_base_for_sticky, decision) =
                         crate::sticky::parse_username_and_decision(v.username.as_original());
                     self.sticky_decision = Some(decision);
 
-                    // optionally strip "+params" suffix before auth
+                    // optionally strip "+params" suffix before auth (configurable)
                     let mut base_username: Option<Username> = None;
                     if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr
                         && cfg.strip_suffix_for_auth
                     {
-                        let base =
-                            crate::serve::username_params::ParsedUsernameParams::auth_base(
-                                v.username.as_original(),
-                            );
+                        let base = crate::serve::username_params::ParsedUsernameParams::auth_base(
+                            v.username.as_original(),
+                        );
                         if base != v.username.as_original() {
                             base_username = Username::from_original(base).ok();
                         }
@@ -321,7 +319,6 @@ where
                 }
             }
         }
-
         // Apply sticky session decision if available
         if let Some(dec) = &self.sticky_decision {
             task_notes.set_sticky(dec.clone());

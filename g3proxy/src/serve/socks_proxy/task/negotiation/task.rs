@@ -11,7 +11,6 @@ use tokio::time::Instant;
 
 use g3_io_ext::{AsyncStream, LimitedReader, LimitedWriter};
 use g3_socks::{SocksAuthMethod, SocksCommand, SocksVersion, v4a, v5};
-use g3_types::auth::Username;
 use g3_types::net::UpstreamAddr;
 
 use super::tcp_connect::SocksProxyTcpConnectTask;
@@ -20,6 +19,7 @@ use super::udp_connect::SocksProxyUdpConnectTask;
 use super::{CommonTaskContext, SocksProxyCltWrapperStats};
 use crate::audit::AuditContext;
 use crate::auth::{UserContext, UserGroup};
+use g3_types::auth::Username;
 use crate::config::server::ServerConfig;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
@@ -238,7 +238,7 @@ impl SocksProxyNegotiationTask {
                     let (username, password) = v5::auth::recv_user_from_client(&mut clt_r).await?;
                     // preserve original username for mapping
                     let username_original = username.as_original().to_string();
-                    // parse sticky decision from the original username
+                    // parse sticky decision from original username
                     let (_base_for_sticky, decision) =
                         crate::sticky::parse_username_and_decision(&username_original);
                     sticky_decision = Some(decision);
@@ -338,7 +338,10 @@ impl SocksProxyNegotiationTask {
                     .unwrap_or_else(|| "<none>".into())
             );
         }
-        if let Some(dec) = sticky_decision { task_notes.set_sticky(dec); }
+        if let Some(dec) = sticky_decision {
+            task_notes.set_sticky(dec);
+        }
+        
         match req.command {
             SocksCommand::TcpConnect => {
                 let task = SocksProxyTcpConnectTask::new(

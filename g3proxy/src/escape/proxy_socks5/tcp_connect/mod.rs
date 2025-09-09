@@ -306,33 +306,41 @@ impl ProxySocks5Escaper {
             .unwrap_or_else(|| self.get_next_proxy(task_notes, task_conf.upstream.host()));
         match peer_proxy.host() {
             g3_types::net::Host::Ip(ip) => {
-                // If there are multiple static proxy IPs configured, try sticky selection
+                // Sticky over static IP list: choose and persist
                 if let Some(decision) = task_notes.sticky()
                     && decision.enabled()
                     && !decision.rotate
-                    && self.static_proxy_ip_ports.len() >= 2
                 {
-                    let ips: Vec<IpAddr> =
-                        self.static_proxy_ip_ports.iter().map(|(ip, _)| *ip).collect();
-                    if let Some((pick, key, _hit)) =
-                        crate::sticky::choose_sticky_ip(decision, task_conf.upstream, &ips).await
-                    {
-                        let port = self
-                            .static_proxy_ip_ports
-                            .iter()
-                            .find_map(|(ipx, p)| if *ipx == pick { Some(*p) } else { None })
-                            .unwrap_or(peer_proxy.port());
-                        let peer = SocketAddr::new(pick, port);
-                        if let Ok(stream) =
-                            self.fixed_try_connect(peer, task_conf, tcp_notes, task_notes).await
+                    if self.static_proxy_ip_ports.len() >= 2 {
+                        let ips: Vec<IpAddr> =
+                            self.static_proxy_ip_ports.iter().map(|(ip, _)| *ip).collect();
+                        if let Some((pick, key, _hit)) =
+                            crate::sticky::choose_sticky_ip(decision, task_conf.upstream, &ips)
+                                .await
                         {
-                            tcp_notes.sticky_enabled = true;
-                            let ttl = decision.effective_ttl();
-                            let now = chrono::Utc::now();
-                            tcp_notes.sticky_expires_at =
-                                Some(crate::sticky::compute_expiry(now, ttl));
-                            crate::sticky::redis_set_ip(&key, pick, ttl).await;
-                            return Ok(stream);
+                            let port = self
+                                .static_proxy_ip_ports
+                                .iter()
+                                .find_map(|(ipx, p)| if *ipx == pick { Some(*p) } else { None })
+                                .unwrap_or(peer_proxy.port());
+                            let peer = SocketAddr::new(pick, port);
+                            match self
+                                .fixed_try_connect(peer, task_conf, tcp_notes, task_notes)
+                                .await
+                            {
+                                Ok(stream) => {
+                                    tcp_notes.sticky_enabled = true;
+                                    let ttl = decision.effective_ttl();
+                                    let now = chrono::Utc::now();
+                                    tcp_notes.sticky_expires_at =
+                                        Some(crate::sticky::compute_expiry(now, ttl));
+                                    crate::sticky::redis_set_ip(&key, pick, ttl).await;
+                                    return Ok(stream);
+                                }
+                                Err(_) => {
+                                    // fallback to regular connect
+                                }
+                            }
                         }
                     }
                 }
@@ -364,16 +372,22 @@ impl ProxySocks5Escaper {
                         crate::sticky::choose_sticky_ip(decision, task_conf.upstream, &ips).await
                     {
                         let peer = SocketAddr::new(pick, peer_proxy.port());
-                        if let Ok(stream) =
-                            self.fixed_try_connect(peer, task_conf, tcp_notes, task_notes).await
+                        match self
+                            .fixed_try_connect(peer, task_conf, tcp_notes, task_notes)
+                            .await
                         {
-                            tcp_notes.sticky_enabled = true;
-                            let ttl = decision.effective_ttl();
-                            let now = chrono::Utc::now();
-                            tcp_notes.sticky_expires_at =
-                                Some(crate::sticky::compute_expiry(now, ttl));
-                            crate::sticky::redis_set_ip(&key, pick, ttl).await;
-                            return Ok(stream);
+                            Ok(stream) => {
+                                tcp_notes.sticky_enabled = true;
+                                let ttl = decision.effective_ttl();
+                                let now = chrono::Utc::now();
+                                tcp_notes.sticky_expires_at =
+                                    Some(crate::sticky::compute_expiry(now, ttl));
+                                crate::sticky::redis_set_ip(&key, pick, ttl).await;
+                                return Ok(stream);
+                            }
+                            Err(_) => {
+                                // fallback to regular connect
+                            }
                         }
                     }
                     // rebuild to proceed normal path
@@ -388,6 +402,9 @@ impl ProxySocks5Escaper {
                         )
                         .await;
                 }
+
+
+
 
                 let resolver_job = self.resolve_happy(domain.clone())?;
                 self.happy_try_connect(
