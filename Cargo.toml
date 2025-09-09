@@ -1,258 +1,102 @@
 [workspace]
 members = [
-    "g3bench",
-    "g3fcgen",
-    "g3iploc",
-    "g3keymess",
-    "g3keymess/proto",
-    "g3keymess/utils/ctl",
-    "g3mkcert",
-    "g3proxy",
-    "g3proxy/proto",
-    "g3proxy/utils/ctl",
-    "g3proxy/utils/ftp",
-    "g3proxy/utils/lua",
-    "g3statsd",
-    "g3statsd/proto",
-    "g3statsd/utils/ctl",
-    "g3tiles",
-    "g3tiles/proto",
-    "g3tiles/utils/ctl",
-    "lib/g3-build-env",
-    "lib/g3-cert-agent",
-    "lib/g3-clap",
-    "lib/g3-compat",
-    "lib/g3-ctl",
-    "lib/g3-daemon",
-    "lib/g3-datetime",
-    "lib/g3-dpi",
-    "lib/g3-fluentd",
-    "lib/g3-ftp-client",
-    "lib/g3-geoip-db",
-    "lib/g3-geoip-types",
-    "lib/g3-h2",
-    "lib/g3-hickory-client",
-    "lib/g3-histogram",
-    "lib/g3-http",
-    "lib/g3-icap-client",
-    "lib/g3-imap-proto",
-    "lib/g3-io-ext",
-    "lib/g3-io-sys",
-    "lib/g3-ip-locate",
-    "lib/g3-journal",
-    "lib/g3-json",
-    "lib/g3-macros",
-    "lib/g3-msgpack",
-    "lib/g3-openssl",
-    "lib/g3-redis-client",
-    "lib/g3-resolver",
-    "lib/g3-runtime",
-    "lib/g3-slog-types",
-    "lib/g3-smtp-proto",
-    "lib/g3-socket",
-    "lib/g3-socks",
-    "lib/g3-statsd-client",
-    "lib/g3-std-ext",
-    "lib/g3-stdlog",
-    "lib/g3-syslog",
-    "lib/g3-tls-cert",
-    "lib/g3-tls-ticket",
-    "lib/g3-types",
-    "lib/g3-udpdump",
-    "lib/g3-xcrypt",
-    "lib/g3-yaml",
-    "scripts/capnp-generate",
+    "arcus-g3-core",
+    "arcus-g3-proxy", 
+    "arcus-g3-security",
+    "arcus-g3-metrics",
+    "arcus-g3-config",
+    "arcus-g3-cli"
 ]
-default-members = [
-    "g3bench",
-    "g3fcgen",
-    "g3iploc",
-    "g3mkcert",
-    "g3proxy",
-    "g3proxy/utils/ctl",
-    "g3proxy/utils/ftp",
-    "g3proxy/utils/lua",
-    "g3statsd",
-    "g3statsd/utils/ctl",
-    "g3tiles",
-    "g3tiles/utils/ctl",
-    "g3keymess",
-    "g3keymess/proto",
-    "g3keymess/utils/ctl",
-    "scripts/capnp-generate",
-]
-resolver = "3"
+resolver = "2"
 
 [workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Arcus-G3 Team <team@arcus-g3.local>"]
 license = "Apache-2.0"
-edition = "2024"
-rust-version = "1.88.0"
+repository = "https://github.com/arcus-g3/swg"
+homepage = "https://github.com/arcus-g3/swg"
+documentation = "https://docs.rs/arcus-g3"
+description = "Multi-Tenant, High-Performance, Cloud-Based Secure Web Gateway using G3 Project"
+keywords = ["proxy", "gateway", "security", "multi-tenant", "g3"]
+categories = ["network-programming", "web-programming"]
+rust-version = "1.89"
 
 [workspace.dependencies]
-#
+# Async runtime
+tokio = { version = "1.47", features = ["full"] }
+tokio-util = "0.7"
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+toml = "0.8"
+
+# HTTP/Network
+hyper = { version = "1.7", features = ["full"] }
+hyper-util = "0.1"
+reqwest = { version = "0.12", features = ["json", "rustls-tls"] }
+rustls = "0.23"
+rustls-native-certs = "0.8"
+
+# Error handling
 anyhow = "1.0"
 thiserror = "2.0"
-rand = { version = "0.9", default-features = false, features = ["thread_rng"] }
-fastrand = "2.3"
-memchr = "2.4"
-constant_time_eq = "0.4"
-uuid = "1.13"
-base64 = "0.22"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-opentelemetry = "0.28"
+
+# Configuration
+clap = { version = "4.5", features = ["derive"] }
+config = "0.14"
+
+# Database/Storage
+sled = "0.34"
+redis = "0.26"
+
+# Security/Crypto
+ring = "0.17"
+webpki = "0.22"
+x509-parser = "0.16"
+
+# Monitoring
+prometheus = "0.14"
+opentelemetry = "0.27"
+opentelemetry-jaeger = "0.26"
+
+# Utilities
+uuid = { version = "1.11", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
 regex = "1.11"
-arc-swap = "1.2"
-chrono = { version = "0.4.39", default-features = false }
-ascii = "1.0"
-humanize-rs = "0.1"
-#
-portable-atomic = "1.9"
-itoa = "1.0"
-atoi = "2.0"
-ryu = "1.0"
-num-traits = "0.2"
-#
-once_cell = "1.21"
-bytes = "1.10"
-smallvec = "1.15"
-smol_str = { version = "0.3", default-features = false }
-foldhash = "0.2"
-ahash = "0.8"
-rustc-hash = "2.1"
-fnv = "1"
-indexmap = "2.9"
-ip_network = "0.4"
-ip_network_table = "0.2"
-radix_trie = "0.2"
-fixedbitset = "0.5"
-bitflags = "2.9"
-lru = { version = "0.16", default-features = false }
-#
-blake3 = { version = "1.5", default-features = false }
-hex = "0.4.2"
-hex-literal = "1.0"
-#
-idna = "1.0"
-url = "2.1"
-mime = "0.3"
-percent-encoding = "2.1"
-http = "1.2"
-h2 = "0.4"
-h3-quinn = "0.0.10"
-h3 = "0.0.8"
-#
-log = "0.4"
-slog = { version = "2", features = ["dynamic-keys", "nested-values"] }
-hdrhistogram = { version = "7.5", default-features = false }
-#
-clap = "4.5.36"
-clap_complete = "4.5.45"
-#
-tokio = "1.45.1"
-tokio-util = "0.7"
-tokio-test = "0.4"
-futures-util = "0.3"
-atomic-waker = "1.1"
-async-trait = "0.1"
-async-recursion = "1.1"
-pin-project-lite = "0.2"
-#
-rustls-pki-types = { version = "1", default-features = false }
-rustls = { version = "0.23.23", default-features = false, features = ["std", "tls12", "brotli"] }
-tokio-rustls = { version = "0.26", default-features = false, features = ["tls12"] }
-quinn = { version = "0.11", default-features = false, features = ["runtime-tokio"] }
-quinn-udp = { version = "0.5.9", default-features = false, features = ["fast-apple-datapath"] }
-#
-openssl = { package = "variant-ssl", version = "0.17.5" }
-openssl-sys = { package = "variant-ssl-sys", version = "0.17.5" }
-openssl-probe = "0.1"
-#
-kanal = { version = "0.1.1", default-features = false }
-#
-c-ares = { version = "11.0", default-features = false }
-c-ares-resolver = { version = "10.0", default-features = false }
-c-ares-sys = { version = "10.0", default-features = false }
-hickory-proto = { version = "0.25", default-features = false }
-hickory-client = { version = "0.25", default-features = false }
-#
-capnp-rpc = "0.21"
-capnp = "0.21"
-capnpc = "0.21"
-#
-libc = "0.2.169"
-rustix = { version = "1.0", default-features = false }
-windows-sys = "0.61"
-#
-serde = "1.0"
-yaml-rust = { package = "yaml-rust2", version = "0.10" }
-serde_json = "1.0"
-rmp-serde = "1"
-rmp = "0.8"
-rmpv = "1.0"
-#
-redis = { version = "0.32", default-features = false }
-#
-mlua = "0.11"
-pyo3 = { version = "0.26", default-features = false, features = ["auto-initialize"] }
-#
-cfg-if = "1.0"
-#
-g3-build-env = { version = "0.2", path = "lib/g3-build-env" }
-g3-cert-agent = { version = "0.3", path = "lib/g3-cert-agent" }
-g3-clap = { version = "0.2", path = "lib/g3-clap" }
-g3-compat = { version = "0.2", path = "lib/g3-compat" }
-g3-ctl = { version = "0.2", path = "lib/g3-ctl" }
-g3-daemon = { version = "0.4", path = "lib/g3-daemon" }
-g3-datetime = { version = "0.2", path = "lib/g3-datetime" }
-g3-dpi = { version = "0.3", path = "lib/g3-dpi" }
-g3-fluentd = { version = "0.3", path = "lib/g3-fluentd" }
-g3-ftp-client = { version = "0.5", path = "lib/g3-ftp-client" }
-g3-geoip-db = { version = "0.3", path = "lib/g3-geoip-db" }
-g3-geoip-types = { version = "0.2", path = "lib/g3-geoip-types" }
-g3-h2 = { version = "0.3", path = "lib/g3-h2" }
-g3-hickory-client = { version = "0.3", path = "lib/g3-hickory-client" }
-g3-histogram = { version = "0.2", path = "lib/g3-histogram" }
-g3-http = { version = "0.5", path = "lib/g3-http" }
-g3-icap-client = { version = "0.4", path = "lib/g3-icap-client" }
-g3-imap-proto = { version = "0.3", path = "lib/g3-imap-proto" }
-g3-io-ext = { version = "0.9", path = "lib/g3-io-ext" }
-g3-io-sys = { version = "0.1", path = "lib/g3-io-sys" }
-g3-ip-locate = { version = "0.3", path = "lib/g3-ip-locate" }
-g3-journal = { version = "0.4", path = "lib/g3-journal" }
-g3-json = { version = "0.5", path = "lib/g3-json" }
-g3-macros = { version = "0.1", path = "lib/g3-macros" }
-g3-msgpack = { version = "0.4", path = "lib/g3-msgpack" }
-g3-openssl = { version = "0.4", path = "lib/g3-openssl" }
-g3-redis-client = { version = "0.3", path = "lib/g3-redis-client" }
-g3-resolver = { version = "0.9", path = "lib/g3-resolver" }
-g3-runtime = { version = "0.5", path = "lib/g3-runtime" }
-g3-slog-types = { version = "0.3", path = "lib/g3-slog-types" }
-g3-smtp-proto = { version = "0.3", path = "lib/g3-smtp-proto" }
-g3-socket = { version = "0.6", path = "lib/g3-socket" }
-g3-socks = { version = "0.4", path = "lib/g3-socks" }
-g3-statsd-client = { version = "0.3", path = "lib/g3-statsd-client" }
-g3-std-ext = { version = "0.1", path = "lib/g3-std-ext" }
-g3-stdlog = { version = "0.3", path = "lib/g3-stdlog" }
-g3-syslog = { version = "0.8", path = "lib/g3-syslog" }
-g3-tls-cert = { version = "0.7", path = "lib/g3-tls-cert" }
-g3-tls-ticket = { version = "0.3", path = "lib/g3-tls-ticket" }
-g3-types = { version = "0.7", path = "lib/g3-types" }
-g3-udpdump = { version = "0.3", path = "lib/g3-udpdump" }
-g3-xcrypt = { version = "0.3", path = "lib/g3-xcrypt" }
-g3-yaml = { version = "0.7", path = "lib/g3-yaml" }
+url = "2.5"
+base64 = "0.22"
 
-[profile.release-lto]
-inherits = "release"
-strip = true
+# G3 Project dependencies (to be added when integrating)
+# g3-daemon = { path = "../g3/lib/g3-daemon" }
+# g3-types = { path = "../g3/lib/g3-types" }
+# g3-runtime = { path = "../g3/lib/g3-runtime" }
+# g3-resolver = { path = "../g3/lib/g3-resolver" }
+# g3-socket = { path = "../g3/lib/g3-socket" }
+# g3-socks = { path = "../g3/lib/g3-socks" }
+# g3-http = { path = "../g3/lib/g3-http" }
+# g3-icap-client = { path = "../g3/lib/g3-icap-client" }
+# g3-openssl = { path = "../g3/lib/g3-openssl" }
+# g3-tls-cert = { path = "../g3/lib/g3-tls-cert" }
+# g3-statsd-client = { path = "../g3/lib/g3-statsd-client" }
+
+[profile.dev]
+debug = true
+incremental = true
+
+[profile.release]
 lto = true
-
-[profile.release-dbg]
-inherits = "release"
-debug = 1
-debug-assertions = false
-
-[profile.release-z]
-inherits = "release"
-opt-level = "z"
-panic = "abort"
 codegen-units = 1
-strip = true
-lto = true
+panic = "abort"
+strip = "symbols"
+
+[profile.bench]
+inherits = "release"
+debug = true

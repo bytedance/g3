@@ -1,19 +1,64 @@
+# Rust
+/target/
+**/*.rs.bk
+Cargo.lock
 
 # IDE
-.idea/
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Cargo
-/target/
+# OS
+.DS_Store
+Thumbs.db
 
-# generated bundled license
-LICENSE-BUNDLED
+# Logs
+*.log
 
-# deb package
-/debian/
+# Runtime
+*.pid
+*.sock
 
-# tmp file
-g3proxy/service/g3proxy@.service
-g3tiles/service/g3tiles@.service
-g3keymess/service/g3keymess@.service
+# Environment
+.env
+.env.local
+.env.*.local
 
+# Build artifacts
+dist/
+build/
+out/
+
+# Dependencies
+node_modules/
+vendor/
+
+# Temporary files
+tmp/
+temp/
+
+# Development artifacts
+Arcus-G3-*
+*.bak
+*.backup
+
+# SSL/TLS certificates (excluding examples)
+*.pem
+*.key
+*.crt
+*.csr
+!examples/**/*.pem
+!examples/**/*.key
+!examples/**/*.crt
+
+# Development databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Coverage reports
+*.profraw
+tarpaulin-report.html
+cobertura.xml
