@@ -1,0 +1,119 @@
+# G3StatsD configuration for Arcus-G3 Multi-Tenant SWG
+# This configuration provides multi-tenant metrics collection and export
+
+# Global configuration
+global:
+  default_export_interval: 10  # seconds
+  default_metric_prefix: "arcus_g3"
+  include_tenant_id_by_default: true
+  buffer_size: 10000
+  worker_threads: 4
+
+# Tenant-specific configurations
+tenants:
+  # Example tenant configurations
+  # tenant-1:
+  #   tenant_id: "550e8400-e29b-41d4-a716-446655440000"
+  #   metric_prefix: "tenant1"
+  #   include_tenant_id: true
+  #   export_interval: 5
+  #   enabled_collectors: ["aggregate_5s"]
+  #   enabled_exporters: ["prometheus", "console"]
+  #   custom_tags:
+  #     environment: "production"
+  #     region: "us-west-2"
+
+# Importers configuration
+importers:
+  - name: statsd_udp
+    type: statsd_udp
+    collector: aggregate_10s
+    listen: "0.0.0.0:8125"
+    config:
+      buffer_size: 8192
+      max_packet_size: 65536
+
+  - name: statsd_unix
+    type: statsd_unix
+    collector: aggregate_10s
+    listen: "/tmp/g3statsd-arcus-g3.sock"
+    config:
+      buffer_size: 8192
+
+# Collectors configuration
+collectors:
+  - name: aggregate_10s
+    type: aggregate
+    next: regulate_10s
+    emit_interval: "10s"
+    join_tags:
+      - "tenant_id"
+      - "service"
+    config:
+      buffer_size: 1000
+      flush_interval: "10s"
+
+  - name: regulate_10s
+    type: regulate
+    exporter: prometheus
+    prefix: "arcus_g3"
+    config:
+      max_metrics_per_second: 1000
+      max_tags_per_metric: 50
+
+# Exporters configuration
+exporters:
+  - name: console
+    type: console
+    destination:
+      type: console
+    config:
+      format: "statsd"
+      include_timestamp: true
+
+  - name: prometheus
+    type: prometheus
+    destination:
+      type: prometheus
+      port: 9090
+      path: "/metrics"
+    config:
+      namespace: "arcus_g3"
+      include_tenant_labels: true
+
+  - name: graphite
+    type: graphite
+    destination:
+      type: graphite
+      host: "graphite.example.com"
+      port: 2003
+      prefix: "arcus_g3"
+    config:
+      protocol: "tcp"
+      batch_size: 100
+      flush_interval: "10s"
+
+  - name: influxdb
+    type: influxdb
+    destination:
+      type: influxdb
+      url: "http://influxdb.example.com:8086"
+      database: "arcus_g3"
+      username: "arcus_g3"
+      password: "secret"
+    config:
+      precision: "s"
+      batch_size: 1000
+      flush_interval: "10s"
+
+  - name: opentsdb
+    type: opentsdb
+    destination:
+      type: opentsdb
+      host: "opentsdb.example.com"
+      port: 4242
+      prefix: "arcus_g3"
+    config:
+      protocol: "tcp"
+      batch_size: 100
+      flush_interval: "10s"
