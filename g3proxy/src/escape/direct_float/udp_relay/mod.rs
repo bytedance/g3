@@ -48,27 +48,26 @@ impl DirectFloatEscaper {
             && decision.enabled()
             && !decision.rotate
             && matches!(task_conf.initial_peer.host(), g3_types::net::Host::Domain(_))
+            && let g3_types::net::Host::Domain(domain) = task_conf.initial_peer.host()
         {
-            if let g3_types::net::Host::Domain(domain) = task_conf.initial_peer.host() {
-                let mut resolver_job =
-                    crate::resolve::HappyEyeballsResolveJob::new_dyn(
-                        self.config.resolve_strategy,
-                        &self.resolver_handle,
-                        domain.clone(),
-                    )?;
-                let ips = resolver_job
-                    .get_r1_or_first(self.config.happy_eyeballs.resolution_delay(), usize::MAX)
-                    .await?;
-                if let Some((ip, key, cache_hit)) =
-                    crate::sticky::choose_sticky_ip(decision, task_conf.initial_peer, &ips).await
-                {
-                    if cache_hit { self.stats.add_sticky_hit(); } else { self.stats.add_sticky_miss(); }
-                    send.prime_domain_ip(domain.clone(), ip);
-                    // set TTL now for the session
-                    let ttl = decision.effective_ttl();
-                    crate::sticky::redis_set_ip(&key, ip, ttl).await;
-                    self.stats.add_sticky_set();
-                }
+            let mut resolver_job =
+                crate::resolve::HappyEyeballsResolveJob::new_dyn(
+                    self.config.resolve_strategy,
+                    &self.resolver_handle,
+                    domain.clone(),
+                )?;
+            let ips = resolver_job
+                .get_r1_or_first(self.config.happy_eyeballs.resolution_delay(), usize::MAX)
+                .await?;
+            if let Some((ip, key, cache_hit)) =
+                crate::sticky::choose_sticky_ip(decision, task_conf.initial_peer, &ips).await
+            {
+                if cache_hit { self.stats.add_sticky_hit(); } else { self.stats.add_sticky_miss(); }
+                send.prime_domain_ip(domain.clone(), ip);
+                // set TTL now for the session
+                let ttl = decision.effective_ttl();
+                crate::sticky::redis_set_ip(&key, ip, ttl).await;
+                self.stats.add_sticky_set();
             }
         }
 

@@ -47,6 +47,7 @@ arc-swap.workspace = true
 capnp-rpc.workspace = true
 capnp.workspace = true
 itoa.workspace = true
+once_cell.workspace = true
 redis = { workspace = true, features = ["aio", "tokio-comp"] }
 humantime = "2.1"
 ascii.workspace = true

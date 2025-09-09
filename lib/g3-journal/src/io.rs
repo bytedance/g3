@@ -3,18 +3,26 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::ffi::CStr;
-use std::fs::File;
-use std::io::Write;
-use std::mem::MaybeUninit;
-use std::os::fd::AsFd;
 use std::os::unix::net::UnixDatagram;
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+use std::ffi::CStr;
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+use std::fs::File;
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+use std::io::Write;
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+use std::mem::MaybeUninit;
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
+use std::os::fd::AsFd;
 
 use anyhow::{Context, anyhow};
 use once_cell::sync::OnceCell;
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use rustix::cmsg_space;
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use rustix::fs::{MemfdFlags, SealFlags, fcntl_add_seals, memfd_create};
 use rustix::io::Errno;
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 use rustix::net::{
     SendAncillaryBuffer, SendAncillaryMessage, SendFlags, SocketAddrUnix, sendmsg_addr,
 };
@@ -23,6 +31,7 @@ use rustix::net::{
 const SD_JOURNAL_SOCK_PATH: &str = "/run/systemd/journal/socket";
 /// The name is used as a filename in /proc/self/fd/, always prefixed with memfd.
 /// Multiple memfd files can have the same name without any side effects.
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 const MEM_FD_NAME: &CStr = c"journal-logging";
 
 thread_local! {
@@ -57,6 +66,7 @@ fn send_payload(sock: &UnixDatagram, data: &[u8]) -> anyhow::Result<()> {
 /// This is a slow-path for sending a large payload that could not otherwise fit
 /// in a UNIX datagram. Payload is thus written to a memfd, which is sent as ancillary
 /// data.
+#[cfg(any(target_os = "linux", target_os = "freebsd"))]
 fn send_memfd_payload(sock: &UnixDatagram, data: &[u8]) -> anyhow::Result<()> {
     let tmpfd = memfd_create(MEM_FD_NAME, MemfdFlags::ALLOW_SEALING)
         .map_err(|e| anyhow!("unable to create memfd: {e}"))?;
@@ -83,4 +93,9 @@ fn send_memfd_payload(sock: &UnixDatagram, data: &[u8]) -> anyhow::Result<()> {
     drop(mem_file);
 
     Ok(())
+}
+
+#[cfg(not(any(target_os = "linux", target_os = "freebsd")))]
+fn send_memfd_payload(_sock: &UnixDatagram, _data: &[u8]) -> anyhow::Result<()> {
+    Err(anyhow!("memfd-based journal payload is unsupported on this platform"))
 }

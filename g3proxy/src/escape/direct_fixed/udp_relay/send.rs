@@ -159,17 +159,16 @@ where
                                     let stats = self.escaper_stats.clone();
                                     let delay = self.resolution_delay;
                                     tokio::spawn(async move {
-                                        if let Ok(mut job) = HappyEyeballsResolveJob::new_dyn(strategy, &resolver, d.clone()) {
-                                            if let Ok(ips) = job.get_r1_or_first(delay, usize::MAX).await {
-                                                if let Some((hrw_ip, key, hit)) = crate::sticky::choose_sticky_ip(&s, &upstream, &ips).await {
-                                                    if hit { stats.add_sticky_hit(); } else { stats.add_sticky_miss(); }
-                                                    if hit {
-                                                        crate::sticky::redis_refresh_ttl(&key, s.effective_ttl()).await;
-                                                    } else {
-                                                        crate::sticky::redis_set_ip(&key, hrw_ip, s.effective_ttl()).await;
-                                                        stats.add_sticky_set();
-                                                    }
-                                                }
+                                        if let Ok(mut job) = HappyEyeballsResolveJob::new_dyn(strategy, &resolver, d.clone())
+                                            && let Ok(ips) = job.get_r1_or_first(delay, usize::MAX).await
+                                            && let Some((hrw_ip, key, hit)) = crate::sticky::choose_sticky_ip(&s, &upstream, &ips).await
+                                        {
+                                            if hit { stats.add_sticky_hit(); } else { stats.add_sticky_miss(); }
+                                            if hit {
+                                                crate::sticky::redis_refresh_ttl(&key, s.effective_ttl()).await;
+                                            } else {
+                                                crate::sticky::redis_set_ip(&key, hrw_ip, s.effective_ttl()).await;
+                                                stats.add_sticky_set();
                                             }
                                         }
                                     });

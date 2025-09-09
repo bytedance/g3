@@ -1942,6 +1942,7 @@ dependencies = [
  "memchr",
  "mime",
  "mlua",
+ "once_cell",
  "openssl-probe",
  "percent-encoding",
  "pin-project-lite",

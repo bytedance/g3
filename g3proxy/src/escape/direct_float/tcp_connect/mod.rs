@@ -109,7 +109,7 @@ impl DirectFloatEscaper {
         task_notes: &ServerTaskNotes,
     ) -> Result<(TcpStream, DirectFloatBindIp), TcpConnectError> {
         let (sock, bind) =
-            self.prepare_connect_socket(peer_ip, tcp_notes.bind, task_notes, &config)?;
+            self.prepare_connect_socket(peer_ip, tcp_notes.bind, task_notes, config)?;
         let peer = SocketAddr::new(peer_ip, task_conf.upstream.port());
         tcp_notes.next = Some(peer);
         tcp_notes.bind = BindAddr::Ip(bind.ip);
