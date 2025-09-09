@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: arcus-g3-swg-base
+
+resources:
+- deployment.yaml
+- service.yaml
+- configmap.yaml
+- rbac.yaml
+
+commonLabels:
+  app: arcus-g3-swg
+  component: proxy
+  version: v1.0.0
+
+commonAnnotations:
+  managed-by: kustomize
+  created-by: arcus-g3-team

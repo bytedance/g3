@@ -1,11 +1,79 @@
-
 # Git
 .git
-.github
+.gitignore
 
-# Cargo
+# Documentation
+*.md
+docs/
+sphinx/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Rust
 target/
+Cargo.lock
 
-#
-ansible
-doc
+# Logs
+*.log
+
+# Runtime
+*.pid
+*.sock
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build artifacts
+dist/
+build/
+out/
+
+# Dependencies
+node_modules/
+vendor/
+
+# Temporary files
+tmp/
+temp/
+
+# Development artifacts
+Arcus-G3-*
+*.bak
+*.backup
+
+# SSL/TLS certificates (excluding examples)
+*.pem
+*.key
+*.crt
+*.csr
+!examples/**/*.pem
+!examples/**/*.key
+!examples/**/*.crt
+
+# Development databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Coverage reports
+*.profraw
+tarpaulin-report.html
+cobertura.xml
+
+# GitHub Actions
+.github/
+
+# Docker
+Dockerfile*
+docker-compose*.yml
+.dockerignore

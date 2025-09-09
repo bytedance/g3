@@ -1,0 +1,101 @@
+version: '3.8'
+
+services:
+  arcus-g3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ghcr.io/arcus-g3/swg/arcus-g3:latest
+    container_name: arcus-g3-swg
+    restart: unless-stopped
+    ports:
+      - "8080:8080"  # HTTP proxy
+      - "8443:8443"  # HTTPS proxy
+      - "1080:1080"  # SOCKS proxy
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+      - ./certs:/app/certs:ro
+    environment:
+      - RUST_LOG=info
+      - RUST_BACKTRACE=1
+    healthcheck:
+      test: ["CMD", "arcus-g3", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - arcus-network
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: arcus-g3-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - arcus-network
+
+  # Grafana for dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: arcus-g3-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    networks:
+      - arcus-network
+
+  # Jaeger for distributed tracing
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: arcus-g3-jaeger
+    restart: unless-stopped
+    ports:
+      - "16686:16686"  # Jaeger UI
+      - "14268:14268"  # Jaeger collector
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - arcus-network
+
+  # Redis for caching and session storage
+  redis:
+    image: redis:7-alpine
+    container_name: arcus-g3-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - arcus-network
+
+volumes:
+  prometheus-data:
+  grafana-data:
+  redis-data:
+
+networks:
+  arcus-network:
+    driver: bridge

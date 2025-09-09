@@ -1,0 +1,87 @@
+filebeat.inputs:
+  # Docker container logs
+  - type: container
+    enabled: true
+    paths:
+      - '/var/lib/docker/containers/*/*.log'
+    processors:
+      - add_docker_metadata:
+          host: "unix:///var/run/docker.sock"
+      - add_fields:
+          fields:
+            service: "docker"
+            environment: "development"
+
+  # System logs
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/syslog
+      - /var/log/auth.log
+      - /var/log/kern.log
+    processors:
+      - add_fields:
+          fields:
+            service: "system"
+            environment: "development"
+
+  # Application logs
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/arcus-g3/*.log
+    processors:
+      - add_fields:
+          fields:
+            service: "arcus-g3"
+            environment: "development"
+
+  # G3Proxy logs
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/g3proxy/*.log
+    processors:
+      - add_fields:
+          fields:
+            service: "g3proxy"
+            environment: "development"
+
+  # G3StatsD logs
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/g3statsd/*.log
+    processors:
+      - add_fields:
+          fields:
+            service: "g3statsd"
+            environment: "development"
+
+  # Nginx logs (if used as reverse proxy)
+  - type: log
+    enabled: true
+    paths:
+      - /var/log/nginx/*.log
+    processors:
+      - add_fields:
+          fields:
+            service: "nginx"
+            environment: "development"
+
+processors:
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+  - add_cloud_metadata: ~
+  - add_docker_metadata: ~
+
+output.logstash:
+  hosts: ["logstash:5044"]
+
+logging.level: info
+logging.to_files: true
+logging.files:
+  path: /var/log/filebeat
+  name: filebeat
+  keepfiles: 7
+  permissions: 0644
