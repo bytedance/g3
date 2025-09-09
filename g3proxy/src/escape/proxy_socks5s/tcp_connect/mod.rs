@@ -11,7 +11,7 @@ use tokio::time::Instant;
 
 use g3_io_ext::LimitedStream;
 use g3_socket::BindAddr;
-use g3_types::net::{ConnectError, UpstreamAddr};
+use g3_types::net::{ConnectError, Host, UpstreamAddr};
 
 use super::ProxySocks5sEscaper;
 use crate::log::escape::tcp_connect::EscapeLogForTcpConnect;
@@ -295,7 +295,7 @@ impl ProxySocks5sEscaper {
         }
     }
 
-    async fn connect_via_peer(
+    async fn tcp_connect_to(
         &self,
         task_conf: &TcpConnectTaskConf<'_>,
         tcp_notes: &mut TcpConnectTaskNotes,
@@ -304,30 +304,31 @@ impl ProxySocks5sEscaper {
         let peer_proxy = task_notes
             .override_next_proxy()
             .unwrap_or_else(|| self.get_next_proxy(task_notes, task_conf.upstream.host()));
-        match peer_proxy.host() {
-            g3_types::net::Host::Ip(ip) => {
-                let stream = self.fixed_try_connect(
+
+        let stream = match peer_proxy.host() {
+            Host::Ip(ip) => {
+                self.fixed_try_connect(
                     SocketAddr::new(*ip, peer_proxy.port()),
                     task_conf,
                     tcp_notes,
                     task_notes,
                 )
-                .await?;
-                Ok((peer_proxy.clone(), stream))
+                .await?
             }
-            g3_types::net::Host::Domain(domain) => {
+            Host::Domain(domain) => {
                 let resolver_job = self.resolve_happy(domain.clone())?;
-                let stream = self.happy_try_connect(
+                self.happy_try_connect(
                     resolver_job,
                     peer_proxy.port(),
                     task_conf,
                     tcp_notes,
                     task_notes,
                 )
-                .await?;
-                Ok((peer_proxy.clone(), stream))
+                .await?
             }
-        }
+        };
+
+        Ok((peer_proxy.clone(), stream))
     }
 
     pub(super) async fn tcp_new_connection(
@@ -337,7 +338,7 @@ impl ProxySocks5sEscaper {
         task_notes: &ServerTaskNotes,
     ) -> Result<(UpstreamAddr, LimitedStream<TcpStream>), TcpConnectError> {
         let (peer, stream) = self
-            .connect_via_peer(task_conf, tcp_notes, task_notes)
+            .tcp_connect_to(task_conf, tcp_notes, task_notes)
             .await?;
 
         let limit_config = &self.config.general.tcp_sock_speed_limit;

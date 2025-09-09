@@ -26,7 +26,7 @@ use crate::auth::{UserContext, UserGroup, UserRequestStats};
 use crate::config::server::ServerConfig;
 use crate::escape::EgressPathSelection;
 use crate::module::http_forward::{BoxHttpForwardContext, HttpProxyClientResponse};
-use crate::serve::{ServerStats, ServerTaskNotes};
+use crate::serve::{ServerStats, ServerTaskNotes, username_params};
 
 struct UserData {
     req_stats: Arc<UserRequestStats>,
@@ -141,7 +141,7 @@ where
                     if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr
                         && cfg.strip_suffix_for_auth
                     {
-                        let base = crate::serve::username_params::ParsedUsernameParams::auth_base(
+                        let base = username_params::ParsedUsernameParams::auth_base(
                             v.username.as_original(),
                         );
                         if base != v.username.as_original() {
@@ -279,11 +279,11 @@ where
             && let HttpAuth::Basic(v) = &req.inner.auth_info
         {
             let u = v.username.as_original();
-            if crate::serve::username_params::username_has_known_key(cfg, u) {
-                match crate::serve::username_params::compute_upstream_from_username(
+            if username_params::username_has_known_key(cfg, u) {
+                match username_params::compute_upstream_from_username(
                     cfg,
                     u,
-                    crate::serve::username_params::InboundKind::Http,
+                    username_params::InboundKind::Http,
                 ) {
                     Ok(addr) => {
                         task_notes.set_override_next_proxy(addr);

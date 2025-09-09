@@ -46,7 +46,7 @@ pub(crate) struct HttpProxyClientResponse {
     version: Version,
     close: bool,
     extra_headers: Vec<String>,
-    custom_error_message: Option<String>,
+    custom_error_message: Option<&'static str>,
 }
 
 impl HttpProxyClientResponse {
@@ -79,8 +79,8 @@ impl HttpProxyClientResponse {
     }
 
     #[inline]
-    pub(crate) fn set_error_message<S: Into<String>>(&mut self, msg: S) {
-        self.custom_error_message = Some(msg.into());
+    pub(crate) fn set_error_message(&mut self, msg: &'static str) {
+        self.custom_error_message = Some(msg);
     }
 
     #[inline]
