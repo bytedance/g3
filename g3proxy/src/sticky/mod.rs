@@ -124,11 +124,11 @@ fn default_ttl() -> Duration {
         return d;
     }
     // allow env override
-    if let Ok(s) = std::env::var("G3_STICKY_DEFAULT_TTL") {
-        if let Ok(d) = humantime::parse_duration(&s) {
-            let _ = DEFAULT_TTL.set(d);
-            return d;
-        }
+    if let Ok(s) = std::env::var("G3_STICKY_DEFAULT_TTL")
+        && let Ok(d) = humantime::parse_duration(&s)
+    {
+        let _ = DEFAULT_TTL.set(d);
+        return d;
     }
     let d = Duration::from_secs(60);
     let _ = DEFAULT_TTL.set(d);
@@ -139,11 +139,11 @@ fn max_ttl() -> Duration {
     if let Some(d) = MAX_TTL.get().copied() {
         return d;
     }
-    if let Ok(s) = std::env::var("G3_STICKY_MAX_TTL") {
-        if let Ok(d) = humantime::parse_duration(&s) {
-            let _ = MAX_TTL.set(d);
-            return d;
-        }
+    if let Ok(s) = std::env::var("G3_STICKY_MAX_TTL")
+        && let Ok(d) = humantime::parse_duration(&s)
+    {
+        let _ = MAX_TTL.set(d);
+        return d;
     }
     let d = Duration::from_secs(3600);
     let _ = MAX_TTL.set(d);
@@ -154,11 +154,11 @@ pub fn refresh_min_interval() -> Duration {
     if let Some(d) = REFRESH_MIN_INTERVAL.get().copied() {
         return d;
     }
-    if let Ok(s) = std::env::var("G3_STICKY_REFRESH_MIN_INTERVAL") {
-        if let Ok(d) = humantime::parse_duration(&s) {
-            let _ = REFRESH_MIN_INTERVAL.set(d);
-            return d;
-        }
+    if let Ok(s) = std::env::var("G3_STICKY_REFRESH_MIN_INTERVAL")
+        && let Ok(d) = humantime::parse_duration(&s)
+    {
+        let _ = REFRESH_MIN_INTERVAL.set(d);
+        return d;
     }
     let d = Duration::from_millis(250);
     let _ = REFRESH_MIN_INTERVAL.set(d);
@@ -170,31 +170,27 @@ pub fn set_redis_url(url: Option<&str>) {
         Some(s) if !s.is_empty() => {
             let _ = REDIS_URL.set(Some(s.to_string()));
             // best-effort parse and cache a client config
-            
-            if let Ok(u) = Url::parse(s) {
-                if let Some(host) = u.host_str() {
-                    let port = u.port().unwrap_or(g3_redis_client::REDIS_DEFAULT_PORT);
-                    if let Ok(upstream) = g3_types::net::UpstreamAddr::from_host_str_and_port(host, port) {
-                        let mut builder = g3_redis_client::RedisClientConfigBuilder::new(upstream);
-                        // db
-                        let path = u.path();
-                        let db_str = path.strip_prefix('/').unwrap_or(path);
-                        if !db_str.is_empty() {
-                            if let Ok(db) = db_str.parse::<i64>() { builder.set_db(db); }
-                        }
-                        // user/pass
-                        let username = u.username();
-                        if !username.is_empty() { builder.set_username(username.to_string()); }
-                        if let Some(password) = u.password() { builder.set_password(password.to_string()); }
-                        // query params as yaml kv
-                        for (k, v) in u.query_pairs() {
-                            let yaml_val = yaml_rust::Yaml::String(v.to_string());
-                            let _ = builder.set_by_yaml_kv(&k, &yaml_val, None);
-                        }
-                        if let Ok(client_cfg) = builder.build() {
-                            let _ = REDIS_CLIENT.set(Some(client_cfg));
-                        }
- 
+            if let Ok(u) = Url::parse(s)
+                && let Some(host) = u.host_str()
+            {
+                let port = u.port().unwrap_or(g3_redis_client::REDIS_DEFAULT_PORT);
+                if let Ok(upstream) = g3_types::net::UpstreamAddr::from_host_str_and_port(host, port) {
+                    let mut builder = g3_redis_client::RedisClientConfigBuilder::new(upstream);
+                    // db
+                    let path = u.path();
+                    let db_str = path.strip_prefix('/').unwrap_or(path);
+                    if !db_str.is_empty() && let Ok(db) = db_str.parse::<i64>() { builder.set_db(db); }
+                    // user/pass
+                    let username = u.username();
+                    if !username.is_empty() { builder.set_username(username.to_string()); }
+                    if let Some(password) = u.password() { builder.set_password(password.to_string()); }
+                    // query params as yaml kv
+                    for (k, v) in u.query_pairs() {
+                        let yaml_val = yaml_rust::Yaml::String(v.to_string());
+                        let _ = builder.set_by_yaml_kv(&k, &yaml_val, None);
+                    }
+                    if let Ok(client_cfg) = builder.build() {
+                        let _ = REDIS_CLIENT.set(Some(client_cfg));
                     }
                 }
             }
@@ -282,7 +278,7 @@ pub async fn redis_get_ip(key: &str) -> Option<IpAddr> {
     }
     let client_cfg = match REDIS_CLIENT.get().and_then(|o| o.as_ref()) { Some(c) => c, None => return None };
     let mut conn = match client_cfg.connect().await { Ok(c) => c, Err(_) => return None };
-    let s: Option<String> = match conn.get(key).await { Ok(v) => v, Err(_) => None };
+    let s: Option<String> = (conn.get(key).await).unwrap_or_default();
     s.and_then(|v| v.parse::<IpAddr>().ok())
 }
 
@@ -293,17 +289,17 @@ pub async fn redis_set_ip(key: &str, ip: IpAddr, ttl: Duration) {
         mock_store().lock().unwrap().insert(key.to_string(), (ip, exp));
     }
     
-    if let Some(client_cfg) = REDIS_CLIENT.get().and_then(|o| o.as_ref()) {
-        if let Ok(mut conn) = client_cfg.connect().await {
-            // Use atomic SET with EX
-            let _: redis::RedisResult<()> = redis::cmd("SET")
-                .arg(key)
-                .arg(ip.to_string())
-                .arg("EX")
-                .arg(ttl.as_secs() as i64)
-                .query_async(&mut conn)
-                .await;
-        }
+    if let Some(client_cfg) = REDIS_CLIENT.get().and_then(|o| o.as_ref())
+        && let Ok(mut conn) = client_cfg.connect().await
+    {
+        // Use atomic SET with EX
+        let _: redis::RedisResult<()> = redis::cmd("SET")
+            .arg(key)
+            .arg(ip.to_string())
+            .arg("EX")
+            .arg(ttl.as_secs() as i64)
+            .query_async(&mut conn)
+            .await;
     }
 }
 
@@ -316,10 +312,10 @@ pub async fn redis_refresh_ttl(key: &str, ttl: Duration) {
         }
     }
     
-    if let Some(client_cfg) = REDIS_CLIENT.get().and_then(|o| o.as_ref()) {
-        if let Ok(mut conn) = client_cfg.connect().await {
-            let _ : redis::RedisResult<()> = conn.expire(key, ttl.as_secs() as i64).await;
-        }
+    if let Some(client_cfg) = REDIS_CLIENT.get().and_then(|o| o.as_ref())
+        && let Ok(mut conn) = client_cfg.connect().await
+    {
+        let _ : redis::RedisResult<()> = conn.expire(key, ttl.as_secs() as i64).await;
     }
 }
 
