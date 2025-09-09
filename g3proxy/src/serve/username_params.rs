@@ -187,7 +187,10 @@ pub(crate) fn compute_upstream_from_username(
     } else {
         debug!("username-params: no domain_suffix -> host='{}'", full_host);
     }
-    debug!("username-params: chosen port={} from inbound={:?}", port, inbound);
+    debug!(
+        "username-params: chosen port={} from inbound={:?}",
+        port, inbound
+    );
 
     // RFC 6761: names in the .localhost domain resolve to loopback.
     // Honor this locally to avoid relying on external DNS servers.
@@ -214,7 +217,7 @@ mod tests {
     use g3_types::net::Host;
 
     fn cfg_with_keys(keys: &[&str]) -> UsernameParamsToEscaperConfig {
-        let mut c = UsernameParamsToEscaperConfig::new(None);
+        let mut c = UsernameParamsToEscaperConfig::new();
         c.keys_for_host = keys.iter().map(|s| s.to_string()).collect();
         c.require_hierarchy = true;
         c.reject_unknown_keys = true;
@@ -247,24 +250,18 @@ mod tests {
     #[test]
     fn compute_join_and_ports() {
         let cfg = cfg_with_keys(&["label1", "label2", "label3"]);
-        let ups = compute_upstream_from_username(
-            &cfg,
-            "user+label1=foo+label2=bar",
-            InboundKind::Http,
-        )
-        .unwrap();
+        let ups =
+            compute_upstream_from_username(&cfg, "user+label1=foo+label2=bar", InboundKind::Http)
+                .unwrap();
         assert_eq!(ups.port(), 10000);
         match ups.host() {
             Host::Domain(d) => assert_eq!(d.as_ref(), "foo-bar"),
             _ => panic!("expected domain host"),
         }
 
-        let ups2 = compute_upstream_from_username(
-            &cfg,
-            "user+label1=foo+label2=bar",
-            InboundKind::Socks5,
-        )
-        .unwrap();
+        let ups2 =
+            compute_upstream_from_username(&cfg, "user+label1=foo+label2=bar", InboundKind::Socks5)
+                .unwrap();
         assert_eq!(ups2.port(), 10001);
     }
 
@@ -286,8 +283,8 @@ mod tests {
 
         // disable hierarchy and allow trailing keys
         cfg.require_hierarchy = false;
-        let ups2 = compute_upstream_from_username(&cfg, "user+label2=b", InboundKind::Http)
-            .unwrap();
+        let ups2 =
+            compute_upstream_from_username(&cfg, "user+label2=b", InboundKind::Http).unwrap();
         match ups2.host() {
             Host::Domain(d) => assert_eq!(d.as_ref(), "b"),
             _ => panic!("expected domain host"),
@@ -313,20 +310,16 @@ mod tests {
         cfg.floating_keys = vec!["opt".to_string()];
 
         // opt only
-        let ups = compute_upstream_from_username(&cfg, "user+opt=o123", InboundKind::Http)
-            .unwrap();
+        let ups = compute_upstream_from_username(&cfg, "user+opt=o123", InboundKind::Http).unwrap();
         match ups.host() {
             Host::Domain(d) => assert_eq!(d.as_ref(), "o123"),
             _ => panic!("expected domain host"),
         }
 
         // label1 + opt
-        let ups = compute_upstream_from_username(
-            &cfg,
-            "user+label1=foo+opt=o123",
-            InboundKind::Http,
-        )
-        .unwrap();
+        let ups =
+            compute_upstream_from_username(&cfg, "user+label1=foo+opt=o123", InboundKind::Http)
+                .unwrap();
         match ups.host() {
             Host::Domain(d) => assert_eq!(d.as_ref(), "foo-o123"),
             _ => panic!("expected domain host"),
@@ -345,11 +338,9 @@ mod tests {
         }
 
         // label2 without label1 (still invalid), even if opt present
-        assert!(compute_upstream_from_username(
-            &cfg,
-            "user+label2=bar+opt=o123",
-            InboundKind::Http,
-        )
-        .is_err());
+        assert!(
+            compute_upstream_from_username(&cfg, "user+label2=bar+opt=o123", InboundKind::Http,)
+                .is_err()
+        );
     }
 }

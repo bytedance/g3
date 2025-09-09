@@ -30,8 +30,8 @@ use g3_yaml::YamlDocPosition;
 use super::{
     AnyServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT,
     IDLE_CHECK_MAXIMUM_DURATION, ServerConfig, ServerConfigDiffAction,
+    UsernameParamsToEscaperConfig,
 };
-use super::username_params_to_escaper::UsernameParamsToEscaperConfig;
 
 const SERVER_CONFIG_TYPE: &str = "HttpProxy";
 
@@ -195,15 +195,11 @@ impl HttpProxyServerConfig {
                 Ok(())
             }
             "username_params_to_escaper_addr" => {
-                match v {
-                    Yaml::Hash(map) => {
-                        let c = UsernameParamsToEscaperConfig::parse(map, self.position.clone())
-                            .context(format!("invalid username_params_to_escaper_addr value for key {k}"))?;
-                        self.username_params_to_escaper_addr = Some(c);
-                        Ok(())
-                    }
-                    _ => Err(anyhow!("invalid map value for key {k}")),
-                }
+                let c = UsernameParamsToEscaperConfig::parse(v).context(format!(
+                    "invalid username_params_to_escaper_addr value for key {k}"
+                ))?;
+                self.username_params_to_escaper_addr = Some(c);
+                Ok(())
             }
             "listen" => {
                 let config = g3_yaml::value::as_tcp_listen_config(v)
@@ -521,23 +517,25 @@ impl ServerConfig for HttpProxyServerConfig {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use g3_yaml::yaml_doc;
     use yaml_rust::YamlLoader;
 
     #[test]
     fn parse_with_username_params_section() {
-        let s = r#"---
-type: http_proxy
-name: s1
-escaper: e1
-username_params_to_escaper_addr:
-  keys_for_host: [k1, k2]
-  require_hierarchy: true
-  floating_keys: [k2]
-  http_port: 12345
-  socks5_port: 23456
-"#;
-        let docs = YamlLoader::load_from_str(s).unwrap();
-        let map = docs[0].as_hash().unwrap();
+        let doc = yaml_doc!(
+            r#"
+                type: http_proxy
+                name: s1
+                escaper: e1
+                username_params_to_escaper_addr:
+                  keys_for_host: [k1, k2]
+                  require_hierarchy: true
+                  floating_keys: [k2]
+                  http_port: 12345
+                  socks5_port: 23456
+            "#
+        );
+        let map = doc.as_hash().unwrap();
         let cfg = HttpProxyServerConfig::parse(map, None).unwrap();
         let u = cfg.username_params_to_escaper_addr.as_ref().unwrap();
         assert_eq!(u.keys_for_host, vec!["k1", "k2"]);

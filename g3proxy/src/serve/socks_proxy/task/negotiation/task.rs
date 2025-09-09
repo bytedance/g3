@@ -23,6 +23,7 @@ use crate::auth::{UserContext, UserGroup};
 use crate::config::server::ServerConfig;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
+    username_params,
 };
 
 pub(crate) struct SocksProxyNegotiationTask {
@@ -242,9 +243,8 @@ impl SocksProxyNegotiationTask {
                     if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr
                         && cfg.strip_suffix_for_auth
                     {
-                        let base = crate::serve::username_params::ParsedUsernameParams::auth_base(
-                            &username_original,
-                        );
+                        let base =
+                            username_params::ParsedUsernameParams::auth_base(&username_original);
                         if base != username_original {
                             base_username = Username::from_original(base).ok();
                         }
@@ -300,11 +300,11 @@ impl SocksProxyNegotiationTask {
             && let Some(name) = &username_for_mapping
         {
             // Only attempt mapping when at least one known key appears
-            if crate::serve::username_params::username_has_known_key(cfg, name) {
-                match crate::serve::username_params::compute_upstream_from_username(
+            if username_params::username_has_known_key(cfg, name) {
+                match username_params::compute_upstream_from_username(
                     cfg,
                     name,
-                    crate::serve::username_params::InboundKind::Socks5,
+                    username_params::InboundKind::Socks5,
                 ) {
                     Ok(a) => override_next = Some(a),
                     Err(_e) => {

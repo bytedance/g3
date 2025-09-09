@@ -137,8 +137,7 @@ impl HttpProxyConnectTask {
             return;
         }
 
-        let mut rsp =
-            HttpProxyClientResponse::from_tcp_connect_error(e, http::Version::HTTP_11, false);
+        let mut rsp = HttpProxyClientResponse::from_tcp_connect_error(e, Version::HTTP_11, false);
         self.ctx
             .set_custom_header_for_local_reply(&self.tcp_notes, &mut rsp);
         let should_close = rsp.should_close();

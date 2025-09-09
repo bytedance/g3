@@ -4,4 +4,4 @@ large-error-threshold = 256
 
 # for large_enum_variant
 # https://doc.rust-lang.org/clippy/lint_configuration.html#enum-variant-size-threshold
-enum-variant-size-threshold = 512
+enum-variant-size-threshold = 600
