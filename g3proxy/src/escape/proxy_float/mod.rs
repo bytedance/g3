@@ -144,22 +144,20 @@ impl ProxyFloatEscaper {
     }
 
     fn select_peer(&self, task_notes: &ServerTaskNotes) -> anyhow::Result<ArcNextProxyPeer> {
-        if let Some(path_selection) = task_notes.egress_path() {
-            if let Some(id) = path_selection.select_matched_id(self.name().as_str()) {
-                let peer_set = self.peers.load();
-                let peer = peer_set
-                    .select_named_peer(id)
-                    .ok_or_else(|| anyhow!("no peer with id {id} found in local cache"))?;
-                return if peer.is_expired() {
-                    Err(anyhow!("peer {id} is expired"))
-                } else {
-                    Ok(peer)
-                };
-            }
+        if let Some(id) = task_notes.egress_path_string_id(self.name()) {
+            let peer_set = self.peers.load();
+            let peer = peer_set
+                .select_named_peer(id)
+                .ok_or_else(|| anyhow!("no peer with id {id} found in local cache"))?;
+            return if peer.is_expired() {
+                Err(anyhow!("peer {id} is expired"))
+            } else {
+                Ok(peer)
+            };
+        }
 
-            if let Some(value) = path_selection.select_matched_value(self.name().as_str()) {
-                return self.parse_dyn_peer(value);
-            }
+        if let Some(value) = task_notes.egress_path_json_value(self.name()) {
+            return self.parse_dyn_peer(value);
         }
 
         self.select_peer_from_escaper()

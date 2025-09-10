@@ -5,7 +5,6 @@
 
 use std::str::FromStr;
 
-use ahash::AHashMap;
 use anyhow::{Context, anyhow};
 use log::warn;
 use yaml_rust::{Yaml, yaml};
@@ -13,7 +12,6 @@ use yaml_rust::{Yaml, yaml};
 use g3_yaml::YamlDocPosition;
 
 use super::{PasswordToken, UserConfig, UserSiteConfig};
-use crate::escape::EgressPathSelection;
 
 impl UserConfig {
     pub(crate) fn parse_yaml(
@@ -260,22 +258,24 @@ impl UserConfig {
                     g3_yaml::value::as_string,
                 )
                 .context(format!("invalid egress path id map value for key {k}"))?;
-                self.egress_path_selection = Some(EgressPathSelection::MatchId(
-                    id_map.into_iter().collect::<AHashMap<_, _>>(),
-                ));
+                let egress_path = self.egress_path_selection.get_or_insert_default();
+                for (escaper, id) in id_map {
+                    egress_path.set_string_id(escaper, id);
+                }
                 Ok(())
             }
             "egress_path_value_map" => {
-                let id_map =
+                let value_map =
                     g3_yaml::value::as_hashmap(v, g3_yaml::value::as_metric_node_name, |v| {
                         let v = g3_yaml::value::as_string(v)?;
                         serde_json::Value::from_str(&v)
                             .map_err(|e| anyhow!("invalid json string: {e}"))
                     })
                     .context(format!("invalid egress path id map value for key {k}"))?;
-                self.egress_path_selection = Some(EgressPathSelection::MatchValue(
-                    id_map.into_iter().collect::<AHashMap<_, _>>(),
-                ));
+                let egress_path = self.egress_path_selection.get_or_insert_default();
+                for (escaper, value) in value_map {
+                    egress_path.set_json_value(escaper, value);
+                }
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

@@ -14,7 +14,7 @@ use tokio::sync::mpsc;
 
 use g3_io_ext::{ArcLimitedWriterStats, LimitedWriter};
 use g3_types::auth::{UserAuthError, Username};
-use g3_types::net::{HttpAuth, HttpHeaderMap, HttpProxySubProtocol};
+use g3_types::net::{HttpAuth, HttpProxySubProtocol};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest};
 use super::{
@@ -238,17 +238,54 @@ where
 
     fn get_egress_path_selection(
         &self,
-        headers: &mut HttpHeaderMap,
-    ) -> Option<EgressPathSelection> {
+        req: &mut HttpProxyRequest<CDR>,
+    ) -> Result<Option<EgressPathSelection>, ()> {
+        let mut egress_path = EgressPathSelection::default();
+
         if let Some(header) = &self.ctx.server_config.egress_path_selection_header {
             // check and remove the custom header
-            if let Some(value) = headers.remove(header)
-                && let Ok(egress) = EgressPathSelection::from_str(value.to_str())
-            {
-                return Some(egress);
+            if let Some(value) = req.inner.end_to_end_headers.remove(header) {
+                match usize::from_str(value.to_str()) {
+                    Ok(id) => egress_path.set_number_id(self.ctx.server_config.name().clone(), id),
+                    Err(e) => {
+                        debug!("invalid egress path number id value in header {header}: {e}");
+                        return Err(());
+                    }
+                }
             }
         }
-        None
+
+        // Optional: compute username-param-derived escaper address and store override
+        if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr
+            && let HttpAuth::Basic(v) = &req.inner.auth_info
+        {
+            let u = v.username.as_original();
+            if username_params::username_has_known_key(cfg, u) {
+                match username_params::compute_upstream_from_username(
+                    cfg,
+                    u,
+                    username_params::InboundKind::Http,
+                ) {
+                    Ok(addr) => {
+                        debug!(
+                            "[{}] http username params -> next proxy {addr}",
+                            self.ctx.server_config.name()
+                        );
+                        egress_path.set_upstream(self.ctx.server_config.name().clone(), addr);
+                    }
+                    Err(e) => {
+                        debug!("failed to get upstream addr from username: {e}");
+                        return Err(());
+                    }
+                }
+            }
+        }
+
+        if egress_path.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(egress_path))
+        }
     }
 
     async fn run(
@@ -256,8 +293,18 @@ where
         mut req: HttpProxyRequest<CDR>,
         user_ctx: Option<UserContext>,
     ) -> LoopAction {
-        let path_selection = self.get_egress_path_selection(&mut req.inner.end_to_end_headers);
-        let mut task_notes = ServerTaskNotes::with_path_selection(
+        let Ok(path_selection) = self.get_egress_path_selection(&mut req) else {
+            self.req_count.invalid += 1;
+            // Bad request: unsupported param combo or invalid params
+            if let Some(stream_w) = &mut self.stream_writer {
+                let rsp = HttpProxyClientResponse::bad_request(req.inner.version);
+                let _ = rsp.reply_err_to_request(stream_w).await;
+            }
+            self.notify_reader_to_close();
+            return LoopAction::Break;
+        };
+
+        let task_notes = ServerTaskNotes::with_path_selection(
             self.ctx.cc_info.clone(),
             user_ctx,
             req.time_accepted.elapsed(),
@@ -273,41 +320,6 @@ where
             req.inner.uri,
             self.ctx.server_config.escaper
         );
-
-        // Optional: compute username-param-derived escaper address and store override
-        if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr
-            && let HttpAuth::Basic(v) = &req.inner.auth_info
-        {
-            let u = v.username.as_original();
-            if username_params::username_has_known_key(cfg, u) {
-                match username_params::compute_upstream_from_username(
-                    cfg,
-                    u,
-                    username_params::InboundKind::Http,
-                ) {
-                    Ok(addr) => {
-                        task_notes.set_override_next_proxy(addr);
-                        debug!(
-                            "[{}] http username params -> next proxy {}",
-                            self.ctx.server_config.name(),
-                            task_notes
-                                .override_next_proxy()
-                                .map(|a| a.to_string())
-                                .unwrap_or_else(|| "<none>".into())
-                        );
-                    }
-                    Err(_e) => {
-                        // Bad request: unsupported param combo or invalid params
-                        if let Some(stream_w) = &mut self.stream_writer {
-                            let rsp = HttpProxyClientResponse::bad_request(req.inner.version);
-                            let _ = rsp.reply_err_to_request(stream_w).await;
-                        }
-                        self.notify_reader_to_close();
-                        return LoopAction::Break;
-                    }
-                }
-            }
-        }
 
         let mut audit_ctx = self.audit_ctx.clone();
         let remote_protocol = match req.client_protocol {

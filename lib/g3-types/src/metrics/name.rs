@@ -48,6 +48,10 @@ impl NodeName {
     pub unsafe fn new_unchecked<T: AsRef<str>>(name: T) -> Self {
         NodeName(SmolStr::new(name))
     }
+
+    pub const fn new_static(name: &'static str) -> Self {
+        NodeName(SmolStr::new_static(name))
+    }
 }
 
 impl FromStr for NodeName {

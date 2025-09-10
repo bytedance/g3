@@ -75,7 +75,7 @@ impl DirectFixedEscaper {
         ),
         UdpRelaySetupError,
     > {
-        let bind = self.get_bind_random(family, task_notes.egress_path());
+        let bind = self.get_bind_random(family, task_notes);
 
         let misc_opts = if let Some(user_ctx) = task_notes.user_ctx() {
             user_ctx

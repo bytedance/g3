@@ -89,7 +89,7 @@ impl DirectFixedEscaper {
         self.handle_tcp_target_ip_acl_action(action, task_notes)?;
 
         if bind.is_none() {
-            bind = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes.egress_path());
+            bind = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes);
         }
 
         let sock = g3_socket::tcp::new_socket_to(

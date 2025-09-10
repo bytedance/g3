@@ -301,9 +301,13 @@ impl ProxySocks5Escaper {
         tcp_notes: &mut TcpConnectTaskNotes,
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, TcpConnectError> {
-        let peer_proxy = task_notes
-            .override_next_proxy()
-            .unwrap_or_else(|| self.get_next_proxy(task_notes, task_conf.upstream.host()));
+        let peer_proxy = match task_notes.egress_path_upstream(&self.config.name) {
+            Some(addr) => {
+                tcp_notes.override_peer = Some(addr.clone());
+                addr
+            }
+            None => self.get_next_proxy(task_notes, task_conf.upstream.host()),
+        };
 
         match peer_proxy.host() {
             Host::Ip(ip) => {

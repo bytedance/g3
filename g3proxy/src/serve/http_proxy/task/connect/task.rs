@@ -124,15 +124,12 @@ impl HttpProxyConnectTask {
     {
         // If the next-hop was derived from username params and DNS failed,
         // treat it as a bad request (400) instead of origin DNS error.
-        if self.task_notes.override_next_proxy().is_some()
-            && matches!(e, TcpConnectError::ResolveFailed(_))
+        if self.tcp_notes.override_peer.is_some() && matches!(e, TcpConnectError::ResolveFailed(_))
         {
             let mut rsp = HttpProxyClientResponse::bad_request(self.http_version);
             rsp.set_error_message("Proxy targeting didn't find a match");
-            self.ctx
-                .set_custom_header_for_local_reply(&self.tcp_notes, &mut rsp);
-            let should_close = rsp.should_close();
-            self.back_to_http = !should_close;
+            // no custom header is set for 400
+            self.back_to_http = false;
             let _ = rsp.reply_err_to_request(clt_w).await;
             return;
         }

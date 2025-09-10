@@ -62,6 +62,7 @@ pub(crate) struct TcpConnectTaskNotes {
     pub(crate) egress: Option<EgressInfo>,
     pub(crate) chained: TcpConnectChainedNotes,
     pub(crate) duration: Duration,
+    pub(crate) override_peer: Option<UpstreamAddr>,
 }
 
 impl TcpConnectTaskNotes {
@@ -75,5 +76,6 @@ impl TcpConnectTaskNotes {
         self.egress = None;
         self.chained.reset();
         self.duration = Duration::ZERO;
+        self.override_peer = None;
     }
 }

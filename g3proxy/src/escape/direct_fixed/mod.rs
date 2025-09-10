@@ -20,10 +20,7 @@ use g3_types::metrics::NodeName;
 use g3_types::net::{Host, ProxyProtocolEncoder, ProxyProtocolVersion, UpstreamAddr};
 use g3_types::resolve::{ResolveRedirection, ResolveStrategy};
 
-use super::{
-    ArcEscaper, ArcEscaperStats, EgressPathSelection, Escaper, EscaperInternal, EscaperRegistry,
-    EscaperStats,
-};
+use super::{ArcEscaper, ArcEscaperStats, Escaper, EscaperInternal, EscaperRegistry, EscaperStats};
 use crate::audit::AuditContext;
 use crate::auth::UserUpstreamTrafficStats;
 use crate::config::escaper::direct_fixed::DirectFixedEscaperConfig;
@@ -112,11 +109,7 @@ impl DirectFixedEscaper {
         }
     }
 
-    fn get_bind_random(
-        &self,
-        family: AddressFamily,
-        path_selection: Option<&EgressPathSelection>,
-    ) -> BindAddr {
+    fn get_bind_random(&self, family: AddressFamily, task_notes: &ServerTaskNotes) -> BindAddr {
         let vec = match family {
             AddressFamily::Ipv4 => &self.config.bind4,
             AddressFamily::Ipv6 => &self.config.bind6,
@@ -145,8 +138,7 @@ impl DirectFixedEscaper {
             1 => BindAddr::Ip(vec[0]),
             n => {
                 if self.config.enable_path_selection
-                    && let Some(path_selection) = path_selection
-                    && let Some(i) = path_selection.select_by_index(n)
+                    && let Some(i) = task_notes.egress_path_number_id(self.name(), n)
                 {
                     return BindAddr::Ip(vec[i]);
                 }
