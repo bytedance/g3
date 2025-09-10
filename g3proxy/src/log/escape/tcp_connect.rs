@@ -23,6 +23,7 @@ impl EscapeLogForTcpConnect<'_> {
             "escape_type" => "TcpConnect",
             "task_id" => LtUuid(self.task_id),
             "upstream" => LtUpstreamAddr(self.upstream),
+            "override_peer" => self.tcp_notes.override_peer.as_ref().map(LtUpstreamAddr),
             "next_bind_ip" => self.tcp_notes.bind.ip().map(LtIpAddr),
             "next_bound_addr" => self.tcp_notes.local,
             "next_peer_addr" => self.tcp_notes.next,

@@ -5,7 +5,6 @@
 
 use std::str::FromStr;
 
-use ahash::AHashMap;
 use anyhow::{Context, anyhow};
 use log::warn;
 use serde_json::{Map, Value};
@@ -13,7 +12,6 @@ use serde_json::{Map, Value};
 use g3_types::metrics::NodeName;
 
 use super::{PasswordToken, UserConfig, UserSiteConfig};
-use crate::escape::EgressPathSelection;
 
 impl UserConfig {
     pub(crate) fn parse_json(map: &Map<String, Value>) -> anyhow::Result<Self> {
@@ -254,9 +252,10 @@ impl UserConfig {
                     g3_json::value::as_string,
                 )
                 .context(format!("invalid egress path id map value for key {k}"))?;
-                self.egress_path_selection = Some(EgressPathSelection::MatchId(
-                    id_map.into_iter().collect::<AHashMap<_, _>>(),
-                ));
+                let egress_path = self.egress_path_selection.get_or_insert_default();
+                for (escaper, id) in id_map {
+                    egress_path.set_string_id(escaper, id);
+                }
                 Ok(())
             }
             "egress_path_value_map" => {
@@ -266,9 +265,10 @@ impl UserConfig {
                     |v| Ok(v.clone()),
                 )
                 .context(format!("invalid egress path value map value for key {k}"))?;
-                self.egress_path_selection = Some(EgressPathSelection::MatchValue(
-                    value_map.into_iter().collect::<AHashMap<_, _>>(),
-                ));
+                let egress_path = self.egress_path_selection.get_or_insert_default();
+                for (escaper, value) in value_map {
+                    egress_path.set_json_value(escaper, value);
+                }
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

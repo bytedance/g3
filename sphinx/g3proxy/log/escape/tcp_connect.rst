@@ -44,3 +44,12 @@ reason
 **required**, **type**: enum string
 
 The brief error reason.
+
+override_peer
+-------------
+
+**optional**, **type**: domain:port | socket address string
+
+Show the overrided peer upstream address from egress path selection.
+
+.. versionadded:: 1.13.0

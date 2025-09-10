@@ -173,20 +173,18 @@ impl DirectFloatEscaper {
         ip: IpAddr,
         task_notes: &ServerTaskNotes,
     ) -> anyhow::Result<DirectFloatBindIp> {
-        if let Some(path_selection) = task_notes.egress_path() {
-            if let Some(id) = path_selection.select_matched_id(self.name().as_str()) {
-                let bind_set = match ip {
-                    IpAddr::V4(_) => self.bind_v4.load(),
-                    IpAddr::V6(_) => self.bind_v6.load(),
-                };
-                return bind_set
-                    .select_named_bind(id)
-                    .ok_or_else(|| anyhow!("no bind IP with ID {id} found at escaper level"));
-            }
+        if let Some(id) = task_notes.egress_path_string_id(self.name()) {
+            let bind_set = match ip {
+                IpAddr::V4(_) => self.bind_v4.load(),
+                IpAddr::V6(_) => self.bind_v6.load(),
+            };
+            return bind_set
+                .select_named_bind(id)
+                .ok_or_else(|| anyhow!("no bind IP with ID {id} found at escaper level"));
+        }
 
-            if let Some(value) = path_selection.select_matched_value(self.name().as_str()) {
-                return self.parse_dyn_bind_ip(value);
-            }
+        if let Some(value) = task_notes.egress_path_json_value(self.name()) {
+            return self.parse_dyn_bind_ip(value);
         }
 
         self.select_bind_again_from_escaper(ip)
@@ -207,20 +205,18 @@ impl DirectFloatEscaper {
         family: AddressFamily,
         task_notes: &ServerTaskNotes,
     ) -> anyhow::Result<DirectFloatBindIp> {
-        if let Some(path_selection) = task_notes.egress_path() {
-            if let Some(id) = path_selection.select_matched_id(self.name().as_str()) {
-                let bind_set = match family {
-                    AddressFamily::Ipv4 => self.bind_v4.load(),
-                    AddressFamily::Ipv6 => self.bind_v6.load(),
-                };
-                return bind_set
-                    .select_named_bind(id)
-                    .ok_or_else(|| anyhow!("no bind IP with ID {id} found at escaper level"));
-            }
+        if let Some(id) = task_notes.egress_path_string_id(self.name()) {
+            let bind_set = match family {
+                AddressFamily::Ipv4 => self.bind_v4.load(),
+                AddressFamily::Ipv6 => self.bind_v6.load(),
+            };
+            return bind_set
+                .select_named_bind(id)
+                .ok_or_else(|| anyhow!("no bind IP with ID {id} found at escaper level"));
+        }
 
-            if let Some(value) = path_selection.select_matched_value(self.name().as_str()) {
-                return self.parse_dyn_bind_ip(value);
-            }
+        if let Some(value) = task_notes.egress_path_json_value(self.name()) {
+            return self.parse_dyn_bind_ip(value);
         }
 
         self.select_bind_from_escaper(family)

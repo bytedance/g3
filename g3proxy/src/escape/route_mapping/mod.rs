@@ -12,9 +12,7 @@ use g3_daemon::stat::remote::ArcTcpConnectionTaskRemoteStats;
 use g3_types::metrics::NodeName;
 use g3_types::net::UpstreamAddr;
 
-use super::{
-    ArcEscaper, EgressPathSelection, Escaper, EscaperInternal, EscaperRegistry, RouteEscaperStats,
-};
+use super::{ArcEscaper, Escaper, EscaperInternal, EscaperRegistry, RouteEscaperStats};
 use crate::audit::AuditContext;
 use crate::config::escaper::route_mapping::RouteMappingEscaperConfig;
 use crate::config::escaper::{AnyEscaperConfig, EscaperConfig};
@@ -96,10 +94,8 @@ impl RouteMappingEscaper {
             .clone()
     }
 
-    fn select_next(&self, path_selection: Option<&EgressPathSelection>) -> ArcEscaper {
-        if let Some(path_selection) = path_selection
-            && let Some(i) = path_selection.select_by_index(self.next_nodes.len())
-        {
+    fn select_next(&self, task_notes: &ServerTaskNotes) -> ArcEscaper {
+        if let Some(i) = task_notes.egress_path_number_id(self.name(), self.next_nodes.len()) {
             return self.next_nodes[i].clone();
         }
         self.random_next()
@@ -129,7 +125,7 @@ impl Escaper for RouteMappingEscaper {
         audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
-        let escaper = self.select_next(task_notes.egress_path());
+        let escaper = self.select_next(task_notes);
         self.stats.add_request_passed();
         escaper
             .tcp_setup_connection(task_conf, tcp_notes, task_notes, task_stats, audit_ctx)
@@ -145,7 +141,7 @@ impl Escaper for RouteMappingEscaper {
         audit_ctx: &mut AuditContext,
     ) -> TcpConnectResult {
         tcp_notes.escaper.clone_from(&self.config.name);
-        let escaper = self.select_next(task_notes.egress_path());
+        let escaper = self.select_next(task_notes);
         self.stats.add_request_passed();
         escaper
             .tls_setup_connection(task_conf, tcp_notes, task_notes, task_stats, audit_ctx)
@@ -160,7 +156,7 @@ impl Escaper for RouteMappingEscaper {
         task_stats: ArcUdpConnectTaskRemoteStats,
     ) -> UdpConnectResult {
         udp_notes.escaper.clone_from(&self.config.name);
-        let escaper = self.select_next(task_notes.egress_path());
+        let escaper = self.select_next(task_notes);
         self.stats.add_request_passed();
         escaper
             .udp_setup_connection(task_conf, udp_notes, task_notes, task_stats)
@@ -175,7 +171,7 @@ impl Escaper for RouteMappingEscaper {
         task_stats: ArcUdpRelayTaskRemoteStats,
     ) -> UdpRelaySetupResult {
         udp_notes.escaper.clone_from(&self.config.name);
-        let escaper = self.select_next(task_notes.egress_path());
+        let escaper = self.select_next(task_notes);
         self.stats.add_request_passed();
         escaper
             .udp_setup_relay(task_conf, udp_notes, task_notes, task_stats)
@@ -193,7 +189,7 @@ impl Escaper for RouteMappingEscaper {
         task_conf: &TcpConnectTaskConf<'_>,
         task_notes: &ServerTaskNotes,
     ) -> BoxFtpConnectContext {
-        let escaper = self.select_next(task_notes.egress_path());
+        let escaper = self.select_next(task_notes);
         self.stats.add_request_passed();
         escaper
             .new_ftp_connect_context(Arc::clone(&escaper), task_conf, task_notes)
@@ -229,7 +225,7 @@ impl EscaperInternal for RouteMappingEscaper {
         task_notes: &ServerTaskNotes,
         _upstream: &UpstreamAddr,
     ) -> Option<ArcEscaper> {
-        let escaper = self.select_next(task_notes.egress_path());
+        let escaper = self.select_next(task_notes);
         self.stats.add_request_passed();
         Some(escaper)
     }

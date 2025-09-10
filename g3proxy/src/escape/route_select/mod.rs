@@ -115,9 +115,7 @@ impl RouteSelectEscaper {
         task_notes: &ServerTaskNotes,
         upstream: &UpstreamAddr,
     ) -> anyhow::Result<ArcEscaper> {
-        if let Some(path_selection) = task_notes.egress_path()
-            && let Some(id) = path_selection.select_matched_id(self.name().as_str())
-        {
+        if let Some(id) = task_notes.egress_path_string_id(self.name()) {
             return self
                 .all_nodes
                 .get(id)

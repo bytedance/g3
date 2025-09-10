@@ -13,6 +13,7 @@ use uuid::Uuid;
 
 use g3_daemon::server::ClientConnectionInfo;
 use g3_types::limit::GaugeSemaphorePermit;
+use g3_types::metrics::NodeName;
 use g3_types::net::UpstreamAddr;
 
 use crate::auth::UserContext;
@@ -58,8 +59,6 @@ pub(crate) struct ServerTaskNotes {
     pub(crate) wait_time: Duration,
     pub(crate) ready_time: Duration,
     pub(crate) egress_path_selection: Option<EgressPathSelection>,
-    // optional, per-connection override for next-hop proxy (escaper peer)
-    override_next_proxy: Option<UpstreamAddr>,
     /// the following fields should not be cloned
     pub(crate) user_req_alive_permit: Option<GaugeSemaphorePermit>,
 }
@@ -91,7 +90,6 @@ impl ServerTaskNotes {
             wait_time,
             ready_time: Duration::default(),
             egress_path_selection,
-            override_next_proxy: None,
             user_req_alive_permit: None,
         }
     }
@@ -130,22 +128,64 @@ impl ServerTaskNotes {
         self.user_ctx.as_ref().and_then(|c| c.raw_user_name())
     }
 
-    pub(crate) fn egress_path(&self) -> Option<&EgressPathSelection> {
-        self.user_ctx
-            .as_ref()
-            .and_then(|ctx| ctx.user_config().egress_path_selection.as_ref())
-            .or(self.egress_path_selection.as_ref())
+    pub(crate) fn egress_path_number_id(&self, escaper: &NodeName, length: usize) -> Option<usize> {
+        if let Some(ctx) = &self.user_ctx
+            && let Some(p) = ctx.user_config().egress_path_selection.as_ref()
+            && let Some(id) = p.select_number_id(escaper, length)
+        {
+            return Some(id);
+        }
+
+        if let Some(p) = &self.egress_path_selection {
+            p.select_number_id(escaper, length)
+        } else {
+            None
+        }
     }
 
-    // Username-derived escaper override helpers
-    #[inline]
-    pub(crate) fn set_override_next_proxy(&mut self, addr: UpstreamAddr) {
-        self.override_next_proxy = Some(addr);
+    pub(crate) fn egress_path_string_id(&self, escaper: &NodeName) -> Option<&str> {
+        if let Some(ctx) = &self.user_ctx
+            && let Some(p) = ctx.user_config().egress_path_selection.as_ref()
+            && let Some(id) = p.select_string_id(escaper)
+        {
+            return Some(id);
+        }
+
+        if let Some(p) = &self.egress_path_selection {
+            p.select_string_id(escaper)
+        } else {
+            None
+        }
     }
 
-    #[inline]
-    pub(crate) fn override_next_proxy(&self) -> Option<&UpstreamAddr> {
-        self.override_next_proxy.as_ref()
+    pub(crate) fn egress_path_upstream(&self, escaper: &NodeName) -> Option<&UpstreamAddr> {
+        if let Some(ctx) = &self.user_ctx
+            && let Some(p) = ctx.user_config().egress_path_selection.as_ref()
+            && let Some(addr) = p.select_upstream(escaper)
+        {
+            return Some(addr);
+        }
+
+        if let Some(p) = &self.egress_path_selection {
+            p.select_upstream(escaper)
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn egress_path_json_value(&self, escaper: &NodeName) -> Option<&serde_json::Value> {
+        if let Some(ctx) = &self.user_ctx
+            && let Some(p) = ctx.user_config().egress_path_selection.as_ref()
+            && let Some(value) = p.select_json_value(escaper)
+        {
+            return Some(value);
+        }
+
+        if let Some(p) = &self.egress_path_selection {
+            p.select_json_value(escaper)
+        } else {
+            None
+        }
     }
 
     #[inline]
@@ -163,32 +203,6 @@ impl ServerTaskNotes {
         self.ready_time = self.create_ins.elapsed();
         if let Some(user_ctx) = &self.user_ctx {
             user_ctx.record_task_ready(self.ready_time);
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use g3_daemon::server::ClientConnectionInfo;
-    use g3_types::net::{Host, UpstreamAddr};
-
-    #[test]
-    fn override_next_proxy_helpers() {
-        let cc = ClientConnectionInfo::new(
-            "127.0.0.1:10000".parse().unwrap(),
-            "127.0.0.1:20000".parse().unwrap(),
-        );
-        let mut notes = ServerTaskNotes::new(cc, None, Duration::from_secs(0));
-        assert!(notes.override_next_proxy().is_none());
-
-        let addr = UpstreamAddr::from_host_str_and_port("127.0.0.1", 8080).unwrap();
-        notes.set_override_next_proxy(addr.clone());
-        let got = notes.override_next_proxy().unwrap();
-        assert_eq!(got.port(), 8080);
-        match got.host() {
-            Host::Ip(ip) => assert_eq!(ip.to_string(), "127.0.0.1"),
-            _ => panic!("expected ip host"),
         }
     }
 }
