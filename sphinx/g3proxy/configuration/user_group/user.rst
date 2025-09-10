@@ -418,7 +418,7 @@ This will overwrite the one set at server side,
 see :ref:`server task_idle_max_count <conf_server_common_task_idle_max_count>`.
 
 The idle check interval can only set at server side,
-see :ref:`server task_idle_check_duration <conf_server_common_task_idle_check_duration>`.
+see :ref:`server task_idle_check_interval <conf_server_common_task_idle_check_interval>`.
 
 **default**: not set
 
@@ -454,7 +454,7 @@ Set explicit sites for this user.
 egress_path_id_map
 ------------------
 
-**optional**, **type**: :ref:`by id map egress path <proto_egress_path_selection_by_id_map>`
+**optional**, **type**: :ref:`string id <proto_egress_path_selection_string_id>` egress path value map
 
 Set ID based egress path selection for this user.
 
@@ -465,7 +465,7 @@ Set ID based egress path selection for this user.
 egress_path_value_map
 ---------------------
 
-**optional**, **type**: :ref:`by value map egress path <proto_egress_path_selection_by_value_map>`
+**optional**, **type**: :ref:`json value <proto_egress_path_selection_json_value>` egress path value map
 
 Set JSON value based egress path selection for this user.
 

@@ -5,9 +5,9 @@ route_mapping
 
 This escaper allows to select a next escaper based on the user specified path selection index.
 
-The following egress path selection methods is supported:
+The following egress path selection values is supported:
 
-* :ref:`by index <proto_egress_path_selection_by_index>`
+* :ref:`number id <proto_egress_path_selection_number_id>`
 
   The index will be used as the index of the next escaper
 

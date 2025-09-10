@@ -23,7 +23,7 @@ custom http header
 
 Only http proxy server can support this.
 
-The supported method is :ref:`by index <proto_egress_path_selection_by_index>`.
+The supported method is :ref:`number id <proto_egress_path_selection_number_id>`.
 
 See :ref:`path_selection_header <config_server_http_proxy_egress_path_selection_header>` for more info.
 
@@ -39,54 +39,64 @@ username extension
 
 All servers which support user auth with a username can support this.
 
-No implementation for now.
+The supported method is :ref:`upstream addr <proto_egress_path_selection_upstream_addr>`.
+
+See :ref:`username_params <config_server_username_params>` for more info.
 
 user support
 ============
 
 User level egress path selection can be enabled via:
 
-- :ref:`egress_path_id_map <config_user_egress_path_id_map>` for by-id-map egress path selection
+- :ref:`egress_path_id_map <config_user_egress_path_id_map>` for :ref:`string id <proto_egress_path_selection_string_id>` egress path selection
 
-- :ref:`egress_path_value_map <config_user_egress_path_value_map>` for by-value-map egress path selection
+- :ref:`egress_path_value_map <config_user_egress_path_value_map>` for :ref:`json value <proto_egress_path_selection_json_value>` egress path selection
 
-selection methods
-=================
+selection values
+================
 
-.. _proto_egress_path_selection_by_index:
+The egress path selection data structure contains many maps.
 
-by index
---------
+All of these maps have escaper name as their key, and each escaper will fetch it's corresponded selection value.
 
-**value**: usize
+The value types are:
 
-For escapers with multiple nodes (may be next escapers or ip addresses), the node with the specified index will be used.
+.. _proto_egress_path_selection_number_id:
 
-The value will be wrapped into range *1 - len(nodes)*.
-**NOTE*** the start value is *1*, *0* is the same as *len(nodes) - 1*.
-
-.. _proto_egress_path_selection_by_id_map:
-
-by id map
+number id
 ---------
 
 **value**: map
 
-The root value should be a json/yaml map.
+The value should be a usize value, which will be used as an index.
 
-The key should be the escaper name, so the corresponding value will be handled by that escaper.
+For escapers with multiple nodes (may be next escapers or ip addresses), the node with the specified index will be used.
+The value will be wrapped into range *1 - len(nodes)*.
+**NOTE*** the start value is *1*, *0* is the same as *len(nodes) - 1*.
 
-The value should be a `ID` string value, and it's meaning will be different on each type of escaper.
+.. _proto_egress_path_selection_string_id:
 
-.. _proto_egress_path_selection_by_value_map:
-
-by value map
-------------
+string id
+---------
 
 **value**: map
 
-The root value should be a json/yaml map.
+The value should be a `ID` string value, and it's meaning will be different on each type of escaper.
 
-The key should be the escaper name, so the corresponding value will be handled by that escaper.
+.. _proto_egress_path_selection_json_value:
+
+json value
+----------
+
+**value**: map
 
 The value should be a `JSON MAP` object (or a JSON MAP str in yaml config), and it's meaning will be different on each type of escaper.
+
+.. _proto_egress_path_selection_upstream_addr:
+
+upstream addr
+-------------
+
+**value**: map
+
+The value should be a :ref:`upstream str <conf_value_upstream_str>`, and it will override the upstream address used by the corresponding escaper.
