@@ -17,6 +17,7 @@ use g3_types::net::UpstreamAddr;
 
 use crate::auth::UserContext;
 use crate::escape::EgressPathSelection;
+use crate::sticky::StickyDecision;
 
 #[derive(Clone, Copy)]
 pub(crate) enum ServerTaskStage {
@@ -62,6 +63,7 @@ pub(crate) struct ServerTaskNotes {
     override_next_proxy: Option<UpstreamAddr>,
     /// the following fields should not be cloned
     pub(crate) user_req_alive_permit: Option<GaugeSemaphorePermit>,
+    sticky: Option<StickyDecision>,
 }
 
 impl ServerTaskNotes {
@@ -93,6 +95,7 @@ impl ServerTaskNotes {
             egress_path_selection,
             override_next_proxy: None,
             user_req_alive_permit: None,
+            sticky: None,
         }
     }
 
@@ -146,6 +149,16 @@ impl ServerTaskNotes {
     #[inline]
     pub(crate) fn override_next_proxy(&self) -> Option<&UpstreamAddr> {
         self.override_next_proxy.as_ref()
+    }
+
+    #[inline]
+    pub(crate) fn sticky(&self) -> Option<&StickyDecision> {
+        self.sticky.as_ref()
+    }
+
+    #[inline]
+    pub(crate) fn set_sticky(&mut self, decision: StickyDecision) {
+        self.sticky = Some(decision);
     }
 
     #[inline]

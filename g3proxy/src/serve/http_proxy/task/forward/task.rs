@@ -1532,6 +1532,19 @@ impl<'a> HttpProxyForwardTask<'a> {
             self.should_close = true;
         }
         self.http_notes.origin_status = rsp_header.code;
+
+        // Sliding TTL refresh on successful response
+        if let Some(decision) = self.task_notes.sticky()
+            && decision.enabled()
+            && !decision.rotate
+        {
+            let ttl = decision.effective_ttl();
+            let key = crate::sticky::build_sticky_key(decision, &self.upstream);
+            crate::sticky::redis_refresh_ttl(&key, ttl).await;
+            self.tcp_notes.sticky_enabled = true;
+            let now = chrono::Utc::now();
+            self.tcp_notes.sticky_expires_at = Some(crate::sticky::compute_expiry(now, ttl));
+        }
         self.http_notes.rsp_status = 0;
         self.update_response_header(rsp_header);
 
@@ -1784,6 +1797,12 @@ impl<'a> HttpProxyForwardTask<'a> {
             if let Some(addr) = self.tcp_notes.chained.outgoing_addr {
                 http_header::set_outgoing_ip(&mut rsp.hop_by_hop_headers, addr);
             }
+        }
+
+        // DX sticky headers for forwarded responses
+        http_header::set_sticky_session(&mut rsp.hop_by_hop_headers, self.tcp_notes.sticky_enabled);
+        if let Some(exp) = &self.tcp_notes.sticky_expires_at {
+            http_header::set_sticky_expires_at(&mut rsp.hop_by_hop_headers, exp);
         }
     }
 

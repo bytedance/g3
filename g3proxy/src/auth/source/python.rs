@@ -124,6 +124,8 @@ async fn call_python_fetch(script: PathBuf) -> anyhow::Result<String> {
     let code = unsafe { CString::from_vec_unchecked(code.into_bytes()) };
 
     tokio::task::spawn_blocking(move || {
+        // Ensure the Python interpreter is initialized for use from any thread.
+        Python::initialize();
         Python::attach(|py| {
             let code = PyModule::from_code(py, &code, c"", c"").map_err(|e| {
                 anyhow!(
@@ -180,6 +182,7 @@ async fn call_python_report_ok(script: PathBuf) -> anyhow::Result<()> {
     let code = unsafe { CString::from_vec_unchecked(code.into_bytes()) };
 
     tokio::task::spawn_blocking(move || {
+        Python::initialize();
         Python::attach(|py| {
             let code = PyModule::from_code(py, &code, c"", c"").map_err(|e| {
                 anyhow!(
@@ -222,6 +225,7 @@ async fn call_python_report_err(script: PathBuf, e: String) -> anyhow::Result<()
     let code = unsafe { CString::from_vec_unchecked(code.into_bytes()) };
 
     tokio::task::spawn_blocking(move || {
+        Python::initialize();
         Python::attach(|py| {
             let code = PyModule::from_code(py, &code, c"", c"").map_err(|e| {
                 anyhow!(

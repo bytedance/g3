@@ -1,0 +1,38 @@
+services:
+  coredns:
+    image: coredns/coredns:latest
+    command: ["-conf", "/Corefile"]
+    volumes:
+      - ./Corefile:/Corefile:ro
+    ports:
+      - "5300:53/udp"
+      - "5300:53/tcp"
+    restart: unless-stopped
+
+  headless_1:
+    image: alpine:latest
+    # Publish VIP 10.10.0.2:80 -> host:8081 (HTTP) and 10.10.0.2:1080 -> host:1081 (SOCKS5)
+    # Ensure socat is installed before starting; exit early if install fails.
+    command: [ "sh", "-c", "set -e; apk add --no-cache socat; socat -d -d TCP-LISTEN:80,fork,reuseaddr TCP:host.docker.internal:8081 & exec socat -d -d TCP-LISTEN:1080,fork,reuseaddr TCP:host.docker.internal:1081" ]
+    ports:
+      - "10.10.0.2:80:80"
+      - "10.10.0.2:1080:1080"
+    restart: unless-stopped
+
+  headless_2:
+    image: alpine:latest
+    # 10.10.0.3:80 -> host:8082 and 10.10.0.3:1080 -> host:1082
+    command: [ "sh", "-c", "set -e; apk add --no-cache socat; socat -d -d TCP-LISTEN:80,fork,reuseaddr TCP:host.docker.internal:8082 & exec socat -d -d TCP-LISTEN:1080,fork,reuseaddr TCP:host.docker.internal:1082" ]
+    ports:
+      - "10.10.0.3:80:80"
+      - "10.10.0.3:1080:1080"
+    restart: unless-stopped
+
+  headless_3:
+    image: alpine:latest
+    # 10.10.0.4:80 -> host:8083 and 10.10.0.4:1080 -> host:1083
+    command: [ "sh", "-c", "set -e; apk add --no-cache socat; socat -d -d TCP-LISTEN:80,fork,reuseaddr TCP:host.docker.internal:8083 & exec socat -d -d TCP-LISTEN:1080,fork,reuseaddr TCP:host.docker.internal:1083" ]
+    ports:
+      - "10.10.0.4:80:80"
+      - "10.10.0.4:1080:1080"
+    restart: unless-stopped

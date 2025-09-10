@@ -16,9 +16,12 @@ use std::task::{Context, Poll, ready};
 ))]
 use g3_io_ext::UdpCopyPacket;
 use g3_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
+use std::time::{Duration, Instant};
 
 pub(crate) struct DirectUdpConnectRemoteSend<T> {
     inner: T,
+    sticky_key: Option<(String, Duration)>,
+    last_refresh: Option<Instant>,
 }
 
 impl<T> DirectUdpConnectRemoteSend<T>
@@ -26,7 +29,11 @@ where
     T: AsyncUdpSend,
 {
     pub(crate) fn new(send: T) -> Self {
-        DirectUdpConnectRemoteSend { inner: send }
+        DirectUdpConnectRemoteSend { inner: send, sticky_key: None, last_refresh: None }
+    }
+
+    pub(crate) fn new_with_sticky(send: T, key: String, ttl: Duration) -> Self {
+        DirectUdpConnectRemoteSend { inner: send, sticky_key: Some((key, ttl)), last_refresh: None }
     }
 }
 
@@ -39,6 +46,19 @@ where
         cx: &mut Context<'_>,
         buf: &[u8],
     ) -> Poll<Result<usize, UdpCopyRemoteError>> {
+        if let Some((key, ttl)) = &self.sticky_key {
+            let now = Instant::now();
+            let should_refresh = match self.last_refresh {
+                None => true,
+                Some(t) => now.duration_since(t) >= crate::sticky::refresh_min_interval(),
+            };
+            if should_refresh {
+                self.last_refresh = Some(now);
+                let key = key.clone();
+                let ttl = *ttl;
+                tokio::spawn(async move { crate::sticky::redis_refresh_ttl(&key, ttl).await; });
+            }
+        }
         let nw = ready!(self.inner.poll_send(cx, buf)).map_err(UdpCopyRemoteError::SendFailed)?;
         if nw == 0 {
             Poll::Ready(Err(UdpCopyRemoteError::SendFailed(io::Error::new(
