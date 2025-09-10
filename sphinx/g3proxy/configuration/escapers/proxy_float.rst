@@ -22,15 +22,15 @@ The following interfaces are supported:
 The Cap'n Proto RPC publish command is supported on this escaper, the published data should be an array of
 or just one :ref:`peer <config_escaper_dynamic_peer>`.
 
-The following egress path selection methods is supported:
+The following egress path selection values is supported:
 
-* :ref:`by id map <proto_egress_path_selection_by_id_map>`
+* :ref:`string id <proto_egress_path_selection_string_id>`
 
   If matched, a :ref:`peer <config_escaper_dynamic_peer>` with the same `ID` will be used.
 
   .. versionadded:: 1.9.2
 
-* :ref:`by value map <proto_egress_path_selection_by_value_map>`
+* :ref:`json value <proto_egress_path_selection_json_value>`
 
   If matched, the JSON MAP value will be parsed as a :ref:`peer <config_escaper_dynamic_peer>` and it will be used.
 

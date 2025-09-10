@@ -5,9 +5,9 @@ route_select
 
 This escaper allows to select a next escaper based on the specified pick policy.
 
-The following egress path selection methods is supported:
+The following egress path selection values is supported:
 
-* :ref:`by id map <proto_egress_path_selection_by_id_map>`
+* :ref:`string id <proto_egress_path_selection_string_id>`
 
   If matched, an escaper registered in :ref:`next_nodes <conf_escaper_route_select_next_nodes>` which
   the name is the same with `ID` will be used.

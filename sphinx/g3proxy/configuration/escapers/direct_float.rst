@@ -27,15 +27,15 @@ The Cap'n Proto RPC publish command is supported on this escaper, the published 
   Set the IPv6 bind ip address(es).
   The value could be an array of or just one :ref:`bind ip <config_escaper_dynamic_bind_ip>`.
 
-The following egress path selection methods is supported:
+The following egress path selection values is supported:
 
-* :ref:`by id map <proto_egress_path_selection_by_id_map>`
+* :ref:`string id <proto_egress_path_selection_string_id>`
 
   If matched, a `bind_ip <config_escaper_dynamic_bind_ip>` with the same `ID` will be used.
 
   .. versionadded:: 1.9.2
 
-* :ref:`by value map <proto_egress_path_selection_by_value_map>`
+* :ref:`json value <proto_egress_path_selection_json_value>`
 
   If matched, the JSON MAP value will be parsed as a `bind_ip <config_escaper_dynamic_bind_ip>` and it will be used.
 

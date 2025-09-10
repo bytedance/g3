@@ -955,7 +955,7 @@ imap interception
 
   Set the max IDLE count allowed when forwarding IMAP command/response lines, including IMAP IDLE state.
 
-  The IDLE check interval will be :ref:`task_idle_check_duration <conf_server_common_task_idle_check_duration>`.
+  The IDLE check interval will be :ref:`task_idle_check_interval <conf_server_common_task_idle_check_interval>`.
 
   **default**: 30
 
@@ -965,7 +965,7 @@ imap interception
 
   Set the max IDLE count allowed when transferring IMAP command/response literal data.
 
-  The IDLE check interval will be :ref:`task_idle_check_duration <conf_server_common_task_idle_check_duration>`.
+  The IDLE check interval will be :ref:`task_idle_check_interval <conf_server_common_task_idle_check_interval>`.
 
   **default**: 5
 

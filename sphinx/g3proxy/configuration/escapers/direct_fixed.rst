@@ -13,9 +13,9 @@ The following interfaces are supported:
 * http(s) forward
 * ftp over http
 
-The following egress path selection methods is supported:
+The following egress path selection values is supported:
 
-* :ref:`by index <proto_egress_path_selection_by_index>`
+* :ref:`number id <proto_egress_path_selection_number_id>`
 
   The index will be used as the index of the binding IP address
 

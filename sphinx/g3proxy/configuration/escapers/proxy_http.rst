@@ -10,7 +10,13 @@ The following interfaces are supported:
 * tcp connect
 * http(s) forward
 
-There is no path selection support for this escaper.
+The following egress path selection values is supported:
+
+* :ref:`upstream addr <proto_egress_path_selection_upstream_addr>`
+
+  If matched, the corresponding :ref:`upstream str <conf_value_upstream_str>` value will be used to override the `proxy_addr` config.
+
+  .. versionadded:: 1.13.0
 
 The following common keys are supported:
 
