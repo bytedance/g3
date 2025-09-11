@@ -4,7 +4,10 @@
  */
 
 use std::future::poll_fn;
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
 use std::time::Duration;
 
 use async_recursion::async_recursion;
@@ -400,8 +403,10 @@ where
         };
 
         let mut idle_interval = self.ctx.idle_wheel.register();
+        idle_interval.skip_missed_ticks();
+
         let mut idle_count = 0;
-        let mut is_active = false;
+        let stream_tasks = Arc::new(AtomicUsize::new(0));
 
         loop {
             tokio::select! {
@@ -430,14 +435,17 @@ where
                 clt_r = h2c_connection.accept() => {
                     match clt_r {
                         Some(Ok((clt_req, clt_send_rsp))) => {
-                            is_active = true;
                             let h2s = h2s.clone();
                             let ctx = self.ctx.clone();
                             let stats = self.stats.clone();
                             stats.add_task();
+
+                            let inner_task = stream_tasks.clone();
+                            inner_task.fetch_add(1, Ordering::Release);
                             tokio::spawn(async move {
                                 stream::transfer(clt_req, clt_send_rsp, h2s, ctx).await;
                                 stats.del_task();
+                                inner_task.fetch_sub(1, Ordering::Release);
                             });
                             continue;
                         }
@@ -464,18 +472,17 @@ where
                     }
                 }
                 n = idle_interval.tick() => {
-                    if !is_active && self.stats.get_alive_task() <= 0 {
+                    if stream_tasks.load(Ordering::Acquire) == 0 {
                         idle_count += n;
 
                         if idle_count > self.ctx.max_idle_count {
                             let _ = ping_quit_sender.send(());
-                            server_abrupt_shutdown(h2c_connection, Reason::ENHANCE_YOUR_CALM).await;
+                            server_abrupt_shutdown(h2c_connection, Reason::NO_ERROR).await;
 
                             return Err(H2InterceptionError::Idle(idle_interval.period(), idle_count));
                         }
                     } else {
                         idle_count = 0;
-                        is_active = false;
                     }
 
                     if self.ctx.belongs_to_blocked_user() {
