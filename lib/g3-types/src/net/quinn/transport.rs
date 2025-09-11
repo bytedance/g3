@@ -69,3 +69,29 @@ impl QuinnTransportConfigBuilder {
         config
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn operations() {
+        let mut builder = QuinnTransportConfigBuilder::default();
+        builder
+            .set_max_idle_timeout(Duration::from_secs(120))
+            .unwrap();
+        builder.set_keep_alive_interval(Duration::from_secs(15));
+        builder.set_stream_receive_window(65536);
+        builder.set_receive_window(131072);
+        builder.set_send_window(262144);
+        let _config = builder.build_for_client();
+        assert_eq!(
+            builder.max_idle_timeout,
+            IdleTimeout::from(VarInt::from_u32(120_000))
+        );
+        assert_eq!(builder.keep_alive_interval, Duration::from_secs(15));
+        assert_eq!(builder.stream_receive_window, Some(VarInt::from_u32(65536)));
+        assert_eq!(builder.receive_window, Some(VarInt::from_u32(131072)));
+        assert_eq!(builder.send_window, Some(262144));
+    }
+}
