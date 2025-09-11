@@ -159,3 +159,117 @@ impl DnsEncryptionConfigBuilder {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dns_encryption_protocol_from_str() {
+        let test_cases = ["tls", "dns_over_tls", "dnsovertls", "dot"];
+        for case in test_cases {
+            let result = DnsEncryptionProtocol::from_str(case);
+            assert_eq!(result.unwrap(), DnsEncryptionProtocol::Tls);
+        }
+
+        let test_cases = ["https", "h2", "dns_over_https", "dnsoverhttps", "doh"];
+        for case in test_cases {
+            let result = DnsEncryptionProtocol::from_str(case);
+            assert_eq!(result.unwrap(), DnsEncryptionProtocol::Https);
+        }
+
+        #[cfg(feature = "quic")]
+        {
+            let test_cases = ["h3", "http/3", "dns_over_http/3", "dnsoverhttp/3", "doh3"];
+            for case in test_cases {
+                let result = DnsEncryptionProtocol::from_str(case);
+                assert_eq!(result.unwrap(), DnsEncryptionProtocol::H3);
+            }
+
+            let test_cases = ["quic", "dns_over_quic", "dnsoverquic", "doq"];
+            for case in test_cases {
+                let result = DnsEncryptionProtocol::from_str(case);
+                assert_eq!(result.unwrap(), DnsEncryptionProtocol::Quic);
+            }
+        }
+
+        let result = DnsEncryptionProtocol::from_str("dns-over-tls");
+        assert_eq!(result.unwrap(), DnsEncryptionProtocol::Tls);
+
+        let result = DnsEncryptionProtocol::from_str("dns-over-https");
+        assert_eq!(result.unwrap(), DnsEncryptionProtocol::Https);
+
+        let test_cases = ["unknown", "invalid", "tcp", "udp", ""];
+        for case in test_cases {
+            let result = DnsEncryptionProtocol::from_str(case);
+            assert!(result.is_err());
+        }
+    }
+
+    #[test]
+    fn dns_encryption_protocol_as_str() {
+        assert_eq!(DnsEncryptionProtocol::Tls.as_str(), "DnsOverTls");
+        assert_eq!(DnsEncryptionProtocol::Https.as_str(), "DnsOverHttps");
+        #[cfg(feature = "quic")]
+        assert_eq!(DnsEncryptionProtocol::H3.as_str(), "DnsOverHttp/3");
+        #[cfg(feature = "quic")]
+        assert_eq!(DnsEncryptionProtocol::Quic.as_str(), "DnsOverQuic");
+    }
+
+    #[test]
+    fn dns_encryption_protocol_default_port() {
+        assert_eq!(DnsEncryptionProtocol::Tls.default_port(), 853);
+        assert_eq!(DnsEncryptionProtocol::Https.default_port(), 443);
+        #[cfg(feature = "quic")]
+        assert_eq!(DnsEncryptionProtocol::H3.default_port(), 443);
+        #[cfg(feature = "quic")]
+        assert_eq!(DnsEncryptionProtocol::Quic.default_port(), 853);
+    }
+
+    #[cfg(feature = "rustls")]
+    mod rustls_tests {
+        use super::*;
+        use rustls_pki_types::{DnsName, ServerName};
+        use std::net::IpAddr;
+
+        fn sample_dns_name() -> ServerName<'static> {
+            ServerName::DnsName(DnsName::try_from("cloudflare-dns.com").unwrap())
+        }
+
+        fn sample_ip_name() -> ServerName<'static> {
+            ServerName::IpAddress(IpAddr::from([192, 168, 127, 12]).into())
+        }
+
+        #[test]
+        fn dns_encryption_config_builder_set() {
+            let mut builder = DnsEncryptionConfigBuilder::new(sample_dns_name());
+
+            builder.set_protocol(DnsEncryptionProtocol::Https);
+            assert_eq!(builder.protocol(), DnsEncryptionProtocol::Https);
+
+            #[cfg(feature = "quic")]
+            {
+                builder.set_protocol(DnsEncryptionProtocol::H3);
+                assert_eq!(builder.protocol(), DnsEncryptionProtocol::H3);
+            }
+
+            let new_name = sample_ip_name();
+
+            builder.set_tls_name(new_name.clone());
+            assert_eq!(builder.tls_name(), &new_name);
+        }
+
+        #[test]
+        fn dns_encryption_config_builder_summary() {
+            let dns_name = sample_dns_name();
+            let builder = DnsEncryptionConfigBuilder::new(dns_name);
+            let summary = builder.summary();
+            assert_eq!(summary, "DnsOverTls(cloudflare-dns.com)");
+
+            let ip_name = sample_ip_name();
+            let builder = DnsEncryptionConfigBuilder::new(ip_name);
+            let summary = builder.summary();
+            assert_eq!(summary, "DnsOverTls(192.168.127.12)");
+        }
+    }
+}
