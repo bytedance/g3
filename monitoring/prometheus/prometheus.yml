@@ -14,7 +14,7 @@ scrape_configs:
   # Arcus-G3 SWG metrics
   - job_name: 'arcus-g3-swg'
     static_configs:
-      - targets: ['arcus-g3-swg:9090']
+      - targets: ['arcus-g3-swg:9100']
     scrape_interval: 30s
     metrics_path: /metrics
     scheme: http

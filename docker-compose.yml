@@ -9,9 +9,10 @@ services:
     container_name: arcus-g3-swg
     restart: unless-stopped
     ports:
-      - "8080:8080"  # HTTP proxy
-      - "8443:8443"  # HTTPS proxy
-      - "1080:1080"  # SOCKS proxy
+      - "8080:8080" # HTTP proxy
+      - "8443:8443" # HTTPS proxy
+      - "1080:1080" # SOCKS proxy
+      - "9100:9100" # Prometheus metrics
     volumes:
       - ./config:/app/config:ro
       - ./logs:/app/logs
@@ -19,8 +20,9 @@ services:
     environment:
       - RUST_LOG=info
       - RUST_BACKTRACE=1
+    command: [ "arcus-g3", "start", "--config", "/app/config/config.yaml", "--metrics-port", "9100" ]
     healthcheck:
-      test: ["CMD", "arcus-g3", "--version"]
+      test: [ "CMD", "arcus-g3", "--version" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -71,8 +73,8 @@ services:
     container_name: arcus-g3-jaeger
     restart: unless-stopped
     ports:
-      - "16686:16686"  # Jaeger UI
-      - "14268:14268"  # Jaeger collector
+      - "16686:16686" # Jaeger UI
+      - "14268:14268" # Jaeger collector
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     networks:
@@ -95,6 +97,7 @@ volumes:
   prometheus-data:
   grafana-data:
   redis-data:
+
 
 networks:
   arcus-network:

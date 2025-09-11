@@ -36,7 +36,7 @@ spec:
           containerPort: 1080
           protocol: TCP
         - name: metrics
-          containerPort: 9090
+          containerPort: 9100
           protocol: TCP
         env:
         - name: RUST_LOG

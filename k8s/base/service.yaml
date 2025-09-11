@@ -21,7 +21,7 @@ spec:
     targetPort: socks-proxy
     protocol: TCP
   - name: metrics
-    port: 9090
+    port: 9100
     targetPort: metrics
     protocol: TCP
   selector:
@@ -52,7 +52,7 @@ spec:
     targetPort: socks-proxy
     protocol: TCP
   - name: metrics
-    port: 9090
+    port: 9100
     targetPort: metrics
     protocol: TCP
   selector:
