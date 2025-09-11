@@ -6,7 +6,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use tokio::time::{Instant, Interval};
+use tokio::time::{Instant, Interval, MissedTickBehavior};
 
 pub struct IdleWheel {
     interval: Duration,
@@ -36,6 +36,11 @@ impl IdleInterval {
 
     pub fn period(&self) -> Duration {
         self.interval.period()
+    }
+
+    pub fn skip_missed_ticks(&mut self) {
+        self.interval
+            .set_missed_tick_behavior(MissedTickBehavior::Delay);
     }
 }
 
