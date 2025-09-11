@@ -164,7 +164,7 @@ impl Sha512Crypt {
                 }
 
                 rounds = usize::from_str(&r[0..d]).map_err(|_| XCryptParseError::InvalidRounds)?;
-                if (ROUNDS_MIN..=ROUNDS_MAX).contains(&rounds) {
+                if !(ROUNDS_MIN..=ROUNDS_MAX).contains(&rounds) {
                     return Err(XCryptParseError::OutOfRangeRounds);
                 }
 
