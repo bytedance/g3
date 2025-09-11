@@ -13,7 +13,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::mpsc;
 
 use g3_io_ext::{ArcLimitedWriterStats, LimitedWriter};
-use g3_types::auth::{UserAuthError, Username};
+use g3_types::auth::UserAuthError;
 use g3_types::net::{HttpAuth, HttpProxySubProtocol};
 
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpProxyRequest};
@@ -26,7 +26,7 @@ use crate::auth::{UserContext, UserGroup, UserRequestStats};
 use crate::config::server::ServerConfig;
 use crate::escape::EgressPathSelection;
 use crate::module::http_forward::{BoxHttpForwardContext, HttpProxyClientResponse};
-use crate::serve::{ServerStats, ServerTaskNotes, username_params};
+use crate::serve::{ServerStats, ServerTaskNotes, UsernameParams};
 
 struct UserData {
     req_stats: Arc<UserRequestStats>,
@@ -136,21 +136,16 @@ where
                     })
                     .ok_or(UserAuthError::NoUserSupplied)?,
                 HttpAuth::Basic(v) => {
-                    // optionally strip "+params" suffix before auth
-                    let mut base_username: Option<Username> = None;
-                    if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr
-                        && cfg.strip_suffix_for_auth
-                    {
-                        let base = username_params::ParsedUsernameParams::auth_base(
-                            v.username.as_original(),
-                        );
-                        if base != v.username.as_original() {
-                            base_username = Username::from_original(base).ok();
-                        }
-                    }
-                    let username_ref = base_username.as_ref().unwrap_or(&v.username);
+                    let username = v.username.as_original();
+                    let username = self
+                        .ctx
+                        .server_config
+                        .username_params
+                        .as_ref()
+                        .map(|c| c.real_username(username))
+                        .unwrap_or(username);
                     user_group.check_user_with_password(
-                        username_ref,
+                        username,
                         &v.password,
                         self.ctx.server_config.name(),
                         self.ctx.server_stats.share_extra_tags(),
@@ -256,27 +251,21 @@ where
         }
 
         // Optional: compute username-param-derived escaper address and store override
-        if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr
+        if let Some(cfg) = &self.ctx.server_config.username_params
             && let HttpAuth::Basic(v) = &req.inner.auth_info
+            && cfg.has_known_key(v.username.as_original())
         {
-            let u = v.username.as_original();
-            if username_params::username_has_known_key(cfg, u) {
-                match username_params::compute_upstream_from_username(
-                    cfg,
-                    u,
-                    username_params::InboundKind::Http,
-                ) {
-                    Ok(addr) => {
-                        debug!(
-                            "[{}] http username params -> next proxy {addr}",
-                            self.ctx.server_config.name()
-                        );
-                        egress_path.set_upstream(self.ctx.server_config.name().clone(), addr);
-                    }
-                    Err(e) => {
-                        debug!("failed to get upstream addr from username: {e}");
-                        return Err(());
-                    }
+            match UsernameParams::compute_upstream_http(cfg, v.username.as_original()) {
+                Ok(addr) => {
+                    debug!(
+                        "[{}] http username params -> next proxy {addr}",
+                        self.ctx.server_config.name()
+                    );
+                    egress_path.set_upstream(self.ctx.server_config.name().clone(), addr);
+                }
+                Err(e) => {
+                    debug!("failed to get upstream addr from username: {e}");
+                    return Err(());
                 }
             }
         }

@@ -9,7 +9,7 @@ use anyhow::{Context, anyhow};
 use yaml_rust::Yaml;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) struct UsernameParamsToEscaperConfig {
+pub(crate) struct UsernameParamsConfig {
     /// ordered keys that will be used to form the host label
     pub(crate) keys_for_host: Vec<String>,
     /// require that if a later key appears, all its ancestors (earlier keys) must also appear
@@ -32,9 +32,9 @@ pub(crate) struct UsernameParamsToEscaperConfig {
     pub(crate) strip_suffix_for_auth: bool,
 }
 
-impl UsernameParamsToEscaperConfig {
+impl UsernameParamsConfig {
     pub(crate) fn new() -> Self {
-        UsernameParamsToEscaperConfig {
+        UsernameParamsConfig {
             keys_for_host: Vec::new(),
             require_hierarchy: true,
             floating_keys: Vec::new(),
@@ -49,7 +49,7 @@ impl UsernameParamsToEscaperConfig {
     }
 }
 
-impl UsernameParamsToEscaperConfig {
+impl UsernameParamsConfig {
     pub(crate) fn parse(value: &Yaml) -> anyhow::Result<Self> {
         if let Yaml::Hash(map) = value {
             let mut c = Self::new();
@@ -145,6 +145,35 @@ impl UsernameParamsToEscaperConfig {
             Cow::Borrowed(host)
         }
     }
+
+    pub(crate) fn real_username<'a>(&self, raw: &'a str) -> &'a str {
+        if self.strip_suffix_for_auth
+            && let Some(p) = memchr::memchr(b'+', raw.as_bytes())
+        {
+            &raw[..p]
+        } else {
+            raw
+        }
+    }
+
+    pub(crate) fn has_known_key(&self, raw: &str) -> bool {
+        let Some(p) = memchr::memchr(b'+', raw.as_bytes()) else {
+            return false;
+        };
+        let left = &raw[p..];
+        let mut buf = String::with_capacity(32);
+        for k in &self.keys_for_host {
+            buf.clear();
+            // look for "+key=" pattern to avoid false positives
+            buf.push('+');
+            buf.push_str(k);
+            buf.push('=');
+            if left.contains(&buf) {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 #[cfg(test)]
@@ -169,7 +198,7 @@ mod tests {
                 auth_strip_suffix: false
             "#
         );
-        let c = UsernameParamsToEscaperConfig::parse(&value).unwrap();
+        let c = UsernameParamsConfig::parse(&value).unwrap();
 
         assert_eq!(c.keys_for_host, vec!["a", "b", "c"]);
         assert_eq!(c.floating_keys, vec!["c"]);
@@ -185,7 +214,7 @@ mod tests {
 
     #[test]
     fn to_fqdn_works() {
-        let mut c = UsernameParamsToEscaperConfig::new();
+        let mut c = UsernameParamsConfig::new();
         // no suffix
         assert_eq!(c.to_fqdn("foo").as_ref(), "foo");
 
@@ -200,7 +229,7 @@ mod tests {
                 domain_suffix: "svc.local"
             "#
         );
-        let c2 = UsernameParamsToEscaperConfig::parse(&value).unwrap();
+        let c2 = UsernameParamsConfig::parse(&value).unwrap();
         assert_eq!(c2.domain_suffix.as_deref(), Some(".svc.local"));
     }
 
@@ -212,7 +241,7 @@ mod tests {
                 floating_keys: [b]
             "#
         );
-        let r = UsernameParamsToEscaperConfig::parse(&value);
+        let r = UsernameParamsConfig::parse(&value);
         assert!(r.is_err());
     }
 }

@@ -29,8 +29,7 @@ use g3_yaml::YamlDocPosition;
 
 use super::{
     AnyServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT,
-    IDLE_CHECK_MAXIMUM_DURATION, ServerConfig, ServerConfigDiffAction,
-    UsernameParamsToEscaperConfig,
+    IDLE_CHECK_MAXIMUM_DURATION, ServerConfig, ServerConfigDiffAction, UsernameParamsConfig,
 };
 
 const SERVER_CONFIG_TYPE: &str = "HttpProxy";
@@ -99,7 +98,7 @@ pub(crate) struct HttpProxyServerConfig {
     pub(crate) steal_forwarded_for: bool,
     pub(crate) extra_metrics_tags: Option<Arc<MetricTagMap>>,
     // Optional: derive next-hop escaper addr from username params
-    pub(crate) username_params_to_escaper_addr: Option<UsernameParamsToEscaperConfig>,
+    pub(crate) username_params: Option<UsernameParamsConfig>,
 }
 
 impl HttpProxyServerConfig {
@@ -148,7 +147,7 @@ impl HttpProxyServerConfig {
             egress_path_selection_header: None,
             steal_forwarded_for: false,
             extra_metrics_tags: None,
-            username_params_to_escaper_addr: None,
+            username_params: None,
         }
     }
 
@@ -195,10 +194,10 @@ impl HttpProxyServerConfig {
                 Ok(())
             }
             "username_params_to_escaper_addr" => {
-                let c = UsernameParamsToEscaperConfig::parse(v).context(format!(
+                let c = UsernameParamsConfig::parse(v).context(format!(
                     "invalid username_params_to_escaper_addr value for key {k}"
                 ))?;
-                self.username_params_to_escaper_addr = Some(c);
+                self.username_params = Some(c);
                 Ok(())
             }
             "listen" => {
@@ -537,7 +536,7 @@ mod tests {
         );
         let map = doc.as_hash().unwrap();
         let cfg = HttpProxyServerConfig::parse(map, None).unwrap();
-        let u = cfg.username_params_to_escaper_addr.as_ref().unwrap();
+        let u = cfg.username_params.as_ref().unwrap();
         assert_eq!(u.keys_for_host, vec!["k1", "k2"]);
         assert_eq!(u.floating_keys, vec!["k2"]);
         assert!(u.require_hierarchy);

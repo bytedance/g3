@@ -132,7 +132,7 @@ where
                     })
                     .ok_or(UserAuthError::NoUserSupplied)?,
                 HttpAuth::Basic(v) => user_group.check_user_with_password(
-                    &v.username,
+                    v.username.as_original(),
                     &v.password,
                     self.ctx.server_config.name(),
                     self.ctx.server_stats.share_extra_tags(),

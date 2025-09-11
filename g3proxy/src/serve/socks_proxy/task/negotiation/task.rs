@@ -11,7 +11,6 @@ use tokio::time::Instant;
 
 use g3_io_ext::{AsyncStream, LimitedReader, LimitedWriter};
 use g3_socks::{SocksAuthMethod, SocksCommand, SocksVersion, v4a, v5};
-use g3_types::auth::Username;
 
 use super::tcp_connect::SocksProxyTcpConnectTask;
 use super::udp_associate::SocksProxyUdpAssociateTask;
@@ -23,7 +22,7 @@ use crate::config::server::ServerConfig;
 use crate::escape::EgressPathSelection;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
-    username_params,
+    UsernameParams,
 };
 
 pub(crate) struct SocksProxyNegotiationTask {
@@ -236,32 +235,28 @@ impl SocksProxyNegotiationTask {
             SocksAuthMethod::User => {
                 if let Some(user_group) = &self.user_group {
                     let (username, password) = v5::auth::recv_user_from_client(&mut clt_r).await?;
-                    // optionally strip suffix for auth
-                    let mut base_username: Option<Username> = None;
-                    if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr
-                        && cfg.strip_suffix_for_auth
-                    {
-                        let base = username_params::ParsedUsernameParams::auth_base(
-                            username.as_original(),
-                        );
-                        if base != username.as_original() {
-                            base_username = Username::from_original(base).ok();
-                            match self.get_egress_path_selection(username.as_original()) {
-                                Ok(Some(path)) => path_selection = Some(path),
-                                Ok(None) => {}
-                                Err(_) => {
-                                    self.ctx.server_stats.forbidden.add_dest_denied();
-                                    let _ = v5::Socks5Reply::ForbiddenByRule.send(&mut clt_w).await;
-                                    return Err(ServerTaskError::ForbiddenByRule(
-                                        ServerTaskForbiddenError::DestDenied,
-                                    ));
-                                }
+
+                    let base_username;
+                    if let Some(cfg) = &self.ctx.server_config.username_params {
+                        match self.get_egress_path_selection(username.as_original()) {
+                            Ok(Some(path)) => path_selection = Some(path),
+                            Ok(None) => {}
+                            Err(_) => {
+                                self.ctx.server_stats.forbidden.add_dest_denied();
+                                let _ = v5::Socks5Reply::ForbiddenByRule.send(&mut clt_w).await;
+                                return Err(ServerTaskError::ForbiddenByRule(
+                                    ServerTaskForbiddenError::DestDenied,
+                                ));
                             }
                         }
+
+                        base_username = cfg.real_username(username.as_original());
+                    } else {
+                        base_username = username.as_original();
                     }
-                    let username_ref = base_username.as_ref().unwrap_or(&username);
+
                     match user_group.check_user_with_password(
-                        username_ref,
+                        base_username,
                         &password,
                         self.ctx.server_config.name(),
                         self.ctx.server_stats.share_extra_tags(),
@@ -357,25 +352,20 @@ impl SocksProxyNegotiationTask {
     fn get_egress_path_selection(&self, raw_name: &str) -> Result<Option<EgressPathSelection>, ()> {
         let mut egress_path = EgressPathSelection::default();
 
-        if let Some(cfg) = &self.ctx.server_config.username_params_to_escaper_addr {
-            // Only attempt mapping when at least one known key appears
-            if username_params::username_has_known_key(cfg, raw_name) {
-                match username_params::compute_upstream_from_username(
-                    cfg,
-                    raw_name,
-                    username_params::InboundKind::Socks5,
-                ) {
-                    Ok(addr) => {
-                        debug!(
-                            "[{}] socks username params -> next proxy {addr}",
-                            self.ctx.server_config.name(),
-                        );
-                        egress_path.set_upstream(self.ctx.server_config.name().clone(), addr);
-                    }
-                    Err(e) => {
-                        debug!("failed to get upstream addr from username: {e}");
-                        return Err(());
-                    }
+        if let Some(cfg) = &self.ctx.server_config.username_params
+            && cfg.has_known_key(raw_name)
+        {
+            match UsernameParams::compute_upstream_socks5(cfg, raw_name) {
+                Ok(addr) => {
+                    debug!(
+                        "[{}] socks username params -> next proxy {addr}",
+                        self.ctx.server_config.name(),
+                    );
+                    egress_path.set_upstream(self.ctx.server_config.name().clone(), addr);
+                }
+                Err(e) => {
+                    debug!("failed to get upstream addr from username: {e}");
+                    return Err(());
                 }
             }
         }
