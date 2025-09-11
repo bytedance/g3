@@ -14,7 +14,7 @@ use chrono::Utc;
 use log::{info, warn};
 use tokio::sync::{mpsc, oneshot};
 
-use g3_types::auth::{Password, UserAuthError, Username};
+use g3_types::auth::{Password, UserAuthError};
 use g3_types::metrics::{MetricTagMap, NodeName};
 
 use crate::config::auth::{UserConfig, UserGroupConfig};
@@ -221,16 +221,16 @@ impl UserGroup {
 
     pub(crate) fn check_user_with_password(
         &self,
-        username: &Username,
+        username: &str,
         password: &Password,
         server_name: &NodeName,
         server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
     ) -> Result<UserContext, UserAuthError> {
-        let Some((user, user_type)) = self.get_user(username.as_original()) else {
+        let Some((user, user_type)) = self.get_user(username) else {
             return Err(UserAuthError::NoSuchUser);
         };
         let user_ctx = UserContext::new(
-            Some(Arc::from(username.as_original())),
+            Some(Arc::from(username)),
             user,
             user_type,
             server_name,

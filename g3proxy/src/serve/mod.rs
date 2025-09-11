@@ -52,7 +52,9 @@ mod tls_stream;
 
 mod error;
 mod task;
+
 mod username_params;
+use username_params::UsernameParams;
 
 pub(crate) use error::{ServerTaskError, ServerTaskForbiddenError, ServerTaskResult};
 pub(crate) use task::{ServerTaskNotes, ServerTaskStage};
