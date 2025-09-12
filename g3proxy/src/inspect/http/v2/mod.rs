@@ -4,10 +4,7 @@
  */
 
 use std::future::poll_fn;
-use std::sync::{
-    Arc,
-    atomic::{AtomicUsize, Ordering},
-};
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_recursion::async_recursion;
@@ -406,7 +403,6 @@ where
         idle_interval.skip_missed_ticks();
 
         let mut idle_count = 0;
-        let stream_tasks = Arc::new(AtomicUsize::new(0));
 
         loop {
             tokio::select! {
@@ -438,14 +434,11 @@ where
                             let h2s = h2s.clone();
                             let ctx = self.ctx.clone();
                             let stats = self.stats.clone();
+                            idle_count = 0;
                             stats.add_task();
-
-                            let inner_task = stream_tasks.clone();
-                            inner_task.fetch_add(1, Ordering::Release);
                             tokio::spawn(async move {
                                 stream::transfer(clt_req, clt_send_rsp, h2s, ctx).await;
                                 stats.del_task();
-                                inner_task.fetch_sub(1, Ordering::Release);
                             });
                             continue;
                         }
@@ -472,7 +465,7 @@ where
                     }
                 }
                 n = idle_interval.tick() => {
-                    if stream_tasks.load(Ordering::Acquire) == 0 {
+                    if self.stats.get_alive_task() <= 0 {
                         idle_count += n;
 
                         if idle_count > self.ctx.max_idle_count {

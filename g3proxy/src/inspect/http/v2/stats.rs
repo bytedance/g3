@@ -22,11 +22,11 @@ impl Default for H2ConcurrencyStats {
 impl H2ConcurrencyStats {
     pub(super) fn add_task(&self) {
         self.total_task.fetch_add(1, Ordering::Relaxed);
-        self.alive_task.fetch_add(1, Ordering::Relaxed);
+        self.alive_task.fetch_add(1, Ordering::Release);
     }
 
     pub(super) fn del_task(&self) {
-        self.alive_task.fetch_sub(1, Ordering::Relaxed);
+        self.alive_task.fetch_sub(1, Ordering::Release);
     }
 
     pub(super) fn get_total_task(&self) -> u64 {
@@ -34,6 +34,6 @@ impl H2ConcurrencyStats {
     }
 
     pub(super) fn get_alive_task(&self) -> i32 {
-        self.alive_task.load(Ordering::Relaxed)
+        self.alive_task.load(Ordering::Acquire)
     }
 }
