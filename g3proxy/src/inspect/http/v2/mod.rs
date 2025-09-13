@@ -400,8 +400,6 @@ where
         };
 
         let mut idle_interval = self.ctx.idle_wheel.register();
-        idle_interval.skip_missed_ticks();
-
         let mut idle_count = 0;
 
         loop {
