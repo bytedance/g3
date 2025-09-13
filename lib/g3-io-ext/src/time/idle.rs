@@ -18,9 +18,9 @@ impl IdleWheel {
     }
 
     pub fn register(&self) -> IdleInterval {
-        IdleInterval {
-            interval: tokio::time::interval_at(Instant::now() + self.interval, self.interval),
-        }
+        let mut x_idle = tokio::time::interval_at(Instant::now() + self.interval, self.interval);
+        x_idle.set_missed_tick_behavior(MissedTickBehavior::Delay);
+        IdleInterval { interval: x_idle }
     }
 }
 
@@ -36,11 +36,6 @@ impl IdleInterval {
 
     pub fn period(&self) -> Duration {
         self.interval.period()
-    }
-
-    pub fn skip_missed_ticks(&mut self) {
-        self.interval
-            .set_missed_tick_behavior(MissedTickBehavior::Delay);
     }
 }
 
