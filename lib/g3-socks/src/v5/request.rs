@@ -114,3 +114,50 @@ impl Socks5Request {
         writer.write_all_flush(buf.as_ref()).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn udp_peer_addr() {
+        let ip_addr = IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1));
+        let upstream = UpstreamAddr::from_ip_and_port(ip_addr, 8080);
+        let request = Socks5Request {
+            command: SocksCommand::TcpConnect,
+            upstream,
+        };
+        let socket_addr = SocketAddr::new(ip_addr, 8080);
+        let result = request.udp_peer_addr().unwrap().unwrap();
+        assert_eq!(result, socket_addr);
+
+        let ip_addr = IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1));
+        let upstream = UpstreamAddr::from_ip_and_port(ip_addr, 8080);
+        let request = Socks5Request {
+            command: SocksCommand::TcpBind,
+            upstream,
+        };
+        let socket_addr = SocketAddr::new(ip_addr, 8080);
+        let result = request.udp_peer_addr().unwrap().unwrap();
+        assert_eq!(result, socket_addr);
+
+        let upstream = UpstreamAddr::from_host_str_and_port("0", 8080).unwrap();
+        let request = Socks5Request {
+            command: SocksCommand::UdpAssociate,
+            upstream,
+        };
+        let result = request.udp_peer_addr().unwrap();
+        assert_eq!(result, None);
+
+        let upstream = UpstreamAddr::from_host_str_and_port("example.com", 8080).unwrap();
+        let request = Socks5Request {
+            command: SocksCommand::UdpAssociate,
+            upstream,
+        };
+        let result = request.udp_peer_addr().unwrap_err();
+        assert!(matches!(
+            result,
+            SocksRequestParseError::InvalidUdpPeerAddress
+        ));
+    }
+}

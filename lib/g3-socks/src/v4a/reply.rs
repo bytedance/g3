@@ -90,3 +90,44 @@ impl SocksV4Reply {
         SocksV4Reply::RequestGranted(SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::Ipv6Addr;
+
+    #[test]
+    fn operations() {
+        for addr in [
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 8080),
+            SocketAddr::new(
+                IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1)),
+                8080,
+            ),
+        ] {
+            for (code, error_msg) in [
+                (90, "request granted"),
+                (91, "request rejected or failed"),
+                (
+                    92,
+                    "request rejected becasue SOCKS server cannot connect to identd on the client",
+                ),
+                (
+                    93,
+                    "request rejected because the client program and identd report different user-ids",
+                ),
+                (94, "unassigned reply code"),
+                (255, "unassigned reply code"),
+            ] {
+                let reply = SocksV4Reply::new(code, addr);
+                assert_eq!(reply.code(), code);
+                assert_eq!(reply.error_message(), error_msg);
+            }
+        }
+
+        assert!(matches!(
+            SocksV4Reply::request_granted(),
+            SocksV4Reply::RequestGranted(_)
+        ));
+    }
+}

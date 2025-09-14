@@ -158,3 +158,38 @@ impl Socks5Reply {
         clt_w.write_all_flush(buf.as_ref()).await
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn operations() {
+        for addr in [
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 8080),
+            SocketAddr::new(
+                IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1)),
+                8080,
+            ),
+        ] {
+            for (code, error_msg) in [
+                (0x00, "Succeeded"),
+                (0x01, "General SOCKS server failure"),
+                (0x02, "Connection not allowed by ruleset"),
+                (0x03, "Network unreachable"),
+                (0x04, "Host unreachable"),
+                (0x05, "Connection refused"),
+                (0x06, "TTL expired"),
+                (0x07, "Command not supported"),
+                (0x08, "Address type not supported"),
+                (0x09, "Connection attempt timed out"),
+                (0x10, "unassigned reply code"),
+                (0xFF, "unassigned reply code"),
+            ] {
+                let reply = Socks5Reply::new(code, addr);
+                assert_eq!(reply.code(), code);
+                assert_eq!(reply.error_message(), error_msg);
+            }
+        }
+    }
+}

@@ -46,3 +46,28 @@ impl TryFrom<u8> for SocksVersion {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn operations() {
+        for (code, display) in [
+            (0x04, "socks v4(a)"),
+            (0x05, "socks v5"),
+            (0x06, "socks v6"),
+        ] {
+            let v = SocksVersion::try_from(code).unwrap();
+            assert_eq!(v.code(), code);
+            assert_eq!(format!("{}", v), display);
+        }
+
+        for code in [0x00, 0x03, 0x07, 0xFF] {
+            assert!(matches!(
+                SocksVersion::try_from(code).unwrap_err(),
+                SocksNegotiationError::InvalidVersion
+            ));
+        }
+    }
+}

@@ -7,6 +7,7 @@ use std::fmt;
 
 use super::SocksNegotiationError;
 
+#[derive(Debug)]
 pub enum SocksCommand {
     TcpConnect = 0x01,
     TcpBind = 0x02,
@@ -42,6 +43,31 @@ impl TryFrom<u8> for SocksCommand {
             0x02 => Ok(SocksCommand::TcpBind),
             0x03 => Ok(SocksCommand::UdpAssociate),
             _ => Err(SocksNegotiationError::InvalidCommand),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn operations() {
+        for (code, display) in [
+            (0x01, "TcpConnect"),
+            (0x02, "TcpBind"),
+            (0x03, "UdpAssociate"),
+        ] {
+            let cmd = SocksCommand::try_from(code).unwrap();
+            assert_eq!(cmd.code(), code);
+            assert_eq!(format!("{}", cmd), display);
+        }
+
+        for code in [0x00, 0x04, 0xFF] {
+            assert!(matches!(
+                SocksCommand::try_from(code).unwrap_err(),
+                SocksNegotiationError::InvalidCommand
+            ));
         }
     }
 }

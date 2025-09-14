@@ -71,3 +71,43 @@ impl TicketSource {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::TimeZone;
+    use g3_types::net::OpensslTicketKeyBuilder;
+
+    // Helper function to create a test RemoteDecryptKey
+    fn create_test_decrypt_key(expire: DateTime<Utc>) -> RemoteDecryptKey {
+        let builder = OpensslTicketKeyBuilder::default();
+        RemoteDecryptKey {
+            key: builder.build(),
+            expire,
+        }
+    }
+
+    #[test]
+    fn remote_decrypt_key_expire_duration_future() {
+        let future_time = Utc.with_ymd_and_hms(2025, 12, 31, 23, 59, 59).unwrap();
+        let now = Utc.with_ymd_and_hms(2025, 6, 15, 12, 0, 0).unwrap();
+
+        let key = create_test_decrypt_key(future_time);
+        let duration = key.expire_duration(&now);
+
+        assert!(duration.is_some());
+        let dur = duration.unwrap();
+        assert_eq!(dur.as_secs(), (future_time - now).num_seconds() as u64);
+    }
+
+    #[test]
+    fn remote_decrypt_key_expire_duration_past() {
+        let past_time = Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap();
+        let now = Utc.with_ymd_and_hms(2025, 6, 15, 12, 0, 0).unwrap();
+
+        let key = create_test_decrypt_key(past_time);
+        let duration = key.expire_duration(&now);
+
+        assert!(duration.is_none());
+    }
+}

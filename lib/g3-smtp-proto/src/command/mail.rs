@@ -45,3 +45,60 @@ impl MailParam {
         Ok(MailParam { reverse_path })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mail_param_parse() {
+        // Valid
+        let result = MailParam::parse(b"FROM:<user@example.com>").unwrap();
+        assert_eq!(result.reverse_path(), "<user@example.com>");
+
+        let result = MailParam::parse(b"From:<admin@domain.org>").unwrap();
+        assert_eq!(result.reverse_path(), "<admin@domain.org>");
+
+        let result = MailParam::parse(b"from:<>").unwrap();
+        assert_eq!(result.reverse_path(), "<>");
+
+        // Invalid UTF-8 sequences
+        let result = MailParam::parse(b"FROM:\xff\xfe<user@example.com>").unwrap_err();
+        assert!(matches!(result, CommandLineError::InvalidUtf8Command(_)));
+
+        let result = MailParam::parse(b"FROM:<\xff\xfe>").unwrap_err();
+        assert!(matches!(result, CommandLineError::InvalidUtf8Command(_)));
+
+        // No reverse path present
+        let result = MailParam::parse(b"   ").unwrap_err();
+        assert!(matches!(
+            result,
+            CommandLineError::InvalidCommandParam("MAIL", "no reverse path present")
+        ));
+
+        // Invalid reverse path prefix
+        let result = MailParam::parse(b"<user@example.com>").unwrap_err();
+        assert!(matches!(
+            result,
+            CommandLineError::InvalidCommandParam("MAIL", "invalid reverse path prefix")
+        ));
+
+        let result = MailParam::parse(b"TO:<user@example.com>").unwrap_err();
+        assert!(matches!(
+            result,
+            CommandLineError::InvalidCommandParam("MAIL", "invalid reverse path prefix")
+        ));
+
+        let result = MailParam::parse(b"FROM:user@example.com>").unwrap_err();
+        assert!(matches!(
+            result,
+            CommandLineError::InvalidCommandParam("MAIL", "invalid reverse path prefix")
+        ));
+
+        let result = MailParam::parse(b"FROM:<user@example.com").unwrap_err();
+        assert!(matches!(
+            result,
+            CommandLineError::InvalidCommandParam("MAIL", "invalid reverse path prefix")
+        ));
+    }
+}
