@@ -5,7 +5,7 @@
 
 use std::fmt;
 
-#[derive(PartialOrd, PartialEq, Ord, Eq)]
+#[derive(PartialOrd, PartialEq, Ord, Eq, Debug)]
 pub enum SocksAuthMethod {
     None,
     GssApi,
@@ -54,6 +54,30 @@ impl From<u8> for SocksAuthMethod {
             v if method <= 0x7F => Self::OtherAssigned(v),
             v if method < 0xFF => Self::Private(v),
             _ => Self::NoAcceptable, // 0xFF
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn operations() {
+        for (code, display) in [
+            (0x00, "None"),
+            (0x01, "GssApi"),
+            (0x02, "User"),
+            (0x03, "Chap"),
+            (0x04, "OtherAssigned(4)"),
+            (0x7F, "OtherAssigned(127)"),
+            (0x80, "Private(128)"),
+            (0xFE, "Private(254)"),
+            (0xFF, "NoAcceptable"),
+        ] {
+            let method = SocksAuthMethod::from(code);
+            assert_eq!(method.code(), code);
+            assert_eq!(format!("{}", method), display);
         }
     }
 }

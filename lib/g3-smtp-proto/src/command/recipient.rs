@@ -45,3 +45,60 @@ impl RecipientParam {
         Ok(RecipientParam { forward_path })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recipient_param_parse() {
+        // Valid
+        let result = RecipientParam::parse(b"TO:<user@example.com>").unwrap();
+        assert_eq!(result.forward_path(), "<user@example.com>");
+
+        let result = RecipientParam::parse(b"To:<postmaster@example.com>").unwrap();
+        assert_eq!(result.forward_path(), "<postmaster@example.com>");
+
+        let result = RecipientParam::parse(b"to:<>").unwrap();
+        assert_eq!(result.forward_path(), "<>");
+
+        // Invalid UTF-8 sequences
+        let result = RecipientParam::parse(b"TO:\xff\xfe<user@example.com>").unwrap_err();
+        assert!(matches!(result, CommandLineError::InvalidUtf8Command(_)));
+
+        let result = RecipientParam::parse(b"TO:<\xff\xfe>").unwrap_err();
+        assert!(matches!(result, CommandLineError::InvalidUtf8Command(_)));
+
+        // No forward path present
+        let result = RecipientParam::parse(b"").unwrap_err();
+        assert!(matches!(
+            result,
+            CommandLineError::InvalidCommandParam("RCPT", "no forward path present")
+        ));
+
+        // Invalid forward path prefix
+        let result = RecipientParam::parse(b"<user@example.com>").unwrap_err();
+        assert!(matches!(
+            result,
+            CommandLineError::InvalidCommandParam("RCPT", "invalid forward path prefix")
+        ));
+
+        let result = RecipientParam::parse(b"FROM:<user@example.com>").unwrap_err();
+        assert!(matches!(
+            result,
+            CommandLineError::InvalidCommandParam("RCPT", "invalid forward path prefix")
+        ));
+
+        let result = RecipientParam::parse(b"TO:user@example.com>").unwrap_err();
+        assert!(matches!(
+            result,
+            CommandLineError::InvalidCommandParam("RCPT", "invalid forward path prefix")
+        ));
+
+        let result = RecipientParam::parse(b"TO:<user@example.com").unwrap_err();
+        assert!(matches!(
+            result,
+            CommandLineError::InvalidCommandParam("RCPT", "invalid forward path prefix")
+        ));
+    }
+}
