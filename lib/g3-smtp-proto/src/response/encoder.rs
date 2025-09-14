@@ -111,8 +111,8 @@ impl ResponseEncoder {
 
     pub fn upstream_line_too_long(local_ip: IpAddr) -> Self {
         let msg = match local_ip {
-            IpAddr::V4(v4) => format!("554 [{v4}] Upstream io closed\r\n"),
-            IpAddr::V6(v6) => format!("554 Ipv6:{v6} Upstream io closed\r\n"),
+            IpAddr::V4(v4) => format!("554 [{v4}] Upstream line too long\r\n"),
+            IpAddr::V6(v6) => format!("554 Ipv6:{v6} Upstream line too long\r\n"),
         };
         ResponseEncoder::Owned(msg)
     }
