@@ -165,10 +165,9 @@ impl ProxyFloatEscaperConfig {
             }
             "cache" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
-                self.cache_file = Some(
-                    g3_yaml::value::as_file_path(v, lookup_dir, true)
-                        .context(format!("invalid value for key {k}"))?,
-                );
+                let cache = g3_yaml::value::as_file_path(v, lookup_dir, true)
+                    .context(format!("invalid value for key {k}"))?;
+                self.cache_file = Some(cache);
                 Ok(())
             }
             "refresh_interval" => {

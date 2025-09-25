@@ -50,9 +50,8 @@ impl UserDynamicLuaSource {
         match g3_yaml::key::normalize(k).as_str() {
             super::CONFIG_KEY_SOURCE_TYPE => Ok(()),
             "fetch_script" | "script" => {
-                let script = g3_yaml::value::as_file_path(v, lookup_dir, false)
+                self.fetch_script = g3_yaml::value::as_file_path(v, lookup_dir, false)
                     .context(format!("invalid file path value for key {k}"))?;
-                self.fetch_script = script;
                 Ok(())
             }
             "fetch_timeout" | "timeout" => {
@@ -75,9 +74,8 @@ impl UserDynamicLuaSource {
                 warn!(
                     "this config option is deprecated, use user-group level cache option instead"
                 );
-                let cache_file = g3_yaml::value::as_file_path(v, lookup_dir, true)
+                self.cache_file = g3_yaml::value::as_file_path(v, lookup_dir, true)
                     .context(format!("invalid file path value for key {k}"))?;
-                self.cache_file = cache_file;
                 Ok(())
             }
             _ => Err(anyhow!("invalid key {k}")),

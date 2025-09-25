@@ -114,9 +114,8 @@ impl UserGroupConfig {
             }
             "cache" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(self.position.as_ref())?;
-                let cache_file = g3_yaml::value::as_file_path(v, lookup_dir, true)
+                self.dynamic_cache = g3_yaml::value::as_file_path(v, lookup_dir, true)
                     .context(format!("invalid file path value for key {k}"))?;
-                self.dynamic_cache = cache_file;
                 Ok(())
             }
             "refresh_interval" => {
