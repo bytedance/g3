@@ -39,10 +39,8 @@ pub fn as_file_path(v: &Yaml, lookup_dir: &Path, auto_create: bool) -> anyhow::R
         } else {
             return Err(anyhow!("path {} is not existed", path.display()));
         }
-        let path = path
-            .canonicalize()
-            .map_err(|e| anyhow!("invalid path {}: {e:?}", path.display()))?;
-        Ok(path)
+        path.canonicalize()
+            .map_err(|e| anyhow!("invalid path {}: {e:?}", path.display()))
     } else {
         Err(anyhow!("yaml value type for path should be string"))
     }
@@ -107,10 +105,8 @@ pub fn as_dir_path(v: &Yaml, lookup_dir: &Path, auto_create: bool) -> anyhow::Re
         } else {
             return Err(anyhow!("path {} is not existed", path.display()));
         }
-        let path = path
-            .canonicalize()
-            .map_err(|e| anyhow!("invalid path {}: {e:?}", path.display()))?;
-        Ok(path)
+        path.canonicalize()
+            .map_err(|e| anyhow!("invalid path {}: {e:?}", path.display()))
     } else {
         Err(anyhow!("yaml value type for dir path should be string"))
     }
