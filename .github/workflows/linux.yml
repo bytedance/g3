@@ -45,7 +45,7 @@ jobs:
         with:
           submodules: true
       - name: Install ${{ matrix.rust }} toolchain
-        uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
       - name: Install dependencies
@@ -66,7 +66,7 @@ jobs:
         with:
           submodules: true
       - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
           components: clippy
@@ -101,7 +101,7 @@ jobs:
         with:
           submodules: true
       - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
           components: clippy
@@ -135,7 +135,7 @@ jobs:
         with:
           submodules: true
       - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
           components: clippy
@@ -162,7 +162,7 @@ jobs:
         with:
           submodules: true
       - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@6d653acede28d24f02e3cd41383119e8b1b35921 # v1
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
           components: clippy
