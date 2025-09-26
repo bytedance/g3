@@ -105,7 +105,7 @@ impl HickoryDriverConfig {
 mod tests {
     use super::*;
     use g3_types::net::DnsEncryptionProtocol;
-    use g3_yaml::{yaml_doc, yaml_str};
+    use g3_yaml::yaml_doc;
     use std::net::IpAddr;
     use std::str::FromStr;
     use std::time::Duration;
@@ -239,6 +239,8 @@ mod tests {
     ))]
     #[test]
     fn set_by_yaml_kv_bind_interface() {
+        use g3_yaml::yaml_str;
+
         let mut config = HickoryDriverConfig::default();
 
         #[cfg(any(target_os = "linux", target_os = "android"))]

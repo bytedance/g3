@@ -125,6 +125,7 @@ mod tests {
         assert!(SyslogBuilder::parse_yaml(&Yaml::Real("1.23".to_string()), "test").is_err());
     }
 
+    #[allow(irrefutable_let_patterns)]
     #[test]
     fn parse_yaml_udp_backend() {
         let yaml = yaml_doc!(
@@ -140,13 +141,11 @@ mod tests {
             "#
         );
         let builder = SyslogBuilder::parse_yaml(&yaml, "test").unwrap();
-        match &builder.backend {
-            SyslogBackendBuilder::Udp(bind, addr) => {
-                assert_eq!(addr, &"192.168.1.2:514".parse().unwrap());
-                assert_eq!(bind, &Some("192.168.1.1".parse().unwrap()));
-            }
-            _ => panic!("Expected UDP backend"),
-        }
+        let SyslogBackendBuilder::Udp(bind, addr) = &builder.backend else {
+            panic!("Expected UDP backend")
+        };
+        assert_eq!(addr, &"192.168.1.2:514".parse().unwrap());
+        assert_eq!(bind, &Some("192.168.1.1".parse().unwrap()));
         match &builder.format {
             SyslogFormatterKind::Rfc5424(eid, mid) => {
                 assert_eq!(*eid, 32473);
@@ -169,13 +168,11 @@ mod tests {
             "#
         );
         let builder = SyslogBuilder::parse_yaml(&yaml, "test").unwrap();
-        match &builder.backend {
-            SyslogBackendBuilder::Udp(bind, addr) => {
-                assert_eq!(addr, &"10.0.0.2:514".parse().unwrap());
-                assert_eq!(bind, &Some("10.0.0.1".parse().unwrap()));
-            }
-            _ => panic!("Expected UDP backend"),
-        }
+        let SyslogBackendBuilder::Udp(bind, addr) = &builder.backend else {
+            panic!("Expected UDP backend")
+        };
+        assert_eq!(addr, &"10.0.0.2:514".parse().unwrap());
+        assert_eq!(bind, &Some("10.0.0.1".parse().unwrap()));
         match &builder.format {
             SyslogFormatterKind::Rfc5424Cee(mid, flag) => {
                 assert_eq!(flag, "custom_flag");
