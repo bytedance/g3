@@ -28,7 +28,7 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   VCPKG_ROOT: C:\vcpkg
-  WIN_FEATURES: rustls-ring,quic,vendored-c-ares
+  WIN_FEATURES: rustls-ring,quic,c-ares
   AWS_LC_SYS_PREBUILT_NASM: 1
 
 jobs:
@@ -48,7 +48,7 @@ jobs:
       - name: Install tools (choco)
         run: choco install capnproto
       - name: Install lib dependencies (vcpkg)
-        run: vcpkg install --triplet=x64-windows-static-md openssl
+        run: vcpkg install --triplet=x64-windows-static-md openssl c-ares
       - name: Cargo build
         run: cargo build --no-default-features --features $env:WIN_FEATURES
       - name: Cargo clippy
