@@ -28,6 +28,7 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static
+  VCPKG_ROOT: C:\vcpkg
   AWS_LC_SYS_PREBUILT_NASM: 1
 
 jobs:
@@ -58,8 +59,26 @@ jobs:
           sudo apt-get install capnproto musl-tools
       - name: Cargo build
         run: cargo build --target=x86_64-unknown-linux-musl --no-default-features --features ${{ matrix.feature }},quic,vendored-c-ares
-  msvc:
-    name: msvc
+  msvc-vcpkg:
+    name: msvc-vcpkg
+    runs-on: windows-latest
+    steps:
+      - name: Install common tools
+        run: choco install capnproto
+      - name: Install lib dependencies (vcpkg)
+        run: vcpkg install --triplet=x64-windows-static openssl c-ares
+      - name: Checkout sources
+        uses: actions/checkout@v5
+        with:
+          submodules: true
+      - name: Install rust toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+      - name: Cargo build
+        run: cargo build --no-default-features --features rustls-ring,quic,c-ares
+  msvc-vendored:
+    name: msvc-vendored
     runs-on: windows-latest
     strategy:
       matrix:
@@ -82,6 +101,5 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
-          components: clippy
       - name: Cargo build
         run: cargo build --no-default-features --features ${{ matrix.feature }},quic,vendored-c-ares

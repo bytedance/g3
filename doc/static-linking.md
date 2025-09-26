@@ -26,7 +26,7 @@ rustup target add x86_64-unknown-linux-musl
 Then compile with the features that do not require dynamic linking:
 
 ```shell
-cargo build --target=x86_64-unknown-linux-musl --no-default-features --features vendored-openssl,vendored-c-ares
+cargo build --target=x86_64-unknown-linux-musl --no-default-features --features vendored-openssl,rustls-ring,quic,vendored-c-ares
 ```
 
 # Windows
@@ -38,3 +38,16 @@ See [C runtime (CRT) and C++ standard library (STL) .lib files](https://learn.mi
 You can change to use a static runtime by setting `-C target-feature=+crt-static` rustc flag.
 
 See [Static and dynamic C runtimes](https://doc.rust-lang.org/reference/linkage.html#static-and-dynamic-c-runtimes).
+
+## Compile with vcpkg
+
+```shell
+vcpkg install --triplet=x64-windows-static openssl c-ares
+cargo build --no-default-features --features rustls-ring,quic,c-ares
+```
+
+## Compile without vcpkg
+
+```shell
+cargo build --no-default-features --features vendored-openssl,rustls-ring,quic,vendored-c-ares
+```
