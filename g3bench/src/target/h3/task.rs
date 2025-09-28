@@ -47,9 +47,9 @@ impl H3TaskContext {
         histogram_recorder: HttpHistogramRecorder,
         pool: Option<Arc<H3ConnectionPool>>,
     ) -> anyhow::Result<Self> {
-        let static_request = args
+        let static_headers = args
             .common
-            .build_static_request(Version::HTTP_3)
+            .build_static_headers(Version::HTTP_3)
             .context("failed to build static request header")?;
         Ok(H3TaskContext {
             args: Arc::clone(args),
@@ -57,7 +57,7 @@ impl H3TaskContext {
             pool,
             h3s: None,
             reuse_conn_count: 0,
-            static_request,
+            static_request: static_headers,
             runtime_stats: Arc::clone(runtime_stats),
             histogram_recorder,
         })
