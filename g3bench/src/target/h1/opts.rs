@@ -7,7 +7,7 @@ use std::io;
 
 use anyhow::{Context, anyhow};
 use clap::{Arg, ArgAction, ArgMatches, Command, value_parser};
-use http::{HeaderValue, Request, Version, header};
+use http::{HeaderValue, Request, header};
 
 use g3_types::net::HttpAuth;
 
@@ -35,7 +35,11 @@ impl BenchHttpArgs {
         }
     }
 
-    fn write_request_line<W: io::Write>(&self, buf: &mut W, req: &Request<()>) -> io::Result<()> {
+    fn write_request_line<W: io::Write, R: Default>(
+        &self,
+        buf: &mut W,
+        req: &Request<R>,
+    ) -> io::Result<()> {
         write!(buf, "{} ", req.method())?;
         if self.connect.forward_proxy.is_some() {
             write!(
@@ -62,7 +66,7 @@ impl BenchHttpArgs {
         &self,
         buf: &mut W,
     ) -> anyhow::Result<()> {
-        let mut static_request = self.common.build_static_request(Version::HTTP_11)?;
+        let mut static_request = self.common.build_static_request()?;
 
         if !static_request.headers().contains_key(header::HOST) {
             let v = HeaderValue::from_str(&self.common.target.to_string())?;
@@ -106,6 +110,10 @@ impl BenchHttpArgs {
             buf.write_all(b"\r\n")?;
         }
 
+        if !static_request.body().is_empty() {
+            buf.write_all(b"\r\n")?;
+            buf.write_all(static_request.body().as_slice())?;
+        }
         Ok(())
     }
 }
