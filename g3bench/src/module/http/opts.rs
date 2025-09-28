@@ -19,6 +19,7 @@ const HTTP_ARG_HEADER: &str = "header";
 const HTTP_ARG_OK_STATUS: &str = "ok-status";
 const HTTP_ARG_TIMEOUT: &str = "timeout";
 const HTTP_ARG_CONNECT_TIMEOUT: &str = "connect-timeout";
+const HTTP_ARG_DATA: &str = "data";
 
 pub(crate) trait AppendHttpArgs {
     fn append_http_args(self) -> Self;
@@ -31,6 +32,7 @@ pub(crate) struct HttpClientArgs {
     pub(crate) ok_status: Option<StatusCode>,
     pub(crate) timeout: Duration,
     pub(crate) connect_timeout: Duration,
+    pub(crate) body: Vec<u8>,
 
     pub(crate) target: UpstreamAddr,
     auth: HttpAuth,
@@ -46,6 +48,7 @@ impl HttpClientArgs {
             target_url: url,
             headers: Vec::new(),
             ok_status: None,
+            body: Default::default(),
             timeout: Duration::from_secs(30),
             connect_timeout: Duration::from_secs(15),
             target: upstream,
@@ -57,25 +60,71 @@ impl HttpClientArgs {
         self.target_url.scheme() == "https"
     }
 
-    pub(crate) fn build_static_request(&self, version: Version) -> anyhow::Result<Request<()>> {
-        let path_and_query = if let Some(q) = self.target_url.query() {
+    fn path_and_query(&self) -> String {
+        if let Some(q) = self.target_url.query() {
             format!("{}?{q}", self.target_url.path())
         } else {
             self.target_url.path().to_string()
-        };
+        }
+    }
+
+    pub(crate) fn build_static_request(&self) -> anyhow::Result<Request<Vec<u8>>> {
         let uri = http::Uri::builder()
             .scheme(self.target_url.scheme())
             .authority(self.target.to_string())
-            .path_and_query(path_and_query)
+            .path_and_query(self.path_and_query())
             .build()
-            .map_err(|e| anyhow!("failed to build request: {e:?}"))?;
+            .map_err(|e| anyhow!("failed to build static request: {e:?}"))?;
+
+        let mut req = Request::builder()
+            .version(Version::HTTP_11)
+            .method(self.method.clone())
+            .uri(uri)
+            .body(self.body.clone())
+            .map_err(|e| anyhow!("failed to build static request: {e:?}"))?;
+
+        for (key, value) in self.headers.iter() {
+            req.headers_mut().append(key, value.clone());
+        }
+
+        if !req.body().is_empty() {
+            let xlen = req.body().len();
+            req.headers_mut()
+                .append("Content-Length", HeaderValue::from(xlen));
+            req.headers_mut().append(
+                "Content-Type",
+                HeaderValue::from_static("text/html; charset=utf-8"),
+            );
+        }
+
+        if !req.headers().contains_key(http::header::AUTHORIZATION) {
+            match &self.auth {
+                HttpAuth::None => {}
+                HttpAuth::Basic(basic) => {
+                    let value = HeaderValue::try_from(basic)
+                        .map_err(|e| anyhow!("invalid auth value: {e:?}"))?;
+                    req.headers_mut().insert(http::header::AUTHORIZATION, value);
+                }
+            }
+        }
+
+        Ok(req)
+    }
+
+    pub(crate) fn build_static_headers(&self, version: Version) -> anyhow::Result<Request<()>> {
+        let uri = http::Uri::builder()
+            .scheme(self.target_url.scheme())
+            .authority(self.target.to_string())
+            .path_and_query(self.path_and_query())
+            .build()
+            .map_err(|e| anyhow!("failed to build static headers: {e:?}"))?;
 
         let mut req = Request::builder()
             .version(version)
             .method(self.method.clone())
             .uri(uri)
             .body(())
-            .map_err(|e| anyhow!("failed to build request: {e:?}"))?;
+            .map_err(|e| anyhow!("failed to build static headers: {e:?}"))?;
 
         for (key, value) in self.headers.iter() {
             req.headers_mut().append(key, value.clone());
@@ -95,13 +144,25 @@ impl HttpClientArgs {
         Ok(req)
     }
 
+    pub(crate) fn static_data(&self) -> Option<Vec<u8>> {
+        if !self.body.is_empty() {
+            Some(self.body.clone())
+        } else {
+            None
+        }
+    }
+
     pub(crate) fn parse_args(args: &ArgMatches) -> anyhow::Result<Self> {
         let url = if let Some(v) = args.get_one::<String>(HTTP_ARG_URL) {
             Url::parse(v).context(format!("invalid {HTTP_ARG_URL} value"))?
         } else {
             return Err(anyhow!("no target url set"));
         };
+
         let mut http_args = HttpClientArgs::new(url)?;
+        if let Some(payload) = args.get_one::<String>(HTTP_ARG_DATA) {
+            http_args.body = payload.as_bytes().to_vec();
+        }
 
         if let Some(v) = args.get_one::<String>(HTTP_ARG_METHOD) {
             let method = Method::from_str(v).context(format!("invalid {HTTP_ARG_METHOD} value"))?;
@@ -131,7 +192,7 @@ impl AppendHttpArgs for Command {
                     .short('m')
                     .long(HTTP_ARG_METHOD)
                     .num_args(1)
-                    .value_parser(["DELETE", "GET", "HEAD", "OPTIONS", "TRACE"])
+                    .value_parser(["DELETE", "GET", "HEAD", "OPTIONS", "TRACE", "POST"])
                     .default_value("GET"),
             )
             .arg(
@@ -163,6 +224,13 @@ impl AppendHttpArgs for Command {
                     .help("Timeout for connection to next peer")
                     .default_value("15s")
                     .long(HTTP_ARG_CONNECT_TIMEOUT)
+                    .num_args(1),
+            )
+            .arg(
+                Arg::new(HTTP_ARG_DATA)
+                    .value_name("REQUEST BODY DATA")
+                    .help("Request body payload data")
+                    .long(HTTP_ARG_DATA)
                     .num_args(1),
             )
     }
