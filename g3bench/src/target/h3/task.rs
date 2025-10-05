@@ -26,7 +26,8 @@ pub(super) struct H3TaskContext {
     h3s: Option<SendRequest<OpenStreams, Bytes>>,
 
     reuse_conn_count: u64,
-    static_request: Request<()>,
+    static_headers: Request<()>,
+    static_data: Option<Vec<u8>>,
 
     runtime_stats: Arc<HttpRuntimeStats>,
     histogram_recorder: HttpHistogramRecorder,
@@ -57,7 +58,8 @@ impl H3TaskContext {
             pool,
             h3s: None,
             reuse_conn_count: 0,
-            static_request: static_headers,
+            static_headers,
+            static_data: args.common.static_data(),
             runtime_stats: Arc::clone(runtime_stats),
             histogram_recorder,
         })
@@ -111,13 +113,18 @@ impl H3TaskContext {
         time_started: Instant,
         mut send_req: SendRequest<OpenStreams, Bytes>,
     ) -> anyhow::Result<()> {
-        let req = self.static_request.clone();
+        let req = self.static_headers.clone();
 
         // send hdr
         let mut send_stream = send_req
             .send_request(req)
             .await
             .map_err(|e| anyhow!("failed to send request header: {e}"))?;
+
+        if let Some(payload) = self.static_data.as_ref() {
+            send_stream.send_data(Bytes::from(payload.clone())).await?;
+        }
+
         send_stream.finish().await?;
         let send_hdr_time = time_started.elapsed();
         self.histogram_recorder.record_send_hdr_time(send_hdr_time);
