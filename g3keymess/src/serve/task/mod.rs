@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use openssl::pkey::{PKey, Private};
-use slog::{Logger, slog_info};
+use slog::Logger;
 use tokio::io::AsyncRead;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore, broadcast};
 use tokio::time::Instant;
@@ -227,7 +227,7 @@ impl KeylessTask {
             return;
         }
         if let Some(logger) = &self.ctx.task_logger {
-            slog_info!(logger, "{}", e;
+            slog::info!(logger, "{}", e;
                 "task_id" => LtUuid(&self.id),
                 "start_at" => LtDateTime(&self.started),
                 "server_addr" => self.ctx.cc_info.server_addr(),

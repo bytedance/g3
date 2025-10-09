@@ -3,8 +3,6 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use slog::slog_info;
-
 use g3_dpi::Protocol;
 use g3_slog_types::LtUuid;
 
@@ -23,7 +21,7 @@ impl<'a, SC: ServerConfig> StreamInspectLog<'a, SC> {
 
     pub(crate) fn log(&self, source: InspectSource, protocol: Protocol) {
         if let Some(logger) = self.ctx.inspect_logger() {
-            slog_info!(logger, "";
+            slog::info!(logger, "";
                 "task_id" => LtUuid(self.ctx.server_task_id()),
                 "depth" => self.ctx.current_inspection_depth(),
                 "source" => source.as_str(),

@@ -10,7 +10,6 @@ use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use futures_util::FutureExt;
 use http::header;
-use slog::slog_info;
 use tokio::io::{AsyncBufRead, AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
@@ -41,7 +40,7 @@ pub(crate) use adaptation::HttpRequestWriterForAdaptation;
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
         if let Some(logger) = $obj.ctx.intercept_logger() {
-            slog_info!(logger, $($args)+;
+            slog::info!(logger, $($args)+;
                 "intercept_type" => "HttpForward",
                 "task_id" => LtUuid($obj.ctx.server_task_id()),
                 "depth" => $obj.ctx.inspection_depth,

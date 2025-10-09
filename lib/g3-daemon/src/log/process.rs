@@ -6,7 +6,7 @@
 use std::sync::OnceLock;
 
 use log::{LevelFilter, Metadata, Record};
-use slog::{Drain, Logger, slog_o};
+use slog::{Drain, Logger};
 
 use g3_types::log::AsyncLogConfig;
 
@@ -23,7 +23,7 @@ pub fn setup(args: &DaemonArgs) {
             if #[cfg(target_os = "linux")] {
                 let journal_conf = g3_journal::JournalConfig::with_ident(args.process_name).append_code_position();
                 let drain = g3_journal::new_async_logger(&async_conf, journal_conf);
-                Logger::root(drain.fuse(), slog_o!())
+                Logger::root(drain.fuse(), slog::o!())
             } else {
                 unreachable!()
             }
@@ -31,10 +31,10 @@ pub fn setup(args: &DaemonArgs) {
     } else if args.daemon_mode {
         let drain =
             g3_syslog::SyslogBuilder::with_ident(args.process_name).start_async(&async_conf);
-        Logger::root(drain.fuse(), slog_o!())
+        Logger::root(drain.fuse(), slog::o!())
     } else {
         let drain = g3_stdlog::new_async_logger(&async_conf, true, false);
-        Logger::root(drain.fuse(), slog_o!())
+        Logger::root(drain.fuse(), slog::o!())
     };
 
     let _ = PROCESS_LOGGER.set(logger);

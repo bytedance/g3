@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use slog::{Logger, slog_o};
+use slog::Logger;
 
 use g3_types::metrics::NodeName;
 
@@ -16,7 +16,7 @@ pub(crate) mod keyless;
 pub(crate) fn get_logger(server_type: &str, server_name: &NodeName) -> Option<Logger> {
     let config = crate::config::log::get_task_default_config();
     let logger_name = format!("lt-{server_name}");
-    let common_values = slog_o!(
+    let common_values = slog::o!(
         "daemon_name" => crate::opts::daemon_group(),
         "log_type" => super::LOG_TYPE_TASK,
         "pid" => std::process::id(),
@@ -33,7 +33,7 @@ pub(crate) fn get_shared_logger(
 ) -> Option<Logger> {
     let logger_name = format!("lt-{name}");
     super::shared::get_shared_logger(SharedLoggerType::Task, logger_name, |logger| {
-        logger.new(slog_o!(
+        logger.new(slog::o!(
             "server_type" => server_type.to_string(),
             "server_name" => server_name.to_string(),
         ))
