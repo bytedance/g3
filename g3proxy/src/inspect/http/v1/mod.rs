@@ -7,7 +7,6 @@ use std::sync::Arc;
 
 use async_recursion::async_recursion;
 use http::{Method, Version};
-use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 
 use g3_dpi::Protocol;
@@ -88,7 +87,7 @@ impl<SC: ServerConfig> H1InterceptObject<SC> {
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
         if let Some(logger) = $obj.ctx.intercept_logger() {
-            slog_info!(logger, $($args)+;
+            slog::info!(logger, $($args)+;
                 "intercept_type" => "H1Connection",
                 "task_id" => LtUuid($obj.ctx.server_task_id()),
                 "depth" => $obj.ctx.inspection_depth,

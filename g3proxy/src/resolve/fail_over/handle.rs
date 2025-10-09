@@ -7,7 +7,7 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use std::task::{Context, Poll, ready};
 
-use slog::{Logger, slog_info};
+use slog::Logger;
 use tokio::time::Instant;
 
 use g3_resolver::{ResolveError, ResolveQueryType, ResolvedRecordSource};
@@ -88,7 +88,7 @@ struct FailOverResolverJob {
 impl LoggedResolveJob for FailOverResolverJob {
     fn log_error(&self, e: &ResolveError, source: ResolvedRecordSource) {
         if let Some(logger) = &self.logger {
-            slog_info!(logger, "{}", e;
+            slog::info!(logger, "{}", e;
                 "next_primary" => &self.config.primary.as_str(),
                 "next_standby" => &self.config.standby.as_str(),
                 "query_type" => self.query_type.as_str(),

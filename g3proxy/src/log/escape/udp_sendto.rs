@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use slog::{Logger, slog_info};
+use slog::Logger;
 use uuid::Uuid;
 
 use g3_io_ext::{UdpCopyRemoteError, UdpRelayRemoteError};
@@ -40,7 +40,7 @@ impl EscapeLogForUdpRelaySendto<'_> {
             }
             UdpRelayRemoteError::InternalServerError(_) => (None, None, "InternalServerError"),
         };
-        slog_info!(logger, "{}", e;
+        slog::info!(logger, "{}", e;
             "escape_type" => "UdpSendto",
             "task_id" => LtUuid(self.task_id),
             "upstream" => self.remote_addr.as_ref().map(LtUpstreamAddr),
@@ -68,7 +68,7 @@ impl EscapeLogForUdpConnectSendTo<'_> {
             UdpCopyRemoteError::RemoteSessionError(_) => "RemoteSessionError",
             UdpCopyRemoteError::InternalServerError(_) => "InternalServerError",
         };
-        slog_info!(logger, "{}", e;
+        slog::info!(logger, "{}", e;
             "escape_type" => "UdpSendto",
             "task_id" => LtUuid(self.task_id),
             "upstream" => self.upstream.map(LtUpstreamAddr),

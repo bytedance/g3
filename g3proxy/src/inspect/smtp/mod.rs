@@ -6,7 +6,6 @@
 use std::time::Duration;
 
 use anyhow::anyhow;
-use slog::slog_info;
 use tokio::io::AsyncWriteExt;
 
 use g3_daemon::server::ServerQuitPolicy;
@@ -53,7 +52,7 @@ struct SmtpRelayBuf {
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
         if let Some(logger) = $obj.ctx.intercept_logger() {
-            slog_info!(logger, $($args)+;
+            slog::info!(logger, $($args)+;
                 "intercept_type" => "SmtpConnection",
                 "task_id" => LtUuid($obj.ctx.server_task_id()),
                 "depth" => $obj.ctx.inspection_depth,
@@ -115,7 +114,7 @@ impl<SC: ServerConfig> SmtpInterceptObject<SC> {
 
     fn log_partial_shutdown(&self, task_event: TaskEvent) {
         if let Some(logger) = self.ctx.intercept_logger() {
-            slog_info!(logger, "";
+            slog::info!(logger, "";
                 "intercept_type" => "SmtpConnection",
                 "task_id" => LtUuid(self.ctx.server_task_id()),
                 "task_event" => task_event.as_str(),

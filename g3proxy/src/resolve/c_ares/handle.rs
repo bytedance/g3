@@ -7,7 +7,7 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use std::task::{Context, Poll, ready};
 
-use slog::{Logger, slog_info};
+use slog::Logger;
 use tokio::time::Instant;
 
 use g3_resolver::{ResolveError, ResolveQueryType, ResolvedRecordSource};
@@ -98,7 +98,7 @@ impl LoggedResolveJob for CAresResolverJob {
             .map(|server| server.to_string())
             .collect::<Vec<_>>()
             .join(" ");
-        slog_info!(logger, "{}", e;
+        slog::info!(logger, "{}", e;
             "bind_ipv4" => self.config.get_bind_ipv4().map(IpAddr::V4).map(LtIpAddr),
             "bind_ipv6" => self.config.get_bind_ipv6().map(IpAddr::V6).map(LtIpAddr),
             "server" => servers,

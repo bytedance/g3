@@ -3,7 +3,7 @@
  * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use slog::{Logger, slog_info};
+use slog::Logger;
 
 use g3_slog_types::{LtDateTime, LtDuration, LtUuid};
 
@@ -18,7 +18,7 @@ pub(crate) struct TaskLogForKeyless<'a> {
 
 impl TaskLogForKeyless<'_> {
     pub(crate) fn log(&self, e: ServerTaskError) {
-        slog_info!(self.logger, "{}", e;
+        slog::info!(self.logger, "{}", e;
             "task_type" => "Keyless",
             "task_id" => LtUuid(&self.task_notes.id),
             "stage" => self.task_notes.stage.brief(),
