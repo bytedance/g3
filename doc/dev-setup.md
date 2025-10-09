@@ -182,9 +182,9 @@ winget install Kitware.CMake
 winget install capnproto.capnproto
 winget install NASM.NASM Ninja-build.Ninja
 # install libraries
-vcpkg install --triplet=x64-windows-static-md openssl
-# build, c-ares need to be vendored, lua and python feature need to be disabled
-cargo build --no-default-features --features quic,vendored-c-ares,rustls-aws-lc
+vcpkg install openssl c-ares
+# build, lua and python feature need to be disabled
+cargo build --no-default-features --features rustls-ring,quic,c-ares
 ```
 
 **Tips**

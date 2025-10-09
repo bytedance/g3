@@ -41,6 +41,8 @@ See [Static and dynamic C runtimes](https://doc.rust-lang.org/reference/linkage.
 
 ## Compile with vcpkg
 
+The environment variable `VCPKGRS_TRIPLET` need to be set to `x64-windows-static` first.
+
 ```shell
 vcpkg install --triplet=x64-windows-static openssl c-ares
 cargo build --no-default-features --features rustls-ring,quic,c-ares

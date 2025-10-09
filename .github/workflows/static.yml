@@ -29,6 +29,7 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: -C target-feature=+crt-static
   VCPKG_ROOT: C:\vcpkg
+  VCPKGRS_TRIPLET: x64-windows-static
   AWS_LC_SYS_PREBUILT_NASM: 1
 
 jobs:
