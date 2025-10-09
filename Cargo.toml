@@ -140,7 +140,7 @@ h3-quinn = "0.0.10"
 h3 = "0.0.8"
 #
 log = "0.4"
-slog = { version = "2", features = ["dynamic-keys", "nested-values"] }
+slog = { version = "2.8", features = ["dynamic-keys"] }
 hdrhistogram = { version = "7.5", default-features = false }
 #
 clap = "4.5.36"

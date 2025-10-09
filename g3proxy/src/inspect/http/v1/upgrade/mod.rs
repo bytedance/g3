@@ -9,7 +9,6 @@ use anyhow::anyhow;
 use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use http::{StatusCode, Version};
-use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
@@ -37,7 +36,7 @@ use crate::serve::{ServerIdleChecker, ServerTaskError, ServerTaskResult};
 macro_rules! intercept_log {
     ($obj:tt, $r:expr, $($args:tt)+) => {
         if let Some(logger) = $obj.ctx.intercept_logger() {
-            slog_info!(logger, $($args)+;
+            slog::info!(logger, $($args)+;
                 "intercept_type" => "HttpUpgrade",
                 "task_id" => LtUuid($obj.ctx.server_task_id()),
                 "depth" => $obj.ctx.inspection_depth,

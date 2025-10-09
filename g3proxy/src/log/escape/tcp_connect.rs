@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use slog::{Logger, slog_info};
+use slog::Logger;
 use uuid::Uuid;
 
 use g3_slog_types::{LtDateTime, LtDuration, LtIpAddr, LtUpstreamAddr, LtUuid};
@@ -19,7 +19,7 @@ pub(crate) struct EscapeLogForTcpConnect<'a> {
 
 impl EscapeLogForTcpConnect<'_> {
     pub(crate) fn log(&self, logger: &Logger, e: &TcpConnectError) {
-        slog_info!(logger, "{}", e;
+        slog::info!(logger, "{}", e;
             "escape_type" => "TcpConnect",
             "task_id" => LtUuid(self.task_id),
             "upstream" => LtUpstreamAddr(self.upstream),

@@ -5,7 +5,7 @@
 
 use std::net::SocketAddr;
 
-use slog::{Logger, slog_info};
+use slog::Logger;
 
 use g3_slog_types::{LtDateTime, LtDuration, LtUpstreamAddr, LtUuid};
 use g3_types::net::UpstreamAddr;
@@ -41,7 +41,7 @@ impl TaskLogForUdpAssociate<'_> {
             }
         }
 
-        slog_info!(self.logger, "";
+        slog::info!(self.logger, "";
             "task_type" => "UdpAssociate",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Created.as_str(),
@@ -61,7 +61,7 @@ impl TaskLogForUdpAssociate<'_> {
             }
         }
 
-        slog_info!(self.logger, "";
+        slog::info!(self.logger, "";
             "task_type" => "UdpAssociate",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Connected.as_str(),
@@ -88,7 +88,7 @@ impl TaskLogForUdpAssociate<'_> {
             }
         }
 
-        slog_info!(self.logger, "";
+        slog::info!(self.logger, "";
             "task_type" => "UdpAssociate",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Periodic.as_str(),
@@ -122,7 +122,7 @@ impl TaskLogForUdpAssociate<'_> {
             }
         }
 
-        slog_info!(self.logger, "{}", e;
+        slog::info!(self.logger, "{}", e;
             "task_type" => "UdpAssociate",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Finished.as_str(),

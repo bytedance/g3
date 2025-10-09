@@ -7,7 +7,7 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use std::task::{Context, Poll, ready};
 
-use slog::{Logger, slog_info};
+use slog::Logger;
 use tokio::time::Instant;
 
 use g3_resolver::{ResolveError, ResolveQueryType, ResolvedRecordSource};
@@ -98,7 +98,7 @@ impl LoggedResolveJob for HickoryResolverJob {
             .map(|server| server.to_string())
             .collect::<Vec<_>>()
             .join(" ");
-        slog_info!(logger, "{}", e; // TODO add encryption info
+        slog::info!(logger, "{}", e; // TODO add encryption info
             "bind_addr" => LtBindAddr(self.config.get_bind_addr()),
             "server" => servers,
             "server_port" => self.config.get_server_port(),

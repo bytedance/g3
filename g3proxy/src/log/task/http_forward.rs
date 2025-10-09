@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use slog::{Logger, slog_info};
+use slog::Logger;
 
 use g3_slog_types::{
     LtDateTime, LtDuration, LtHttpMethod, LtHttpUri, LtIpAddr, LtUpstreamAddr, LtUuid,
@@ -36,7 +36,7 @@ impl TaskLogForHttpForward<'_> {
             }
         }
 
-        slog_info!(self.logger, "";
+        slog::info!(self.logger, "";
             "task_type" => "HttpForward",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Created.as_str(),
@@ -61,7 +61,7 @@ impl TaskLogForHttpForward<'_> {
             }
         }
 
-        slog_info!(self.logger, "";
+        slog::info!(self.logger, "";
             "task_type" => "HttpForward",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Connected.as_str(),
@@ -95,7 +95,7 @@ impl TaskLogForHttpForward<'_> {
             }
         }
 
-        slog_info!(self.logger, "";
+        slog::info!(self.logger, "";
             "task_type" => "HttpForward",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Periodic.as_str(),
@@ -140,7 +140,7 @@ impl TaskLogForHttpForward<'_> {
             }
         }
 
-        slog_info!(self.logger, "{}", e;
+        slog::info!(self.logger, "{}", e;
             "task_type" => "HttpForward",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Finished.as_str(),

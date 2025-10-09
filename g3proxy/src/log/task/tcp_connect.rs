@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use slog::{Logger, slog_info};
+use slog::Logger;
 
 use g3_slog_types::{LtDateTime, LtDuration, LtIpAddr, LtUpstreamAddr, LtUuid};
 use g3_types::net::UpstreamAddr;
@@ -31,7 +31,7 @@ impl TaskLogForTcpConnect<'_> {
             }
         }
 
-        slog_info!(self.logger, "";
+        slog::info!(self.logger, "";
             "task_type" => "TcpConnect",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Created.as_str(),
@@ -52,7 +52,7 @@ impl TaskLogForTcpConnect<'_> {
             }
         }
 
-        slog_info!(self.logger, "";
+        slog::info!(self.logger, "";
             "task_type" => "TcpConnect",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Connected.as_str(),
@@ -81,7 +81,7 @@ impl TaskLogForTcpConnect<'_> {
             }
         }
 
-        slog_info!(self.logger, "";
+        slog::info!(self.logger, "";
             "task_type" => "TcpConnect",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Periodic.as_str(),
@@ -109,7 +109,7 @@ impl TaskLogForTcpConnect<'_> {
     }
 
     fn log_partial_shutdown(&self, task_event: TaskEvent) {
-        slog_info!(self.logger, "";
+        slog::info!(self.logger, "";
             "task_type" => "TcpConnect",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => task_event.as_str(),
@@ -148,7 +148,7 @@ impl TaskLogForTcpConnect<'_> {
             }
         }
 
-        slog_info!(self.logger, "{}", e;
+        slog::info!(self.logger, "{}", e;
             "task_type" => "TcpConnect",
             "task_id" => LtUuid(&self.task_notes.id),
             "task_event" => TaskEvent::Finished.as_str(),

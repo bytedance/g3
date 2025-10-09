@@ -5,7 +5,6 @@
 
 use bytes::BytesMut;
 use openssl::x509::X509VerifyResult;
-use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 use g3_dpi::Protocol;
@@ -33,7 +32,7 @@ mod tls;
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
         if let Some(logger) = $obj.ctx.intercept_logger() {
-            slog_info!(logger, $($args)+;
+            slog::info!(logger, $($args)+;
                 "intercept_type" => "StartTlsHandshake",
                 "task_id" => LtUuid($obj.ctx.server_task_id()),
                 "depth" => $obj.ctx.inspection_depth,

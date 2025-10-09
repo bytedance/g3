@@ -8,7 +8,6 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use bytes::BytesMut;
 use openssl::x509::X509VerifyResult;
-use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::runtime::Handle;
 
@@ -234,7 +233,7 @@ pub(crate) struct TlsInterceptObject<SC: ServerConfig> {
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
         if let Some(logger) = $obj.ctx.intercept_logger() {
-            slog_info!(logger, $($args)+;
+            slog::info!(logger, $($args)+;
                 "intercept_type" => "TlsHandshake",
                 "task_id" => LtUuid($obj.ctx.server_task_id()),
                 "depth" => $obj.ctx.inspection_depth,

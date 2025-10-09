@@ -5,7 +5,6 @@
 
 use std::time::Duration;
 
-use slog::slog_info;
 use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
 use tokio::time::Instant;
 
@@ -322,7 +321,7 @@ struct UnknownStreamTransitTask<'a, SC: ServerConfig> {
 impl<SC: ServerConfig> UnknownStreamTransitTask<'_, SC> {
     fn log_partial_shutdown(&self, task_event: TaskEvent) {
         if let Some(logger) = self.ctx.intercept_logger() {
-            slog_info!(logger, "";
+            slog::info!(logger, "";
                 "intercept_type" => "TransitUnknown",
                 "inspect_status" => self.inspect_status.as_str(),
                 "task_id" => LtUuid(self.ctx.server_task_id()),

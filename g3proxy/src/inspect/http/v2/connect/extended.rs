@@ -10,7 +10,6 @@ use h2::client::SendRequest;
 use h2::server::SendResponse;
 use h2::{RecvStream, StreamId};
 use http::{Request, Response, StatusCode, Version, header};
-use slog::slog_info;
 
 use g3_dpi::Protocol;
 use g3_h2::{H2StreamReader, H2StreamWriter};
@@ -26,7 +25,7 @@ use crate::log::inspect::{InspectSource, stream::StreamInspectLog};
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
         if let Some(logger) = $obj.ctx.intercept_logger() {
-            slog_info!(logger, $($args)+;
+            slog::info!(logger, $($args)+;
                 "intercept_type" => "H2ExtendedConnect",
                 "task_id" => LtUuid($obj.ctx.server_task_id()),
                 "depth" => $obj.ctx.inspection_depth,

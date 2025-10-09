@@ -12,7 +12,6 @@ use h2::client::SendRequest;
 use h2::server::SendResponse;
 use h2::{Reason, RecvStream, StreamId};
 use http::{Method, Request, Response, StatusCode, Uri, Version};
-use slog::slog_info;
 use tokio::time::Instant;
 
 use g3_h2::{H2StreamBodyTransferError, H2StreamFromChunkedTransferError, RequestExt};
@@ -34,7 +33,7 @@ use crate::serve::ServerIdleChecker;
 macro_rules! intercept_log {
     ($obj:tt, $($args:tt)+) => {
         if let Some(logger) = $obj.ctx.intercept_logger() {
-            slog_info!(logger, $($args)+;
+            slog::info!(logger, $($args)+;
                 "intercept_type" => "H2StreamForward",
                 "task_id" => LtUuid($obj.ctx.server_task_id()),
                 "depth" => $obj.ctx.inspection_depth,

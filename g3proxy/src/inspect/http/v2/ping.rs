@@ -6,7 +6,6 @@
 use std::sync::Arc;
 
 use h2::{Ping, PingPong};
-use slog::slog_info;
 use tokio::sync::oneshot;
 
 use g3_slog_types::{LtDuration, LtUpstreamAddr, LtUuid};
@@ -19,7 +18,7 @@ use crate::inspect::StreamInspectContext;
 macro_rules! periodical_log {
     ($obj:tt, $rtt:expr, $($args:tt)+) => {
         if let Some(logger) = $obj.ctx.intercept_logger() {
-            slog_info!(logger, $($args)+;
+            slog::info!(logger, $($args)+;
                 "intercept_type" => "H2Ping",
                 "task_id" => LtUuid($obj.ctx.server_task_id()),
                 "depth" => $obj.ctx.inspection_depth,

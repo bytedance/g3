@@ -7,7 +7,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
-use slog::{Logger, OwnedKV, SendSyncRefUnwindSafeKV, slog_o};
+use slog::{Logger, OwnedKV, SendSyncRefUnwindSafeKV};
 use yaml_rust::Yaml;
 
 use g3_fluentd::FluentdClientConfig;
@@ -189,7 +189,7 @@ impl LogConfig {
         daemon_group: &'static str,
         log_type: &'static str,
     ) -> Option<Logger> {
-        let common_values = slog_o!(
+        let common_values = slog::o!(
             "daemon_name" => daemon_group,
             "log_type" => log_type,
             "pid" => std::process::id(),
