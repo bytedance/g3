@@ -31,7 +31,7 @@ impl ClientFrameBuilder {
             buf.push(0b1111_1110);
             buf.extend_from_slice(&bytes);
         } else {
-            buf.push(u8::try_from(payload_len).unwrap() & 0b1000_0000);
+            buf.push(u8::try_from(payload_len).unwrap() | 0b1000_0000);
         }
 
         let mut mask = [0u8; 4];
