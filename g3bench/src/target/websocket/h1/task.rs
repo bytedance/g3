@@ -32,6 +32,8 @@ struct H1WebSocketTaskLoop {
 
     request_buf: Vec<u8>,
     response_buf: Vec<u8>,
+
+    task_rsp_sender: Option<oneshot::Sender<anyhow::Result<()>>>,
 }
 
 impl H1WebSocketTaskLoop {
@@ -49,6 +51,7 @@ impl H1WebSocketTaskLoop {
             histogram_recorder,
             request_buf: Vec::new(),
             response_buf: Vec::new(),
+            task_rsp_sender: None,
         }
     }
 
@@ -236,8 +239,13 @@ impl H1WebSocketTaskLoop {
             match self.new_connection().await {
                 Ok(c) => {
                     if let Err(e) = self.run_with_connection(c, &mut req_receiver).await {
-                        eprintln!("websocket connection task error: {e}");
-                        break;
+                        self.runtime_stats.add_conn_close_fail();
+
+                        if let Some(sender) = self.task_rsp_sender.take() {
+                            let _ = sender.send(Err(e));
+                        } else {
+                            eprintln!("websocket connection task error: {e}");
+                        }
                     }
                 }
                 Err(e) => {
@@ -259,8 +267,6 @@ impl H1WebSocketTaskLoop {
         mut connection: SavedHttpForwardConnection,
         req_receiver: &mut mpsc::Receiver<(Bytes, oneshot::Sender<anyhow::Result<()>>)>,
     ) -> anyhow::Result<()> {
-        let mut rsp_sender: Option<oneshot::Sender<anyhow::Result<()>>> = None;
-
         loop {
             tokio::select! {
                 biased;
@@ -273,11 +279,8 @@ impl H1WebSocketTaskLoop {
                         let _ = connection.writer.write_all_flush(&self.request_buf).await;
                         return Ok(());
                     };
+                    self.task_rsp_sender = Some(sender); // just drop the previous rsp_sender
                     connection.writer.write_all_flush(&data).await.map_err(|e| anyhow!("failed to write data: {e}"))?;
-                    if let Some(sender) = rsp_sender.take() {
-                        let _ = sender.send(Err(anyhow!("no response received")));
-                    }
-                    rsp_sender = Some(sender);
                 }
                 r = connection.reader.fill_wait_data() => {
                     let frame_type = match r {
@@ -308,14 +311,16 @@ impl H1WebSocketTaskLoop {
                             }
                             continue;
                         }
-                        FrameType::Pong => {}
+                        FrameType::Pong => {
+                            continue;
+                        }
                     }
 
-                    if let Some(sender) = rsp_sender.take() {
+                    if let Some(sender) = self.task_rsp_sender.take() {
                         let r = self.args.common.verify_response_data(frame_type, &self.response_buf);
                         let _ = sender.send(r);
                     } else {
-                        return Err(anyhow!("unexpected {frame_type} frame received"));
+                        eprintln!("unexpected {frame_type} frame received");
                     }
                 }
             }
@@ -385,7 +390,7 @@ impl BenchTaskContext for H1WebsocketTaskContext {
         self.req_sender
             .send((Bytes::copy_from_slice(&self.request_buf), rsp_sender))
             .await
-            .map_err(|e| BenchError::Task(anyhow!("websocket task loop ended: {e}")))?;
+            .map_err(|e| BenchError::Fatal(anyhow!("websocket task loop ended: {e}")))?;
 
         match tokio::time::timeout(self.args.common.timeout, rsp_receiver).await {
             Ok(Ok(Ok(_))) => {
@@ -394,12 +399,8 @@ impl BenchTaskContext for H1WebsocketTaskContext {
                 Ok(())
             }
             Ok(Ok(Err(e))) => Err(BenchError::Task(e)),
-            Ok(Err(e)) => Err(BenchError::Task(anyhow!(
-                "error when recv result from task loop: {e}"
-            ))),
-            Err(_) => Err(BenchError::Task(anyhow!(
-                "timeout to recv result from task loop"
-            ))),
+            Ok(Err(_)) => Err(BenchError::Task(anyhow!("no response received"))),
+            Err(_) => Err(BenchError::Task(anyhow!("timeout to recv response"))),
         }
     }
 }
