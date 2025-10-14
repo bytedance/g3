@@ -19,7 +19,9 @@ const HTTP_ARG_HEADER: &str = "header";
 const HTTP_ARG_OK_STATUS: &str = "ok-status";
 const HTTP_ARG_TIMEOUT: &str = "timeout";
 const HTTP_ARG_CONNECT_TIMEOUT: &str = "connect-timeout";
-const HTTP_ARG_DATA: &str = "data";
+const HTTP_ARG_PAYLOAD: &str = "payload";
+const HTTP_ARG_NO_STRICT: &str = "no-strict";
+const HTTP_ARG_BINARY_PAYLOAD: &str = "binary";
 
 pub(crate) trait AppendHttpArgs {
     fn append_http_args(self) -> Self;
@@ -32,10 +34,11 @@ pub(crate) struct HttpClientArgs {
     pub(crate) ok_status: Option<StatusCode>,
     pub(crate) timeout: Duration,
     pub(crate) connect_timeout: Duration,
-    pub(crate) body: Vec<u8>,
+    pub(crate) body: Option<Vec<u8>>,
 
     pub(crate) target: UpstreamAddr,
     auth: HttpAuth,
+    binary_payload: bool,
 }
 
 impl HttpClientArgs {
@@ -48,11 +51,12 @@ impl HttpClientArgs {
             target_url: url,
             headers: Vec::new(),
             ok_status: None,
-            body: Default::default(),
+            body: None,
             timeout: Duration::from_secs(30),
             connect_timeout: Duration::from_secs(15),
             target: upstream,
             auth,
+            binary_payload: false,
         })
     }
 
@@ -60,74 +64,46 @@ impl HttpClientArgs {
         self.target_url.scheme() == "https"
     }
 
-    fn path_and_query(&self) -> String {
-        if let Some(q) = self.target_url.query() {
+    pub(crate) fn build_static_request(&self, version: Version) -> anyhow::Result<Request<()>> {
+        let path_and_query = if let Some(q) = self.target_url.query() {
             format!("{}?{q}", self.target_url.path())
         } else {
             self.target_url.path().to_string()
-        }
-    }
-
-    pub(crate) fn build_static_request(&self) -> anyhow::Result<Request<Vec<u8>>> {
+        };
         let uri = http::Uri::builder()
             .scheme(self.target_url.scheme())
             .authority(self.target.to_string())
-            .path_and_query(self.path_and_query())
+            .path_and_query(path_and_query)
             .build()
-            .map_err(|e| anyhow!("failed to build static request: {e:?}"))?;
-
-        let mut req = Request::builder()
-            .version(Version::HTTP_11)
-            .method(self.method.clone())
-            .uri(uri)
-            .body(self.body.clone())
-            .map_err(|e| anyhow!("failed to build static request: {e:?}"))?;
-
-        for (key, value) in self.headers.iter() {
-            req.headers_mut().append(key, value.clone());
-        }
-
-        if !req.body().is_empty() {
-            let xlen = req.body().len();
-            req.headers_mut()
-                .append("Content-Length", HeaderValue::from(xlen));
-            req.headers_mut().append(
-                "Content-Type",
-                HeaderValue::from_static("text/html; charset=utf-8"),
-            );
-        }
-
-        if !req.headers().contains_key(http::header::AUTHORIZATION) {
-            match &self.auth {
-                HttpAuth::None => {}
-                HttpAuth::Basic(basic) => {
-                    let value = HeaderValue::try_from(basic)
-                        .map_err(|e| anyhow!("invalid auth value: {e:?}"))?;
-                    req.headers_mut().insert(http::header::AUTHORIZATION, value);
-                }
-            }
-        }
-
-        Ok(req)
-    }
-
-    pub(crate) fn build_static_headers(&self, version: Version) -> anyhow::Result<Request<()>> {
-        let uri = http::Uri::builder()
-            .scheme(self.target_url.scheme())
-            .authority(self.target.to_string())
-            .path_and_query(self.path_and_query())
-            .build()
-            .map_err(|e| anyhow!("failed to build static headers: {e:?}"))?;
+            .map_err(|e| anyhow!("failed to build request: {e:?}"))?;
 
         let mut req = Request::builder()
             .version(version)
             .method(self.method.clone())
             .uri(uri)
             .body(())
-            .map_err(|e| anyhow!("failed to build static headers: {e:?}"))?;
+            .map_err(|e| anyhow!("failed to build request: {e:?}"))?;
 
         for (key, value) in self.headers.iter() {
             req.headers_mut().append(key, value.clone());
+        }
+
+        if let Some(payload) = self.payload() {
+            if !req.headers().contains_key(http::header::CONTENT_LENGTH) {
+                req.headers_mut().append(
+                    http::header::CONTENT_LENGTH,
+                    HeaderValue::from(payload.len()),
+                );
+            }
+            if !req.headers().contains_key(http::header::CONTENT_TYPE) {
+                let ctype = if self.binary_payload {
+                    "application/octet-stream"
+                } else {
+                    "text/html; charset=utf-8"
+                };
+                req.headers_mut()
+                    .append(http::header::CONTENT_TYPE, HeaderValue::from_static(ctype));
+            }
         }
 
         if !req.headers().contains_key(http::header::AUTHORIZATION) {
@@ -144,12 +120,8 @@ impl HttpClientArgs {
         Ok(req)
     }
 
-    pub(crate) fn static_data(&self) -> Option<Vec<u8>> {
-        if !self.body.is_empty() {
-            Some(self.body.clone())
-        } else {
-            None
-        }
+    pub(crate) fn payload(&self) -> Option<&Vec<u8>> {
+        self.body.as_ref()
     }
 
     pub(crate) fn parse_args(args: &ArgMatches) -> anyhow::Result<Self> {
@@ -160,14 +132,37 @@ impl HttpClientArgs {
         };
 
         let mut http_args = HttpClientArgs::new(url)?;
-        if let Some(payload) = args.get_one::<String>(HTTP_ARG_DATA) {
-            http_args.body = payload.as_bytes().to_vec();
-        }
+
+        let no_strict = args.get_flag(HTTP_ARG_NO_STRICT);
+        http_args.binary_payload = args.get_flag(HTTP_ARG_BINARY_PAYLOAD);
 
         if let Some(v) = args.get_one::<String>(HTTP_ARG_METHOD) {
             let method = Method::from_str(v).context(format!("invalid {HTTP_ARG_METHOD} value"))?;
             http_args.method = method;
         }
+
+        if let Ok(payload) = g3_clap::data::get(args, HTTP_ARG_PAYLOAD, http_args.binary_payload) {
+            match http_args.method {
+                Method::POST | Method::PUT => {
+                    if !payload.is_empty() {
+                        http_args.body = Some(payload);
+                    }
+                }
+                _ => {
+                    if !payload.is_empty() {
+                        if no_strict {
+                            http_args.body = Some(payload);
+                        } else {
+                            return Err(anyhow!(format!(
+                                "--{HTTP_ARG_PAYLOAD} argument is only allowed for POST or PUT methods. \
+                                Use --{HTTP_ARG_NO_STRICT} to ignore this check."
+                            )));
+                        }
+                    }
+                }
+            }
+        }
+
         http_args.headers = g3_clap::http::get_headers(args, HTTP_ARG_HEADER)?;
         if let Some(code) = args.get_one::<StatusCode>(HTTP_ARG_OK_STATUS) {
             http_args.ok_status = Some(*code);
@@ -192,7 +187,7 @@ impl AppendHttpArgs for Command {
                     .short('m')
                     .long(HTTP_ARG_METHOD)
                     .num_args(1)
-                    .value_parser(["DELETE", "GET", "HEAD", "OPTIONS", "TRACE", "POST"])
+                    .value_parser(["DELETE", "GET", "HEAD", "OPTIONS", "TRACE", "POST", "PUT"])
                     .default_value("GET"),
             )
             .arg(
@@ -227,11 +222,25 @@ impl AppendHttpArgs for Command {
                     .num_args(1),
             )
             .arg(
-                Arg::new(HTTP_ARG_DATA)
+                Arg::new(HTTP_ARG_PAYLOAD)
                     .value_name("REQUEST BODY DATA")
                     .help("Request body payload data")
-                    .long(HTTP_ARG_DATA)
+                    .long(HTTP_ARG_PAYLOAD)
                     .num_args(1),
+            )
+            .arg(
+                Arg::new(HTTP_ARG_NO_STRICT)
+                    .value_name("NO STRICT")
+                    .long(HTTP_ARG_NO_STRICT)
+                    .action(ArgAction::SetTrue)
+                    .help("ignore HTTP method restrictions for payload data (--payload)"),
+            )
+            .arg(
+                Arg::new(HTTP_ARG_BINARY_PAYLOAD)
+                    .value_name("BINARY REQUEST PAYLOAD DATA")
+                    .long(HTTP_ARG_BINARY_PAYLOAD)
+                    .action(ArgAction::SetTrue)
+                    .help("expect binary request payload data (--payload)"),
             )
     }
 }

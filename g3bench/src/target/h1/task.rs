@@ -131,6 +131,13 @@ impl HttpTaskContext {
         let send_hdr_time = time_started.elapsed();
         self.histogram_recorder.record_send_hdr_time(send_hdr_time);
 
+        if let Some(data) = self.args.common.payload() {
+            ups_w
+                .write_all(data.as_slice())
+                .await
+                .map_err(|e| anyhow!("failed to send request body: {e:?}"))?;
+        }
+
         // recv hdr
         let rsp = match tokio::time::timeout(
             self.args.common.timeout,

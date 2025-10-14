@@ -26,7 +26,6 @@ pub(super) struct H2TaskContext {
 
     reuse_conn_count: u64,
     static_headers: Request<()>,
-    static_data: Option<Vec<u8>>,
 
     runtime_stats: Arc<HttpRuntimeStats>,
     histogram_recorder: HttpHistogramRecorder,
@@ -49,7 +48,7 @@ impl H2TaskContext {
     ) -> anyhow::Result<Self> {
         let static_request = args
             .common
-            .build_static_headers(Version::HTTP_2)
+            .build_static_request(Version::HTTP_2)
             .context("failed to build static request header")?;
         Ok(H2TaskContext {
             args: Arc::clone(args),
@@ -58,7 +57,6 @@ impl H2TaskContext {
             h2s: None,
             reuse_conn_count: 0,
             static_headers: static_request,
-            static_data: args.common.static_data(),
             runtime_stats: Arc::clone(runtime_stats),
             histogram_recorder,
         })
@@ -118,17 +116,17 @@ impl H2TaskContext {
         mut send_req: SendRequest<Bytes>,
     ) -> anyhow::Result<()> {
         let req = self.static_headers.clone();
-        let no_data = self.static_data.is_none();
+        let payload = self.args.common.payload();
 
         // send hdr
         let (rsp_fut, mut sender) = send_req
-            .send_request(req, no_data)
+            .send_request(req, payload.is_none())
             .map_err(|e| anyhow!("failed to send request: {e:?}"))?;
         let send_hdr_time = time_started.elapsed();
 
         self.histogram_recorder.record_send_hdr_time(send_hdr_time);
-        if let Some(payload) = self.static_data.as_ref() {
-            sender.send_data(Bytes::from(payload.clone()), true)?;
+        if let Some(data) = payload {
+            sender.send_data(Bytes::from(data.clone()), true)?;
         }
 
         // recv hdr

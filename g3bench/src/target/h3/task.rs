@@ -26,8 +26,7 @@ pub(super) struct H3TaskContext {
     h3s: Option<SendRequest<OpenStreams, Bytes>>,
 
     reuse_conn_count: u64,
-    static_headers: Request<()>,
-    static_data: Option<Vec<u8>>,
+    static_request: Request<()>,
 
     runtime_stats: Arc<HttpRuntimeStats>,
     histogram_recorder: HttpHistogramRecorder,
@@ -48,9 +47,9 @@ impl H3TaskContext {
         histogram_recorder: HttpHistogramRecorder,
         pool: Option<Arc<H3ConnectionPool>>,
     ) -> anyhow::Result<Self> {
-        let static_headers = args
+        let static_request = args
             .common
-            .build_static_headers(Version::HTTP_3)
+            .build_static_request(Version::HTTP_3)
             .context("failed to build static request header")?;
         Ok(H3TaskContext {
             args: Arc::clone(args),
@@ -58,8 +57,7 @@ impl H3TaskContext {
             pool,
             h3s: None,
             reuse_conn_count: 0,
-            static_headers,
-            static_data: args.common.static_data(),
+            static_request,
             runtime_stats: Arc::clone(runtime_stats),
             histogram_recorder,
         })
@@ -113,7 +111,7 @@ impl H3TaskContext {
         time_started: Instant,
         mut send_req: SendRequest<OpenStreams, Bytes>,
     ) -> anyhow::Result<()> {
-        let req = self.static_headers.clone();
+        let req = self.static_request.clone();
 
         // send hdr
         let mut send_stream = send_req
@@ -121,7 +119,7 @@ impl H3TaskContext {
             .await
             .map_err(|e| anyhow!("failed to send request header: {e}"))?;
 
-        if let Some(payload) = self.static_data.as_ref() {
+        if let Some(payload) = self.args.common.payload() {
             send_stream.send_data(Bytes::from(payload.clone())).await?;
         }
 
