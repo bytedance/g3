@@ -39,9 +39,9 @@ username extension
 
 All servers which support user auth with a username can support this.
 
-The supported method is :ref:`upstream addr <proto_egress_path_selection_upstream_addr>`.
+The supported method is :ref:`egress upstream <proto_egress_path_selection_egress_upstream>`.
 
-See :ref:`username_params <config_server_username_params>` for more info.
+See :ref:`username_params <config_auth_username_params>` for more info.
 
 user support
 ============
@@ -92,11 +92,23 @@ json value
 
 The value should be a `JSON MAP` object (or a JSON MAP str in yaml config), and it's meaning will be different on each type of escaper.
 
-.. _proto_egress_path_selection_upstream_addr:
+.. _proto_egress_path_selection_egress_upstream:
 
-upstream addr
--------------
+egress upstream
+---------------
 
 **value**: map
 
-The value should be a :ref:`upstream str <conf_value_upstream_str>`, and it will override the upstream address used by the corresponding escaper.
+The value should be a map with the following keys:
+
+* addr
+
+  **value**: :ref:`upstream str <conf_value_upstream_str>`
+
+  It will override the upstream address used by the corresponding escaper.
+
+* resolve_sticky_key
+
+  **value**: string
+
+  Resolve the upstream domain by using ketama consistent hash, and use this value as the hash key.

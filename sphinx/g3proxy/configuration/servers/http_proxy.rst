@@ -92,6 +92,17 @@ Set the auth realm.
 
 **default**: proxy
 
+username_params
+---------------
+
+**optional**, **type**: :ref:`username_params <config_auth_username_params>`
+
+Allow to extract egress path info from username params.
+
+**default**: not set
+
+.. versionadded:: 1.13.0
+
 .. _conf_server_http_proxy_tls_client:
 
 tls_client

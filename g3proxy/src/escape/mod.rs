@@ -46,7 +46,7 @@ pub(crate) use stats::{
 };
 
 mod egress_path;
-pub(crate) use egress_path::EgressPathSelection;
+pub(crate) use egress_path::{EgressPathSelection, EgressUpstream};
 
 mod comply_audit;
 mod direct_fixed;

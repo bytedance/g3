@@ -14,10 +14,9 @@ use uuid::Uuid;
 use g3_daemon::server::ClientConnectionInfo;
 use g3_types::limit::GaugeSemaphorePermit;
 use g3_types::metrics::NodeName;
-use g3_types::net::UpstreamAddr;
 
 use crate::auth::UserContext;
-use crate::escape::EgressPathSelection;
+use crate::escape::{EgressPathSelection, EgressUpstream};
 
 #[derive(Clone, Copy)]
 pub(crate) enum ServerTaskStage {
@@ -158,7 +157,7 @@ impl ServerTaskNotes {
         }
     }
 
-    pub(crate) fn egress_path_upstream(&self, escaper: &NodeName) -> Option<&UpstreamAddr> {
+    pub(crate) fn egress_path_upstream(&self, escaper: &NodeName) -> Option<&EgressUpstream> {
         if let Some(ctx) = &self.user_ctx
             && let Some(p) = ctx.user_config().egress_path_selection.as_ref()
             && let Some(addr) = p.select_upstream(escaper)

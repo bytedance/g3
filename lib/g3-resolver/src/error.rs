@@ -87,6 +87,8 @@ impl ResolveLocalError {
 pub enum ResolveError {
     #[error("empty domain")]
     EmptyDomain,
+    #[error("empty result")]
+    EmptyResult,
     #[error("server error: {0}")]
     FromServer(#[from] ResolveServerError),
     #[error("driver error: {0}")]
@@ -101,6 +103,7 @@ impl ResolveError {
     pub fn get_type(&self) -> &str {
         match self {
             ResolveError::EmptyDomain => "EmptyDomain",
+            ResolveError::EmptyResult => "EmptyResult",
             ResolveError::FromServer(_) => "ServerError",
             ResolveError::FromDriver(_) => "DriverError",
             ResolveError::FromLocal(_) => "LocalError",
@@ -110,7 +113,7 @@ impl ResolveError {
 
     pub fn get_subtype(&self) -> &str {
         match self {
-            ResolveError::EmptyDomain => "",
+            ResolveError::EmptyDomain | ResolveError::EmptyResult => "",
             ResolveError::FromServer(e) => e.get_type(),
             ResolveError::FromDriver(e) => e.get_type(),
             ResolveError::FromLocal(e) => e.get_type(),

@@ -26,7 +26,7 @@ use crate::auth::{UserContext, UserGroup, UserRequestStats};
 use crate::config::server::ServerConfig;
 use crate::escape::EgressPathSelection;
 use crate::module::http_forward::{BoxHttpForwardContext, HttpProxyClientResponse};
-use crate::serve::{ServerStats, ServerTaskNotes, UsernameParams};
+use crate::serve::{ServerStats, ServerTaskNotes};
 
 struct UserData {
     req_stats: Arc<UserRequestStats>,
@@ -251,18 +251,19 @@ where
         }
 
         // Optional: compute username-param-derived escaper address and store override
-        if let Some(cfg) = &self.ctx.server_config.username_params
+        if let Some(name_params) = &self.ctx.server_config.username_params
             && let HttpAuth::Basic(v) = &req.inner.auth_info
-            && cfg.has_known_key(v.username.as_original())
         {
-            match UsernameParams::compute_upstream_http(cfg, v.username.as_original()) {
-                Ok(addr) => {
+            match name_params.parse_egress_upstream_http(v.username.as_original()) {
+                Ok(Some(ups)) => {
                     debug!(
-                        "[{}] http username params -> next proxy {addr}",
-                        self.ctx.server_config.name()
+                        "[{}] http username params -> next proxy {}",
+                        self.ctx.server_config.name(),
+                        ups.addr
                     );
-                    egress_path.set_upstream(self.ctx.server_config.name().clone(), addr);
+                    egress_path.set_upstream(self.ctx.escaper.name().clone(), ups);
                 }
+                Ok(None) => {}
                 Err(e) => {
                     debug!("failed to get upstream addr from username: {e}");
                     return Err(());
@@ -298,16 +299,6 @@ where
             user_ctx,
             req.time_accepted.elapsed(),
             path_selection,
-        );
-
-        // -vvv: log each incoming HTTP connection/request
-        debug!(
-            "new http request from {} to server {} (method={} uri={} escaper={})",
-            self.ctx.client_addr(),
-            self.ctx.server_config.name(),
-            req.inner.method,
-            req.inner.uri,
-            self.ctx.server_config.escaper
         );
 
         let mut audit_ctx = self.audit_ctx.clone();
@@ -558,7 +549,7 @@ where
                 }
             }
             None => {
-                // no body, and the connection is expected to keep alive from the client side
+                // no http body, and the connection is expected to keep alive from the client side
                 let mut forward_task =
                     HttpProxyForwardTask::new(&self.ctx, audit_ctx, &req, is_https, task_notes);
                 let mut clt_r = None;
@@ -603,6 +594,6 @@ where
     /// notify reader to close while it's not closed and not in waiting writer status.
     /// always use the req.stream_sender.send(None) when possible.
     fn notify_reader_to_close(&mut self) {
-        self.task_queue.close(); // may be deleted as the writer will dropped later
+        self.task_queue.close(); // may be deleted as the writer will be dropped later
     }
 }

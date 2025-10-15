@@ -3,9 +3,12 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::hash::Hash;
 use std::str::FromStr;
 
 use anyhow::anyhow;
+
+use crate::collection::{SelectiveItem, SelectiveVecBuilder};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum QueryStrategy {
@@ -141,6 +144,17 @@ impl ResolveStrategy {
         } else {
             all.pop()
         }
+    }
+
+    pub fn pick_ketama<T, K>(mut all: Vec<T>, key: &K) -> Option<T>
+    where
+        T: SelectiveItem + Ord + Copy,
+        K: Hash + ?Sized,
+    {
+        all.sort();
+        let builder = SelectiveVecBuilder::with_inner(all);
+        let selective_vec = builder.build()?;
+        Some(*selective_vec.pick_ketama(key))
     }
 }
 

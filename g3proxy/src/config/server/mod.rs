@@ -43,9 +43,6 @@ pub(crate) mod tcp_stream;
 pub(crate) mod tcp_tproxy;
 pub(crate) mod tls_stream;
 
-pub(crate) mod username_params;
-pub(crate) use username_params::UsernameParamsConfig;
-
 mod registry;
 pub(crate) use registry::clear;
 
@@ -122,6 +119,7 @@ pub(crate) trait ServerConfig {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, AnyConfig)]
 #[def_fn(name, &NodeName)]
 #[def_fn(position, Option<YamlDocPosition>)]

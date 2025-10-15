@@ -59,7 +59,7 @@ impl resolver_control::Server for ResolverControlImpl {
                 }
             };
             match job
-                .get_r1_or_first(Duration::from_millis(resolution_delay), usize::MAX)
+                .get_r1_or_first_many(Duration::from_millis(resolution_delay), usize::MAX)
                 .await
             {
                 Ok(ips) => {
