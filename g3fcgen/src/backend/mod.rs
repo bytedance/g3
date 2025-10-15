@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use log::{debug, error, info, warn};
+use log::{debug, error, info, log_enabled, warn};
 use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 use tokio::runtime::Handle;
@@ -23,71 +23,6 @@ pub(crate) use stats::BackendStats;
 use super::{BackendRequest, BackendResponse};
 use crate::config::OpensslBackendConfig;
 use crate::frontend::GeneratedData;
-
-macro_rules! log_x509_info {
-    ($cert:expr) => {{
-        let serial = $cert
-            .serial_number()
-            .to_bn()
-            .and_then(|bn| bn.to_dec_str())
-            .map(|s| s.to_string())
-            .unwrap_or_else(|_| "?".to_string());
-
-        let subject = format!("{:?}", $cert.subject_name());
-        let issuer = format!("{:?}", $cert.issuer_name());
-        let not_before = format!("{:?}", $cert.not_before());
-        let not_after = format!("{:?}", $cert.not_after());
-        let version = $cert.version() + 1; // X.509 version is 1-based
-        let sig_alg = format!("{:?}", $cert.signature_algorithm().object());
-        let (pubkey_type, pubkey_bits) = match $cert.public_key() {
-            Ok(pkey) => (format!("{:?}", pkey.id()), pkey.bits()),
-            Err(_) => ("?".to_string(), 0),
-        };
-
-        let san = $cert
-            .subject_alt_names()
-            .map(|san_stack| {
-                san_stack
-                    .iter()
-                    .map(|gn| format!("{:?}", gn))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            })
-            .unwrap_or_default();
-
-        let key_usage = $cert
-            .key_usage()
-            .map(|ku| format!("{:?}", ku))
-            .unwrap_or_default();
-
-        info!(
-            "X509 Certificate:\n\
-             ├─ Serial: {}\n\
-             ├─ Subject: {}\n\
-             ├─ Issuer: {}\n\
-             ├─ Version: {}\n\
-             ├─ Validity:\n\
-             │   ├─ NotBefore: {}\n\
-             │   └─ NotAfter:  {}\n\
-             ├─ Signature Algorithm: {}\n\
-             ├─ Public Key: {} ({} bits)\n\
-             ├─ Key Usage: {}\n\
-             └─ Subject Alt Names: {}\n\
-            ",
-            serial,
-            subject,
-            issuer,
-            version,
-            not_before,
-            not_after,
-            sig_alg,
-            pubkey_type,
-            pubkey_bits,
-            key_usage,
-            san,
-        );
-    }};
-}
 
 pub(crate) struct OpensslBackend {
     config: Arc<OpensslBackendConfig>,
@@ -200,7 +135,6 @@ impl OpensslBackend {
     ) {
         handle.spawn(async move {
             let mut interval = tokio::time::interval(Duration::from_secs(300));
-
             loop {
                 tokio::select! {
                     _ = interval.tick() => {
@@ -213,9 +147,8 @@ impl OpensslBackend {
                             break
                         };
 
-
-                        if let Some(cert) = req.user_req.cert() {
-                            log_x509_info!(cert);
+                        if log_enabled!(log::Level::Info) {
+                            log_x509(req.user_req.cert());
                         }
 
                         let host = req.user_req.host();
@@ -236,5 +169,64 @@ impl OpensslBackend {
                 }
             }
         });
+    }
+}
+
+fn log_x509(u_cert: Option<&X509>) {
+    if let Some(cert) = u_cert {
+        let serial = cert
+            .serial_number()
+            .to_bn()
+            .and_then(|bn| bn.to_dec_str())
+            .map(|s| s.to_string())
+            .unwrap_or_else(|_| "?".to_string());
+
+        let (pubkey_type, pubkey_bits) = match cert.public_key() {
+            Ok(pkey) => (format!("{:?}", pkey.id()), pkey.bits()),
+            Err(_) => ("?".to_string(), 0),
+        };
+
+        let san = cert
+            .subject_alt_names()
+            .map(|san_stack| {
+                san_stack
+                    .iter()
+                    .map(|gn| format!("{:?}", gn))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            })
+            .unwrap_or_default();
+
+        let key_usage = cert
+            .key_usage()
+            .map(|ku| format!("{:?}", ku))
+            .unwrap_or_default();
+
+        info!(
+            "X509 Certificate:\n\
+                     ├─ Serial: {}\n\
+                     ├─ Subject: {:?}\n\
+                     ├─ Issuer: {:?}\n\
+                     ├─ Version: {}\n\
+                     ├─ Validity:\n\
+                     │   ├─ NotBefore: {}\n\
+                     │   └─ NotAfter:  {}\n\
+                     ├─ Signature Algorithm: {}\n\
+                     ├─ Public Key: {} ({} bits)\n\
+                     ├─ Key Usage: {}\n\
+                     └─ Subject Alt Names: {}\n\
+                    ",
+            serial,
+            cert.subject_name(),
+            cert.issuer_name(),
+            cert.version() + 1,
+            cert.not_before(),
+            cert.not_after(),
+            cert.signature_algorithm().object(),
+            pubkey_type,
+            pubkey_bits,
+            key_usage,
+            san,
+        );
     }
 }
