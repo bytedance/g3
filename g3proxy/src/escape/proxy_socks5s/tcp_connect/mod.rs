@@ -151,7 +151,7 @@ impl ProxySocks5sEscaper {
     ) -> Result<TcpStream, TcpConnectError> {
         let max_tries_each_family = self.config.general.tcp_connect.max_tries();
         let mut ips = resolver_job
-            .get_r1_or_first(
+            .get_r1_or_first_many(
                 self.config.happy_eyeballs.resolution_delay(),
                 max_tries_each_family,
             )
@@ -302,9 +302,25 @@ impl ProxySocks5sEscaper {
         task_notes: &ServerTaskNotes,
     ) -> Result<(UpstreamAddr, TcpStream), TcpConnectError> {
         let peer_proxy = match task_notes.egress_path_upstream(&self.config.name) {
-            Some(addr) => {
-                tcp_notes.override_peer = Some(addr.clone());
-                addr
+            Some(ups) => {
+                tcp_notes.override_peer = Some(ups.addr.clone());
+                if !ups.resolve_sticky_key.is_empty()
+                    && let Host::Domain(domain) = &ups.addr.host()
+                {
+                    let ip = self
+                        .resolve_consistent(domain.clone(), &ups.resolve_sticky_key)
+                        .await?;
+                    let stream = self
+                        .fixed_try_connect(
+                            SocketAddr::new(ip, ups.addr.port()),
+                            task_conf,
+                            tcp_notes,
+                            task_notes,
+                        )
+                        .await?;
+                    return Ok((ups.addr.clone(), stream));
+                }
+                &ups.addr
             }
             None => self.get_next_proxy(task_notes, task_conf.upstream.host()),
         };

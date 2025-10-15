@@ -63,6 +63,17 @@ Set whether we should use udp associate instead of udp connect.
 
 **default**: false
 
+username_params
+---------------
+
+**optional**, **type**: :ref:`username_params <config_auth_username_params>`
+
+Allow to extract egress path info from username params.
+
+**default**: not set
+
+.. versionadded:: 1.13.0
+
 negotiation_timeout
 -------------------
 

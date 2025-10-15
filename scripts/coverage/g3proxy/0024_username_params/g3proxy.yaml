@@ -1,6 +1,6 @@
 ---
 
-log: journal
+log: stdout
 
 stat:
   target:
@@ -9,17 +9,21 @@ stat:
 resolver:
   - name: cares1
     type: c-ares
-    server:
-      - 127.0.0.1
+    server: 127.0.0.1
 
 escaper:
+  - name: default
+    type: direct_fixed
+    resolver: cares1
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.1
   # Chaining via HTTP proxy; per-connection next-hop overridden by username params
   - name: chained_http
     type: proxy_http
     resolver: cares1
     # placeholder; overridden when username params are present
     proxy_addr: 127.0.0.1:3128
-
   # Chaining via SOCKS5 proxy; per-connection next-hop overridden by username params
   - name: chained_socks
     type: proxy_socks5
@@ -31,39 +35,44 @@ user-group:
   - name: default
     static_users:
       - name: user
-        # Accept any password for coverage run
-        token: ~
+        token:
+          salt: 4e8f8a4e37f0fa1b
+          md5: d9d963915b9815d4cc39c196c2868900
+          sha1: c28640e7b1a3d9db98187632aeba99c0cff0ffd4
 
 server:
+  - name: internal_socks
+    type: socks_proxy
+    listen: 127.0.0.1:1080
+    escaper: default
+  - name: internal_http
+    type: http_proxy
+    listen: 127.0.0.1:8080
+    escaper: default
   - name: http
     type: http_proxy
-    listen: 127.0.0.1:13080
+    listen: 127.0.0.1:7080
     escaper: chained_http
     user-group: default
     # exercise username params mapping in HTTP pipeline
-    username_params_to_escaper_addr:
-      keys_for_host: [label1, label2, opt]
-      floating_keys: [opt]
-      require_hierarchy: true
-      separator: "-"
-      domain_suffix: ".localhost"
-      http_port: 9       # discard port to avoid accidental external connections
-      socks5_port: 9
-      strip_suffix_for_auth: true
-
+    username_params:
+      keys_for_host: [ label1, label2, opt ]
+      floating_keys: [ opt ]
+      resolve_sticky_key: session_id
+      domain_suffix: ".local"
+      http_port: 8080
+      socks5_port: 1080
   - name: socks
     type: socks_proxy
-    listen: 127.0.0.1:11081
+    listen: 127.0.0.1:1081
     escaper: chained_socks
     user-group: default
     enable_udp_associate: true
     # exercise username params mapping in SOCKS negotiation
-    username_params_to_escaper_addr:
-      keys_for_host: [label1, label2, opt]
-      floating_keys: [opt]
-      require_hierarchy: true
-      separator: "+"
-      domain_suffix: ".localhost"
-      http_port: 9
-      socks5_port: 9
-      strip_suffix_for_auth: true
+    username_params:
+      keys_for_host: [ label1, label2, opt ]
+      floating_keys: [ opt ]
+      resolve_sticky_key: session_id
+      domain_suffix: ".local"
+      http_port: 8080
+      socks5_port: 1080

@@ -1905,6 +1905,7 @@ dependencies = [
  "indexmap",
  "ip_network",
  "ip_network_table",
+ "itertools 0.14.0",
  "itoa",
  "kanal",
  "log",

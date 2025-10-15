@@ -8,17 +8,26 @@ use foldhash::HashMap;
 use g3_types::metrics::NodeName;
 use g3_types::net::UpstreamAddr;
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct EgressUpstream {
+    pub(crate) addr: UpstreamAddr,
+    pub(crate) resolve_sticky_key: String,
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub(crate) struct EgressPathSelection {
     number: HashMap<NodeName, usize>,
     string: HashMap<NodeName, String>,
-    upstream: HashMap<NodeName, UpstreamAddr>,
+    upstream: HashMap<NodeName, EgressUpstream>,
     json: HashMap<NodeName, serde_json::Value>,
 }
 
 impl EgressPathSelection {
     pub(crate) fn is_empty(&self) -> bool {
-        self.number.is_empty() && self.string.is_empty() && self.json.is_empty()
+        self.number.is_empty()
+            && self.string.is_empty()
+            && self.upstream.is_empty()
+            && self.json.is_empty()
     }
 
     pub(crate) fn set_number_id(&mut self, escaper: NodeName, id: usize) {
@@ -49,11 +58,11 @@ impl EgressPathSelection {
         self.string.get(escaper).map(|s| s.as_str())
     }
 
-    pub(crate) fn set_upstream(&mut self, escaper: NodeName, ups: UpstreamAddr) {
+    pub(crate) fn set_upstream(&mut self, escaper: NodeName, ups: EgressUpstream) {
         self.upstream.insert(escaper, ups);
     }
 
-    pub(crate) fn select_upstream(&self, escaper: &NodeName) -> Option<&UpstreamAddr> {
+    pub(crate) fn select_upstream(&self, escaper: &NodeName) -> Option<&EgressUpstream> {
         self.upstream.get(escaper)
     }
 

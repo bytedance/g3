@@ -207,12 +207,12 @@ impl HappyEyeballsResolveJob {
         }
     }
 
-    async fn poll_h1_end(&mut self, max_count: usize) -> Result<Vec<IpAddr>, ResolveError> {
+    async fn poll_h1_end(&mut self) -> Result<Vec<IpAddr>, ResolveError> {
         match poll_fn(|cx| self.h1.poll_query(cx)).await {
             Ok(r1) => {
                 self.h1_done = true;
                 self.h1 = Box::new(NeverResolveJob {});
-                Ok(self.strategy.pick_many(r1, max_count))
+                Ok(r1)
             }
             Err(e) => {
                 self.h1_done = true;
@@ -222,12 +222,12 @@ impl HappyEyeballsResolveJob {
         }
     }
 
-    async fn poll_h2_end(&mut self, max_count: usize) -> Result<Vec<IpAddr>, ResolveError> {
+    async fn poll_h2_end(&mut self) -> Result<Vec<IpAddr>, ResolveError> {
         match poll_fn(|cx| self.h2.poll_query(cx)).await {
             Ok(r2) => {
                 self.h2_done = true;
                 self.h2 = Box::new(NeverResolveJob {});
-                Ok(self.strategy.pick_many(r2, max_count))
+                Ok(r2)
             }
             Err(e) => {
                 self.h2_done = true;
@@ -237,19 +237,18 @@ impl HappyEyeballsResolveJob {
         }
     }
 
-    pub(crate) async fn get_r1_or_first(
+    pub(crate) async fn get_r1_or_first_done(
         &mut self,
         resolution_delay: Duration,
-        max_count: usize,
     ) -> Result<Vec<IpAddr>, ResolveError> {
         if let Some(r1) = self.r1.take() {
             assert!(self.h1_done);
-            // h1 should be a never job
-            return Ok(self.strategy.pick_many(r1, max_count));
+            // h1 should be a "never job"
+            return Ok(r1);
         }
 
         if self.h2_done {
-            return self.poll_h1_end(max_count).await;
+            return self.poll_h1_end().await;
         }
 
         tokio::select! {
@@ -260,11 +259,11 @@ impl HappyEyeballsResolveJob {
                     Ok(r1) => {
                         self.h1_done = true;
                         self.h1 = Box::new(NeverResolveJob {});
-                        Ok(self.strategy.pick_many(r1, max_count))
+                        Ok(r1)
                     }
                     Err(e) => {
                         self.h1 = Box::new(ErrorResolveJob::with_error(e));
-                        self.poll_h2_end(max_count).await
+                        self.poll_h2_end().await
                     }
                 }
             }
@@ -276,7 +275,7 @@ impl HappyEyeballsResolveJob {
 
                         if r2.is_empty() {
                             self.r2 = Some(r2);
-                            self.poll_h1_end(max_count).await
+                            self.poll_h1_end().await
                         } else {
                             match tokio::time::timeout(resolution_delay, poll_fn(|cx| self.h1.poll_query(cx)))
                                 .await
@@ -285,23 +284,32 @@ impl HappyEyeballsResolveJob {
                                     self.r2 = Some(r2);
                                     self.h1_done = true;
                                     self.h1 = Box::new(NeverResolveJob {});
-                                    Ok(self.strategy.pick_many(r1, max_count))
+                                    Ok(r1)
                                 }
                                 Ok(Err(e)) => {
                                     self.h1 = Box::new(ErrorResolveJob::with_error(e));
-                                    Ok(self.strategy.pick_many(r2, max_count))
+                                    Ok(r2)
                                 }
-                                Err(_) => Ok(self.strategy.pick_many(r2, max_count)),
+                                Err(_) => Ok(r2),
                             }
                         }
                     }
                     Err(e) => {
                         self.h2 = Box::new(ErrorResolveJob::with_error(e));
-                        self.poll_h1_end(max_count).await
+                        self.poll_h1_end().await
                     }
                 }
             }
         }
+    }
+
+    pub(crate) async fn get_r1_or_first_many(
+        &mut self,
+        resolution_delay: Duration,
+        max_count: usize,
+    ) -> Result<Vec<IpAddr>, ResolveError> {
+        let all = self.get_r1_or_first_done(resolution_delay).await?;
+        Ok(self.strategy.pick_many(all, max_count))
     }
 
     pub(crate) async fn get_r2_or_never(

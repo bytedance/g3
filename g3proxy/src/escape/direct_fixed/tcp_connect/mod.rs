@@ -182,7 +182,7 @@ impl DirectFixedEscaper {
     ) -> Result<TcpStream, TcpConnectError> {
         let max_tries_each_family = config.connect.max_tries();
         let mut ips = resolver_job
-            .get_r1_or_first(
+            .get_r1_or_first_many(
                 self.config.happy_eyeballs.resolution_delay(),
                 max_tries_each_family,
             )

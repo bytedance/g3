@@ -168,7 +168,7 @@ impl RouteGeoIpEscaper {
                     domain.clone(),
                 )?;
                 let v = resolver_job
-                    .get_r1_or_first(self.config.resolution_delay, usize::MAX)
+                    .get_r1_or_first_done(self.config.resolution_delay)
                     .await?;
                 self.config
                     .resolve_strategy

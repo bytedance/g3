@@ -3,6 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::net::IpAddr;
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
@@ -14,6 +15,7 @@ use g3_resolver::{ResolveError, ResolveLocalError};
 use g3_types::collection::{SelectiveVec, SelectiveVecBuilder};
 use g3_types::metrics::NodeName;
 use g3_types::net::{Host, OpensslClientConfig, UpstreamAddr, WeightedUpstreamAddr};
+use g3_types::resolve::ResolveStrategy;
 
 use super::{
     ArcEscaper, ArcEscaperInternalStats, ArcEscaperStats, Escaper, EscaperExt, EscaperInternal,
@@ -135,6 +137,18 @@ impl ProxySocks5sEscaper {
         } else {
             Err(ResolveLocalError::NoResolverSet.into())
         }
+    }
+
+    async fn resolve_consistent(
+        &self,
+        domain: Arc<str>,
+        key: &str,
+    ) -> Result<IpAddr, ResolveError> {
+        let mut happy_job = self.resolve_happy(domain)?;
+        let addrs = happy_job
+            .get_r1_or_first_done(self.config.happy_eyeballs.resolution_delay())
+            .await?;
+        ResolveStrategy::pick_ketama(addrs, key).ok_or(ResolveError::EmptyResult)
     }
 
     fn fetch_user_upstream_io_stats(

@@ -31,10 +31,10 @@ server:
       # Bind IPv4 explicitly to avoid OS-dependent v6-only sockets
       address: "127.0.0.1:13128"
     # Map username params to next-hop escaper host:port
-    username_params_to_escaper_addr:
+    username_params:
       # Optional independent (floating) key 'opt' can appear alone or append hierarchically
-      keys_for_host: [label1, label2, label3, label4, opt]
-      floating_keys: [opt]
+      keys_for_host: [ label1, label2, label3, label4, opt ]
+      floating_keys: [ opt ]
       require_hierarchy: true
       reject_unknown_keys: true
       reject_duplicate_keys: true
@@ -55,10 +55,10 @@ server:
       # Bind IPv4 explicitly to avoid OS-dependent v6-only sockets
       address: "127.0.0.1:11080"
     enable_udp_associate: true
-    username_params_to_escaper_addr:
+    username_params:
       # Optional independent (floating) key 'opt' can appear alone or append hierarchically
-      keys_for_host: [label1, label2, label3, label4, opt]
-      floating_keys: [opt]
+      keys_for_host: [ label1, label2, label3, label4, opt ]
+      floating_keys: [ opt ]
       require_hierarchy: true
       reject_unknown_keys: true
       reject_duplicate_keys: true

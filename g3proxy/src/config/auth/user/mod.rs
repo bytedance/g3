@@ -36,6 +36,9 @@ pub(crate) use site::UserSiteConfig;
 mod audit;
 pub(crate) use audit::UserAuditConfig;
 
+mod name_params;
+pub(crate) use name_params::UsernameParamsConfig;
+
 mod json;
 mod yaml;
 

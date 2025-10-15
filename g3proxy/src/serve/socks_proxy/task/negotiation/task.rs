@@ -22,7 +22,6 @@ use crate::config::server::ServerConfig;
 use crate::escape::EgressPathSelection;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
-    UsernameParams,
 };
 
 pub(crate) struct SocksProxyNegotiationTask {
@@ -352,17 +351,17 @@ impl SocksProxyNegotiationTask {
     fn get_egress_path_selection(&self, raw_name: &str) -> Result<Option<EgressPathSelection>, ()> {
         let mut egress_path = EgressPathSelection::default();
 
-        if let Some(cfg) = &self.ctx.server_config.username_params
-            && cfg.has_known_key(raw_name)
-        {
-            match UsernameParams::compute_upstream_socks5(cfg, raw_name) {
-                Ok(addr) => {
+        if let Some(name_params) = &self.ctx.server_config.username_params {
+            match name_params.parse_egress_upstream_socks5(raw_name) {
+                Ok(Some(ups)) => {
                     debug!(
-                        "[{}] socks username params -> next proxy {addr}",
+                        "[{}] socks username params -> next proxy {}",
                         self.ctx.server_config.name(),
+                        ups.addr
                     );
-                    egress_path.set_upstream(self.ctx.server_config.name().clone(), addr);
+                    egress_path.set_upstream(self.ctx.escaper.name().clone(), ups);
                 }
+                Ok(None) => {}
                 Err(e) => {
                     debug!("failed to get upstream addr from username: {e}");
                     return Err(());

@@ -29,8 +29,9 @@ use g3_yaml::YamlDocPosition;
 
 use super::{
     AnyServerConfig, IDLE_CHECK_DEFAULT_DURATION, IDLE_CHECK_DEFAULT_MAX_COUNT,
-    IDLE_CHECK_MAXIMUM_DURATION, ServerConfig, ServerConfigDiffAction, UsernameParamsConfig,
+    IDLE_CHECK_MAXIMUM_DURATION, ServerConfig, ServerConfigDiffAction,
 };
+use crate::config::auth::UsernameParamsConfig;
 
 const SERVER_CONFIG_TYPE: &str = "HttpProxy";
 
@@ -193,7 +194,7 @@ impl HttpProxyServerConfig {
                 self.extra_metrics_tags = Some(Arc::new(tags));
                 Ok(())
             }
-            "username_params_to_escaper_addr" => {
+            "username_params" | "username_params_to_escaper_addr" => {
                 let c = UsernameParamsConfig::parse(v).context(format!(
                     "invalid username_params_to_escaper_addr value for key {k}"
                 ))?;
@@ -510,37 +511,5 @@ impl ServerConfig for HttpProxyServerConfig {
     #[inline]
     fn task_max_idle_count(&self) -> usize {
         self.task_idle_max_count
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use g3_yaml::yaml_doc;
-    use yaml_rust::YamlLoader;
-
-    #[test]
-    fn parse_with_username_params_section() {
-        let doc = yaml_doc!(
-            r#"
-                type: http_proxy
-                name: s1
-                escaper: e1
-                username_params_to_escaper_addr:
-                  keys_for_host: [k1, k2]
-                  require_hierarchy: true
-                  floating_keys: [k2]
-                  http_port: 12345
-                  socks5_port: 23456
-            "#
-        );
-        let map = doc.as_hash().unwrap();
-        let cfg = HttpProxyServerConfig::parse(map, None).unwrap();
-        let u = cfg.username_params.as_ref().unwrap();
-        assert_eq!(u.keys_for_host, vec!["k1", "k2"]);
-        assert_eq!(u.floating_keys, vec!["k2"]);
-        assert!(u.require_hierarchy);
-        assert_eq!(u.http_port, 12345);
-        assert_eq!(u.socks5_port, 23456);
     }
 }

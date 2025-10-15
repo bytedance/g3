@@ -47,6 +47,20 @@ pub trait SelectiveItem {
     fn selective_hash<H: Hasher>(&self, state: &mut H);
 }
 
+impl<T: Hash> SelectiveItem for T {
+    fn weight(&self) -> f64 {
+        1.0
+    }
+
+    fn weight_u32(&self) -> u32 {
+        1
+    }
+
+    fn selective_hash<H: Hasher>(&self, state: &mut H) {
+        self.hash(state);
+    }
+}
+
 pub struct SelectiveVecBuilder<T> {
     inner: Vec<T>,
 }
@@ -60,6 +74,10 @@ impl<T: SelectiveItem> SelectiveVecBuilder<T> {
         SelectiveVecBuilder {
             inner: Vec::with_capacity(capacity),
         }
+    }
+
+    pub fn with_inner(inner: Vec<T>) -> Self {
+        SelectiveVecBuilder { inner }
     }
 
     pub fn insert(&mut self, value: T) {

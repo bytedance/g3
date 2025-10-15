@@ -11,7 +11,7 @@ use yaml_rust::{Yaml, yaml};
 use g3_yaml::{HybridParser, YamlDocPosition};
 
 mod user;
-pub(crate) use user::{UserAuditConfig, UserConfig, UserSiteConfig};
+pub(crate) use user::{UserAuditConfig, UserConfig, UserSiteConfig, UsernameParamsConfig};
 
 mod source;
 pub(crate) use source::*;
