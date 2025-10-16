@@ -121,7 +121,7 @@ fnv = "1"
 indexmap = "2.9"
 ip_network = "0.4"
 ip_network_table = "0.2"
-radix_trie = "0.2"
+radix_trie = "0.3"
 fixedbitset = "0.5"
 bitflags = "2.8"
 lru = { version = "0.16", default-features = false }
@@ -179,7 +179,7 @@ capnpc = "0.21"
 #
 libc = "0.2.169"
 rustix = { version = "1.0", default-features = false }
-windows-sys = "0.60"
+windows-sys = "0.61"
 #
 serde = "1.0"
 yaml-rust = { package = "yaml-rust2", version = "0.10" }
