@@ -178,4 +178,5 @@ workflows:
                 - rockylinux/rockylinux:10
                 - rockylinux/rockylinux:9
                 - rockylinux/rockylinux:8
+                - opensuse/leap:16.0
                 - opensuse/leap:15.6
