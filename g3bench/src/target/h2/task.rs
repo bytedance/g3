@@ -3,6 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::future::poll_fn;
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
@@ -119,14 +120,37 @@ impl H2TaskContext {
         let payload = self.args.common.payload();
 
         // send hdr
-        let (rsp_fut, mut sender) = send_req
+        let (rsp_fut, mut send_stream) = send_req
             .send_request(req, payload.is_none())
             .map_err(|e| anyhow!("failed to send request: {e:?}"))?;
         let send_hdr_time = time_started.elapsed();
-
         self.histogram_recorder.record_send_hdr_time(send_hdr_time);
+
         if let Some(data) = payload {
-            sender.send_data(Bytes::from(data.clone()), true)?;
+            send_stream.reserve_capacity(data.len());
+            let mut data = Bytes::from(data.clone());
+
+            loop {
+                match poll_fn(|cx| send_stream.poll_capacity(cx)).await {
+                    Some(Ok(nw)) => {
+                        if nw >= data.len() {
+                            send_stream.send_data(data, true)?;
+                            self.histogram_recorder
+                                .record_send_all_time(time_started.elapsed());
+                            break;
+                        } else {
+                            let to_write = data.split_to(nw);
+                            send_stream.send_data(to_write, false)?;
+                        }
+                    }
+                    Some(Err(e)) => return Err(anyhow!("error when poll send capacity: {e}")),
+                    None => {
+                        return Err(anyhow!("send stream not in send state when poll capacity"));
+                    }
+                }
+            }
+        } else {
+            self.histogram_recorder.record_send_all_time(send_hdr_time);
         }
 
         // recv hdr

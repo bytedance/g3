@@ -13,6 +13,7 @@ use crate::target::BenchHistogram;
 
 pub(crate) struct HttpHistogram {
     send_hdr_time: KeepingHistogram<u64>,
+    send_all_time: KeepingHistogram<u64>,
     recv_hdr_time: KeepingHistogram<u64>,
     total_time: KeepingHistogram<u64>,
     conn_reuse_count: KeepingHistogram<u64>,
@@ -21,17 +22,20 @@ pub(crate) struct HttpHistogram {
 impl HttpHistogram {
     pub(crate) fn new() -> (Self, HttpHistogramRecorder) {
         let (send_hdr_time_h, send_hdr_time_r) = KeepingHistogram::new();
+        let (send_all_time_h, send_all_time_r) = KeepingHistogram::new();
         let (recv_hdr_time_h, recv_hdr_time_r) = KeepingHistogram::new();
         let (total_time_h, total_time_r) = KeepingHistogram::new();
         let (conn_reuse_count_h, conn_reuse_count_r) = KeepingHistogram::new();
         let h = HttpHistogram {
             send_hdr_time: send_hdr_time_h,
+            send_all_time: send_all_time_h,
             recv_hdr_time: recv_hdr_time_h,
             total_time: total_time_h,
             conn_reuse_count: conn_reuse_count_h,
         };
         let r = HttpHistogramRecorder {
             send_hdr_time: send_hdr_time_r,
+            send_all_time: send_all_time_r,
             recv_hdr_time: recv_hdr_time_r,
             total_time: total_time_r,
             conn_reuse_count: conn_reuse_count_r,
@@ -43,6 +47,7 @@ impl HttpHistogram {
 impl BenchHistogram for HttpHistogram {
     fn refresh(&mut self) {
         self.send_hdr_time.refresh().unwrap();
+        self.send_all_time.refresh().unwrap();
         self.recv_hdr_time.refresh().unwrap();
         self.total_time.refresh().unwrap();
         self.conn_reuse_count.refresh().unwrap();
@@ -50,6 +55,7 @@ impl BenchHistogram for HttpHistogram {
 
     fn emit(&self, client: &mut StatsdClient) {
         self.emit_histogram(client, self.send_hdr_time.inner(), "http.time.send_hdr");
+        self.emit_histogram(client, self.send_all_time.inner(), "http.time.send_all");
         self.emit_histogram(client, self.recv_hdr_time.inner(), "http.time.recv_hdr");
         self.emit_histogram(client, self.total_time.inner(), "http.time.total");
     }
@@ -59,6 +65,7 @@ impl BenchHistogram for HttpHistogram {
         Self::summary_data_line("Req/Conn:", self.conn_reuse_count.inner());
         Self::summary_histogram_title("# Duration Times");
         Self::summary_duration_line("SendHdr:", self.send_hdr_time.inner());
+        Self::summary_duration_line("SendAll:", self.send_all_time.inner());
         Self::summary_duration_line("RecvHdr:", self.recv_hdr_time.inner());
         Self::summary_duration_line("Total:", self.total_time.inner());
         Self::summary_newline();
@@ -69,6 +76,7 @@ impl BenchHistogram for HttpHistogram {
 #[derive(Clone)]
 pub(crate) struct HttpHistogramRecorder {
     send_hdr_time: HistogramRecorder<u64>,
+    send_all_time: HistogramRecorder<u64>,
     recv_hdr_time: HistogramRecorder<u64>,
     total_time: HistogramRecorder<u64>,
     conn_reuse_count: HistogramRecorder<u64>,
@@ -77,6 +85,10 @@ pub(crate) struct HttpHistogramRecorder {
 impl HttpHistogramRecorder {
     pub(crate) fn record_send_hdr_time(&mut self, dur: Duration) {
         let _ = self.send_hdr_time.record(dur.as_nanos_u64());
+    }
+
+    pub(crate) fn record_send_all_time(&mut self, dur: Duration) {
+        let _ = self.send_all_time.record(dur.as_nanos_u64());
     }
 
     pub(crate) fn record_recv_hdr_time(&mut self, dur: Duration) {

@@ -3,6 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::io::IoSlice;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -13,7 +14,7 @@ use tokio::time::Instant;
 
 use g3_http::HttpBodyReader;
 use g3_http::client::HttpForwardRemoteResponse;
-use g3_io_ext::{LimitedReader, LimitedWriter};
+use g3_io_ext::{LimitedReader, LimitedWriteExt, LimitedWriter};
 
 use super::{BenchHttpArgs, BenchTaskContext, HttpHistogramRecorder, HttpRuntimeStats, ProcArgs};
 use crate::module::http::SavedHttpForwardConnection;
@@ -123,19 +124,26 @@ impl HttpTaskContext {
         let ups_r = &mut connection.reader;
         let ups_w = &mut connection.writer;
 
-        // send hdr
-        ups_w
-            .write_all(self.req_header.as_slice())
-            .await
-            .map_err(|e| anyhow!("failed to send request header: {e:?}"))?;
-        let send_hdr_time = time_started.elapsed();
-        self.histogram_recorder.record_send_hdr_time(send_hdr_time);
-
         if let Some(data) = self.args.common.payload() {
             ups_w
-                .write_all(data.as_slice())
+                .write_all_vectored([IoSlice::new(&self.req_header), IoSlice::new(data)])
                 .await
-                .map_err(|e| anyhow!("failed to send request body: {e:?}"))?;
+                .map_err(|e| anyhow!("failed to send request header and body in a batch: {e:?}"))?;
+            ups_w
+                .flush()
+                .await
+                .map_err(|e| anyhow!("write flush failed: {e:?}"))?;
+            self.histogram_recorder
+                .record_send_all_time(time_started.elapsed());
+        } else {
+            // send hdr
+            ups_w
+                .write_all_flush(self.req_header.as_slice())
+                .await
+                .map_err(|e| anyhow!("failed to send request header: {e:?}"))?;
+            let send_hdr_time = time_started.elapsed();
+            self.histogram_recorder.record_send_hdr_time(send_hdr_time);
+            self.histogram_recorder.record_send_all_time(send_hdr_time);
         }
 
         // recv hdr
