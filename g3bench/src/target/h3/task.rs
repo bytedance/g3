@@ -118,14 +118,16 @@ impl H3TaskContext {
             .send_request(req)
             .await
             .map_err(|e| anyhow!("failed to send request header: {e}"))?;
+        self.histogram_recorder
+            .record_send_hdr_time(time_started.elapsed());
 
         if let Some(payload) = self.args.common.payload() {
             send_stream.send_data(Bytes::from(payload.clone())).await?;
         }
 
         send_stream.finish().await?;
-        let send_hdr_time = time_started.elapsed();
-        self.histogram_recorder.record_send_hdr_time(send_hdr_time);
+        self.histogram_recorder
+            .record_send_all_time(time_started.elapsed());
 
         // recv hdr
         let rsp = match tokio::time::timeout(self.args.common.timeout, send_stream.recv_response())
