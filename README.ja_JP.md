@@ -63,7 +63,14 @@ StatsD互換の統計アグリゲータ。
 
 ### g3bench
 
-HTTP 1.x、HTTP 2、HTTP 3、TLSハンドシェイク、DNS、Cloudflare Keylessをサポートするベンチマークツール。
+ストレステストツール、サポート
+
+- HTTP: HTTP/1.1, HTTP/2, HTTP/3
+- WebSocket
+- TLS Handshake
+- DNS: UDP, TCP, DNS over TLS, DNS over HTTP, DNS over QUIC, DNS over HTTP/3
+- Thrift RPC
+- Cloudflare Keyless
 
 [詳細な紹介](g3bench/README.md)
 

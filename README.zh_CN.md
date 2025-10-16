@@ -61,7 +61,14 @@ StatsD兼容的监控打点指标聚合服务。
 
 ### g3bench
 
-压测工具，支持 HTTP/1.x、HTTP/2、HTTP/3、TLS握手、DNS、Cloudflare Keyless 。
+压测工具，支持
+
+- HTTP: HTTP/1.1, HTTP/2, HTTP/3
+- WebSocket
+- TLS Handshake
+- DNS: UDP, TCP, DNS over TLS, DNS over HTTP, DNS over QUIC, DNS over HTTP/3
+- Thrift RPC
+- Cloudflare Keyless
 
 [详细介绍](g3bench/README.md)
 

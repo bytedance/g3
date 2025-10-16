@@ -64,7 +64,14 @@ A work in progress reverse proxy solution.
 
 ### g3bench
 
-A benchmark tool that supports HTTP 1.x, HTTP 2, HTTP 3, TLS Handshake, DNS and Cloudflare Keyless.
+A benchmark tool that supports:
+
+- HTTP: HTTP/1.1, HTTP/2, HTTP/3
+- WebSocket
+- TLS Handshake
+- DNS: UDP, TCP, DNS over TLS, DNS over HTTP, DNS over QUIC, DNS over HTTP/3
+- Thrift RPC
+- Cloudflare Keyless
 
 [README](g3bench/README.md)
 
