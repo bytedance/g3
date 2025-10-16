@@ -29,29 +29,33 @@ See [Build and Package](../doc/build_and_package.md) if you want to build binary
 
 ### Targets
 
-- *HTTP 1.x*
+- *HTTP/1.1*
 
-    * GET / HEAD
+    * DELETE / GET / HEAD / OPTIONS / TRACE / POST / PUT
     * Socks5 Proxy / Http Proxy / Https Proxy
     * PROXY Protocol
     * Socket Speed limit and IO stats (HTTP layer)
     * 国密《GB/T 38636-2020》（TLCP）(require feature vendored-tongsuo)
 
-- *HTTP 2*
+- *HTTP/2*
 
-    * GET / HEAD
+    * DELETE / GET / HEAD / OPTIONS / TRACE / POST / PUT
     * Socks5 Proxy / Http Proxy / Https Proxy
     * Connection Pool
     * PROXY Protocol
     * Socket Speed limit and IO stats (H2 layer)
     * 国密《GB/T 38636-2020》（TLCP）(require feature vendored-tongsuo)
 
-- *HTTP 3*
+- *HTTP/3*
 
-    * GET / HEAD
+    * DELETE / GET / HEAD / OPTIONS / TRACE / POST / PUT
     * Socks5 Proxy
     * Connection Pool
     * Socket Speed limit and IO stats (QUIC layer)
+
+- WebSocket
+
+    * HTTP1.1 Upgrade
 
 - *TLS Handshake*
 
@@ -67,6 +71,10 @@ See [Build and Package](../doc/build_and_package.md) if you want to build binary
     * DNS over HTTP/3
     * DNS over QUIC
 
+- *Thrift RPC*
+
+    * Thrift over TCP
+
 - *Cloudflare Keyless*
 
     * Connection Pool
@@ -81,7 +89,7 @@ See [Build and Package](../doc/build_and_package.md) if you want to build binary
 
 # Examples
 
-## Test a Http Server
+## Test an Http Server
 
 ```shell
 # http, 100 concurrency, for 20 seconds
@@ -98,7 +106,7 @@ g3bench h2 https://www.example.net
 g3bench h3 https://www.example.net
 ```
 
-## Test a Http Proxy
+## Test an Http Proxy
 
 ```shell
 # using HTTP Forward, 100 concurrency, for 20 seconds
