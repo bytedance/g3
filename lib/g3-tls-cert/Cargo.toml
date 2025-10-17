@@ -9,6 +9,7 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow.workspace = true
+itertools.workspace = true
 openssl.workspace = true
 openssl-sys.workspace = true
 libc.workspace = true
