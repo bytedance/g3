@@ -8,13 +8,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use log::{debug, error, info, log_enabled, warn};
+use log::{debug, error, info, warn};
 use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
 use tokio::runtime::Handle;
 
 use g3_cert_agent::Request;
 use g3_tls_cert::builder::{MimicCertBuilder, ServerCertBuilder, TlsServerCertBuilder};
+use g3_tls_cert::ext::X509Ext;
 use g3_types::net::{Host, TlsCertUsage};
 
 mod stats;
@@ -147,8 +148,8 @@ impl OpensslBackend {
                             break
                         };
 
-                        if log_enabled!(log::Level::Info) {
-                            log_x509(req.user_req.cert());
+                        if let Some(cert) = req.user_req.cert() {
+                            info!("{}", cert.dump());
                         }
 
                         let host = req.user_req.host();
@@ -169,64 +170,5 @@ impl OpensslBackend {
                 }
             }
         });
-    }
-}
-
-fn log_x509(u_cert: Option<&X509>) {
-    if let Some(cert) = u_cert {
-        let serial = cert
-            .serial_number()
-            .to_bn()
-            .and_then(|bn| bn.to_dec_str())
-            .map(|s| s.to_string())
-            .unwrap_or_else(|_| "?".to_string());
-
-        let (pubkey_type, pubkey_bits) = match cert.public_key() {
-            Ok(pkey) => (format!("{:?}", pkey.id()), pkey.bits()),
-            Err(_) => ("?".to_string(), 0),
-        };
-
-        let san = cert
-            .subject_alt_names()
-            .map(|san_stack| {
-                san_stack
-                    .iter()
-                    .map(|gn| format!("{:?}", gn))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            })
-            .unwrap_or_default();
-
-        let key_usage = cert
-            .key_usage()
-            .map(|ku| format!("{:?}", ku))
-            .unwrap_or_default();
-
-        info!(
-            "X509 Certificate:\n\
-                     ├─ Serial: {}\n\
-                     ├─ Subject: {:?}\n\
-                     ├─ Issuer: {:?}\n\
-                     ├─ Version: {}\n\
-                     ├─ Validity:\n\
-                     │   ├─ NotBefore: {}\n\
-                     │   └─ NotAfter:  {}\n\
-                     ├─ Signature Algorithm: {}\n\
-                     ├─ Public Key: {} ({} bits)\n\
-                     ├─ Key Usage: {}\n\
-                     └─ Subject Alt Names: {}\n\
-                    ",
-            serial,
-            cert.subject_name(),
-            cert.issuer_name(),
-            cert.version() + 1,
-            cert.not_before(),
-            cert.not_after(),
-            cert.signature_algorithm().object(),
-            pubkey_type,
-            pubkey_bits,
-            key_usage,
-            san,
-        );
     }
 }

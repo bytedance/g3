@@ -1523,6 +1523,7 @@ dependencies = [
  "chrono",
  "g3-datetime",
  "g3-types",
+ "itertools 0.14.0",
  "libc",
  "variant-ssl",
  "variant-ssl-sys",
@@ -3694,9 +3695,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.17.8"
+version = "0.17.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "854916d1fe848d0d3103df975124199f1e3d6a21771df5fe79364fc128b209f9"
+checksum = "6bed7abd701fb75bf3b7307092d5cd19840b82e0e6e0e510da0a0e3841a5a35e"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -3709,9 +3710,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl-sys"
-version = "0.17.8"
+version = "0.17.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f6123e9cd7f0ef46b6d884a8c5c21196414d27ba75ceef279a429d945672fc1"
+checksum = "b8eecc02063f66a550c8fa406966b106a2fdeffa587ec129e6681c40639b0c69"
 dependencies = [
  "aws-lc-fips-sys",
  "aws-lc-sys",
