@@ -192,7 +192,7 @@ rmpv = "1.0"
 redis = { version = "0.32", default-features = false }
 #
 mlua = "0.11"
-pyo3 = { version = "0.26", default-features = false, features = ["auto-initialize"] }
+pyo3 = { version = "0.27", default-features = false, features = ["auto-initialize"] }
 #
 cfg-if = "1.0"
 #
