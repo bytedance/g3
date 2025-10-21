@@ -8,7 +8,7 @@ use std::str::FromStr;
 
 use anyhow::anyhow;
 
-use crate::collection::{SelectiveItem, SelectiveVecBuilder};
+use crate::collection::{SelectiveItem, SelectiveVec};
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub enum QueryStrategy {
@@ -146,15 +146,17 @@ impl ResolveStrategy {
         }
     }
 
-    pub fn pick_ketama<T, K>(mut all: Vec<T>, key: &K) -> Option<T>
+    pub fn pick_jump<T, K>(mut all: Vec<T>, key: &K) -> Option<T>
     where
         T: SelectiveItem + Ord + Copy,
         K: Hash + ?Sized,
     {
+        if all.is_empty() {
+            return None;
+        }
         all.sort();
-        let builder = SelectiveVecBuilder::with_inner(all);
-        let selective_vec = builder.build()?;
-        Some(*selective_vec.pick_ketama(key))
+        let selective_vec = SelectiveVec::new_basic(all);
+        Some(*selective_vec.pick_jump(key))
     }
 }
 
