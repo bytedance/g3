@@ -111,4 +111,4 @@ The value should be a map with the following keys:
 
   **value**: string
 
-  Resolve the upstream domain by using ketama consistent hash, and use this value as the hash key.
+  Resolve the upstream domain by using jump consistent hash, and use this value as the hash key.

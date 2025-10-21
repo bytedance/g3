@@ -21,7 +21,7 @@ resolve_sticky_key
 
 The key of the param whose value will be used as the hash key when resolving the upstream domain.
 
-Ketama consistent hash will be used if this is set and the corresponding value can be found in the input username params.
+Jump consistent hash will be used if this is set and the corresponding value can be found in the input username params.
 
 **default**: not set
 

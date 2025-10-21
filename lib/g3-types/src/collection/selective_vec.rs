@@ -166,6 +166,17 @@ macro_rules! panic_on_empty {
 }
 
 impl<T: SelectiveItem> SelectiveVec<T> {
+    #[cfg(feature = "resolve")]
+    pub(crate) fn new_basic(inner: Vec<T>) -> Self {
+        debug_assert!(!inner.is_empty());
+        SelectiveVec {
+            weighted: false,
+            inner,
+            rr_id: Default::default(),
+            ketama_ring: Vec::new(),
+        }
+    }
+
     pub fn pick_random(&self) -> &T {
         match self.inner.len() {
             0 => panic_on_empty!(),

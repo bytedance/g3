@@ -148,7 +148,7 @@ impl ProxySocks5sEscaper {
         let addrs = happy_job
             .get_r1_or_first_done(self.config.happy_eyeballs.resolution_delay())
             .await?;
-        ResolveStrategy::pick_ketama(addrs, key).ok_or(ResolveError::EmptyResult)
+        ResolveStrategy::pick_jump(addrs, key).ok_or(ResolveError::EmptyResult)
     }
 
     fn fetch_user_upstream_io_stats(
