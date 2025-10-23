@@ -366,7 +366,7 @@ checksum = "d71b6127be86fdcfddb610f7182ac57211d4b18a3e9c82eb2d17662f2227ad6a"
 [[package]]
 name = "c-ares"
 version = "11.1.0"
-source = "git+https://github.com/zh-jq/rust-c-ares.git?branch=vcpkg#d94a26b10e2679d8a00776c0d4954a6593a44a18"
+source = "git+https://github.com/zh-jq/rust-c-ares.git?branch=vcpkg#c4a1f3a01809d9686646923f3bab1b4d9081fc6e"
 dependencies = [
  "bitflags",
  "c-ares-sys",
@@ -389,7 +389,7 @@ dependencies = [
 [[package]]
 name = "c-ares-sys"
 version = "10.1.3"
-source = "git+https://github.com/zh-jq/rust-c-ares.git?branch=vcpkg#d94a26b10e2679d8a00776c0d4954a6593a44a18"
+source = "git+https://github.com/zh-jq/rust-c-ares.git?branch=vcpkg#c4a1f3a01809d9686646923f3bab1b4d9081fc6e"
 dependencies = [
  "c-types",
  "cc",
@@ -780,9 +780,9 @@ checksum = "1d674e81391d1e1ab681a28d99df07927c6d4aa5b027d7da16ba32d1d21ecd99"
 
 [[package]]
 name = "flate2"
-version = "1.1.4"
+version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc5a4e564e38c699f2880d3fda590bedc2e69f3f84cd48b457bd892ce61d0aa9"
+checksum = "bfe33edd8e85a12a67454e37f8c75e730830d83e313556ab9ebf9ee7fbeb3bfb"
 dependencies = [
  "crc32fast",
  "libz-rs-sys",
@@ -2909,9 +2909,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.102"
+version = "1.0.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e0f6df8eaa422d97d72edcd152e1451618fed47fabbdbd5a8864167b1d4aff7"
+checksum = "5ee95bc4ef87b8d5ba32e8b7714ccc834865276eab0aed5c9958d00ec45f49e8"
 dependencies = [
  "unicode-ident",
 ]

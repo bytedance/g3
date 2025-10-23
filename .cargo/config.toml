@@ -1,5 +1,5 @@
 [resolver]
-incompatible-rust-versions = "allow"
+incompatible-rust-versions = "fallback"
 
 [target.'cfg(target_arch = "x86_64")']
 rustflags = [
