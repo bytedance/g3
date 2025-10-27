@@ -51,7 +51,6 @@ where
     }
 }
 
-#[cfg(not(target_os = "openbsd"))]
 unsafe fn getsockopt<T>(fd: c_int, level: c_int, name: c_int) -> io::Result<T>
 where
     T: Copy,
@@ -67,7 +66,7 @@ where
     }
 }
 
-#[cfg(not(target_os = "openbsd"))]
+#[allow(unused)]
 pub(crate) fn ipv6_only<T: AsRawFd>(fd: &T) -> io::Result<bool> {
     unsafe {
         let value = getsockopt::<c_int>(fd.as_raw_fd(), libc::IPPROTO_IPV6, libc::IPV6_V6ONLY)?;

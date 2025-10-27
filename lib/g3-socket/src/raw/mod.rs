@@ -118,6 +118,7 @@ impl RawSocket {
                     crate::sockopt::set_tos_v4(socket, tos)?;
                 }
             }
+            #[cfg(not(target_os = "openbsd"))]
             SocketAddr::V6(s6) => {
                 if let Some(hops) = misc_opts.hop_limit {
                     socket.set_unicast_hops_v6(hops)?;
@@ -126,7 +127,6 @@ impl RawSocket {
                 if let Some(class) = misc_opts.traffic_class {
                     crate::sockopt::set_tclass_v6(socket, class)?;
                 }
-                #[cfg(not(target_os = "openbsd"))]
                 if s6.ip().is_unspecified()
                     && (misc_opts.time_to_live.is_some() || misc_opts.type_of_service.is_some())
                 {
@@ -141,6 +141,16 @@ impl RawSocket {
                         }
                     }
                 }
+            }
+            #[cfg(target_os = "openbsd")]
+            SocketAddr::V6(_) => {
+                if let Some(hops) = misc_opts.hop_limit {
+                    socket.set_unicast_hops_v6(hops)?;
+                }
+                if let Some(class) = misc_opts.traffic_class {
+                    crate::sockopt::set_tclass_v6(socket, class)?;
+                }
+                // OpenBSD is always ipv6 only
             }
         }
 
