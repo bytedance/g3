@@ -13,6 +13,7 @@ anyhow.workspace = true
 clap.workspace = true
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 openssl.workspace = true
+openssl-sys.workspace = true # for openssl variant detection
 tokio = { workspace = true, features = ["macros", "net", "io-util", "time", "signal"] }
 kanal = { workspace = true, features = ["async"] }
 yaml-rust.workspace = true

@@ -25,6 +25,7 @@ tokio-rustls.workspace = true
 rustls.workspace = true
 quinn = { workspace = true, optional = true, features = ["rustls"] }
 openssl.workspace = true
+openssl-sys.workspace = true # for openssl variant detection
 openssl-probe = { workspace = true, optional = true }
 indexmap.workspace = true
 bytes.workspace = true

@@ -1695,6 +1695,7 @@ dependencies = [
  "tokio-rustls",
  "url",
  "variant-ssl",
+ "variant-ssl-sys",
 ]
 
 [[package]]
@@ -1717,6 +1718,7 @@ dependencies = [
  "log",
  "tokio",
  "variant-ssl",
+ "variant-ssl-sys",
  "yaml-rust2",
 ]
 
@@ -1778,6 +1780,7 @@ dependencies = [
  "url",
  "uuid",
  "variant-ssl",
+ "variant-ssl-sys",
  "yaml-rust2",
 ]
 
@@ -1817,6 +1820,7 @@ dependencies = [
  "g3-types",
  "openssl-probe",
  "variant-ssl",
+ "variant-ssl-sys",
 ]
 
 [[package]]
@@ -1909,6 +1913,7 @@ dependencies = [
  "url",
  "uuid",
  "variant-ssl",
+ "variant-ssl-sys",
  "yaml-rust2",
 ]
 
