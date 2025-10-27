@@ -250,7 +250,8 @@ ln -s /usr/pkg/bin/python3.11 /usr/pkg/bin/python3
 ```shell
 # install rust toolchain
 pkg_add rust
-# install capnproto from source, or export G3_CAPNP_USE_PRECOMPILED=yes when build a tarball
+# install capnproto
+pkg_add capnproto
 # install libs
 pkg_add libcares
 # install lua5.4 or any other versions available on your system

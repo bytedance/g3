@@ -2067,6 +2067,7 @@ dependencies = [
  "tokio-rustls",
  "uuid",
  "variant-ssl",
+ "variant-ssl-sys",
  "yaml-rust2",
 ]
 
