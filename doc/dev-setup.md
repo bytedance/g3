@@ -215,8 +215,6 @@ pkg install c-ares
 # install lua5.4 or any other versions available on your system
 pkg install lua54
 pkg install python3
-# build, with vendored openssl
-cargo build --features vendored-openssl
 ```
 
 **Tips**
@@ -257,8 +255,6 @@ pkg_add libcares
 # install lua5.4 or any other versions available on your system
 pkg_add lua
 pkg_add python
-# build, with system LibreSSL
-cargo build
 ```
 
 **Tips**
