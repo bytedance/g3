@@ -234,13 +234,14 @@ pkg install python3
 ### NetBSD
 
 ```shell
+pkgin install rust
 pkgin install pkgconf capnproto
 pkgin install libcares
 # install lua5.4 or any other versions available on your system
 pkgin install lua54
-# install python 3.11 or any other versions available on your system, and create links
-pkgin install python311
-ln -s /usr/pkg/bin/python3.11 /usr/pkg/bin/python3
+# install python 3.12 or any other versions available on your system, and create links
+pkgin install python312
+ln -s /usr/pkg/bin/python3.12 /usr/pkg/bin/python3
 ```
 
 ### OpenBSD

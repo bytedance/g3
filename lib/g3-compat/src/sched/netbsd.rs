@@ -10,6 +10,7 @@ pub struct CpuAffinityImpl {
 }
 
 unsafe impl Send for CpuAffinityImpl {}
+unsafe impl Sync for CpuAffinityImpl {}
 
 impl Clone for CpuAffinityImpl {
     fn clone(&self) -> Self {
