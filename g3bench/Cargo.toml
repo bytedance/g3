@@ -25,6 +25,7 @@ bytes.workspace = true
 futures-util.workspace = true
 atomic-waker.workspace = true
 openssl.workspace = true
+openssl-sys.workspace = true # for openssl variant detection
 openssl-probe = { workspace = true, optional = true }
 rustls.workspace = true
 rustls-pki-types = { workspace = true, features = ["std"] }
