@@ -331,9 +331,9 @@ dependencies = [
 
 [[package]]
 name = "bstr"
-version = "1.12.0"
+version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "234113d19d0d7d613b40e86fb654acf958910802bcceab913a4f9e7cda03b1a4"
+checksum = "63044e1ae8e69f3b5a92c736ca6269b8d12fa7efe39bf34ddb06d102cf0e2cab"
 dependencies = [
  "memchr",
  "serde",
@@ -462,9 +462,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.41"
+version = "1.2.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac9fe6cdbb24b6ade63616c0a0688e45bb56732262c158df3c0c4bea4ca47cb7"
+checksum = "739eb0f94557554b3ca9a86d2d37bebd49c5e6d0c1d2bda35ba5bdac830befc2"
 dependencies = [
  "find-msvc-tools",
  "jobserver",
@@ -3240,9 +3240,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-pki-types"
-version = "1.12.0"
+version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "229a4a4c221013e7e1f1a043678c5cc39fe5171437c88fb47151a21e6f5b5c79"
+checksum = "94182ad936a0c91c324cd46c6511b9510ed16af436d7b5bab34beab0afd55f7a"
 dependencies = [
  "web-time",
  "zeroize",
@@ -3701,9 +3701,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl"
-version = "0.17.10"
+version = "0.17.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b04b8147cb16326ab208dbe75c855649202d4d6d0778c68ae65da7fc2248a1d6"
+checksum = "dd3260192bee2b9583147ef70b57f11a0a3afdf44a2fe282b43cdd1b7971ef47"
 dependencies = [
  "bitflags",
  "cfg-if",
@@ -3716,9 +3716,9 @@ dependencies = [
 
 [[package]]
 name = "variant-ssl-sys"
-version = "0.17.10"
+version = "0.17.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41b55d7f16658733a54fe1b0a03d45aef0aa05b457f864115e8caad755354307"
+checksum = "f19ed99c0590b2bc44dba1e59a68adeab371640acebf84e22c493424b6259225"
 dependencies = [
  "aws-lc-fips-sys",
  "aws-lc-sys",
