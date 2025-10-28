@@ -6,8 +6,6 @@
 use std::str::FromStr;
 
 use anyhow::anyhow;
-use capnp::capability::Promise;
-use capnp_rpc::pry;
 
 use g3_types::metrics::{MetricTagName, MetricTagValue};
 
@@ -20,131 +18,118 @@ use super::set_operation_result;
 pub(super) struct ProcControlImpl;
 
 impl proc_control::Server for ProcControlImpl {
-    fn version(
-        &mut self,
+    async fn version(
+        &self,
         _params: proc_control::VersionParams,
         mut results: proc_control::VersionResults,
-    ) -> Promise<(), capnp::Error> {
+    ) -> capnp::Result<()> {
         results.get().set_version(crate::build::VERSION);
-        Promise::ok(())
+        Ok(())
     }
 
-    fn offline(
-        &mut self,
+    async fn offline(
+        &self,
         _params: proc_control::OfflineParams,
         mut results: proc_control::OfflineResults,
-    ) -> Promise<(), capnp::Error> {
-        Promise::from_future(async move {
-            g3_daemon::control::quit::start_graceful_shutdown().await;
-            set_operation_result(results.get().init_result(), Ok(()));
-            Ok(())
-        })
+    ) -> capnp::Result<()> {
+        g3_daemon::control::quit::start_graceful_shutdown().await;
+        set_operation_result(results.get().init_result(), Ok(()));
+        Ok(())
     }
 
-    fn cancel_shutdown(
-        &mut self,
+    async fn cancel_shutdown(
+        &self,
         _params: proc_control::CancelShutdownParams,
         mut results: proc_control::CancelShutdownResults,
-    ) -> Promise<(), capnp::Error> {
-        Promise::from_future(async move {
-            let r = g3_daemon::control::quit::cancel_graceful_shutdown().await;
-            set_operation_result(results.get().init_result(), r);
-            Ok(())
-        })
+    ) -> capnp::Result<()> {
+        let r = g3_daemon::control::quit::cancel_graceful_shutdown().await;
+        set_operation_result(results.get().init_result(), r);
+        Ok(())
     }
 
-    fn release_controller(
-        &mut self,
+    async fn release_controller(
+        &self,
         _params: proc_control::ReleaseControllerParams,
         mut results: proc_control::ReleaseControllerResults,
-    ) -> Promise<(), capnp::Error> {
-        Promise::from_future(async move {
-            let r = g3_daemon::control::quit::release_controller().await;
-            set_operation_result(results.get().init_result(), r);
-            Ok(())
-        })
+    ) -> capnp::Result<()> {
+        let r = g3_daemon::control::quit::release_controller().await;
+        set_operation_result(results.get().init_result(), r);
+        Ok(())
     }
 
-    fn list_server(
-        &mut self,
+    async fn list_server(
+        &self,
         _params: proc_control::ListServerParams,
         mut results: proc_control::ListServerResults,
-    ) -> Promise<(), capnp::Error> {
+    ) -> capnp::Result<()> {
         let set = crate::serve::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
             builder.set(i as u32, name.as_str());
         }
-        Promise::ok(())
+        Ok(())
     }
 
-    fn get_server(
-        &mut self,
+    async fn get_server(
+        &self,
         params: proc_control::GetServerParams,
         mut results: proc_control::GetServerResults,
-    ) -> Promise<(), capnp::Error> {
-        let server = pry!(pry!(pry!(params.get()).get_name()).to_str());
-        pry!(set_fetch_result::<server_control::Owned>(
+    ) -> capnp::Result<()> {
+        let server = params.get()?.get_name()?.to_str()?;
+        set_fetch_result::<server_control::Owned>(
             results.get().init_server(),
             super::server::ServerControlImpl::new_client(server),
-        ));
-        Promise::ok(())
+        )
     }
 
-    fn publish_key(
-        &mut self,
+    async fn publish_key(
+        &self,
         params: proc_control::PublishKeyParams,
         mut results: proc_control::PublishKeyResults,
-    ) -> Promise<(), capnp::Error> {
-        let pem = pry!(pry!(pry!(params.get()).get_pem()).to_string());
-        Promise::from_future(async move {
-            let r = crate::control::bridge::add_key(&pem).await;
-            set_operation_result(results.get().init_result(), r);
-            Ok(())
-        })
+    ) -> capnp::Result<()> {
+        let pem = params.get()?.get_pem()?.to_str()?;
+        let r = crate::control::bridge::add_key(pem).await;
+        set_operation_result(results.get().init_result(), r);
+        Ok(())
     }
 
-    fn list_keys(
-        &mut self,
+    async fn list_keys(
+        &self,
         _params: proc_control::ListKeysParams,
         mut results: proc_control::ListKeysResults,
-    ) -> Promise<(), capnp::Error> {
-        Promise::from_future(async move {
-            let r = crate::control::bridge::list_keys()
-                .await
-                .unwrap_or_default();
-            let mut builder = results.get().init_result(r.len() as u32);
-            for (i, ski) in r.iter().enumerate() {
-                builder.set(i as u32, ski.as_slice());
-            }
-            Ok(())
-        })
+    ) -> capnp::Result<()> {
+        let r = crate::control::bridge::list_keys()
+            .await
+            .unwrap_or_default();
+        let mut builder = results.get().init_result(r.len() as u32);
+        for (i, ski) in r.iter().enumerate() {
+            builder.set(i as u32, ski.as_slice());
+        }
+        Ok(())
     }
 
-    fn check_key(
-        &mut self,
+    async fn check_key(
+        &self,
         params: proc_control::CheckKeyParams,
         mut results: proc_control::CheckKeyResults,
-    ) -> Promise<(), capnp::Error> {
-        let ski = pry!(pry!(params.get()).get_ski()).to_vec();
-        Promise::from_future(async move {
-            let r = crate::control::bridge::check_key(ski).await;
-            set_operation_result(results.get().init_result(), r);
-            Ok(())
-        })
+    ) -> capnp::Result<()> {
+        let ski = params.get()?.get_ski()?.to_vec();
+        let r = crate::control::bridge::check_key(ski).await;
+        set_operation_result(results.get().init_result(), r);
+        Ok(())
     }
 
-    fn add_metrics_tag(
-        &mut self,
+    async fn add_metrics_tag(
+        &self,
         params: proc_control::AddMetricsTagParams,
         mut results: proc_control::AddMetricsTagResults,
-    ) -> Promise<(), capnp::Error> {
-        let name = pry!(pry!(pry!(params.get()).get_name()).to_str());
-        let value = pry!(pry!(pry!(params.get()).get_value()).to_str());
+    ) -> capnp::Result<()> {
+        let name = params.get()?.get_name()?.to_str()?;
+        let value = params.get()?.get_value()?.to_str()?;
 
         let r = do_add_metrics_tag(name, value);
         set_operation_result(results.get().init_result(), r);
-        Promise::ok(())
+        Ok(())
     }
 }
 

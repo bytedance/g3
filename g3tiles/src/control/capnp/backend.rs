@@ -3,8 +3,6 @@
  * Copyright 2025 ByteDance and/or its affiliates.
  */
 
-use capnp::capability::Promise;
-
 use g3_types::metrics::NodeName;
 
 use g3tiles_proto::backend_capnp::backend_control;
@@ -24,13 +22,13 @@ impl BackendControlImpl {
 }
 
 impl backend_control::Server for BackendControlImpl {
-    fn alive_connection(
-        &mut self,
+    async fn alive_connection(
+        &self,
         _params: backend_control::AliveConnectionParams,
         mut results: backend_control::AliveConnectionResults,
-    ) -> Promise<(), capnp::Error> {
+    ) -> capnp::Result<()> {
         let alive_count = self.backend.alive_connection();
         results.get().set_count(alive_count);
-        Promise::ok(())
+        Ok(())
     }
 }
