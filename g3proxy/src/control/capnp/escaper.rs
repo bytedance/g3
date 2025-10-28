@@ -28,7 +28,7 @@ impl escaper_control::Server for EscaperControlImpl {
         params: escaper_control::PublishParams,
         mut results: escaper_control::PublishResults,
     ) -> capnp::Result<()> {
-        let data = params.get()?.get_data()?.to_string()?;
+        let data = params.get()?.get_data()?.to_str()?;
         let r = self.escaper.publish(data).await;
         set_operation_result(results.get().init_result(), r);
         Ok(())

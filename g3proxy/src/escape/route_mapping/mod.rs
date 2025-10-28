@@ -112,7 +112,7 @@ impl Escaper for RouteMappingEscaper {
         Some(&self.stats)
     }
 
-    async fn publish(&self, _data: String) -> anyhow::Result<()> {
+    async fn publish(&self, _data: &str) -> anyhow::Result<()> {
         Err(anyhow!("not implemented"))
     }
 

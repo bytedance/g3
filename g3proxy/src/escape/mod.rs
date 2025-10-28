@@ -157,7 +157,7 @@ pub(crate) trait Escaper: EscaperInternal {
         None
     }
 
-    async fn publish(&self, data: String) -> anyhow::Result<()>;
+    async fn publish(&self, data: &str) -> anyhow::Result<()>;
 
     async fn tcp_setup_connection(
         &self,

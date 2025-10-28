@@ -175,7 +175,7 @@ impl Escaper for ProxyFloatEscaper {
         Some(self.stats.clone())
     }
 
-    async fn publish(&self, data: String) -> anyhow::Result<()> {
+    async fn publish(&self, data: &str) -> anyhow::Result<()> {
         source::publish_peers(&self.config, &self.peers, data).await
     }
 
