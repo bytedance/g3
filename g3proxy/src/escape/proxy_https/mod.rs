@@ -175,7 +175,7 @@ impl Escaper for ProxyHttpsEscaper {
         Some(self.stats.clone())
     }
 
-    async fn publish(&self, _data: String) -> anyhow::Result<()> {
+    async fn publish(&self, _data: &str) -> anyhow::Result<()> {
         Err(anyhow!("not implemented"))
     }
 

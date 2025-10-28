@@ -93,10 +93,10 @@ pub(super) async fn publish_records(
     config: &DirectFloatEscaperConfig,
     v4_container: &ArcSwap<BindSet>,
     v6_container: &ArcSwap<BindSet>,
-    data: String,
+    data: &str,
 ) -> anyhow::Result<()> {
     let obj =
-        Value::from_str(&data).map_err(|e| anyhow!("the input data is not valid json: {:?}", e))?;
+        Value::from_str(data).map_err(|e| anyhow!("the input data is not valid json: {:?}", e))?;
 
     if let Value::Object(map) = obj {
         for (k, v) in map.into_iter() {

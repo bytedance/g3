@@ -337,7 +337,7 @@ impl Escaper for DirectFloatEscaper {
         Some(Arc::clone(&self.stats) as ArcEscaperStats)
     }
 
-    async fn publish(&self, data: String) -> anyhow::Result<()> {
+    async fn publish(&self, data: &str) -> anyhow::Result<()> {
         publish::publish_records(&self.config, &self.bind_v4, &self.bind_v6, data).await
     }
 

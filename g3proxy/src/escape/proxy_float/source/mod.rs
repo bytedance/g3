@@ -49,9 +49,9 @@ async fn parse_and_save_peers(
 pub(super) async fn publish_peers(
     config: &ProxyFloatEscaperConfig,
     peers_container: &Arc<ArcSwap<PeerSet>>,
-    data: String,
+    data: &str,
 ) -> anyhow::Result<()> {
-    let obj = serde_json::from_str(&data)
+    let obj = serde_json::from_str(data)
         .map_err(|e| anyhow!("the publish data is not valid json: {e:?}"))?;
     let records = match obj {
         serde_json::Value::Array(v) => v,
