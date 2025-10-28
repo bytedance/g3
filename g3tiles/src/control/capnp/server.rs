@@ -3,8 +3,6 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use capnp::capability::Promise;
-
 use g3_types::metrics::NodeName;
 
 use g3tiles_proto::server_capnp::server_control;
@@ -24,20 +22,20 @@ impl ServerControlImpl {
 }
 
 impl server_control::Server for ServerControlImpl {
-    fn status(
-        &mut self,
+    async fn status(
+        &self,
         _params: server_control::StatusParams,
         mut results: server_control::StatusResults,
-    ) -> Promise<(), capnp::Error> {
+    ) -> capnp::Result<()> {
         if let Some(stats) = self.server.get_server_stats() {
             let mut builder = results.get().init_status();
             builder.set_online(stats.is_online());
             builder.set_alive_task_count(stats.alive_count());
             builder.set_total_conn_count(stats.conn_total());
             builder.set_total_task_count(stats.task_total());
-            Promise::ok(())
+            Ok(())
         } else {
-            Promise::err(capnp::Error::failed(
+            Err(capnp::Error::failed(
                 "server status is not supported on this server".to_string(),
             ))
         }

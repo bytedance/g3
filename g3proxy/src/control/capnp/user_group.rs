@@ -5,9 +5,6 @@
 
 use std::sync::Arc;
 
-use capnp::capability::Promise;
-use capnp_rpc::pry;
-
 use g3_types::metrics::NodeName;
 
 use g3proxy_proto::user_group_capnp::user_group_control;
@@ -28,43 +25,41 @@ impl UserGroupControlImpl {
 }
 
 impl user_group_control::Server for UserGroupControlImpl {
-    fn list_static_user(
-        &mut self,
+    async fn list_static_user(
+        &self,
         _params: user_group_control::ListStaticUserParams,
         mut results: user_group_control::ListStaticUserResults,
-    ) -> Promise<(), capnp::Error> {
+    ) -> capnp::Result<()> {
         let v = self.user_group.all_static_users();
         let mut builder = results.get().init_result(v.len() as u32);
         for (i, name) in v.into_iter().enumerate() {
             builder.set(i as u32, name);
         }
-        Promise::ok(())
+        Ok(())
     }
 
-    fn list_dynamic_user(
-        &mut self,
+    async fn list_dynamic_user(
+        &self,
         _params: user_group_control::ListDynamicUserParams,
         mut results: user_group_control::ListDynamicUserResults,
-    ) -> Promise<(), capnp::Error> {
+    ) -> capnp::Result<()> {
         let v = self.user_group.all_dynamic_users();
         let mut builder = results.get().init_result(v.len() as u32);
         for (i, name) in v.iter().enumerate() {
             builder.set(i as u32, name);
         }
-        Promise::ok(())
+        Ok(())
     }
 
-    fn publish_dynamic_user(
-        &mut self,
+    async fn publish_dynamic_user(
+        &self,
         params: user_group_control::PublishDynamicUserParams,
         mut results: user_group_control::PublishDynamicUserResults,
-    ) -> Promise<(), capnp::Error> {
+    ) -> capnp::Result<()> {
         let user_group = self.user_group.clone();
-        let contents = pry!(pry!(pry!(params.get()).get_contents()).to_string());
-        Promise::from_future(async move {
-            let r = user_group.publish_dynamic_users(&contents).await;
-            set_operation_result(results.get().init_result(), r);
-            Ok(())
-        })
+        let contents = params.get()?.get_contents()?.to_str()?;
+        let r = user_group.publish_dynamic_users(contents).await;
+        set_operation_result(results.get().init_result(), r);
+        Ok(())
     }
 }

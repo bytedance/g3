@@ -7,8 +7,6 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
-use capnp::capability::Promise;
-use capnp_rpc::pry;
 
 use g3_types::metrics::{MetricTagName, MetricTagValue, NodeName};
 
@@ -39,39 +37,39 @@ impl ServerControlImpl {
 }
 
 impl server_control::Server for ServerControlImpl {
-    fn status(
-        &mut self,
+    async fn status(
+        &self,
         _params: server_control::StatusParams,
         mut results: server_control::StatusResults,
-    ) -> Promise<(), capnp::Error> {
+    ) -> capnp::Result<()> {
         let stats = self.server.get_server_stats();
         let mut builder = results.get().init_status();
         builder.set_online(stats.is_online());
         builder.set_alive_task_count(stats.get_alive_count());
         builder.set_total_task_count(stats.get_task_total());
-        Promise::ok(())
+        Ok(())
     }
 
-    fn add_metrics_tag(
-        &mut self,
+    async fn add_metrics_tag(
+        &self,
         params: server_control::AddMetricsTagParams,
         mut results: server_control::AddMetricsTagResults,
-    ) -> Promise<(), capnp::Error> {
-        let name = pry!(pry!(pry!(params.get()).get_name()).to_str());
-        let value = pry!(pry!(pry!(params.get()).get_value()).to_str());
+    ) -> capnp::Result<()> {
+        let name = params.get()?.get_name()?.to_str()?;
+        let value = params.get()?.get_value()?.to_str()?;
 
         let r = self.do_add_metrics_tag(name, value);
         set_operation_result(results.get().init_result(), r);
-        Promise::ok(())
+        Ok(())
     }
 
-    fn get_listen_addr(
-        &mut self,
+    async fn get_listen_addr(
+        &self,
         _params: server_control::GetListenAddrParams,
         mut results: server_control::GetListenAddrResults,
-    ) -> Promise<(), capnp::Error> {
+    ) -> capnp::Result<()> {
         let addr = self.server.listen_addr().to_string();
         results.get().set_addr(addr.as_str());
-        Promise::ok(())
+        Ok(())
     }
 }

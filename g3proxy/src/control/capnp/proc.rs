@@ -3,9 +3,6 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use capnp::capability::Promise;
-use capnp_rpc::pry;
-
 use g3_types::metrics::NodeName;
 
 use g3proxy_proto::escaper_capnp::escaper_control;
@@ -20,254 +17,231 @@ use super::set_operation_result;
 pub(super) struct ProcControlImpl;
 
 impl proc_control::Server for ProcControlImpl {
-    fn version(
-        &mut self,
+    async fn version(
+        &self,
         _params: proc_control::VersionParams,
         mut results: proc_control::VersionResults,
-    ) -> Promise<(), capnp::Error> {
+    ) -> capnp::Result<()> {
         results.get().set_version(crate::build::VERSION);
-        Promise::ok(())
+        Ok(())
     }
 
-    fn offline(
-        &mut self,
+    async fn offline(
+        &self,
         _params: proc_control::OfflineParams,
         mut results: proc_control::OfflineResults,
-    ) -> Promise<(), capnp::Error> {
-        Promise::from_future(async move {
-            g3_daemon::control::quit::start_graceful_shutdown().await;
-            set_operation_result(results.get().init_result(), Ok(()));
-            Ok(())
-        })
+    ) -> capnp::Result<()> {
+        g3_daemon::control::quit::start_graceful_shutdown().await;
+        set_operation_result(results.get().init_result(), Ok(()));
+        Ok(())
     }
 
-    fn cancel_shutdown(
-        &mut self,
+    async fn cancel_shutdown(
+        &self,
         _params: proc_control::CancelShutdownParams,
         mut results: proc_control::CancelShutdownResults,
-    ) -> Promise<(), capnp::Error> {
-        Promise::from_future(async move {
-            let r = g3_daemon::control::quit::cancel_graceful_shutdown().await;
-            set_operation_result(results.get().init_result(), r);
-            Ok(())
-        })
+    ) -> capnp::Result<()> {
+        let r = g3_daemon::control::quit::cancel_graceful_shutdown().await;
+        set_operation_result(results.get().init_result(), r);
+        Ok(())
     }
 
-    fn release_controller(
-        &mut self,
+    async fn release_controller(
+        &self,
         _params: proc_control::ReleaseControllerParams,
         mut results: proc_control::ReleaseControllerResults,
-    ) -> Promise<(), capnp::Error> {
-        Promise::from_future(async move {
-            let r = g3_daemon::control::quit::release_controller().await;
-            set_operation_result(results.get().init_result(), r);
-            Ok(())
-        })
+    ) -> capnp::Result<()> {
+        let r = g3_daemon::control::quit::release_controller().await;
+        set_operation_result(results.get().init_result(), r);
+        Ok(())
     }
 
-    fn list_user_group(
-        &mut self,
+    async fn list_user_group(
+        &self,
         _params: proc_control::ListUserGroupParams,
         mut results: proc_control::ListUserGroupResults,
-    ) -> Promise<(), capnp::Error> {
+    ) -> capnp::Result<()> {
         let set = crate::auth::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
             builder.set(i as u32, name.as_str());
         }
-        Promise::ok(())
+        Ok(())
     }
 
-    fn list_resolver(
-        &mut self,
+    async fn list_resolver(
+        &self,
         _params: proc_control::ListResolverParams,
         mut results: proc_control::ListResolverResults,
-    ) -> Promise<(), capnp::Error> {
+    ) -> capnp::Result<()> {
         let set = crate::resolve::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
             builder.set(i as u32, name.as_str());
         }
-        Promise::ok(())
+        Ok(())
     }
 
-    fn list_auditor(
-        &mut self,
+    async fn list_auditor(
+        &self,
         _params: proc_control::ListAuditorParams,
         mut results: proc_control::ListAuditorResults,
-    ) -> Promise<(), capnp::Error> {
+    ) -> capnp::Result<()> {
         let set = crate::audit::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
             builder.set(i as u32, name.as_str());
         }
-        Promise::ok(())
+        Ok(())
     }
 
-    fn list_escaper(
-        &mut self,
+    async fn list_escaper(
+        &self,
         _params: proc_control::ListEscaperParams,
         mut results: proc_control::ListEscaperResults,
-    ) -> Promise<(), capnp::Error> {
+    ) -> capnp::Result<()> {
         let set = crate::escape::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
             builder.set(i as u32, name.as_str());
         }
-        Promise::ok(())
+        Ok(())
     }
 
-    fn list_server(
-        &mut self,
+    async fn list_server(
+        &self,
         _params: proc_control::ListServerParams,
         mut results: proc_control::ListServerResults,
-    ) -> Promise<(), capnp::Error> {
+    ) -> capnp::Result<()> {
         let set = crate::serve::get_names();
         let mut builder = results.get().init_result(set.len() as u32);
         for (i, name) in set.iter().enumerate() {
             builder.set(i as u32, name.as_str());
         }
-        Promise::ok(())
+        Ok(())
     }
 
-    fn reload_user_group(
-        &mut self,
+    async fn reload_user_group(
+        &self,
         params: proc_control::ReloadUserGroupParams,
         mut results: proc_control::ReloadUserGroupResults,
-    ) -> Promise<(), capnp::Error> {
-        let user_group = pry!(pry!(pry!(params.get()).get_name()).to_string());
-        Promise::from_future(async move {
-            let r = crate::control::bridge::reload_user_group(user_group, None).await;
-            set_operation_result(results.get().init_result(), r);
-            Ok(())
-        })
+    ) -> capnp::Result<()> {
+        let user_group = params.get()?.get_name()?.to_string()?;
+        let r = crate::control::bridge::reload_user_group(user_group, None).await;
+        set_operation_result(results.get().init_result(), r);
+        Ok(())
     }
 
-    fn reload_resolver(
-        &mut self,
+    async fn reload_resolver(
+        &self,
         params: proc_control::ReloadResolverParams,
         mut results: proc_control::ReloadResolverResults,
-    ) -> Promise<(), capnp::Error> {
-        let resolver = pry!(pry!(pry!(params.get()).get_name()).to_string());
-        Promise::from_future(async move {
-            let r = crate::control::bridge::reload_resolver(resolver, None).await;
-            set_operation_result(results.get().init_result(), r);
-            Ok(())
-        })
+    ) -> capnp::Result<()> {
+        let resolver = params.get()?.get_name()?.to_string()?;
+        let r = crate::control::bridge::reload_resolver(resolver, None).await;
+        set_operation_result(results.get().init_result(), r);
+        Ok(())
     }
 
-    fn reload_auditor(
-        &mut self,
+    async fn reload_auditor(
+        &self,
         params: proc_control::ReloadAuditorParams,
         mut results: proc_control::ReloadAuditorResults,
-    ) -> Promise<(), capnp::Error> {
-        let auditor = pry!(pry!(pry!(params.get()).get_name()).to_string());
-        Promise::from_future(async move {
-            let r = crate::control::bridge::reload_auditor(auditor, None).await;
-            set_operation_result(results.get().init_result(), r);
-            Ok(())
-        })
+    ) -> capnp::Result<()> {
+        let auditor = params.get()?.get_name()?.to_string()?;
+        let r = crate::control::bridge::reload_auditor(auditor, None).await;
+        set_operation_result(results.get().init_result(), r);
+        Ok(())
     }
 
-    fn reload_escaper(
-        &mut self,
+    async fn reload_escaper(
+        &self,
         params: proc_control::ReloadEscaperParams,
         mut results: proc_control::ReloadEscaperResults,
-    ) -> Promise<(), capnp::Error> {
-        let escaper = pry!(pry!(pry!(params.get()).get_name()).to_string());
-        Promise::from_future(async move {
-            let r = crate::control::bridge::reload_escaper(escaper, None).await;
-            set_operation_result(results.get().init_result(), r);
-            Ok(())
-        })
+    ) -> capnp::Result<()> {
+        let escaper = params.get()?.get_name()?.to_string()?;
+        let r = crate::control::bridge::reload_escaper(escaper, None).await;
+        set_operation_result(results.get().init_result(), r);
+        Ok(())
     }
 
-    fn reload_server(
-        &mut self,
+    async fn reload_server(
+        &self,
         params: proc_control::ReloadServerParams,
         mut results: proc_control::ReloadServerResults,
-    ) -> Promise<(), capnp::Error> {
-        let server = pry!(pry!(pry!(params.get()).get_name()).to_string());
-        Promise::from_future(async move {
-            let r = crate::control::bridge::reload_server(server, None).await;
-            set_operation_result(results.get().init_result(), r);
-            Ok(())
-        })
+    ) -> capnp::Result<()> {
+        let server = params.get()?.get_name()?.to_string()?;
+        let r = crate::control::bridge::reload_server(server, None).await;
+        set_operation_result(results.get().init_result(), r);
+        Ok(())
     }
 
-    fn get_user_group(
-        &mut self,
+    async fn get_user_group(
+        &self,
         params: proc_control::GetUserGroupParams,
         mut results: proc_control::GetUserGroupResults,
-    ) -> Promise<(), capnp::Error> {
-        let user_group = pry!(pry!(pry!(params.get()).get_name()).to_str());
+    ) -> capnp::Result<()> {
+        let user_group = params.get()?.get_name()?.to_str()?;
         let ug = super::user_group::UserGroupControlImpl::new_client(user_group);
-        pry!(set_fetch_result::<user_group_control::Owned>(
-            results.get().init_user_group(),
-            Ok(ug),
-        ));
-        Promise::ok(())
+        set_fetch_result::<user_group_control::Owned>(results.get().init_user_group(), Ok(ug))
     }
 
-    fn get_resolver(
-        &mut self,
+    async fn get_resolver(
+        &self,
         params: proc_control::GetResolverParams,
         mut results: proc_control::GetResolverResults,
-    ) -> Promise<(), capnp::Error> {
-        let resolver = pry!(pry!(pry!(params.get()).get_name()).to_str());
-        pry!(set_fetch_result::<resolver_control::Owned>(
+    ) -> capnp::Result<()> {
+        let resolver = params.get()?.get_name()?.to_str()?;
+        set_fetch_result::<resolver_control::Owned>(
             results.get().init_resolver(),
             super::resolver::ResolverControlImpl::new_client(resolver),
-        ));
-        Promise::ok(())
+        )
     }
 
-    fn get_escaper(
-        &mut self,
+    async fn get_escaper(
+        &self,
         params: proc_control::GetEscaperParams,
         mut results: proc_control::GetEscaperResults,
-    ) -> Promise<(), capnp::Error> {
-        let escaper = pry!(pry!(pry!(params.get()).get_name()).to_str());
-        pry!(set_fetch_result::<escaper_control::Owned>(
+    ) -> capnp::Result<()> {
+        let escaper = params.get()?.get_name()?.to_str()?;
+        set_fetch_result::<escaper_control::Owned>(
             results.get().init_escaper(),
             super::escaper::EscaperControlImpl::new_client(escaper),
-        ));
-        Promise::ok(())
+        )
     }
 
-    fn get_server(
-        &mut self,
+    async fn get_server(
+        &self,
         params: proc_control::GetServerParams,
         mut results: proc_control::GetServerResults,
-    ) -> Promise<(), capnp::Error> {
-        let server = pry!(pry!(pry!(params.get()).get_name()).to_str());
-        pry!(set_fetch_result::<server_control::Owned>(
+    ) -> capnp::Result<()> {
+        let server = params.get()?.get_name()?.to_str()?;
+        set_fetch_result::<server_control::Owned>(
             results.get().init_server(),
             super::server::ServerControlImpl::new_client(server),
-        ));
-        Promise::ok(())
+        )
     }
 
-    fn force_quit_offline_servers(
-        &mut self,
+    async fn force_quit_offline_servers(
+        &self,
         _params: proc_control::ForceQuitOfflineServersParams,
         mut results: proc_control::ForceQuitOfflineServersResults,
-    ) -> Promise<(), capnp::Error> {
+    ) -> capnp::Result<()> {
         crate::serve::force_quit_offline_servers();
         results.get().init_result().set_ok("success");
-        Promise::ok(())
+        Ok(())
     }
 
-    fn force_quit_offline_server(
-        &mut self,
+    async fn force_quit_offline_server(
+        &self,
         params: proc_control::ForceQuitOfflineServerParams,
         mut results: proc_control::ForceQuitOfflineServerResults,
-    ) -> Promise<(), capnp::Error> {
-        let server = pry!(pry!(pry!(params.get()).get_name()).to_str());
+    ) -> capnp::Result<()> {
+        let server = params.get()?.get_name()?.to_str()?;
         let server = unsafe { NodeName::new_unchecked(server) };
         crate::serve::force_quit_offline_server(&server);
         results.get().init_result().set_ok("success");
-        Promise::ok(())
+        Ok(())
     }
 }
 

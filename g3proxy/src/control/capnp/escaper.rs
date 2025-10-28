@@ -3,11 +3,6 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::Arc;
-
-use capnp::capability::Promise;
-use capnp_rpc::pry;
-
 use g3_types::metrics::NodeName;
 
 use g3proxy_proto::escaper_capnp::escaper_control;
@@ -28,16 +23,14 @@ impl EscaperControlImpl {
 }
 
 impl escaper_control::Server for EscaperControlImpl {
-    fn publish(
-        &mut self,
+    async fn publish(
+        &self,
         params: escaper_control::PublishParams,
         mut results: escaper_control::PublishResults,
-    ) -> Promise<(), capnp::Error> {
-        let data = pry!(pry!(pry!(params.get()).get_data()).to_string());
-        let escaper = Arc::clone(&self.escaper);
-        Promise::from_future(async move {
-            set_operation_result(results.get().init_result(), escaper.publish(data).await);
-            Ok(())
-        })
+    ) -> capnp::Result<()> {
+        let data = params.get()?.get_data()?.to_string()?;
+        let r = self.escaper.publish(data).await;
+        set_operation_result(results.get().init_result(), r);
+        Ok(())
     }
 }
