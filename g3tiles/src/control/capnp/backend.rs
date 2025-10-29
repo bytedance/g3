@@ -3,6 +3,8 @@
  * Copyright 2025 ByteDance and/or its affiliates.
  */
 
+use std::rc::Rc;
+
 use g3_types::metrics::NodeName;
 
 use g3tiles_proto::backend_capnp::backend_control;
@@ -23,7 +25,7 @@ impl BackendControlImpl {
 
 impl backend_control::Server for BackendControlImpl {
     async fn alive_connection(
-        &self,
+        self: Rc<Self>,
         _params: backend_control::AliveConnectionParams,
         mut results: backend_control::AliveConnectionResults,
     ) -> capnp::Result<()> {

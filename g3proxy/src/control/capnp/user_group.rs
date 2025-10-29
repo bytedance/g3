@@ -3,6 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::rc::Rc;
 use std::sync::Arc;
 
 use g3_types::metrics::NodeName;
@@ -26,7 +27,7 @@ impl UserGroupControlImpl {
 
 impl user_group_control::Server for UserGroupControlImpl {
     async fn list_static_user(
-        &self,
+        self: Rc<Self>,
         _params: user_group_control::ListStaticUserParams,
         mut results: user_group_control::ListStaticUserResults,
     ) -> capnp::Result<()> {
@@ -39,7 +40,7 @@ impl user_group_control::Server for UserGroupControlImpl {
     }
 
     async fn list_dynamic_user(
-        &self,
+        self: Rc<Self>,
         _params: user_group_control::ListDynamicUserParams,
         mut results: user_group_control::ListDynamicUserResults,
     ) -> capnp::Result<()> {
@@ -52,7 +53,7 @@ impl user_group_control::Server for UserGroupControlImpl {
     }
 
     async fn publish_dynamic_user(
-        &self,
+        self: Rc<Self>,
         params: user_group_control::PublishDynamicUserParams,
         mut results: user_group_control::PublishDynamicUserResults,
     ) -> capnp::Result<()> {
