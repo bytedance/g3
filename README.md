@@ -102,10 +102,15 @@ A simple implementation of Cloudflare keyless server.
 
 ## Target Platform
 
-Only Linux is fully supported yet. The code will compile on FreeBSD, NetBSD, OpenBSD, macOS and Windows, but we haven't
-tested it there.
+Linux is fully supported.
 
-Feel free to open PRs to add support for other platforms.
+The code also compiles on the following platforms:
+
+- macOS
+- Windows >= 10
+- FreeBSD >= 14.3
+- NetBSD >= 10.1
+- OpenBSD >= 7.8
 
 ## Dev-env Setup Guide
 
