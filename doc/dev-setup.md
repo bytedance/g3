@@ -210,7 +210,6 @@ cargo build --no-default-features --features rustls-ring,quic,c-ares
 ```shell
 pkg install rust
 pkg install pkgconf capnproto
-pkg install gmake # for vendored build of openssl
 pkg install c-ares
 # install lua5.4 or any other versions available on your system
 pkg install lua54
@@ -243,6 +242,13 @@ pkgin install lua54
 pkgin install python312
 ln -s /usr/pkg/bin/python3.12 /usr/pkg/bin/python3
 ```
+
+**Tips**
+
+- Use the latest pkgsrc packages
+
+  The pkgsrc packages is available at https://cdn.netbsd.org/pub/pkgsrc/packages/NetBSD/, modify
+  */usr/pkg/etc/pkgin/repositories.conf* to use a latest version.
 
 ### OpenBSD
 
