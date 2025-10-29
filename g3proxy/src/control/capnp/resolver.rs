@@ -3,6 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -29,7 +30,7 @@ impl ResolverControlImpl {
 
 impl resolver_control::Server for ResolverControlImpl {
     async fn query(
-        &self,
+        self: Rc<Self>,
         params: resolver_control::QueryParams,
         mut results: resolver_control::QueryResults,
     ) -> capnp::Result<()> {

@@ -3,6 +3,8 @@
  * Copyright 2025 ByteDance and/or its affiliates.
  */
 
+use std::rc::Rc;
+
 use g3statsd_proto::proc_capnp::proc_control;
 use g3statsd_proto::types_capnp::fetch_result;
 
@@ -12,7 +14,7 @@ pub(super) struct ProcControlImpl;
 
 impl proc_control::Server for ProcControlImpl {
     async fn version(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::VersionParams,
         mut results: proc_control::VersionResults,
     ) -> capnp::Result<()> {
@@ -21,7 +23,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn offline(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::OfflineParams,
         mut results: proc_control::OfflineResults,
     ) -> capnp::Result<()> {
@@ -31,7 +33,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn cancel_shutdown(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::CancelShutdownParams,
         mut results: proc_control::CancelShutdownResults,
     ) -> capnp::Result<()> {
@@ -41,7 +43,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn release_controller(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::ReleaseControllerParams,
         mut results: proc_control::ReleaseControllerResults,
     ) -> capnp::Result<()> {
@@ -51,7 +53,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn list_importer(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::ListImporterParams,
         mut results: proc_control::ListImporterResults,
     ) -> capnp::Result<()> {
@@ -64,7 +66,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn reload_importer(
-        &self,
+        self: Rc<Self>,
         params: proc_control::ReloadImporterParams,
         mut results: proc_control::ReloadImporterResults,
     ) -> capnp::Result<()> {
@@ -75,7 +77,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn list_collector(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::ListCollectorParams,
         mut results: proc_control::ListCollectorResults,
     ) -> capnp::Result<()> {
@@ -88,7 +90,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn reload_collector(
-        &self,
+        self: Rc<Self>,
         params: proc_control::ReloadCollectorParams,
         mut results: proc_control::ReloadCollectorResults,
     ) -> capnp::Result<()> {
@@ -99,7 +101,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn list_exporter(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::ListExporterParams,
         mut results: proc_control::ListExporterResults,
     ) -> capnp::Result<()> {
@@ -112,7 +114,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn reload_exporter(
-        &self,
+        self: Rc<Self>,
         params: proc_control::ReloadExporterParams,
         mut results: proc_control::ReloadExporterResults,
     ) -> capnp::Result<()> {

@@ -3,6 +3,8 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::rc::Rc;
+
 use g3_types::metrics::NodeName;
 
 use g3proxy_proto::escaper_capnp::escaper_control;
@@ -18,7 +20,7 @@ pub(super) struct ProcControlImpl;
 
 impl proc_control::Server for ProcControlImpl {
     async fn version(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::VersionParams,
         mut results: proc_control::VersionResults,
     ) -> capnp::Result<()> {
@@ -27,7 +29,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn offline(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::OfflineParams,
         mut results: proc_control::OfflineResults,
     ) -> capnp::Result<()> {
@@ -37,7 +39,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn cancel_shutdown(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::CancelShutdownParams,
         mut results: proc_control::CancelShutdownResults,
     ) -> capnp::Result<()> {
@@ -47,7 +49,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn release_controller(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::ReleaseControllerParams,
         mut results: proc_control::ReleaseControllerResults,
     ) -> capnp::Result<()> {
@@ -57,7 +59,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn list_user_group(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::ListUserGroupParams,
         mut results: proc_control::ListUserGroupResults,
     ) -> capnp::Result<()> {
@@ -70,7 +72,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn list_resolver(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::ListResolverParams,
         mut results: proc_control::ListResolverResults,
     ) -> capnp::Result<()> {
@@ -83,7 +85,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn list_auditor(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::ListAuditorParams,
         mut results: proc_control::ListAuditorResults,
     ) -> capnp::Result<()> {
@@ -96,7 +98,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn list_escaper(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::ListEscaperParams,
         mut results: proc_control::ListEscaperResults,
     ) -> capnp::Result<()> {
@@ -109,7 +111,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn list_server(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::ListServerParams,
         mut results: proc_control::ListServerResults,
     ) -> capnp::Result<()> {
@@ -122,7 +124,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn reload_user_group(
-        &self,
+        self: Rc<Self>,
         params: proc_control::ReloadUserGroupParams,
         mut results: proc_control::ReloadUserGroupResults,
     ) -> capnp::Result<()> {
@@ -133,7 +135,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn reload_resolver(
-        &self,
+        self: Rc<Self>,
         params: proc_control::ReloadResolverParams,
         mut results: proc_control::ReloadResolverResults,
     ) -> capnp::Result<()> {
@@ -144,7 +146,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn reload_auditor(
-        &self,
+        self: Rc<Self>,
         params: proc_control::ReloadAuditorParams,
         mut results: proc_control::ReloadAuditorResults,
     ) -> capnp::Result<()> {
@@ -155,7 +157,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn reload_escaper(
-        &self,
+        self: Rc<Self>,
         params: proc_control::ReloadEscaperParams,
         mut results: proc_control::ReloadEscaperResults,
     ) -> capnp::Result<()> {
@@ -166,7 +168,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn reload_server(
-        &self,
+        self: Rc<Self>,
         params: proc_control::ReloadServerParams,
         mut results: proc_control::ReloadServerResults,
     ) -> capnp::Result<()> {
@@ -177,7 +179,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn get_user_group(
-        &self,
+        self: Rc<Self>,
         params: proc_control::GetUserGroupParams,
         mut results: proc_control::GetUserGroupResults,
     ) -> capnp::Result<()> {
@@ -187,7 +189,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn get_resolver(
-        &self,
+        self: Rc<Self>,
         params: proc_control::GetResolverParams,
         mut results: proc_control::GetResolverResults,
     ) -> capnp::Result<()> {
@@ -199,7 +201,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn get_escaper(
-        &self,
+        self: Rc<Self>,
         params: proc_control::GetEscaperParams,
         mut results: proc_control::GetEscaperResults,
     ) -> capnp::Result<()> {
@@ -211,7 +213,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn get_server(
-        &self,
+        self: Rc<Self>,
         params: proc_control::GetServerParams,
         mut results: proc_control::GetServerResults,
     ) -> capnp::Result<()> {
@@ -223,7 +225,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn force_quit_offline_servers(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::ForceQuitOfflineServersParams,
         mut results: proc_control::ForceQuitOfflineServersResults,
     ) -> capnp::Result<()> {
@@ -233,7 +235,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn force_quit_offline_server(
-        &self,
+        self: Rc<Self>,
         params: proc_control::ForceQuitOfflineServerParams,
         mut results: proc_control::ForceQuitOfflineServerResults,
     ) -> capnp::Result<()> {

@@ -3,6 +3,8 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::rc::Rc;
+
 use g3_types::metrics::NodeName;
 
 use g3tiles_proto::server_capnp::server_control;
@@ -23,7 +25,7 @@ impl ServerControlImpl {
 
 impl server_control::Server for ServerControlImpl {
     async fn status(
-        &self,
+        self: Rc<Self>,
         _params: server_control::StatusParams,
         mut results: server_control::StatusResults,
     ) -> capnp::Result<()> {

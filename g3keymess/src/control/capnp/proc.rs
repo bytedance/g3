@@ -3,6 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::rc::Rc;
 use std::str::FromStr;
 
 use anyhow::anyhow;
@@ -19,7 +20,7 @@ pub(super) struct ProcControlImpl;
 
 impl proc_control::Server for ProcControlImpl {
     async fn version(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::VersionParams,
         mut results: proc_control::VersionResults,
     ) -> capnp::Result<()> {
@@ -28,7 +29,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn offline(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::OfflineParams,
         mut results: proc_control::OfflineResults,
     ) -> capnp::Result<()> {
@@ -38,7 +39,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn cancel_shutdown(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::CancelShutdownParams,
         mut results: proc_control::CancelShutdownResults,
     ) -> capnp::Result<()> {
@@ -48,7 +49,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn release_controller(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::ReleaseControllerParams,
         mut results: proc_control::ReleaseControllerResults,
     ) -> capnp::Result<()> {
@@ -58,7 +59,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn list_server(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::ListServerParams,
         mut results: proc_control::ListServerResults,
     ) -> capnp::Result<()> {
@@ -71,7 +72,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn get_server(
-        &self,
+        self: Rc<Self>,
         params: proc_control::GetServerParams,
         mut results: proc_control::GetServerResults,
     ) -> capnp::Result<()> {
@@ -83,7 +84,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn publish_key(
-        &self,
+        self: Rc<Self>,
         params: proc_control::PublishKeyParams,
         mut results: proc_control::PublishKeyResults,
     ) -> capnp::Result<()> {
@@ -94,7 +95,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn list_keys(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::ListKeysParams,
         mut results: proc_control::ListKeysResults,
     ) -> capnp::Result<()> {
@@ -109,7 +110,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn check_key(
-        &self,
+        self: Rc<Self>,
         params: proc_control::CheckKeyParams,
         mut results: proc_control::CheckKeyResults,
     ) -> capnp::Result<()> {
@@ -120,7 +121,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn add_metrics_tag(
-        &self,
+        self: Rc<Self>,
         params: proc_control::AddMetricsTagParams,
         mut results: proc_control::AddMetricsTagResults,
     ) -> capnp::Result<()> {

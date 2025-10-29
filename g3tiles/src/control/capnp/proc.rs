@@ -3,6 +3,8 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::rc::Rc;
+
 use g3_types::metrics::NodeName;
 
 use g3tiles_proto::backend_capnp::backend_control;
@@ -16,7 +18,7 @@ pub(super) struct ProcControlImpl;
 
 impl proc_control::Server for ProcControlImpl {
     async fn version(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::VersionParams,
         mut results: proc_control::VersionResults,
     ) -> capnp::Result<()> {
@@ -25,7 +27,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn offline(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::OfflineParams,
         mut results: proc_control::OfflineResults,
     ) -> capnp::Result<()> {
@@ -35,7 +37,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn cancel_shutdown(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::CancelShutdownParams,
         mut results: proc_control::CancelShutdownResults,
     ) -> capnp::Result<()> {
@@ -45,7 +47,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn release_controller(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::ReleaseControllerParams,
         mut results: proc_control::ReleaseControllerResults,
     ) -> capnp::Result<()> {
@@ -55,7 +57,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn list_server(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::ListServerParams,
         mut results: proc_control::ListServerResults,
     ) -> capnp::Result<()> {
@@ -68,7 +70,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn reload_server(
-        &self,
+        self: Rc<Self>,
         params: proc_control::ReloadServerParams,
         mut results: proc_control::ReloadServerResults,
     ) -> capnp::Result<()> {
@@ -79,7 +81,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn get_server(
-        &self,
+        self: Rc<Self>,
         params: proc_control::GetServerParams,
         mut results: proc_control::GetServerResults,
     ) -> capnp::Result<()> {
@@ -91,7 +93,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn force_quit_offline_servers(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::ForceQuitOfflineServersParams,
         mut results: proc_control::ForceQuitOfflineServersResults,
     ) -> capnp::Result<()> {
@@ -101,7 +103,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn force_quit_offline_server(
-        &self,
+        self: Rc<Self>,
         params: proc_control::ForceQuitOfflineServerParams,
         mut results: proc_control::ForceQuitOfflineServerResults,
     ) -> capnp::Result<()> {
@@ -113,7 +115,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn reload_discover(
-        &self,
+        self: Rc<Self>,
         params: proc_control::ReloadDiscoverParams,
         mut results: proc_control::ReloadDiscoverResults,
     ) -> capnp::Result<()> {
@@ -124,7 +126,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn list_discover(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::ListDiscoverParams,
         mut results: proc_control::ListDiscoverResults,
     ) -> capnp::Result<()> {
@@ -137,7 +139,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn reload_backend(
-        &self,
+        self: Rc<Self>,
         params: proc_control::ReloadBackendParams,
         mut results: proc_control::ReloadBackendResults,
     ) -> capnp::Result<()> {
@@ -148,7 +150,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn list_backend(
-        &self,
+        self: Rc<Self>,
         _params: proc_control::ListBackendParams,
         mut results: proc_control::ListBackendResults,
     ) -> capnp::Result<()> {
@@ -161,7 +163,7 @@ impl proc_control::Server for ProcControlImpl {
     }
 
     async fn get_backend(
-        &self,
+        self: Rc<Self>,
         params: proc_control::GetBackendParams,
         mut results: proc_control::GetBackendResults,
     ) -> capnp::Result<()> {

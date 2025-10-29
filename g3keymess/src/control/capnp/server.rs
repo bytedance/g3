@@ -3,6 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::rc::Rc;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -38,7 +39,7 @@ impl ServerControlImpl {
 
 impl server_control::Server for ServerControlImpl {
     async fn status(
-        &self,
+        self: Rc<Self>,
         _params: server_control::StatusParams,
         mut results: server_control::StatusResults,
     ) -> capnp::Result<()> {
@@ -51,7 +52,7 @@ impl server_control::Server for ServerControlImpl {
     }
 
     async fn add_metrics_tag(
-        &self,
+        self: Rc<Self>,
         params: server_control::AddMetricsTagParams,
         mut results: server_control::AddMetricsTagResults,
     ) -> capnp::Result<()> {
@@ -64,7 +65,7 @@ impl server_control::Server for ServerControlImpl {
     }
 
     async fn get_listen_addr(
-        &self,
+        self: Rc<Self>,
         _params: server_control::GetListenAddrParams,
         mut results: server_control::GetListenAddrResults,
     ) -> capnp::Result<()> {

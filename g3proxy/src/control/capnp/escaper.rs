@@ -3,6 +3,8 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use std::rc::Rc;
+
 use g3_types::metrics::NodeName;
 
 use g3proxy_proto::escaper_capnp::escaper_control;
@@ -24,7 +26,7 @@ impl EscaperControlImpl {
 
 impl escaper_control::Server for EscaperControlImpl {
     async fn publish(
-        &self,
+        self: Rc<Self>,
         params: escaper_control::PublishParams,
         mut results: escaper_control::PublishResults,
     ) -> capnp::Result<()> {
