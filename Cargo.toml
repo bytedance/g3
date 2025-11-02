@@ -129,7 +129,7 @@ lru = { version = "0.16", default-features = false }
 #
 blake3 = { version = "1.5", default-features = false }
 hex = "0.4.2"
-hex-literal = "1.0"
+hex-literal = "1.1"
 #
 idna = "1.0"
 url = "2.1"
