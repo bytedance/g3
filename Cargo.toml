@@ -119,7 +119,7 @@ foldhash = "0.2"
 ahash = "0.8"
 rustc-hash = "2.1"
 fnv = "1"
-indexmap = "2.9"
+indexmap = "2.12"
 ip_network = "0.4"
 ip_network_table = "0.2"
 radix_trie = "0.3"
@@ -144,8 +144,8 @@ log = "0.4"
 slog = { version = "2.8", features = ["dynamic-keys"] }
 hdrhistogram = { version = "7.5", default-features = false }
 #
-clap = "4.5.51"
-clap_complete = "4.5.60"
+clap = "4.5.53"
+clap_complete = "4.5.61"
 #
 tokio = "1.45.1"
 tokio-util = "0.7"
