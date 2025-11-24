@@ -46,7 +46,7 @@ jobs:
           # - vendored-aws-lc-fips
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: true
       - name: Install stable toolchain
@@ -69,7 +69,7 @@ jobs:
       - name: Install lib dependencies (vcpkg)
         run: vcpkg install --triplet=x64-windows-static openssl c-ares
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: true
       - name: Install rust toolchain
@@ -95,7 +95,7 @@ jobs:
         if: contains(matrix.feature, 'vendored-boringssl')
         run: choco install nasm ninja
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: true
       - name: Install rust toolchain
