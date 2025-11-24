@@ -93,7 +93,7 @@ jobs:
           apt-get -y update
           apt-get -y install git curl gcc make pkgconf cmake
       - name: Checkout sources
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: true
       - name: Install stable toolchain
