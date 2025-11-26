@@ -1,11 +1,11 @@
 freebsd_task:
   compute_engine_instance:
     image_project: freebsd-org-cloud-dev
-    image: family/freebsd-14-2
+    image: family/freebsd-14-3
     platform: freebsd
     disk: 100 # Gb
   #freebsd_instance:
-  #  image_family: freebsd-14-2
+  #  image_family: freebsd-14-3
   switch_to_latest_pkg_script:
     - mkdir -p /usr/local/etc/pkg/repos/
     - "echo 'FreeBSD: {url: \"pkg+http://pkg.FreeBSD.org/${ABI}/latest\"}' > /usr/local/etc/pkg/repos/FreeBSD.conf"
