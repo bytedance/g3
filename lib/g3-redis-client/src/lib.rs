@@ -97,16 +97,20 @@ impl RedisClientConfigBuilder {
     }
 
     pub fn build(&self) -> anyhow::Result<RedisClientConfig> {
+        let mut connection_info = RedisConnectionInfo::default()
+            .set_db(self.db)
+            .set_protocol(ProtocolVersion::RESP3);
+        if let Some(name) = &self.username {
+            connection_info = connection_info.set_username(name);
+        }
+        if let Some(password) = &self.password {
+            connection_info = connection_info.set_password(password);
+        }
         let mut client = RedisClientConfig {
             server: self.addr.clone(),
             tls_client: None,
             tls_name: None,
-            db_info: RedisConnectionInfo {
-                db: self.db,
-                username: self.username.clone(),
-                password: self.password.clone(),
-                protocol: ProtocolVersion::RESP3,
-            },
+            db_info: connection_info,
             connect_timeout: self.connect_timeout,
             response_timeout: self.response_timeout,
         };
@@ -179,7 +183,8 @@ impl RedisClientConfig {
     where
         S: AsyncRead + AsyncWrite + Send + Unpin + 'static,
     {
-        let async_config = AsyncConnectionConfig::new().set_response_timeout(self.response_timeout);
+        let async_config =
+            AsyncConnectionConfig::new().set_response_timeout(Some(self.response_timeout));
 
         let (conn, background) =
             MultiplexedConnection::new_with_config(&self.db_info, stream, async_config)
