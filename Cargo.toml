@@ -189,7 +189,7 @@ rmp-serde = "1"
 rmp = "0.8"
 rmpv = "1.0"
 #
-redis = { version = "0.32", default-features = false }
+redis = { version = "1.0", default-features = false }
 #
 mlua = "0.11"
 pyo3 = { version = "0.27", default-features = false, features = ["auto-initialize"] }
