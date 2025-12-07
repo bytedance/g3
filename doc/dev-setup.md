@@ -178,12 +178,17 @@ brew install python
 # install rust toolchain
 winget install Rustlang.Rust.MSVC
 # install tools
-winget install Kitware.CMake
 winget install capnproto.capnproto
-winget install NASM.NASM Ninja-build.Ninja
-# install libraries
-vcpkg install openssl c-ares
-# build, lua and python feature need to be disabled
+# option 1: vendored build
+#  install tools for vendored build
+winget install Kitware.CMake NASM.NASM Ninja-build.Ninja
+# option 2: vcpkg
+#  install static libraries via vcpkg
+#  check [Triplets](https://learn.microsoft.com/en-us/vcpkg/users/platforms/windows) to select the correct *-static-md tripet
+vcpkg install --triplet=x64-windows-static-md openssl c-ares
+#  export the VCPKG_ROOT environment variable
+$Env:VCPKG_ROOT = "some path to vcpkg"
+#  build, lua and python feature need to be disabled
 cargo build --no-default-features --features rustls-ring,quic,c-ares
 ```
 
