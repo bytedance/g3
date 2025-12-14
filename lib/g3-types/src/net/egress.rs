@@ -6,11 +6,12 @@
 use std::fmt;
 use std::net::IpAddr;
 use std::str::FromStr;
-use std::sync::Arc;
+
+use arcstr::ArcStr;
 
 #[derive(Clone, Debug)]
 pub struct EgressArea {
-    inner: Vec<Arc<str>>,
+    inner: Vec<ArcStr>,
 }
 
 impl fmt::Display for EgressArea {
@@ -29,7 +30,7 @@ impl FromStr for EgressArea {
             if s.is_empty() {
                 continue;
             }
-            inner.push(Arc::from(s));
+            inner.push(ArcStr::from(s));
         }
         if inner.is_empty() {
             return Err(());
@@ -41,7 +42,7 @@ impl FromStr for EgressArea {
 #[derive(Clone, Debug, Default)]
 pub struct EgressInfo {
     ip: Option<IpAddr>,
-    isp: Option<Arc<str>>,
+    isp: Option<ArcStr>,
     area: Option<EgressArea>,
 }
 
@@ -67,7 +68,7 @@ impl EgressInfo {
     }
 
     pub fn set_isp(&mut self, isp: String) {
-        self.isp = Some(Arc::from(isp));
+        self.isp = Some(isp.into());
     }
 
     #[inline]

@@ -7,6 +7,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use arcstr::ArcStr;
 use async_trait::async_trait;
 use slog::Logger;
 use tokio::io::{AsyncWrite, AsyncWriteExt};
@@ -162,7 +163,7 @@ impl DirectFixedEscaper {
 
     fn resolve_happy(
         &self,
-        domain: Arc<str>,
+        domain: ArcStr,
         strategy: ResolveStrategy,
         task_notes: &ServerTaskNotes,
     ) -> Result<HappyEyeballsResolveJob, ResolveError> {
@@ -184,7 +185,7 @@ impl DirectFixedEscaper {
 
     async fn resolve_best(
         &self,
-        domain: Arc<str>,
+        domain: ArcStr,
         strategy: ResolveStrategy,
     ) -> Result<IpAddr, ResolveError> {
         let mut resolver_job =

@@ -10,6 +10,7 @@ use std::time::Duration;
 
 use anyhow::Context;
 use arc_swap::ArcSwapOption;
+use arcstr::ArcStr;
 use chrono::{DateTime, Utc};
 use foldhash::HashMap;
 use tokio::time::Instant;
@@ -350,7 +351,7 @@ impl User {
             self.is_expired.swap(true, Ordering::Relaxed);
             true
         } else {
-            // it's not possible for expired users to be valid with out new config reload
+            // it's not possible for expired users to be valid without new config reload
             false
         }
     }
@@ -670,7 +671,7 @@ impl User {
 
 #[derive(Clone)]
 pub(crate) struct UserContext {
-    raw_user_name: Option<Arc<str>>,
+    raw_user_name: Option<ArcStr>,
     user: Arc<User>,
     user_type: UserType,
     user_site: Option<Arc<UserSite>>,
@@ -684,7 +685,7 @@ pub(crate) struct UserContext {
 
 impl UserContext {
     pub(crate) fn new(
-        raw_user_name: Option<Arc<str>>,
+        raw_user_name: Option<ArcStr>,
         user: Arc<User>,
         user_type: UserType,
         server: &NodeName,
@@ -742,12 +743,12 @@ impl UserContext {
     }
 
     #[inline]
-    pub(crate) fn raw_user_name(&self) -> Option<&Arc<str>> {
+    pub(crate) fn raw_user_name(&self) -> Option<&ArcStr> {
         self.raw_user_name.as_ref()
     }
 
     #[inline]
-    pub(crate) fn user_name(&self) -> &Arc<str> {
+    pub(crate) fn user_name(&self) -> &ArcStr {
         self.user.config.name()
     }
 

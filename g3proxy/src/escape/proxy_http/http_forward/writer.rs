@@ -8,6 +8,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
+use arcstr::ArcStr;
 use async_trait::async_trait;
 use pin_project_lite::pin_project;
 use tokio::io::AsyncWrite;
@@ -32,7 +33,7 @@ pin_project! {
         inner: W,
         escaper_stats: Option<Arc<ProxyHttpEscaperStats>>,
         upstream: UpstreamAddr,
-        pass_userid: Option<Arc<str>>,
+        pass_userid: Option<ArcStr>,
     }
 }
 

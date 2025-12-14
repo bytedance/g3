@@ -9,6 +9,8 @@ use std::sync::Arc;
 use std::task::{Context, Poll, ready};
 use std::time::Duration;
 
+use arcstr::ArcStr;
+
 use g3_resolver::{ResolveError, ResolvedRecordSource};
 use g3_types::metrics::NodeName;
 use g3_types::resolve::{QueryStrategy, ResolveRedirectionValue, ResolveStrategy};
@@ -40,8 +42,8 @@ macro_rules! impl_logged_poll_query {
 pub(crate) trait IntegratedResolverHandle {
     fn name(&self) -> &NodeName;
     fn is_closed(&self) -> bool;
-    fn query_v4(&self, domain: Arc<str>) -> Result<BoxLoggedResolveJob, ResolveError>;
-    fn query_v6(&self, domain: Arc<str>) -> Result<BoxLoggedResolveJob, ResolveError>;
+    fn query_v4(&self, domain: ArcStr) -> Result<BoxLoggedResolveJob, ResolveError>;
+    fn query_v6(&self, domain: ArcStr) -> Result<BoxLoggedResolveJob, ResolveError>;
 
     fn clone_inner(&self) -> Option<g3_resolver::ResolverHandle>;
 }
@@ -142,7 +144,7 @@ impl HappyEyeballsResolveJob {
     pub(crate) fn new_dyn(
         s: ResolveStrategy,
         h: &ArcIntegratedResolverHandle,
-        domain: Arc<str>,
+        domain: ArcStr,
     ) -> Result<Self, ResolveError> {
         if domain.is_empty() {
             return Err(ResolveError::EmptyDomain);
@@ -350,7 +352,7 @@ enum ArriveFirstResolveJobInner {
 }
 
 pub(crate) struct ArriveFirstResolveJob {
-    pub(crate) domain: Arc<str>,
+    pub(crate) domain: ArcStr,
     strategy: ResolveStrategy,
     inner: Option<ArriveFirstResolveJobInner>,
 }
@@ -359,7 +361,7 @@ impl ArriveFirstResolveJob {
     pub(crate) fn new(
         handle: &ArcIntegratedResolverHandle,
         strategy: ResolveStrategy,
-        domain: Arc<str>,
+        domain: ArcStr,
     ) -> Result<Self, ResolveError> {
         if domain.is_empty() {
             return Err(ResolveError::EmptyDomain);

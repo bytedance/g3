@@ -3,9 +3,9 @@
  * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::Arc;
 use std::time::Duration;
 
+use arcstr::ArcStr;
 use tokio::sync::mpsc;
 use tokio::time::Instant;
 
@@ -25,7 +25,7 @@ pub struct HickoryResolver {
 impl ResolveDriver for HickoryResolver {
     fn query_v4(
         &self,
-        domain: Arc<str>,
+        domain: ArcStr,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     ) {
@@ -41,7 +41,7 @@ impl ResolveDriver for HickoryResolver {
 
     fn query_v6(
         &self,
-        domain: Arc<str>,
+        domain: ArcStr,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     ) {
@@ -59,7 +59,7 @@ impl ResolveDriver for HickoryResolver {
 async fn run_timed(
     job: HickoryResolver,
     timeout: Duration,
-    domain: Arc<str>,
+    domain: ArcStr,
     request: DnsRequest,
 ) -> ResolvedRecord {
     let error_ttl = job.negative_min_ttl;
@@ -90,7 +90,7 @@ impl HickoryResolver {
         self.clients.push(req_sender);
     }
 
-    async fn run(self, domain: Arc<str>, request: DnsRequest) -> ResolvedRecord {
+    async fn run(self, domain: ArcStr, request: DnsRequest) -> ResolvedRecord {
         let (rsp_sender, mut rsp_receiver) = mpsc::channel::<ResolvedRecord>(1);
 
         let mut wait_left = self.clients.len();

@@ -6,6 +6,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use arcstr::ArcStr;
 use openssl::x509::X509;
 
 use g3_io_ext::EffectiveCacheHandle;
@@ -33,7 +34,7 @@ impl CertAgentHandle {
         &self,
         service: TlsServiceType,
         usage: TlsCertUsage,
-        host: Arc<str>,
+        host: ArcStr,
     ) -> Option<FakeCertPair> {
         let query_key = CacheQueryKey::new(service, usage, host);
         self.inner
@@ -46,7 +47,7 @@ impl CertAgentHandle {
         &self,
         service: TlsServiceType,
         usage: TlsCertUsage,
-        host: Arc<str>,
+        host: ArcStr,
         mimic_cert: X509,
     ) -> Option<FakeCertPair> {
         let mut query_key = CacheQueryKey::new(service, usage, host);

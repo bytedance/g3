@@ -3,9 +3,8 @@
  * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::Arc;
-
 use anyhow::{Context, anyhow};
+use arcstr::ArcStr;
 use openssl::x509::X509;
 use rmpv::ValueRef;
 
@@ -14,7 +13,7 @@ use g3_types::net::{TlsCertUsage, TlsServiceType};
 use super::{request_key, request_key_id, response_key_id};
 
 pub struct Request {
-    pub(crate) host: Arc<str>,
+    pub(crate) host: ArcStr,
     service: TlsServiceType,
     usage: TlsCertUsage,
     pub(crate) cert: Option<X509>,
@@ -23,7 +22,7 @@ pub struct Request {
 impl Default for Request {
     fn default() -> Self {
         Request {
-            host: Arc::from(""),
+            host: ArcStr::default(),
             service: TlsServiceType::Http,
             usage: TlsCertUsage::TlsServer,
             cert: None,
@@ -33,7 +32,7 @@ impl Default for Request {
 
 impl Request {
     #[inline]
-    pub fn host(&self) -> Arc<str> {
+    pub fn host(&self) -> ArcStr {
         self.host.clone()
     }
 
@@ -120,7 +119,7 @@ impl Request {
 
     fn set_host_value(&mut self, v: ValueRef) -> anyhow::Result<()> {
         let host = g3_msgpack::value::as_string(&v)?;
-        self.host = Arc::from(host);
+        self.host = host.into();
         Ok(())
     }
 
@@ -147,7 +146,7 @@ impl Request {
         let map = vec![
             (
                 ValueRef::Integer(response_key_id::HOST.into()),
-                ValueRef::String(self.host.as_ref().into()),
+                ValueRef::String(self.host.as_str().into()),
             ),
             (
                 ValueRef::Integer(response_key_id::SERVICE.into()),

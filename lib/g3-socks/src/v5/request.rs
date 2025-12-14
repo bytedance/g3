@@ -69,7 +69,7 @@ impl Socks5Request {
         match self.upstream.host() {
             Host::Ip(ip) => Ok(Some(SocketAddr::new(*ip, self.upstream.port()))),
             Host::Domain(domain) => {
-                if domain.as_ref().eq("0") {
+                if domain.as_str().eq("0") {
                     // to be compatible with pysocks
                     Ok(None)
                 } else {

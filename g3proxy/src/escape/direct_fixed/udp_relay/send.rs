@@ -9,6 +9,7 @@ use std::num::NonZero;
 use std::sync::Arc;
 use std::task::{Context, Poll, ready};
 
+use arcstr::ArcStr;
 use lru::LruCache;
 
 #[cfg(any(
@@ -44,8 +45,8 @@ pub(crate) struct DirectUdpRelayRemoteSend<T> {
     resolver_handle: ArcIntegratedResolverHandle,
     resolve_strategy: ResolveStrategy,
     resolver_job: Option<ArriveFirstResolveJob>,
-    resolve_retry_domain: Option<Arc<str>>,
-    resolved_lru: LruCache<Arc<str>, IpAddr>,
+    resolve_retry_domain: Option<ArcStr>,
+    resolved_lru: LruCache<ArcStr, IpAddr>,
 }
 
 impl<T> DirectUdpRelayRemoteSend<T> {
@@ -279,7 +280,7 @@ where
     ))]
     fn poll_send_packets(
         inner: &mut T,
-        resolved_lru: &mut LruCache<Arc<str>, IpAddr>,
+        resolved_lru: &mut LruCache<ArcStr, IpAddr>,
         bind_addr: SocketAddr,
         cx: &mut Context<'_>,
         packets: &[UdpRelayPacket],

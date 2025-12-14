@@ -11,6 +11,7 @@ rust-version.workspace = true
 slog.workspace = true
 chrono = { workspace = true, features = ["clock"] }
 uuid.workspace = true
+arcstr = { workspace = true, optional = true }
 memchr = { workspace = true, optional = true }
 http = { workspace = true, optional = true }
 h2 = { workspace = true, optional = true }
@@ -20,6 +21,7 @@ g3-socket = { workspace = true, optional = true }
 
 [features]
 default = []
+auth = ["dep:arcstr"]
 socket = ["dep:g3-socket"]
 http = ["dep:memchr", "dep:http", "dep:h2"]
 openssl = ["dep:openssl"]

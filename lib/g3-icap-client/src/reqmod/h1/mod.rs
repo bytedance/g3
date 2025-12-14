@@ -8,6 +8,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use arcstr::ArcStr;
 use http::Method;
 use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Instant;
@@ -85,7 +86,7 @@ pub struct HttpRequestAdapter<I: IdleCheck> {
     http_req_add_no_via_header: bool,
     idle_checker: I,
     client_addr: Option<SocketAddr>,
-    client_username: Option<Arc<str>>,
+    client_username: Option<ArcStr>,
 }
 
 pub struct ReqmodAdaptationRunState {
@@ -133,7 +134,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         self.client_addr = Some(addr);
     }
 
-    pub fn set_client_username(&mut self, user: Arc<str>) {
+    pub fn set_client_username(&mut self, user: ArcStr) {
         self.client_username = Some(user);
     }
 

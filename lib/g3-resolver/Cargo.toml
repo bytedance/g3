@@ -15,6 +15,7 @@ tokio-util = { workspace = true, features = ["time"] }
 log.workspace = true
 indexmap.workspace = true
 ahash.workspace = true
+arcstr.workspace = true
 c-ares = { workspace = true, optional = true, features = ["build-cmake"] }
 c-ares-resolver = { workspace = true, optional = true }
 c-ares-sys = { workspace = true, optional = true } # for DEP_ version check

@@ -8,6 +8,7 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use arcstr::ArcStr;
 use tokio::time::Instant;
 
 use super::{ResolveError, ResolveServerError};
@@ -38,7 +39,7 @@ impl fmt::Display for ResolvedRecordSource {
 
 #[derive(Clone, Debug)]
 pub struct ResolvedRecord {
-    pub domain: Arc<str>,
+    pub domain: ArcStr,
     pub created: Instant,
     pub expire: Option<Instant>,
     pub vanish: Option<Instant>,
@@ -72,7 +73,7 @@ impl ResolvedRecord {
         matches!(e, ResolveError::FromServer(ResolveServerError::NotFound))
     }
 
-    pub fn timed_out(domain: Arc<str>, protective_cache_ttl: u32) -> Self {
+    pub fn timed_out(domain: ArcStr, protective_cache_ttl: u32) -> Self {
         ResolvedRecord::failed(
             domain,
             protective_cache_ttl,
@@ -81,7 +82,7 @@ impl ResolvedRecord {
     }
 
     pub fn resolved(
-        domain: Arc<str>,
+        domain: ArcStr,
         ttl: u32,
         min_ttl: u32,
         max_ttl: u32,
@@ -108,7 +109,7 @@ impl ResolvedRecord {
         }
     }
 
-    pub fn empty(domain: Arc<str>, expire_ttl: u32) -> Self {
+    pub fn empty(domain: ArcStr, expire_ttl: u32) -> Self {
         let created = Instant::now();
         let expire = created.checked_add(Duration::from_secs(expire_ttl as u64));
         ResolvedRecord {
@@ -120,7 +121,7 @@ impl ResolvedRecord {
         }
     }
 
-    pub fn failed(domain: Arc<str>, protective_cache_ttl: u32, err: ResolveError) -> Self {
+    pub fn failed(domain: ArcStr, protective_cache_ttl: u32, err: ResolveError) -> Self {
         let created = Instant::now();
         let expire = created.checked_add(Duration::from_secs(protective_cache_ttl as u64));
         ResolvedRecord {

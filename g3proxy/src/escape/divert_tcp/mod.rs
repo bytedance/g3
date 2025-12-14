@@ -6,6 +6,7 @@
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use arcstr::ArcStr;
 use async_trait::async_trait;
 use slog::Logger;
 use tokio::io::AsyncWrite;
@@ -125,7 +126,7 @@ impl DivertTcpEscaper {
         .inner()
     }
 
-    fn resolve_happy(&self, domain: Arc<str>) -> Result<HappyEyeballsResolveJob, ResolveError> {
+    fn resolve_happy(&self, domain: ArcStr) -> Result<HappyEyeballsResolveJob, ResolveError> {
         if let Some(resolver_handle) = &self.resolver_handle {
             HappyEyeballsResolveJob::new_dyn(self.config.resolve_strategy, resolver_handle, domain)
         } else {

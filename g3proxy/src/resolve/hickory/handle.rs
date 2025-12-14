@@ -7,6 +7,7 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use std::task::{Context, Poll, ready};
 
+use arcstr::ArcStr;
 use slog::Logger;
 use tokio::time::Instant;
 
@@ -47,7 +48,7 @@ impl IntegratedResolverHandle for HickoryResolverHandle {
         self.inner.is_closed()
     }
 
-    fn query_v4(&self, domain: Arc<str>) -> Result<BoxLoggedResolveJob, ResolveError> {
+    fn query_v4(&self, domain: ArcStr) -> Result<BoxLoggedResolveJob, ResolveError> {
         let job = self.inner.get_v4(domain.clone())?;
         Ok(Box::new(HickoryResolverJob {
             config: Arc::clone(&self.config),
@@ -59,7 +60,7 @@ impl IntegratedResolverHandle for HickoryResolverHandle {
         }))
     }
 
-    fn query_v6(&self, domain: Arc<str>) -> Result<BoxLoggedResolveJob, ResolveError> {
+    fn query_v6(&self, domain: ArcStr) -> Result<BoxLoggedResolveJob, ResolveError> {
         let job = self.inner.get_v6(domain.clone())?;
         Ok(Box::new(HickoryResolverJob {
             config: Arc::clone(&self.config),
@@ -78,7 +79,7 @@ impl IntegratedResolverHandle for HickoryResolverHandle {
 
 struct HickoryResolverJob {
     config: Arc<HickoryResolverConfig>,
-    domain: Arc<str>,
+    domain: ArcStr,
     query_type: ResolveQueryType,
     inner: g3_resolver::ResolveJob,
     logger: Option<Logger>,
@@ -108,7 +109,7 @@ impl LoggedResolveJob for HickoryResolverJob {
             "rr_source" => source.as_str(),
             "error_type" => e.get_type(),
             "error_subtype" => e.get_subtype(),
-            "domain" => &self.domain,
+            "domain" => self.domain.as_str(),
         );
     }
 

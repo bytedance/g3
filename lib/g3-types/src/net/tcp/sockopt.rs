@@ -9,7 +9,7 @@
     target_os = "solaris",
     target_os = "illumos"
 ))]
-use std::sync::Arc;
+use arcstr::ArcStr;
 
 use g3_std_ext::core::OptionExt;
 
@@ -28,7 +28,7 @@ pub struct TcpMiscSockOpts {
         target_os = "solaris",
         target_os = "illumos"
     ))]
-    congestion_control: Option<Arc<str>>,
+    congestion_control: Option<ArcStr>,
     #[cfg(target_os = "linux")]
     pub netfilter_mark: Option<u32>,
 }
@@ -41,7 +41,7 @@ impl TcpMiscSockOpts {
         target_os = "illumos"
     ))]
     pub fn set_congestion_control(&mut self, ca: String) {
-        self.congestion_control = Some(Arc::from(ca));
+        self.congestion_control = Some(ca.into());
     }
 
     #[cfg(any(
@@ -269,7 +269,7 @@ mod tests {
                 target_os = "solaris",
                 target_os = "illumos"
             ))]
-            congestion_control: Some(Arc::from("reno")),
+            congestion_control: Some(arcstr::literal!("reno")),
             #[cfg(target_os = "linux")]
             netfilter_mark: None,
         };
@@ -288,7 +288,7 @@ mod tests {
                 target_os = "solaris",
                 target_os = "illumos"
             ))]
-            congestion_control: Some(Arc::from("cubic")), // should win (other takes precedence)
+            congestion_control: Some(arcstr::literal!("cubic")), // should win (other takes precedence)
             #[cfg(target_os = "linux")]
             netfilter_mark: Some(0x5678), // should win (other takes precedence)
         };

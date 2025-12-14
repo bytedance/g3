@@ -155,7 +155,6 @@ mod tests {
     use serde_json::json;
     use std::net::IpAddr;
     use std::str::FromStr;
-    use std::sync::Arc;
 
     #[test]
     fn as_query_strategy_ok() {
@@ -296,7 +295,7 @@ mod tests {
 
         let value = redirection.query_value("alias.com").unwrap();
         if let ResolveRedirectionValue::Domain(alias) = value {
-            assert_eq!(alias.as_ref(), "another.com");
+            assert_eq!(alias.as_str(), "another.com");
         }
 
         // valid array
@@ -341,13 +340,13 @@ mod tests {
 
         let value = redirection.query_value("exact3.example.com").unwrap();
         if let ResolveRedirectionValue::Domain(alias) = value {
-            assert_eq!(alias.as_ref(), "alias.domain.com");
+            assert_eq!(alias.as_str(), "alias.domain.com");
         }
 
         let ret = redirection
             .query_first("sub.example.com", QueryStrategy::Ipv4First)
             .unwrap();
-        assert_eq!(ret, Host::Domain(Arc::from("sub.redirected.com")));
+        assert_eq!(ret, Host::Domain("sub.redirected.com".into()));
     }
 
     #[test]

@@ -4,9 +4,9 @@
  */
 
 use std::net::IpAddr;
-use std::sync::Arc;
 
 use ahash::AHashMap;
+use arcstr::ArcStr;
 use radix_trie::Trie;
 
 use super::{QueryStrategy, reverse_idna_domain, reverse_to_idna_domain};
@@ -14,7 +14,7 @@ use crate::net::Host;
 
 #[derive(Clone, Eq, PartialEq)]
 pub enum ResolveRedirectionValue {
-    Domain(Arc<str>),
+    Domain(ArcStr),
     Ip((Vec<IpAddr>, Vec<IpAddr>)),
 }
 
@@ -45,7 +45,7 @@ impl ResolveRedirectionBuilder {
             .insert(domain, ResolveRedirectionValue::Ip((ipv4, ipv6)));
     }
 
-    pub fn insert_exact_alias(&mut self, domain: String, alias: Arc<str>) {
+    pub fn insert_exact_alias(&mut self, domain: String, alias: ArcStr) {
         self.ht
             .insert(domain, ResolveRedirectionValue::Domain(alias));
     }
@@ -98,9 +98,9 @@ impl ResolveRedirection {
             let reversed_domain = reverse_idna_domain(domain);
             if let Some(node) = self.trie.get_ancestor_value(&reversed_domain) {
                 let replaced = reversed_domain.replacen(&node.from, &node.to, 1);
-                return Some(ResolveRedirectionValue::Domain(Arc::from(
-                    reverse_to_idna_domain(&replaced),
-                )));
+                return Some(ResolveRedirectionValue::Domain(
+                    reverse_to_idna_domain(&replaced).into(),
+                ));
             }
         }
 
@@ -150,7 +150,7 @@ impl ResolveRedirection {
             let reversed_domain = reverse_idna_domain(domain);
             if let Some(node) = self.trie.get_ancestor_value(&reversed_domain) {
                 let replaced = reversed_domain.replacen(&node.from, &node.to, 1);
-                return Some(Host::Domain(Arc::from(reverse_to_idna_domain(&replaced))));
+                return Some(Host::Domain(reverse_to_idna_domain(&replaced).into()));
             }
         }
 
@@ -215,12 +215,12 @@ mod tests {
     #[test]
     fn exact_replace_alias() {
         let mut builder = ResolveRedirectionBuilder::default();
-        let to_domain = "www.1-example.com";
-        builder.insert_exact_alias(DOMAIN1.to_string(), Arc::from(to_domain));
+        let to_domain = arcstr::literal!("www.1-example.com");
+        builder.insert_exact_alias(DOMAIN1.to_string(), to_domain.clone());
         let r = builder.build();
 
         let ret = r.query_first(DOMAIN1, QueryStrategy::Ipv4First).unwrap();
-        assert_eq!(ret, Host::Domain(Arc::from(to_domain)));
+        assert_eq!(ret, Host::Domain(to_domain));
 
         assert!(r.query_first(DOMAIN4, QueryStrategy::Ipv4First).is_none());
     }
@@ -232,11 +232,11 @@ mod tests {
         let r = builder.build();
 
         let ret = r.query_first("foo.com", QueryStrategy::Ipv4First).unwrap();
-        assert_eq!(ret, Host::Domain(Arc::from("bar.com")));
+        assert_eq!(ret, Host::Domain(arcstr::literal!("bar.com")));
         let ret = r
             .query_first("a.foo.com", QueryStrategy::Ipv4First)
             .unwrap();
-        assert_eq!(ret, Host::Domain(Arc::from("a.bar.com")));
+        assert_eq!(ret, Host::Domain(arcstr::literal!("a.bar.com")));
 
         assert!(
             r.query_first("a.zfoo.com", QueryStrategy::Ipv4First)

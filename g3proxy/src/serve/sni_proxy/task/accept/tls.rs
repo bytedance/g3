@@ -94,7 +94,6 @@ fn parse_sni(ch: ClientHello, port: u16) -> ServerTaskResult<UpstreamAddr> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
 
     #[tokio::test]
     async fn single_read() {
@@ -134,7 +133,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             upstream,
-            UpstreamAddr::new(Host::Domain(Arc::from("example.net")), 443)
+            UpstreamAddr::new(Host::Domain("example.net".into()), 443)
         );
     }
 
@@ -183,7 +182,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             upstream,
-            UpstreamAddr::new(Host::Domain(Arc::from("example.net")), 443)
+            UpstreamAddr::new(Host::Domain("example.net".into()), 443)
         );
     }
 
@@ -244,7 +243,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             upstream,
-            UpstreamAddr::new(Host::Domain(Arc::from("www.google.com")), 443)
+            UpstreamAddr::new(Host::Domain("www.google.com".into()), 443)
         );
     }
 }

@@ -8,6 +8,7 @@ rust-version.workspace = true
 [dependencies]
 anyhow.workspace = true
 log.workspace = true
+arcstr.workspace = true
 tokio = { workspace = true, features = ["net", "rt", "sync"] }
 openssl.workspace = true
 rmpv.workspace = true

@@ -6,6 +6,7 @@
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use arcstr::ArcStr;
 use bytes::BufMut;
 use tokio::io::{AsyncRead, AsyncWrite};
 
@@ -51,7 +52,7 @@ pub struct ImapMessageAdapter<I: IdleCheck> {
     copy_config: StreamCopyConfig,
     idle_checker: I,
     client_addr: Option<SocketAddr>,
-    client_username: Option<Arc<str>>,
+    client_username: Option<ArcStr>,
     literal_size: u64,
 }
 
@@ -60,7 +61,7 @@ impl<I: IdleCheck> ImapMessageAdapter<I> {
         self.client_addr = Some(addr);
     }
 
-    pub fn set_client_username(&mut self, user: Arc<str>) {
+    pub fn set_client_username(&mut self, user: ArcStr) {
         self.client_username = Some(user);
     }
 

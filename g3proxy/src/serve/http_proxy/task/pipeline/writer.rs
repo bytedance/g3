@@ -8,6 +8,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ahash::AHashMap;
+use arcstr::ArcStr;
 use log::debug;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::sync::mpsc;
@@ -44,7 +45,7 @@ impl Drop for UserData {
 }
 
 struct RequestCount {
-    passed_users: AHashMap<Arc<str>, UserData>,
+    passed_users: AHashMap<ArcStr, UserData>,
     anonymous: usize,
     auth_failed: usize,
     invalid: usize,

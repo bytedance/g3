@@ -3,8 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::Arc;
-
+use arcstr::ArcStr;
 use tokio::sync::oneshot;
 
 use super::{ArcResolvedRecord, ResolvedRecord, ResolvedRecordSource, ResolverConfig};
@@ -17,11 +16,11 @@ pub(crate) enum ResolverCommand {
 
 pub(crate) enum ResolveDriverRequest {
     GetV4(
-        Arc<str>,
+        ArcStr,
         oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>,
     ),
     GetV6(
-        Arc<str>,
+        ArcStr,
         oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>,
     ),
 }

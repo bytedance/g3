@@ -10,6 +10,7 @@ use std::time::Duration;
 use ahash::AHashMap;
 use anyhow::Context;
 use arc_swap::ArcSwapOption;
+use arcstr::ArcStr;
 use foldhash::HashMap;
 use ip_network_table::IpNetworkTable;
 use radix_trie::Trie;
@@ -39,7 +40,7 @@ pub(crate) struct UserSite {
 impl UserSite {
     fn new(
         config: &Arc<UserSiteConfig>,
-        user: Arc<str>,
+        user: ArcStr,
         user_group: &NodeName,
     ) -> anyhow::Result<Self> {
         let tls_client = match &config.tls_client {
@@ -154,7 +155,7 @@ impl UserSite {
 pub(super) struct UserSites {
     all_sites: HashMap<NodeName, Arc<UserSite>>,
     exact_match_ipaddr: Option<FxHashMap<IpAddr, Arc<UserSite>>>,
-    exact_match_domain: Option<AHashMap<Arc<str>, Arc<UserSite>>>,
+    exact_match_domain: Option<AHashMap<ArcStr, Arc<UserSite>>>,
     child_match_domain: Option<Trie<String, Arc<UserSite>>>,
     subnet_match_ipaddr: Option<IpNetworkTable<Arc<UserSite>>>,
 }
@@ -229,7 +230,7 @@ impl UserSites {
 
     pub(super) fn new<'a, T: Iterator<Item = &'a Arc<UserSiteConfig>>>(
         sites: T,
-        user: &Arc<str>,
+        user: &ArcStr,
         user_group: &NodeName,
     ) -> anyhow::Result<Self> {
         Self::build(sites, |site_config| {
@@ -240,7 +241,7 @@ impl UserSites {
     pub(super) fn new_for_reload<'a, T: Iterator<Item = &'a Arc<UserSiteConfig>>>(
         &self,
         sites: T,
-        user: &Arc<str>,
+        user: &ArcStr,
         user_group: &NodeName,
     ) -> anyhow::Result<Self> {
         Self::build(sites, |site_config| {

@@ -5,7 +5,7 @@
 
 use slog::Logger;
 
-use g3_slog_types::{LtDateTime, LtDuration, LtIpAddr, LtUpstreamAddr, LtUuid};
+use g3_slog_types::{LtDateTime, LtDuration, LtIpAddr, LtUpstreamAddr, LtUserName, LtUuid};
 use g3_types::net::UpstreamAddr;
 
 use super::TaskEvent;
@@ -37,7 +37,7 @@ impl TaskLogForTcpConnect<'_> {
             "task_event" => TaskEvent::Created.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
-            "user" => self.task_notes.raw_user_name(),
+            "user" => self.task_notes.raw_user_name().map(LtUserName),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
             "upstream" => LtUpstreamAddr(self.upstream),
@@ -58,7 +58,7 @@ impl TaskLogForTcpConnect<'_> {
             "task_event" => TaskEvent::Connected.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
-            "user" => self.task_notes.raw_user_name(),
+            "user" => self.task_notes.raw_user_name().map(LtUserName),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
             "upstream" => LtUpstreamAddr(self.upstream),
@@ -87,7 +87,7 @@ impl TaskLogForTcpConnect<'_> {
             "task_event" => TaskEvent::Periodic.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
-            "user" => self.task_notes.raw_user_name(),
+            "user" => self.task_notes.raw_user_name().map(LtUserName),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
             "upstream" => LtUpstreamAddr(self.upstream),
@@ -115,7 +115,7 @@ impl TaskLogForTcpConnect<'_> {
             "task_event" => task_event.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
-            "user" => self.task_notes.raw_user_name(),
+            "user" => self.task_notes.raw_user_name().map(LtUserName),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
             "upstream" => LtUpstreamAddr(self.upstream),
@@ -154,7 +154,7 @@ impl TaskLogForTcpConnect<'_> {
             "task_event" => TaskEvent::Finished.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
-            "user" => self.task_notes.raw_user_name(),
+            "user" => self.task_notes.raw_user_name().map(LtUserName),
             "server_addr" => self.task_notes.server_addr(),
             "client_addr" => self.task_notes.client_addr(),
             "upstream" => LtUpstreamAddr(self.upstream),

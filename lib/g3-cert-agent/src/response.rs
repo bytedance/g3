@@ -3,8 +3,6 @@
  * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::Arc;
-
 use anyhow::{Context, anyhow};
 use openssl::pkey::{PKey, Private};
 use openssl::x509::X509;
@@ -127,7 +125,7 @@ impl Response {
         }
         let key = self.key.ok_or_else(|| anyhow!("no private key set"))?;
         Ok((
-            CacheQueryKey::new(self.service, self.usage, Arc::from(self.host)),
+            CacheQueryKey::new(self.service, self.usage, self.host.into()),
             FakeCertPair {
                 certs: self.certs,
                 key,

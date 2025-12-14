@@ -115,6 +115,7 @@ once_cell = "1.21"
 bytes = "1.11"
 smallvec = "1.15"
 smol_str = { version = "0.3", default-features = false }
+arcstr = { version = "1.2", features = ["std"] }
 foldhash = "0.2"
 ahash = "0.8"
 rustc-hash = "2.1"
