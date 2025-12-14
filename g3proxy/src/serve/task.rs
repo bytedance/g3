@@ -4,9 +4,9 @@
  */
 
 use std::net::{IpAddr, SocketAddr};
-use std::sync::Arc;
 use std::time::Duration;
 
+use arcstr::ArcStr;
 use chrono::{DateTime, Utc};
 use tokio::time::Instant;
 use uuid::Uuid;
@@ -123,7 +123,7 @@ impl ServerTaskNotes {
         self.user_ctx.as_mut()
     }
 
-    pub(crate) fn raw_user_name(&self) -> Option<&Arc<str>> {
+    pub(crate) fn raw_user_name(&self) -> Option<&ArcStr> {
         self.user_ctx.as_ref().and_then(|c| c.raw_user_name())
     }
 

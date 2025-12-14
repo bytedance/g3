@@ -7,6 +7,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use arcstr::ArcStr;
 use async_trait::async_trait;
 
 use g3_resolver::{ResolveError, ResolveLocalError};
@@ -103,13 +104,13 @@ impl IntegratedResolverHandle for DenyAllResolverHandle {
         false
     }
 
-    fn query_v4(&self, _domain: Arc<str>) -> Result<BoxLoggedResolveJob, ResolveError> {
+    fn query_v4(&self, _domain: ArcStr) -> Result<BoxLoggedResolveJob, ResolveError> {
         Ok(Box::new(ErrorResolveJob::with_error(
             ResolveLocalError::NoResolverRunning.into(),
         )))
     }
 
-    fn query_v6(&self, _domain: Arc<str>) -> Result<BoxLoggedResolveJob, ResolveError> {
+    fn query_v6(&self, _domain: ArcStr) -> Result<BoxLoggedResolveJob, ResolveError> {
         Ok(Box::new(ErrorResolveJob::with_error(
             ResolveLocalError::NoResolverRunning.into(),
         )))

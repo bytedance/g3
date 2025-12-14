@@ -7,6 +7,7 @@ use std::io::Write;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
+use arcstr::ArcStr;
 use bytes::BufMut;
 use tokio::io::{AsyncRead, AsyncWrite};
 
@@ -50,7 +51,7 @@ pub struct SmtpMessageAdapter<I: IdleCheck> {
     // TODO add SMTP config
     idle_checker: I,
     client_addr: Option<SocketAddr>,
-    client_username: Option<Arc<str>>,
+    client_username: Option<ArcStr>,
 }
 
 impl<I: IdleCheck> SmtpMessageAdapter<I> {
@@ -58,7 +59,7 @@ impl<I: IdleCheck> SmtpMessageAdapter<I> {
         self.client_addr = Some(addr);
     }
 
-    pub fn set_client_username(&mut self, user: Arc<str>) {
+    pub fn set_client_username(&mut self, user: ArcStr) {
         self.client_username = Some(user);
     }
 

@@ -10,6 +10,7 @@ use std::sync::Arc;
 use ahash::AHashMap;
 use anyhow::anyhow;
 use arc_swap::{ArcSwap, ArcSwapOption};
+use arcstr::ArcStr;
 use chrono::Utc;
 use log::{info, warn};
 use tokio::sync::{mpsc, oneshot};
@@ -65,8 +66,8 @@ impl UserType {
 
 pub(crate) struct UserGroup {
     config: Arc<UserGroupConfig>,
-    static_users: Arc<AHashMap<Arc<str>, Arc<User>>>,
-    dynamic_users: Arc<ArcSwap<AHashMap<Arc<str>, Arc<User>>>>,
+    static_users: Arc<AHashMap<ArcStr, Arc<User>>>,
+    dynamic_users: Arc<ArcSwap<AHashMap<ArcStr, Arc<User>>>>,
     /// the job for dynamic fetch
     fetch_quit_sender: Option<mpsc::Sender<()>>,
     // the job for user expire check
@@ -230,7 +231,7 @@ impl UserGroup {
             return Err(UserAuthError::NoSuchUser);
         };
         let user_ctx = UserContext::new(
-            Some(Arc::from(username)),
+            Some(username.into()),
             user,
             user_type,
             server_name,

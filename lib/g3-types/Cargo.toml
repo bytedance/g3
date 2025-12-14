@@ -21,6 +21,7 @@ foldhash.workspace = true
 crc32fast = "1.5"
 smallvec.workspace = true
 smol_str.workspace = true
+arcstr.workspace = true
 memchr.workspace = true
 constant_time_eq.workspace = true
 url.workspace = true

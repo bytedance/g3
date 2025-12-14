@@ -3,9 +3,8 @@
  * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::Arc;
-
 use anyhow::anyhow;
+use arcstr::ArcStr;
 use openssl::ssl::Ssl;
 
 use g3_dpi::{Protocol, ProtocolInspector};
@@ -78,9 +77,8 @@ where
 
         // fetch fake server cert early in the background
         let cert_domain = sni_hostname
-            .map(|v| v.to_string())
-            .unwrap_or_else(|| self.upstream.host().to_string());
-        let cert_domain: Arc<str> = Arc::from(cert_domain);
+            .map(ArcStr::from)
+            .unwrap_or_else(|| self.upstream.host().to_arc_str());
         let cert_domain2 = cert_domain.clone();
         let cert_agent = self.tls_interception.cert_agent.clone();
         let sign_pre_fetch_handle = tokio::spawn(async move {

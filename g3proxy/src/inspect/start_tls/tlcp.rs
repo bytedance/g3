@@ -3,9 +3,8 @@
  * Copyright 2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::Arc;
-
 use anyhow::anyhow;
+use arcstr::ArcStr;
 use bytes::BytesMut;
 use openssl::ssl::Ssl;
 
@@ -89,9 +88,8 @@ where
         })?;
         self.server_verify_result = Some(ups_tls_stream.ssl().verify_result());
         let cert_domain = sni_hostname
-            .map(|v| v.to_string())
-            .unwrap_or_else(|| self.upstream.host().to_string());
-        let cert_domain: Arc<str> = Arc::from(cert_domain);
+            .map(ArcStr::from)
+            .unwrap_or_else(|| self.upstream.host().to_arc_str());
 
         let tls_service_type = TlsServiceType::from(self.protocol);
         let sign_cert_pair = self

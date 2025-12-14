@@ -215,7 +215,7 @@ mod tests {
             "#
         );
         let host_match: HostMatch<Arc<TestCallback>> = as_host_matched_obj(&yaml, None).unwrap();
-        let domain = Host::Domain(Arc::from("example.com"));
+        let domain = Host::Domain("example.com".into());
         let value = host_match.get(&domain).unwrap();
         assert_eq!(value.name, "test2");
         assert_eq!(value.value, 200);
@@ -257,7 +257,7 @@ mod tests {
         let value = host_match.get(&Host::Ip(ip)).unwrap();
         assert_eq!(value.name, "test1");
         assert_eq!(value.value, 100);
-        let domain = Host::Domain(Arc::from("example.com"));
+        let domain = Host::Domain("example.com".into());
         let value = host_match.get(&domain).unwrap();
         assert_eq!(value.name, "test2");
         assert_eq!(value.value, 200);
@@ -302,11 +302,11 @@ mod tests {
         );
         let host_match: HostMatch<Arc<TestCallback>> =
             as_host_matched_obj::<TestCallback>(&yaml, None).unwrap();
-        let domain1 = Host::Domain(Arc::from("example.com"));
+        let domain1 = Host::Domain("example.com".into());
         let value1 = host_match.get(&domain1).unwrap();
         assert_eq!(value1.name, "test");
         assert_eq!(value1.value, 100);
-        let domain2 = Host::Domain(Arc::from("test.org"));
+        let domain2 = Host::Domain("test.org".into());
         let value2 = host_match.get(&domain2).unwrap();
         assert_eq!(value2.name, "test");
         assert_eq!(value2.value, 100);

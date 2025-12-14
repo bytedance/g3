@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
+use arcstr::ArcStr;
 use chrono::{DateTime, Utc};
 
 use g3_types::acl::{
@@ -44,7 +45,7 @@ mod yaml;
 
 #[derive(Clone)]
 pub(crate) struct UserConfig {
-    name: Arc<str>,
+    name: ArcStr,
     password_token: PasswordToken,
     expire_datetime: Option<DateTime<Utc>>,
     pub(crate) audit: UserAuditConfig,
@@ -124,7 +125,7 @@ impl Default for UserConfig {
 }
 
 impl UserConfig {
-    pub(crate) fn name(&self) -> &Arc<str> {
+    pub(crate) fn name(&self) -> &ArcStr {
         &self.name
     }
 

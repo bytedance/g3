@@ -4,9 +4,9 @@
  */
 
 use std::str::Utf8Error;
-use std::sync::Arc;
 use std::{fmt, str};
 
+use arcstr::ArcStr;
 use thiserror::Error;
 
 use crate::net::Host;
@@ -29,7 +29,7 @@ pub enum TlsServerNameError {
 
 #[derive(Clone)]
 pub struct TlsServerName {
-    host_name: Arc<str>,
+    host_name: ArcStr,
 }
 
 impl TlsServerName {
@@ -58,7 +58,7 @@ impl TlsServerName {
         let host_name = str::from_utf8(name).map_err(TlsServerNameError::InvalidHostName)?;
 
         Ok(TlsServerName {
-            host_name: Arc::from(host_name),
+            host_name: host_name.into(),
         })
     }
 }
@@ -72,6 +72,12 @@ impl AsRef<str> for TlsServerName {
 impl From<TlsServerName> for Host {
     fn from(value: TlsServerName) -> Self {
         Host::Domain(value.host_name)
+    }
+}
+
+impl From<&TlsServerName> for ArcStr {
+    fn from(value: &TlsServerName) -> Self {
+        value.host_name.clone()
     }
 }
 

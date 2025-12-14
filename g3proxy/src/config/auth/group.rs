@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
+use arcstr::ArcStr;
 use yaml_rust::{Yaml, yaml};
 
 use g3_types::metrics::NodeName;
@@ -22,7 +23,7 @@ const DEFAULT_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 pub(crate) struct UserGroupConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
-    pub(crate) static_users: HashMap<Arc<str>, Arc<UserConfig>>,
+    pub(crate) static_users: HashMap<ArcStr, Arc<UserConfig>>,
     pub(crate) dynamic_source: Option<UserDynamicSource>,
     pub(crate) dynamic_cache: PathBuf,
     pub(crate) refresh_interval: Duration,

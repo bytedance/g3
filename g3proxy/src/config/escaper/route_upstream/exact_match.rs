@@ -6,10 +6,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::net::IpAddr;
 use std::str::FromStr;
-use std::sync::Arc;
 
 use ahash::AHashMap;
 use anyhow::{Context, anyhow};
+use arcstr::ArcStr;
 use rustc_hash::FxHashMap;
 use yaml_rust::Yaml;
 
@@ -20,7 +20,7 @@ use crate::config::escaper::verify::EscaperConfigVerifier;
 
 #[derive(Clone, Default, PartialEq, Eq)]
 pub(crate) struct ExactMatchBuilder {
-    domain: BTreeMap<NodeName, BTreeSet<Arc<str>>>,
+    domain: BTreeMap<NodeName, BTreeSet<ArcStr>>,
     ipaddr: BTreeMap<NodeName, BTreeSet<IpAddr>>,
 }
 
@@ -120,7 +120,7 @@ impl ExactMatchBuilder {
 
 #[derive(Default)]
 struct ExactMatchValues {
-    domain: BTreeSet<Arc<str>>,
+    domain: BTreeSet<ArcStr>,
     ipaddr: BTreeSet<IpAddr>,
 }
 
@@ -153,7 +153,7 @@ impl ExactMatchValues {
 
 pub(crate) struct ExactMatch<T> {
     ipaddr: FxHashMap<IpAddr, T>,
-    domain: AHashMap<Arc<str>, T>,
+    domain: AHashMap<ArcStr, T>,
 }
 
 impl<T> ExactMatch<T> {

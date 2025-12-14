@@ -16,6 +16,7 @@ itoa.workspace = true
 url.workspace = true
 bytes.workspace = true
 base64.workspace = true
+arcstr.workspace = true
 kanal = { workspace = true, features = ["async"] }
 tokio = { workspace = true, features = ["time", "io-util", "sync", "macros", "rt"] }
 tokio-rustls.workspace = true

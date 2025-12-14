@@ -8,6 +8,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use arcstr::ArcStr;
 use http::Method;
 use tokio::io::{AsyncBufRead, AsyncWrite};
 use tokio::time::Instant;
@@ -79,7 +80,7 @@ pub struct HttpResponseAdapter<I: IdleCheck> {
     http_body_line_max_size: usize,
     idle_checker: I,
     client_addr: Option<SocketAddr>,
-    client_username: Option<Arc<str>>,
+    client_username: Option<ArcStr>,
     respond_shared_headers: Option<HttpHeaderMap>,
 }
 
@@ -142,7 +143,7 @@ impl<I: IdleCheck> HttpResponseAdapter<I> {
         self.client_addr = Some(addr);
     }
 
-    pub fn set_client_username(&mut self, user: Arc<str>) {
+    pub fn set_client_username(&mut self, user: ArcStr) {
         self.client_username = Some(user);
     }
 

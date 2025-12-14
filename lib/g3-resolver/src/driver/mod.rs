@@ -3,8 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::Arc;
-
+use arcstr::ArcStr;
 use tokio::sync::mpsc;
 
 use crate::config::ResolverRuntimeConfig;
@@ -42,13 +41,13 @@ impl AnyResolveDriverConfig {
 pub(crate) trait ResolveDriver {
     fn query_v4(
         &self,
-        domain: Arc<str>,
+        domain: ArcStr,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     );
     fn query_v6(
         &self,
-        domain: Arc<str>,
+        domain: ArcStr,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     );

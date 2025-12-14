@@ -8,6 +8,7 @@ use std::net::IpAddr;
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
+use arcstr::ArcStr;
 use tokio::net::UdpSocket;
 
 use g3_io_ext::EffectiveCacheHandle;
@@ -21,7 +22,7 @@ use crate::serve::ServerTaskNotes;
 
 #[derive(Clone, Debug, Hash, PartialEq, PartialOrd, Ord, Eq)]
 pub(super) struct CacheQueryKey {
-    pub(super) user: Arc<str>,
+    pub(super) user: ArcStr,
     pub(super) host: String,
     pub(super) client_ip: Option<String>,
 }

@@ -7,6 +7,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use arcstr::ArcStr;
 use bytes::{BufMut, Bytes};
 use h2::client::SendRequest;
 use h2::ext::Protocol;
@@ -77,7 +78,7 @@ pub struct H2RequestAdapter<I: IdleCheck> {
     http_req_add_no_via_header: bool,
     idle_checker: I,
     client_addr: Option<SocketAddr>,
-    client_username: Option<Arc<str>>,
+    client_username: Option<ArcStr>,
 }
 
 pub struct ReqmodAdaptationRunState {
@@ -125,7 +126,7 @@ impl<I: IdleCheck> H2RequestAdapter<I> {
         self.client_addr = Some(addr);
     }
 
-    pub fn set_client_username(&mut self, user: Arc<str>) {
+    pub fn set_client_username(&mut self, user: ArcStr) {
         self.client_username = Some(user);
     }
 

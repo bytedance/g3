@@ -7,6 +7,7 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+use arcstr::ArcStr;
 use slog::Logger;
 use tokio::io::{AsyncRead, AsyncWrite};
 use uuid::Uuid;
@@ -45,7 +46,7 @@ pub(crate) mod smtp;
 
 #[derive(Clone)]
 pub(super) struct StreamInspectUserContext {
-    raw_user_name: Option<Arc<str>>,
+    raw_user_name: Option<ArcStr>,
     user: Arc<User>,
     user_site: Option<Arc<UserSite>>,
     forbidden_stats: Arc<UserForbiddenStats>,
@@ -74,7 +75,7 @@ impl StreamInspectTaskNotes {
         self.user_ctx.as_ref().map(|ctx| &ctx.user)
     }
 
-    pub(crate) fn raw_username(&self) -> Option<&Arc<str>> {
+    pub(crate) fn raw_username(&self) -> Option<&ArcStr> {
         self.user_ctx
             .as_ref()
             .and_then(|ctx| ctx.raw_user_name.as_ref())
@@ -185,7 +186,7 @@ impl<SC: ServerConfig> StreamInspectContext<SC> {
     }
 
     #[inline]
-    fn raw_user_name(&self) -> Option<&Arc<str>> {
+    fn raw_user_name(&self) -> Option<&ArcStr> {
         self.task_notes.raw_username()
     }
 

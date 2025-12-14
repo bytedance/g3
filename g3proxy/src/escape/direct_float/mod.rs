@@ -8,6 +8,7 @@ use std::sync::Arc;
 
 use anyhow::anyhow;
 use arc_swap::ArcSwap;
+use arcstr::ArcStr;
 use async_trait::async_trait;
 use chrono::Utc;
 use log::warn;
@@ -236,7 +237,7 @@ impl DirectFloatEscaper {
 
     fn resolve_happy(
         &self,
-        domain: Arc<str>,
+        domain: ArcStr,
         strategy: ResolveStrategy,
         task_notes: &ServerTaskNotes,
     ) -> Result<HappyEyeballsResolveJob, ResolveError> {
@@ -258,7 +259,7 @@ impl DirectFloatEscaper {
 
     async fn resolve_best(
         &self,
-        domain: Arc<str>,
+        domain: ArcStr,
         strategy: ResolveStrategy,
     ) -> Result<IpAddr, ResolveError> {
         let mut resolver_job =

@@ -6,6 +6,7 @@
 use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
+use arcstr::ArcStr;
 
 use g3_daemon::stat::remote::*;
 use g3_types::metrics::{MetricTagMap, NodeName};
@@ -19,7 +20,7 @@ use crate::stat::types::{
 pub(crate) struct UserTrafficStats {
     id: StatId,
     user_group: NodeName,
-    user: Arc<str>,
+    user: ArcStr,
     user_type: UserType,
     server: NodeName,
     server_extra_tags: Arc<ArcSwapOption<MetricTagMap>>,
@@ -34,7 +35,7 @@ pub(crate) struct UserTrafficSnapshot {
 impl UserTrafficStats {
     pub(crate) fn new(
         user_group: &NodeName,
-        user: Arc<str>,
+        user: ArcStr,
         user_type: UserType,
         server: &NodeName,
         server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
@@ -84,7 +85,7 @@ impl UserTrafficStats {
 pub(crate) struct UserUpstreamTrafficStats {
     id: StatId,
     user_group: NodeName,
-    user: Arc<str>,
+    user: ArcStr,
     user_type: UserType,
     escaper: NodeName,
     escaper_extra_tags: Arc<ArcSwapOption<MetricTagMap>>,
@@ -99,7 +100,7 @@ pub(crate) struct UserUpstreamTrafficSnapshot {
 impl UserUpstreamTrafficStats {
     pub(crate) fn new(
         user_group: &NodeName,
-        user: Arc<str>,
+        user: ArcStr,
         user_type: UserType,
         escaper: &NodeName,
         escaper_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,

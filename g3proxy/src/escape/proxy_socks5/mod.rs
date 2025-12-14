@@ -7,6 +7,7 @@ use std::net::IpAddr;
 use std::sync::Arc;
 
 use anyhow::anyhow;
+use arcstr::ArcStr;
 use async_trait::async_trait;
 use slog::Logger;
 
@@ -123,7 +124,7 @@ impl ProxySocks5Escaper {
         .inner()
     }
 
-    fn resolve_happy(&self, domain: Arc<str>) -> Result<HappyEyeballsResolveJob, ResolveError> {
+    fn resolve_happy(&self, domain: ArcStr) -> Result<HappyEyeballsResolveJob, ResolveError> {
         if let Some(resolver_handle) = &self.resolver_handle {
             HappyEyeballsResolveJob::new_dyn(self.config.resolve_strategy, resolver_handle, domain)
         } else {
@@ -131,11 +132,7 @@ impl ProxySocks5Escaper {
         }
     }
 
-    async fn resolve_consistent(
-        &self,
-        domain: Arc<str>,
-        key: &str,
-    ) -> Result<IpAddr, ResolveError> {
+    async fn resolve_consistent(&self, domain: ArcStr, key: &str) -> Result<IpAddr, ResolveError> {
         let mut happy_job = self.resolve_happy(domain)?;
         let addrs = happy_job
             .get_r1_or_first_done(self.config.happy_eyeballs.resolution_delay())

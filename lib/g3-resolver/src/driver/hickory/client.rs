@@ -9,6 +9,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use anyhow::anyhow;
+use arcstr::ArcStr;
 use async_recursion::async_recursion;
 use hickory_client::client::{Client, ClientHandle};
 use hickory_proto::BufDnsStreamHandle;
@@ -24,19 +25,19 @@ use crate::{ResolveDriverError, ResolveError, ResolvedRecord};
 
 #[derive(Clone)]
 pub(super) struct DnsRequest {
-    domain: Arc<str>,
+    domain: ArcStr,
     rtype: RecordType,
 }
 
 impl DnsRequest {
-    pub(super) fn query_ipv6(domain: Arc<str>) -> Self {
+    pub(super) fn query_ipv6(domain: ArcStr) -> Self {
         DnsRequest {
             domain,
             rtype: RecordType::AAAA,
         }
     }
 
-    pub(super) fn query_ipv4(domain: Arc<str>) -> Self {
+    pub(super) fn query_ipv4(domain: ArcStr) -> Self {
         DnsRequest {
             domain,
             rtype: RecordType::A,

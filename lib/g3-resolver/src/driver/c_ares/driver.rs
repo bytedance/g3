@@ -4,9 +4,9 @@
  */
 
 use std::net::IpAddr;
-use std::sync::Arc;
 use std::time::Duration;
 
+use arcstr::ArcStr;
 use c_ares::{AAAAResults, AResults};
 use c_ares_resolver::{CAresFuture, FutureResolver};
 use tokio::sync::mpsc;
@@ -75,7 +75,7 @@ impl ResultConverter for AAAAResults {
 
 async fn resolve<T>(
     query_future: CAresFuture<T>,
-    domain: Arc<str>,
+    domain: ArcStr,
     config: JobConfig,
 ) -> ResolvedRecord
 where
@@ -104,7 +104,7 @@ where
 
 async fn resolve_protective<T>(
     query_future: CAresFuture<T>,
-    domain: Arc<str>,
+    domain: ArcStr,
     config: JobConfig,
 ) -> ResolvedRecord
 where
@@ -121,7 +121,7 @@ where
 impl ResolveDriver for CAresResolver {
     fn query_v4(
         &self,
-        domain: Arc<str>,
+        domain: ArcStr,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     ) {
@@ -136,7 +136,7 @@ impl ResolveDriver for CAresResolver {
 
     fn query_v6(
         &self,
-        domain: Arc<str>,
+        domain: ArcStr,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     ) {

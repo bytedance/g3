@@ -4,7 +4,6 @@
  */
 
 use std::rc::Rc;
-use std::sync::Arc;
 use std::time::Duration;
 
 use g3_types::metrics::NodeName;
@@ -43,7 +42,7 @@ impl resolver_control::Server for ResolverControlImpl {
         let mut job = match HappyEyeballsResolveJob::new_dyn(
             resolver_strategy,
             &self.resolver_handler,
-            Arc::from(domain),
+            domain.into(),
         ) {
             Ok(job) => job,
             Err(e) => {

@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use ahash::AHashMap;
+use arcstr::ArcStr;
 use log::{trace, warn};
 use tokio::sync::{mpsc, oneshot};
 use tokio::time::Instant;
@@ -36,14 +37,14 @@ pub(crate) struct ResolverRuntime {
     ctl_receiver: mpsc::UnboundedReceiver<ResolverCommand>,
     rsp_receiver: mpsc::UnboundedReceiver<ResolveDriverResponse>,
     rsp_sender: mpsc::UnboundedSender<ResolveDriverResponse>,
-    expired_v4: DelayQueue<Arc<str>>,
-    expired_v6: DelayQueue<Arc<str>>,
-    cache_v4: AHashMap<Arc<str>, CachedRecord>,
-    cache_v6: AHashMap<Arc<str>, CachedRecord>,
-    doing_v4: AHashMap<Arc<str>, Vec<oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>>>,
-    doing_v6: AHashMap<Arc<str>, Vec<oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>>>,
-    trash_v4: AHashMap<Arc<str>, TrashedRecord>,
-    trash_v6: AHashMap<Arc<str>, TrashedRecord>,
+    expired_v4: DelayQueue<ArcStr>,
+    expired_v6: DelayQueue<ArcStr>,
+    cache_v4: AHashMap<ArcStr, CachedRecord>,
+    cache_v6: AHashMap<ArcStr, CachedRecord>,
+    doing_v4: AHashMap<ArcStr, Vec<oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>>>,
+    doing_v6: AHashMap<ArcStr, Vec<oneshot::Sender<(ArcResolvedRecord, ResolvedRecordSource)>>>,
+    trash_v4: AHashMap<ArcStr, TrashedRecord>,
+    trash_v6: AHashMap<ArcStr, TrashedRecord>,
     driver: Option<BoxResolverDriver>,
 }
 
@@ -98,8 +99,8 @@ impl ResolverRuntime {
     }
 
     fn update_cache(
-        cache: &mut AHashMap<Arc<str>, CachedRecord>,
-        expire_queue: &mut DelayQueue<Arc<str>>,
+        cache: &mut AHashMap<ArcStr, CachedRecord>,
+        expire_queue: &mut DelayQueue<ArcStr>,
         record: ArcResolvedRecord,
         expire_at: Instant,
     ) {

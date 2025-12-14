@@ -3,9 +3,9 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::sync::Arc;
 use std::time::Duration;
 
+use arcstr::ArcStr;
 use tokio::sync::mpsc;
 
 use super::FailOverDriverStaticConfig;
@@ -32,7 +32,7 @@ struct FailOverResolverJob {
 impl FailOverResolverJob {
     fn normalize_job_recv_result(
         &self,
-        domain: Arc<str>,
+        domain: ArcStr,
         result: ResolveJobRecvResult,
     ) -> ResolvedRecord {
         match result {
@@ -63,7 +63,7 @@ impl FailOverResolverJob {
         }
     }
 
-    async fn resolve(mut self, domain: Arc<str>) -> ResolvedRecord {
+    async fn resolve(mut self, domain: ArcStr) -> ResolvedRecord {
         let primary = self.primary.take();
         let standby = self.standby.take();
         match (primary, standby) {
@@ -132,7 +132,7 @@ impl FailOverResolverJob {
         }
     }
 
-    async fn resolve_protective(self, domain: Arc<str>) -> ResolvedRecord {
+    async fn resolve_protective(self, domain: ArcStr) -> ResolvedRecord {
         let protective_cache_ttl = self.config.negative_ttl;
         tokio::time::timeout(self.job_timeout, self.resolve(domain.clone()))
             .await
@@ -143,7 +143,7 @@ impl FailOverResolverJob {
 impl ResolveDriver for FailOverResolver {
     fn query_v4(
         &self,
-        domain: Arc<str>,
+        domain: ArcStr,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     ) {
@@ -171,7 +171,7 @@ impl ResolveDriver for FailOverResolver {
 
     fn query_v6(
         &self,
-        domain: Arc<str>,
+        domain: ArcStr,
         config: &ResolverRuntimeConfig,
         sender: mpsc::UnboundedSender<ResolveDriverResponse>,
     ) {

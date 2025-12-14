@@ -15,6 +15,11 @@ pub use net::{LtHost, LtIpAddr, LtUpstreamAddr};
 mod uuid;
 pub use self::uuid::LtUuid;
 
+#[cfg(feature = "auth")]
+mod auth;
+#[cfg(feature = "auth")]
+pub use auth::LtUserName;
+
 #[cfg(feature = "socket")]
 mod socket;
 #[cfg(feature = "socket")]

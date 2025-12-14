@@ -6,6 +6,7 @@
 use std::sync::{Arc, Mutex};
 
 use arc_swap::ArcSwapOption;
+use arcstr::ArcStr;
 use foldhash::HashMap;
 
 use g3_types::metrics::{MetricTagMap, NodeName};
@@ -14,7 +15,7 @@ use super::{UserRequestStats, UserTrafficStats, UserUpstreamTrafficStats};
 use crate::auth::UserType;
 
 pub(crate) struct UserSiteStats {
-    user: Arc<str>,
+    user: ArcStr,
     user_group: NodeName,
     site_id: NodeName,
     pub(crate) request: Mutex<HashMap<NodeName, Arc<UserRequestStats>>>,
@@ -23,7 +24,7 @@ pub(crate) struct UserSiteStats {
 }
 
 impl UserSiteStats {
-    pub(crate) fn new(user: Arc<str>, user_group: &NodeName, site_id: &NodeName) -> Self {
+    pub(crate) fn new(user: ArcStr, user_group: &NodeName, site_id: &NodeName) -> Self {
         UserSiteStats {
             user,
             user_group: user_group.clone(),
@@ -40,7 +41,7 @@ impl UserSiteStats {
     }
 
     #[inline]
-    pub(crate) fn user(&self) -> &str {
+    pub(crate) fn user(&self) -> &ArcStr {
         &self.user
     }
 

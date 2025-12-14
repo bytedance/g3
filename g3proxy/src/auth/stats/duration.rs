@@ -7,6 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use arc_swap::ArcSwapOption;
+use arcstr::ArcStr;
 
 use g3_histogram::{HistogramMetricsConfig, HistogramRecorder, HistogramStats};
 use g3_std_ext::time::DurationExt;
@@ -22,7 +23,7 @@ pub(crate) struct UserSiteDurationRecorder {
 impl UserSiteDurationRecorder {
     pub(crate) fn new(
         user_group: &NodeName,
-        user: &str,
+        user: &ArcStr,
         user_type: UserType,
         server: &NodeName,
         server_extra_tags: &Arc<ArcSwapOption<MetricTagMap>>,
@@ -34,7 +35,7 @@ impl UserSiteDurationRecorder {
         let stats = UserSiteDurationStats {
             id: StatId::new_unique(),
             user_group: user_group.clone(),
-            user: user.to_string(),
+            user: user.clone(),
             user_type,
             server: server.clone(),
             server_extra_tags: server_extra_tags.clone(),
@@ -54,7 +55,7 @@ impl UserSiteDurationRecorder {
 pub(crate) struct UserSiteDurationStats {
     id: StatId,
     user_group: NodeName,
-    user: String,
+    user: ArcStr,
     user_type: UserType,
     server: NodeName,
     server_extra_tags: Arc<ArcSwapOption<MetricTagMap>>,

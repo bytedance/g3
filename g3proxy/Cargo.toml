@@ -16,6 +16,7 @@ async-trait.workspace = true
 async-recursion.workspace = true
 clap.workspace = true
 clap_complete.workspace = true
+arcstr.workspace = true
 yaml-rust.workspace = true
 futures-util.workspace = true
 rand.workspace = true
@@ -83,7 +84,7 @@ g3-msgpack.workspace = true
 g3-openssl.workspace = true
 g3-redis-client = { workspace = true, features = ["yaml"] }
 g3-resolver = { workspace = true, features = ["yaml", "hickory"] }
-g3-slog-types = { workspace = true, features = ["http", "openssl", "socket"] }
+g3-slog-types = { workspace = true, features = ["auth", "http", "openssl", "socket"] }
 g3-smtp-proto.workspace = true
 g3-socket.workspace = true
 g3-socks.workspace = true

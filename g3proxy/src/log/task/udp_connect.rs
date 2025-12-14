@@ -7,7 +7,7 @@ use std::net::SocketAddr;
 
 use slog::Logger;
 
-use g3_slog_types::{LtDateTime, LtDuration, LtIpAddr, LtUpstreamAddr, LtUuid};
+use g3_slog_types::{LtDateTime, LtDuration, LtIpAddr, LtUpstreamAddr, LtUserName, LtUuid};
 use g3_types::net::UpstreamAddr;
 
 use super::TaskEvent;
@@ -47,7 +47,7 @@ impl TaskLogForUdpConnect<'_> {
             "task_event" => TaskEvent::Created.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
-            "user" => self.task_notes.raw_user_name(),
+            "user" => self.task_notes.raw_user_name().map(LtUserName),
             "tcp_server_addr" => self.tcp_server_addr,
             "tcp_client_addr" => self.tcp_client_addr,
             "wait_time" => LtDuration(self.task_notes.wait_time),
@@ -67,7 +67,7 @@ impl TaskLogForUdpConnect<'_> {
             "task_event" => TaskEvent::Connected.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
-            "user" => self.task_notes.raw_user_name(),
+            "user" => self.task_notes.raw_user_name().map(LtUserName),
             "tcp_server_addr" => self.tcp_server_addr,
             "tcp_client_addr" => self.tcp_client_addr,
             "udp_listen_addr" => self.udp_listen_addr,
@@ -98,7 +98,7 @@ impl TaskLogForUdpConnect<'_> {
             "task_event" => TaskEvent::Periodic.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
-            "user" => self.task_notes.raw_user_name(),
+            "user" => self.task_notes.raw_user_name().map(LtUserName),
             "tcp_server_addr" => self.tcp_server_addr,
             "tcp_client_addr" => self.tcp_client_addr,
             "udp_listen_addr" => self.udp_listen_addr,
@@ -136,7 +136,7 @@ impl TaskLogForUdpConnect<'_> {
             "task_event" => TaskEvent::Finished.as_str(),
             "stage" => self.task_notes.stage.brief(),
             "start_at" => LtDateTime(&self.task_notes.start_at),
-            "user" => self.task_notes.raw_user_name(),
+            "user" => self.task_notes.raw_user_name().map(LtUserName),
             "tcp_server_addr" => self.tcp_server_addr,
             "tcp_client_addr" => self.tcp_client_addr,
             "udp_listen_addr" => self.udp_listen_addr,

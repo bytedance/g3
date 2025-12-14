@@ -4,9 +4,9 @@
  */
 
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 
 use anyhow::anyhow;
+use arcstr::ArcStr;
 use openssl::pkey::{PKey, Private};
 use openssl::ssl::SslRef;
 use openssl::x509::X509;
@@ -38,7 +38,7 @@ pub use runtime::*;
 struct CacheIndexKey {
     service: TlsServiceType,
     usage: TlsCertUsage,
-    host: Arc<str>,
+    host: ArcStr,
 }
 
 #[derive(Clone, Debug)]
@@ -48,7 +48,7 @@ struct CacheQueryKey {
 }
 
 impl CacheQueryKey {
-    fn new(service: TlsServiceType, usage: TlsCertUsage, host: Arc<str>) -> Self {
+    fn new(service: TlsServiceType, usage: TlsCertUsage, host: ArcStr) -> Self {
         CacheQueryKey {
             index: CacheIndexKey {
                 service,
@@ -60,7 +60,7 @@ impl CacheQueryKey {
     }
 
     fn host(&self) -> &str {
-        self.index.host.as_ref()
+        self.index.host.as_str()
     }
 
     fn set_mimic_cert(&mut self, cert: X509) {
