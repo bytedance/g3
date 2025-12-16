@@ -8,19 +8,21 @@ use slog::{Record, Serializer, Value};
 use g3_socket::BindAddr;
 
 use crate::LtIpAddr;
+#[cfg(target_os = "linux")]
+use crate::LtSocketAddr;
 
 pub struct LtBindAddr(pub BindAddr);
 
 impl Value for LtBindAddr {
     fn serialize(
         &self,
-        _record: &Record,
+        record: &Record,
         key: slog::Key,
         serializer: &mut dyn Serializer,
     ) -> slog::Result {
         match self.0 {
             BindAddr::None => serializer.emit_none(key),
-            BindAddr::Ip(ip) => LtIpAddr(ip).serialize(_record, key, serializer),
+            BindAddr::Ip(ip) => LtIpAddr(ip).serialize(record, key, serializer),
             #[cfg(any(
                 target_os = "linux",
                 target_os = "android",
@@ -29,6 +31,8 @@ impl Value for LtBindAddr {
                 target_os = "solaris"
             ))]
             BindAddr::Interface(name) => serializer.emit_str(key, name.name()),
+            #[cfg(target_os = "linux")]
+            BindAddr::Foreign(addr) => LtSocketAddr(addr).serialize(record, key, serializer),
         }
     }
 }

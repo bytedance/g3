@@ -36,6 +36,8 @@ pub enum BindAddr {
         target_os = "solaris"
     ))]
     Interface(Interface),
+    #[cfg(target_os = "linux")]
+    Foreign(SocketAddr),
 }
 
 impl BindAddr {
@@ -44,10 +46,19 @@ impl BindAddr {
     }
 
     pub fn ip(&self) -> Option<IpAddr> {
-        if let BindAddr::Ip(ip) = self {
-            Some(*ip)
-        } else {
-            None
+        match self {
+            BindAddr::None => None,
+            BindAddr::Ip(ip) => Some(*ip),
+            #[cfg(any(
+                target_os = "linux",
+                target_os = "android",
+                target_os = "macos",
+                target_os = "illumos",
+                target_os = "solaris"
+            ))]
+            BindAddr::Interface(_) => None,
+            #[cfg(target_os = "linux")]
+            BindAddr::Foreign(addr) => Some(addr.ip()),
         }
     }
 
@@ -82,6 +93,30 @@ impl BindAddr {
                 AddressFamily::Ipv4 => socket.bind_device_by_index_v4(Some(iface.id())),
                 AddressFamily::Ipv6 => socket.bind_device_by_index_v6(Some(iface.id())),
             },
+            #[cfg(target_os = "linux")]
+            BindAddr::Foreign(addr) => {
+                if AddressFamily::from(addr) != peer_family {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "foreign bind addr should be of the same family with peer ip",
+                    ));
+                }
+                if addr.port() == 0 {
+                    set_bind_address_no_port(socket, true)?;
+                } else {
+                    socket.set_reuse_address(true)?;
+                }
+                match addr {
+                    SocketAddr::V4(_) => {
+                        socket.set_ip_transparent_v4(true)?;
+                    }
+                    SocketAddr::V6(_) => {
+                        crate::sockopt::set_ip_transparent_v6(socket, true)?;
+                    }
+                }
+                let addr: SockAddr = (*addr).into();
+                socket.bind(&addr)
+            }
         }
     }
 
@@ -115,6 +150,28 @@ impl BindAddr {
                 AddressFamily::Ipv4 => socket.bind_device_by_index_v4(Some(iface.id())),
                 AddressFamily::Ipv6 => socket.bind_device_by_index_v6(Some(iface.id())),
             },
+            #[cfg(target_os = "linux")]
+            BindAddr::Foreign(addr) => {
+                if AddressFamily::from(addr) != peer_family {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "foreign bind addr should be of the same family with peer ip",
+                    ));
+                }
+                if addr.port() == 0 {
+                    set_bind_address_no_port(socket, true)?;
+                }
+                match addr {
+                    SocketAddr::V4(_) => {
+                        socket.set_ip_transparent_v4(true)?;
+                    }
+                    SocketAddr::V6(_) => {
+                        crate::sockopt::set_ip_transparent_v6(socket, true)?;
+                    }
+                }
+                let addr: SockAddr = (*addr).into();
+                socket.bind(&addr)
+            }
         }
     }
 
@@ -144,6 +201,25 @@ impl BindAddr {
                     IpAddr::V6(Ipv6Addr::UNSPECIFIED)
                 }
             },
+            #[cfg(target_os = "linux")]
+            BindAddr::Foreign(addr) => {
+                if AddressFamily::from(addr) != family {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "foreign bind addr has incorrect address family",
+                    ));
+                }
+                match addr {
+                    SocketAddr::V4(_) => {
+                        socket.set_ip_transparent_v4(true)?;
+                    }
+                    SocketAddr::V6(_) => {
+                        crate::sockopt::set_ip_transparent_v6(socket, true)?;
+                    }
+                }
+                let addr: SockAddr = (*addr).into();
+                return socket.bind(&addr);
+            }
         };
         let bind_addr = SockAddr::from(SocketAddr::new(bind_ip, 0));
         socket.bind(&bind_addr)

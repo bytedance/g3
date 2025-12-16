@@ -425,6 +425,12 @@ impl DirectFloatEscaper {
                     match new_tcp_notes.bind {
                         BindAddr::Ip(IpAddr::V4(_)) => resolve_strategy.query_v4only(),
                         BindAddr::Ip(IpAddr::V6(_)) => resolve_strategy.query_v6only(),
+                        #[cfg(target_os = "linux")]
+                        BindAddr::Foreign(_) => {
+                            return Err(TcpConnectError::InternalServerError(
+                                "foreign ip address binding is not supported",
+                            ));
+                        }
                         _ => {}
                     }
 
