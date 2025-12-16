@@ -88,6 +88,19 @@ impl DirectFixedEscaper {
         let (_, action) = self.egress_net_filter.check(peer_ip);
         self.handle_tcp_target_ip_acl_action(action, task_notes)?;
 
+        #[cfg(target_os = "linux")]
+        if bind.is_none() {
+            if self.config.bind_foreign {
+                if self.config.bind_foreign_port {
+                    bind = BindAddr::Foreign(task_notes.client_addr());
+                } else {
+                    bind = BindAddr::Foreign(SocketAddr::new(task_notes.client_ip(), 0));
+                }
+            } else {
+                bind = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes);
+            }
+        }
+        #[cfg(not(target_os = "linux"))]
         if bind.is_none() {
             bind = self.get_bind_random(AddressFamily::from(&peer_ip), task_notes);
         }
@@ -379,6 +392,11 @@ impl DirectFixedEscaper {
         task_notes: &ServerTaskNotes,
     ) -> Result<TcpStream, TcpConnectError> {
         new_tcp_notes.bind = old_tcp_notes.bind;
+        #[cfg(target_os = "linux")]
+        if let BindAddr::Foreign(addr) = new_tcp_notes.bind {
+            // we have to select a new port as it may not usable with a new connection
+            new_tcp_notes.bind = BindAddr::Foreign(SocketAddr::new(addr.ip(), 0));
+        }
 
         let mut config = DirectTcpConnectConfig {
             connect: self.config.general.tcp_connect,
@@ -424,6 +442,10 @@ impl DirectFixedEscaper {
                     match new_tcp_notes.bind {
                         BindAddr::Ip(IpAddr::V4(_)) => resolve_strategy.query_v4only(),
                         BindAddr::Ip(IpAddr::V6(_)) => resolve_strategy.query_v6only(),
+                        #[cfg(target_os = "linux")]
+                        BindAddr::Foreign(SocketAddr::V4(_)) => resolve_strategy.query_v4only(),
+                        #[cfg(target_os = "linux")]
+                        BindAddr::Foreign(SocketAddr::V6(_)) => resolve_strategy.query_v6only(),
                         _ => {}
                     }
 

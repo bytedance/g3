@@ -3,7 +3,7 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 
 use slog::{Record, Serializer, Value};
 
@@ -12,6 +12,19 @@ use g3_types::net::{Host, UpstreamAddr};
 pub struct LtIpAddr(pub IpAddr);
 
 impl Value for LtIpAddr {
+    fn serialize(
+        &self,
+        _record: &Record,
+        key: slog::Key,
+        serializer: &mut dyn Serializer,
+    ) -> slog::Result {
+        serializer.emit_arguments(key, &format_args!("{}", self.0))
+    }
+}
+
+pub struct LtSocketAddr(pub SocketAddr);
+
+impl Value for LtSocketAddr {
     fn serialize(
         &self,
         _record: &Record,

@@ -53,6 +53,30 @@ Only random select is supported. Use *route* type escapers if is doesn't meet yo
 
 **default**: not set
 
+bind_foreign
+------------
+
+**optional**, **type**: bool
+
+Set to true to bind to the same foreign IP address as client. It can be used in Linux TPROXY case.
+
+**default**: false
+
+.. versionadded:: 1.13.0
+
+bind_foreign_port
+-----------------
+
+**optional**, **type**: bool
+
+Set to true if you also want to bind to the same foreign port when `bind_foreign` is also enabled.
+
+.. note:: This may cause bind error EADDRINUSE the two connections has the same client address.
+
+.. versionadded:: 1.13.0
+
+**default**: false
+
 egress_network_filter
 ---------------------
 

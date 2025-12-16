@@ -44,6 +44,10 @@ pub(crate) struct DirectFixedEscaperConfig {
         target_os = "solaris"
     ))]
     pub(crate) bind_interface: Option<Interface>,
+    #[cfg(target_os = "linux")]
+    pub(crate) bind_foreign: bool,
+    #[cfg(target_os = "linux")]
+    pub(crate) bind_foreign_port: bool,
     pub(crate) bind4: Vec<IpAddr>,
     pub(crate) bind6: Vec<IpAddr>,
     pub(crate) no_ipv4: bool,
@@ -76,6 +80,10 @@ impl DirectFixedEscaperConfig {
                 target_os = "solaris"
             ))]
             bind_interface: None,
+            #[cfg(target_os = "linux")]
+            bind_foreign: false,
+            #[cfg(target_os = "linux")]
+            bind_foreign_port: false,
             bind4: Vec::new(),
             bind6: Vec::new(),
             no_ipv4: false,
@@ -136,6 +144,16 @@ impl DirectFixedEscaperConfig {
                 let interface = g3_yaml::value::as_interface(v)
                     .context(format!("invalid interface name value for key {k}"))?;
                 self.bind_interface = Some(interface);
+                Ok(())
+            }
+            #[cfg(target_os = "linux")]
+            "bind_foreign" => {
+                self.bind_foreign = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            #[cfg(target_os = "linux")]
+            "bind_foreign_port" => {
+                self.bind_foreign_port = g3_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "bind_ip" => {

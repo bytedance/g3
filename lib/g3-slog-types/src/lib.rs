@@ -10,7 +10,7 @@ mod duration;
 pub use duration::LtDuration;
 
 mod net;
-pub use net::{LtHost, LtIpAddr, LtUpstreamAddr};
+pub use net::{LtHost, LtIpAddr, LtSocketAddr, LtUpstreamAddr};
 
 mod uuid;
 pub use self::uuid::LtUuid;
