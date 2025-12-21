@@ -7,6 +7,8 @@ use std::io;
 use std::net::SocketAddr;
 use std::task::{Context, Poll};
 
+#[cfg(feature = "log")]
+use slog::Logger;
 use thiserror::Error;
 
 #[cfg(feature = "resolver")]
@@ -43,6 +45,9 @@ pub enum UdpRelayRemoteError {
 }
 
 pub trait UdpRelayRemoteRecv {
+    #[cfg(feature = "log")]
+    fn error_logger(&self) -> Option<&Logger>;
+
     /// reserve some space for offloading header
     fn max_hdr_len(&self) -> usize;
 
@@ -70,6 +75,9 @@ pub trait UdpRelayRemoteRecv {
 }
 
 pub trait UdpRelayRemoteSend {
+    #[cfg(feature = "log")]
+    fn error_logger(&self) -> Option<&Logger>;
+
     /// return `nw`, which should be greater than 0
     fn poll_send_packet(
         &mut self,

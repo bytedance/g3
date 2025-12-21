@@ -7,6 +7,8 @@ use std::io::{self, IoSlice};
 use std::net::SocketAddr;
 use std::task::{Context, Poll, ready};
 
+use slog::Logger;
+
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -27,18 +29,25 @@ pub(crate) struct ProxySocks5UdpRelayRemoteSend<T> {
     peer_addr: SocketAddr,
     inner: T,
     socks_headers: Vec<SocksUdpHeader>,
+    logger: Option<Logger>,
 }
 
 impl<T> ProxySocks5UdpRelayRemoteSend<T>
 where
     T: AsyncUdpSend,
 {
-    pub(crate) fn new(send: T, local_addr: SocketAddr, peer_addr: SocketAddr) -> Self {
+    pub(crate) fn new(
+        send: T,
+        local_addr: SocketAddr,
+        peer_addr: SocketAddr,
+        logger: Option<Logger>,
+    ) -> Self {
         ProxySocks5UdpRelayRemoteSend {
             local_addr,
             peer_addr,
             inner: send,
             socks_headers: vec![SocksUdpHeader::default(); 4],
+            logger,
         }
     }
 }
@@ -47,6 +56,10 @@ impl<T> UdpRelayRemoteSend for ProxySocks5UdpRelayRemoteSend<T>
 where
     T: AsyncUdpSend + Send,
 {
+    fn error_logger(&self) -> Option<&Logger> {
+        self.logger.as_ref()
+    }
+
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,

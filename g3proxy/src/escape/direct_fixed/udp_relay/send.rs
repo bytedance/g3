@@ -11,6 +11,7 @@ use std::task::{Context, Poll, ready};
 
 use arcstr::ArcStr;
 use lru::LruCache;
+use slog::Logger;
 
 #[cfg(any(
     target_os = "linux",
@@ -47,6 +48,7 @@ pub(crate) struct DirectUdpRelayRemoteSend<T> {
     resolver_job: Option<ArriveFirstResolveJob>,
     resolve_retry_domain: Option<ArcStr>,
     resolved_lru: LruCache<ArcStr, IpAddr>,
+    logger: Option<Logger>,
 }
 
 impl<T> DirectUdpRelayRemoteSend<T> {
@@ -56,6 +58,7 @@ impl<T> DirectUdpRelayRemoteSend<T> {
         egress_net_filter: &Arc<AclNetworkRule>,
         resolver_handle: &ArcIntegratedResolverHandle,
         resolve_strategy: ResolveStrategy,
+        logger: Option<Logger>,
     ) -> Self {
         DirectUdpRelayRemoteSend {
             escaper_stats: Arc::clone(escaper_stats),
@@ -71,6 +74,7 @@ impl<T> DirectUdpRelayRemoteSend<T> {
             resolver_job: None,
             resolve_retry_domain: None,
             resolved_lru: LruCache::new(LRU_CACHE_SIZE),
+            logger,
         }
     }
 }
@@ -319,6 +323,10 @@ impl<T> UdpRelayRemoteSend for DirectUdpRelayRemoteSend<T>
 where
     T: AsyncUdpSend + Send,
 {
+    fn error_logger(&self) -> Option<&Logger> {
+        self.logger.as_ref()
+    }
+
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,

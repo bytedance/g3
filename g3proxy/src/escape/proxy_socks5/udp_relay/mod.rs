@@ -60,9 +60,15 @@ impl ProxySocks5Escaper {
             udp_peer_addr,
             ctl_stream,
             self.config.end_on_control_closed,
+            self.escape_logger.clone(),
         );
-        let send = ProxySocks5UdpRelayRemoteSend::new(send, udp_local_addr, udp_peer_addr);
+        let send = ProxySocks5UdpRelayRemoteSend::new(
+            send,
+            udp_local_addr,
+            udp_peer_addr,
+            self.escape_logger.clone(),
+        );
 
-        Ok((Box::new(recv), Box::new(send), self.escape_logger.clone()))
+        Ok((Box::new(recv), Box::new(send)))
     }
 }

@@ -6,6 +6,8 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::task::{Context, Poll, ready};
 
+use slog::Logger;
+
 use g3_io_ext::{AsyncUdpRecv, UdpRelayRemoteError, UdpRelayRemoteRecv};
 #[cfg(any(
     target_os = "linux",
@@ -24,15 +26,17 @@ pub(crate) struct DirectUdpRelayRemoteRecv<T> {
     inner_v6: Option<T>,
     bind_v4: SocketAddr,
     bind_v6: SocketAddr,
+    logger: Option<Logger>,
 }
 
 impl<T> DirectUdpRelayRemoteRecv<T> {
-    pub(crate) fn new() -> Self {
+    pub(crate) fn new(logger: Option<Logger>) -> Self {
         DirectUdpRelayRemoteRecv {
             inner_v4: None,
             inner_v6: None,
             bind_v4: SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
             bind_v6: SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
+            logger,
         }
     }
 }
@@ -133,6 +137,10 @@ impl<T> UdpRelayRemoteRecv for DirectUdpRelayRemoteRecv<T>
 where
     T: AsyncUdpRecv + Send,
 {
+    fn error_logger(&self) -> Option<&Logger> {
+        self.logger.as_ref()
+    }
+
     fn max_hdr_len(&self) -> usize {
         0
     }

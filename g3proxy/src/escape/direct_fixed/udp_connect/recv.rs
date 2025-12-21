@@ -5,6 +5,8 @@
 
 use std::task::{Context, Poll, ready};
 
+use slog::Logger;
+
 use g3_io_ext::{AsyncUdpRecv, UdpCopyRemoteError, UdpCopyRemoteRecv};
 #[cfg(any(
     target_os = "linux",
@@ -18,14 +20,18 @@ use g3_io_ext::{UdpCopyPacket, UdpCopyPacketMeta};
 
 pub(crate) struct DirectUdpConnectRemoteRecv<T> {
     inner: T,
+    logger: Option<Logger>,
 }
 
 impl<T> DirectUdpConnectRemoteRecv<T>
 where
     T: AsyncUdpRecv,
 {
-    pub(crate) fn new(recv: T) -> Self {
-        DirectUdpConnectRemoteRecv { inner: recv }
+    pub(crate) fn new(recv: T, logger: Option<Logger>) -> Self {
+        DirectUdpConnectRemoteRecv {
+            inner: recv,
+            logger,
+        }
     }
 }
 
@@ -33,6 +39,10 @@ impl<T> UdpCopyRemoteRecv for DirectUdpConnectRemoteRecv<T>
 where
     T: AsyncUdpRecv,
 {
+    fn error_logger(&self) -> Option<&Logger> {
+        self.logger.as_ref()
+    }
+
     fn max_hdr_len(&self) -> usize {
         0
     }

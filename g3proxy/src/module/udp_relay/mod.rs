@@ -3,8 +3,6 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use slog::Logger;
-
 use g3_io_ext::{UdpRelayRemoteRecv, UdpRelayRemoteSend};
 
 mod error;
@@ -21,7 +19,6 @@ pub(crate) type UdpRelaySetupResult = Result<
     (
         Box<dyn UdpRelayRemoteRecv + Unpin + Send + Sync>,
         Box<dyn UdpRelayRemoteSend + Unpin + Send + Sync>,
-        Option<Logger>,
     ),
     UdpRelaySetupError,
 >;

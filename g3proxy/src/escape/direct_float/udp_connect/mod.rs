@@ -121,9 +121,14 @@ impl DirectFloatEscaper {
         );
 
         Ok((
-            Box::new(DirectUdpConnectRemoteRecv::new(recv)),
-            Box::new(DirectUdpConnectRemoteSend::new(send)),
-            self.escape_logger.clone(),
+            Box::new(DirectUdpConnectRemoteRecv::new(
+                recv,
+                self.escape_logger.clone(),
+            )),
+            Box::new(DirectUdpConnectRemoteSend::new(
+                send,
+                self.escape_logger.clone(),
+            )),
         ))
     }
 }

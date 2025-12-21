@@ -21,6 +21,7 @@ ahash.workspace = true
 smallvec.workspace = true
 arc-swap.workspace = true
 quinn = { workspace = true, optional = true }
+slog = { workspace = true, optional = true }
 g3-io-sys.workspace = true
 g3-socket.workspace = true
 g3-std-ext.workspace = true
@@ -34,6 +35,7 @@ tokio-test.workspace = true
 
 [features]
 default = []
+log = ["dep:slog"]
 resolver = ["dep:g3-resolver"]
 openssl = ["dep:g3-openssl"]
 rustls = ["dep:tokio-rustls"]
