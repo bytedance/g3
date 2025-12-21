@@ -62,9 +62,14 @@ impl ProxySocks5Escaper {
             recv,
             ctl_stream,
             self.config.end_on_control_closed,
+            self.escape_logger.clone(),
         );
-        let send = ProxySocks5UdpConnectRemoteSend::new(send, task_conf.upstream);
+        let send = ProxySocks5UdpConnectRemoteSend::new(
+            send,
+            task_conf.upstream,
+            self.escape_logger.clone(),
+        );
 
-        Ok((Box::new(recv), Box::new(send), self.escape_logger.clone()))
+        Ok((Box::new(recv), Box::new(send)))
     }
 }

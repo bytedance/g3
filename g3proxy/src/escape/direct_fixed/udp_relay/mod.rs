@@ -35,13 +35,16 @@ impl DirectFixedEscaper {
         wrapper_stats.push_user_io_stats(self.fetch_user_upstream_io_stats(task_notes));
         let wrapper_stats = Arc::new(wrapper_stats);
 
-        let mut recv = DirectUdpRelayRemoteRecv::<LimitedUdpRecv<UdpRecvHalf>>::new();
+        let mut recv = DirectUdpRelayRemoteRecv::<LimitedUdpRecv<UdpRecvHalf>>::new(
+            self.escape_logger.clone(),
+        );
         let mut send = DirectUdpRelayRemoteSend::<LimitedUdpSend<UdpSendHalf>>::new(
             &self.stats,
             task_notes.user_ctx(),
             &self.egress_net_filter,
             &self.resolver_handle,
             self.config.resolve_strategy,
+            self.escape_logger.clone(),
         );
 
         if !self.config.no_ipv4 {
@@ -58,7 +61,7 @@ impl DirectFixedEscaper {
             send.enable_v6(w, bind);
         }
 
-        Ok((Box::new(recv), Box::new(send), self.escape_logger.clone()))
+        Ok((Box::new(recv), Box::new(send)))
     }
 
     fn get_relay_socket(

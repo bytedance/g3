@@ -3,8 +3,6 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
-use slog::Logger;
-
 use g3_io_ext::{UdpCopyRemoteRecv, UdpCopyRemoteSend};
 
 mod error;
@@ -21,7 +19,6 @@ pub(crate) type UdpConnectResult = Result<
     (
         Box<dyn UdpCopyRemoteRecv + Unpin + Send + Sync>,
         Box<dyn UdpCopyRemoteSend + Unpin + Send + Sync>,
-        Option<Logger>,
     ),
     UdpConnectError,
 >;

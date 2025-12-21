@@ -6,6 +6,8 @@
 use std::io;
 use std::task::{Context, Poll, ready};
 
+use slog::Logger;
+
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -19,14 +21,18 @@ use g3_io_ext::{AsyncUdpSend, UdpCopyRemoteError, UdpCopyRemoteSend};
 
 pub(crate) struct DirectUdpConnectRemoteSend<T> {
     inner: T,
+    logger: Option<Logger>,
 }
 
 impl<T> DirectUdpConnectRemoteSend<T>
 where
     T: AsyncUdpSend,
 {
-    pub(crate) fn new(send: T) -> Self {
-        DirectUdpConnectRemoteSend { inner: send }
+    pub(crate) fn new(send: T, logger: Option<Logger>) -> Self {
+        DirectUdpConnectRemoteSend {
+            inner: send,
+            logger,
+        }
     }
 }
 
@@ -34,6 +40,10 @@ impl<T> UdpCopyRemoteSend for DirectUdpConnectRemoteSend<T>
 where
     T: AsyncUdpSend,
 {
+    fn error_logger(&self) -> Option<&Logger> {
+        self.logger.as_ref()
+    }
+
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,

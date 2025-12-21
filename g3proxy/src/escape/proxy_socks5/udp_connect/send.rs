@@ -6,6 +6,8 @@
 use std::io::{self, IoSlice};
 use std::task::{Context, Poll, ready};
 
+use slog::Logger;
+
 #[cfg(any(
     target_os = "linux",
     target_os = "android",
@@ -23,19 +25,21 @@ use g3_types::net::UpstreamAddr;
 pub(crate) struct ProxySocks5UdpConnectRemoteSend<T> {
     inner: T,
     socks5_header: Vec<u8>,
+    logger: Option<Logger>,
 }
 
 impl<T> ProxySocks5UdpConnectRemoteSend<T>
 where
     T: AsyncUdpSend,
 {
-    pub(crate) fn new(send: T, upstream: &UpstreamAddr) -> Self {
+    pub(crate) fn new(send: T, upstream: &UpstreamAddr, logger: Option<Logger>) -> Self {
         let header_len = UdpOutput::calc_header_len(upstream);
         let mut socks5_header = vec![0; header_len];
         UdpOutput::generate_header(&mut socks5_header, upstream);
         ProxySocks5UdpConnectRemoteSend {
             inner: send,
             socks5_header,
+            logger,
         }
     }
 }
@@ -44,6 +48,10 @@ impl<T> UdpCopyRemoteSend for ProxySocks5UdpConnectRemoteSend<T>
 where
     T: AsyncUdpSend + Send,
 {
+    fn error_logger(&self) -> Option<&Logger> {
+        self.logger.as_ref()
+    }
+
     fn poll_send_packet(
         &mut self,
         cx: &mut Context<'_>,

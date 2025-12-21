@@ -7,6 +7,7 @@ use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll, ready};
 
+use slog::Logger;
 use tokio::io::{AsyncRead, ReadBuf};
 
 use g3_io_ext::{AsyncUdpRecv, UdpCopyRemoteError, UdpCopyRemoteRecv};
@@ -26,6 +27,7 @@ pub(crate) struct ProxySocks5UdpConnectRemoteRecv<T, C> {
     ctl_stream: C,
     end_on_control_closed: bool,
     ignore_ctl_stream: bool,
+    logger: Option<Logger>,
 }
 
 impl<T, C> ProxySocks5UdpConnectRemoteRecv<T, C>
@@ -33,12 +35,18 @@ where
     T: AsyncUdpRecv,
     C: AsyncRead + Unpin,
 {
-    pub(crate) fn new(recv: T, ctl_stream: C, end_on_control_closed: bool) -> Self {
+    pub(crate) fn new(
+        recv: T,
+        ctl_stream: C,
+        end_on_control_closed: bool,
+        logger: Option<Logger>,
+    ) -> Self {
         ProxySocks5UdpConnectRemoteRecv {
             inner: recv,
             ctl_stream,
             end_on_control_closed,
             ignore_ctl_stream: false,
+            logger,
         }
     }
 
@@ -73,6 +81,10 @@ where
     T: AsyncUdpRecv,
     C: AsyncRead + Unpin,
 {
+    fn error_logger(&self) -> Option<&Logger> {
+        self.logger.as_ref()
+    }
+
     fn max_hdr_len(&self) -> usize {
         256 + 4 + 2
     }

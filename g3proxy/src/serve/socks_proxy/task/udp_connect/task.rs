@@ -7,7 +7,6 @@ use std::future::poll_fn;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use slog::Logger;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::net::UdpSocket;
 
@@ -296,22 +295,14 @@ impl SocksProxyUdpConnectTask {
             }
         };
 
-        let (clt_r, clt_w, ups_r, ups_w, escape_logger) =
-            self.split_all(&mut clt_tcp_r, clt_socket).await?;
+        let (clt_r, clt_w, ups_r, ups_w) = self.split_all(&mut clt_tcp_r, clt_socket).await?;
 
         self.task_notes.mark_relaying();
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx.foreach_req_stats(|s| s.req_ready.add_socks_udp_connect());
         }
-        self.run_relay(
-            clt_tcp_r,
-            Box::new(clt_r),
-            Box::new(clt_w),
-            ups_r,
-            ups_w,
-            escape_logger,
-        )
-        .await
+        self.run_relay(clt_tcp_r, Box::new(clt_r), Box::new(clt_w), ups_r, ups_w)
+            .await
     }
 
     async fn run_relay<R>(
@@ -321,7 +312,6 @@ impl SocksProxyUdpConnectTask {
         mut clt_w: Box<dyn UdpCopyClientSend + Unpin + Send>,
         mut ups_r: Box<dyn UdpCopyRemoteRecv + Unpin + Send>,
         mut ups_w: Box<dyn UdpCopyRemoteSend + Unpin + Send>,
-        escape_logger: Option<Logger>,
     ) -> ServerTaskResult<()>
     where
         R: AsyncRead + Unpin,
@@ -356,13 +346,13 @@ impl SocksProxyUdpConnectTask {
                     return match r {
                         Ok(_) => Ok(()),
                         Err(UdpCopyError::RemoteError(e)) => {
-                            if let Some(logger) = escape_logger {
+                            if let Some(logger) = ups_w.error_logger() {
                                 EscapeLogForUdpConnectSendTo {
                                     task_id,
                                     upstream: self.upstream.as_ref(),
                                     udp_notes: &self.udp_notes,
                                 }
-                                .log(&logger, &e);
+                                .log(logger, &e);
                             }
                             Err(e.into())
                         },
@@ -373,13 +363,13 @@ impl SocksProxyUdpConnectTask {
                     return match r {
                         Ok(_) => Ok(()),
                         Err(UdpCopyError::RemoteError(e)) => {
-                            if let Some(logger) = escape_logger {
+                            if let Some(logger) = ups_r.error_logger() {
                                 EscapeLogForUdpConnectSendTo {
                                     task_id,
                                     upstream: self.upstream.as_ref(),
                                     udp_notes: &self.udp_notes,
                                 }
-                                .log(&logger, &e);
+                                .log(logger, &e);
                             }
                             Err(e.into())
                         },
@@ -434,7 +424,6 @@ impl SocksProxyUdpConnectTask {
         Socks5UdpConnectClientSend<LimitedUdpSend<UdpSendHalf>>,
         Box<dyn UdpCopyRemoteRecv + Unpin + Send>,
         Box<dyn UdpCopyRemoteSend + Unpin + Send>,
-        Option<Logger>,
     )>
     where
         R: AsyncRead + Unpin,
@@ -545,7 +534,7 @@ impl SocksProxyUdpConnectTask {
             upstream: &upstream,
             sock_buf: self.ctx.server_config.udp_socket_buffer,
         };
-        let (ups_r, mut ups_w, logger) = self
+        let (ups_r, mut ups_w) = self
             .ctx
             .escaper
             .udp_setup_connection(
@@ -567,7 +556,7 @@ impl SocksProxyUdpConnectTask {
 
         let clt_w = Socks5UdpConnectClientSend::new(clt_w, upstream);
 
-        Ok((clt_r, clt_w, ups_r, ups_w, logger))
+        Ok((clt_r, clt_w, ups_r, ups_w))
     }
 
     async fn recv_first_packet<R>(

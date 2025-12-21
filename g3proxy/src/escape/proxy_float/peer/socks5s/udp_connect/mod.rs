@@ -57,14 +57,18 @@ impl ProxyFloatSocks5sPeer {
             wrapper_stats,
         );
 
-        let recv =
-            ProxySocks5UdpConnectRemoteRecv::new(recv, ctl_stream, self.end_on_control_closed);
-        let send = ProxySocks5UdpConnectRemoteSend::new(send, task_conf.upstream);
-
-        Ok((
-            Box::new(recv),
-            Box::new(send),
+        let recv = ProxySocks5UdpConnectRemoteRecv::new(
+            recv,
+            ctl_stream,
+            self.end_on_control_closed,
             escaper.escape_logger.clone(),
-        ))
+        );
+        let send = ProxySocks5UdpConnectRemoteSend::new(
+            send,
+            task_conf.upstream,
+            escaper.escape_logger.clone(),
+        );
+
+        Ok((Box::new(recv), Box::new(send)))
     }
 }
