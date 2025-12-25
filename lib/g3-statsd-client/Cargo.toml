@@ -9,7 +9,7 @@ rust-version.workspace = true
 
 [dependencies]
 itoa.workspace = true
-ryu.workspace = true
+zmij.workspace = true
 smallvec.workspace = true
 log.workspace = true
 anyhow = { workspace = true, optional = true }

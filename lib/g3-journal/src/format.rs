@@ -7,8 +7,8 @@ use std::cell::RefCell;
 use std::fmt::{Arguments, Write};
 
 use itoa::Integer;
-use ryu::Float;
 use slog::{Error, KV, Level, OwnedKVList, Record, Serializer};
+use zmij::Float;
 
 use g3_types::log::AsyncLogFormatter;
 
@@ -75,7 +75,7 @@ impl FormatterKv<'_> {
     }
 
     fn emit_float<T: Float>(&mut self, key: slog::Key, value: T) -> slog::Result {
-        let mut buffer = ryu::Buffer::new();
+        let mut buffer = zmij::Buffer::new();
         let value_s = buffer.format(value);
         self.emit_one_line(key, value_s)
     }

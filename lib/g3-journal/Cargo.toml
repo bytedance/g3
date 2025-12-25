@@ -16,6 +16,6 @@ rustix = { workspace = true, features = ["std", "fs", "net"] }
 once_cell.workspace = true
 memchr.workspace = true
 itoa.workspace = true
-ryu.workspace = true
+zmij.workspace = true
 kanal.workspace = true
 g3-types = { workspace = true, features = ["async-log"] }

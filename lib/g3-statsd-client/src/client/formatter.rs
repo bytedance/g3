@@ -4,8 +4,8 @@
  */
 
 use itoa::Integer;
-use ryu::Float;
 use smallvec::SmallVec;
+use zmij::Float;
 
 use super::StatsdClient;
 use crate::StatsdTagGroup;
@@ -75,7 +75,7 @@ impl StatsdClient {
     }
 
     pub fn gauge_float<'a, T: Float>(&'a mut self, name: &'a str, value: T) -> MetricFormatter<'a> {
-        let mut buffer = ryu::Buffer::new();
+        let mut buffer = zmij::Buffer::new();
         let value = buffer.format(value);
         self.metric_with_type(
             MetricType::Gauge,

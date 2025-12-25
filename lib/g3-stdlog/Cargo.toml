@@ -13,6 +13,6 @@ chrono = { workspace = true, features = ["clock"] }
 kanal.workspace = true
 anstyle = "1.0"
 itoa.workspace = true
-ryu.workspace = true
+zmij.workspace = true
 g3-types = { workspace = true, features = ["async-log"] }
 g3-datetime.workspace = true

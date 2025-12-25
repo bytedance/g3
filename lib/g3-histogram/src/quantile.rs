@@ -8,8 +8,8 @@ use std::cmp::Ordering;
 use std::num::ParseFloatError;
 use std::str::FromStr;
 
-use ryu::Buffer;
 use thiserror::Error;
+use zmij::Buffer;
 
 #[derive(Debug, Error)]
 pub enum InvalidQuantile {

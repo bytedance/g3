@@ -10,5 +10,5 @@ edition.workspace = true
 thiserror.workspace = true
 hdrhistogram.workspace = true
 tokio = { workspace = true, features = ["sync", "rt", "time", "macros"] }
-ryu.workspace = true
+zmij.workspace = true
 portable-atomic = { workspace = true, features = ["float"] }

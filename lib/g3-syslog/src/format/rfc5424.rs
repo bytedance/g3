@@ -9,8 +9,8 @@ use std::io;
 
 use chrono::{DateTime, Timelike, Utc};
 use itoa::Integer;
-use ryu::Float;
 use slog::{KV, Level, OwnedKVList, Record, Serializer};
+use zmij::Float;
 
 use super::{SyslogFormatter, SyslogHeader};
 use crate::util::{encode_priority, level_to_severity};
@@ -196,7 +196,7 @@ impl FormatterKv<'_> {
     fn emit_float<T: Float>(&mut self, key: slog::Key, value: T) -> slog::Result {
         self.push_before_value(key.as_str());
 
-        let mut buffer = ryu::Buffer::new();
+        let mut buffer = zmij::Buffer::new();
         let value_s = buffer.format(value);
         self.0.extend_from_slice(value_s.as_bytes());
 
