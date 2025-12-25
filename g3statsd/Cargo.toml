@@ -17,7 +17,7 @@ ahash.workspace = true
 foldhash.workspace = true
 memchr.workspace = true
 itoa.workspace = true
-ryu.workspace = true
+zmij.workspace = true
 log = { workspace = true, features = ["max_level_trace", "release_max_level_debug"] }
 chrono.workspace = true
 yaml-rust.workspace = true

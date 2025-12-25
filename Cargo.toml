@@ -108,7 +108,7 @@ humanize-rs = "0.1"
 portable-atomic = "1.9"
 itoa = "1.0"
 atoi = "2.0"
-ryu = "1.0"
+zmij = "0.1"
 num-traits = "0.2"
 #
 once_cell = "1.21"
@@ -175,9 +175,9 @@ c-ares-sys = { version = "11.0", default-features = false }
 hickory-proto = { version = "0.25", default-features = false }
 hickory-client = { version = "0.25", default-features = false }
 #
-capnp-rpc = "0.23"
-capnp = "0.23"
-capnpc = "0.23"
+capnp-rpc = "0.24"
+capnp = "0.24"
+capnpc = "0.24"
 #
 libc = "0.2.178"
 rustix = { version = "1.0", default-features = false }

@@ -9,8 +9,8 @@ use std::fmt::{Arguments, Write};
 use g3_types::log::AsyncLogFormatter;
 
 use itoa::Integer;
-use ryu::Float;
 use slog::{Error, KV, OwnedKVList, Record, Serializer};
+use zmij::Float;
 
 use super::StdLogValue;
 
@@ -73,7 +73,7 @@ impl FormatterKv<'_> {
     }
 
     fn emit_float<T: Float>(&mut self, key: slog::Key, value: T) -> slog::Result {
-        let mut buffer = ryu::Buffer::new();
+        let mut buffer = zmij::Buffer::new();
         let value_s = buffer.format(value);
         self.emit_str(key, value_s)
     }

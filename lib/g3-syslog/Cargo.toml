@@ -11,8 +11,8 @@ rust-version.workspace = true
 slog.workspace = true
 chrono = { workspace = true, features = ["clock"] }
 itoa.workspace = true
-ryu.workspace = true
-kanal=  { workspace = true, features = ["std-mutex"] }
+zmij.workspace = true
+kanal = { workspace = true, features = ["std-mutex"] }
 serde.workspace = true
 serde_json.workspace = true
 log.workspace = true

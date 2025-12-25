@@ -80,7 +80,7 @@ impl fmt::Display for MetricValue {
         match self {
             MetricValue::Unsigned(u) => itoa::Buffer::new().format(*u).fmt(f),
             MetricValue::Signed(i) => itoa::Buffer::new().format(*i).fmt(f),
-            MetricValue::Double(v) => ryu::Buffer::new().format(*v).fmt(f),
+            MetricValue::Double(v) => zmij::Buffer::new().format(*v).fmt(f),
         }
     }
 }
@@ -138,7 +138,7 @@ impl fmt::Display for DisplayInfluxdbValue<'_> {
                 itoa::Buffer::new().format(*i).fmt(f)?;
                 f.write_char('i')
             }
-            MetricValue::Double(v) => ryu::Buffer::new().format(*v).fmt(f),
+            MetricValue::Double(v) => zmij::Buffer::new().format(*v).fmt(f),
         }
     }
 }
