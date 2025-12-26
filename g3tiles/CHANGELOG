@@ -1,6 +1,6 @@
 
 v0.4.0:
- - Compatibility: bump MSRV to 1.88.0
+ - Compatibility: bump MSRV to 1.90.0
  - Deprecated: the following config options are deprecated:
      - task_idle_check_duration in server config, use task_idle_check_interval instead
 
