@@ -1,6 +1,6 @@
 
 v0.5.0:
- - Compatibility: update MSRV to 1.88.0
+ - Compatibility: update MSRV to 1.90.0
 
 v0.4.4:
  - Feature: allow to set tcp keepalive on tcp listen socket in server
