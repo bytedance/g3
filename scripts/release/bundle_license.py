@@ -12,7 +12,6 @@ ALIAS_NAME_MAP = {
     "MIT-0": ["MIT0"],
 }
 NO_TEXT_CRATES = [
-    "daemonize",  # in the root dir repo
 ]
 
 

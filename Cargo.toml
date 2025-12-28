@@ -108,7 +108,7 @@ humanize-rs = "0.1"
 portable-atomic = "1.9"
 itoa = "1.0"
 atoi = "2.0"
-zmij = "0.1"
+zmij = "1.0"
 num-traits = "0.2"
 #
 once_cell = "1.21"
