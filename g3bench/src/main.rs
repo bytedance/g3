@@ -42,7 +42,7 @@ fn build_cli_args() -> Command {
 fn main() -> anyhow::Result<ExitCode> {
     #[cfg(feature = "openssl-probe")]
     unsafe {
-        openssl_probe::init_openssl_env_vars();
+        openssl_probe::try_init_openssl_env_vars();
     }
     openssl::init();
 

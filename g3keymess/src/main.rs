@@ -13,7 +13,7 @@ use g3keymess::opts::ProcArgs;
 fn main() -> anyhow::Result<()> {
     #[cfg(feature = "openssl-probe")]
     unsafe {
-        openssl_probe::init_openssl_env_vars();
+        openssl_probe::try_init_openssl_env_vars();
     }
     openssl::init();
 
