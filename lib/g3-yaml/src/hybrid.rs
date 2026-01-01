@@ -184,6 +184,7 @@ mod tests {
         let file_path = dir.join(name);
         let mut file = fs::File::create(&file_path).unwrap();
         file.write_all(content.as_bytes()).unwrap();
+        file.flush().unwrap();
         file_path
     }
 

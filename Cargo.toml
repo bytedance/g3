@@ -165,7 +165,7 @@ quinn-udp = { version = "0.5.9", default-features = false, features = ["fast-app
 #
 openssl = { package = "variant-ssl", version = "0.17.11" }
 openssl-sys = { package = "variant-ssl-sys", version = "0.17.11" }
-openssl-probe = "0.1"
+openssl-probe = "0.2"
 #
 kanal = { version = "0.1.1", default-features = false }
 #
