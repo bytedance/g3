@@ -1,4 +1,4 @@
-.. _configuration_user_group_user_audit:
+.. _configuration_auth_user_audit:
 
 **********
 User Audit

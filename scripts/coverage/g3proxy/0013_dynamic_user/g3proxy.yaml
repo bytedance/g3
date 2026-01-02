@@ -50,7 +50,7 @@ user-group:
     source:
       type: lua
       fetch_script: group_3.lua
-      cache_file: group_3_cache.json
+    cache: group_3_cache.json
   - name: g4
     static_users:
       - name: t1
@@ -61,7 +61,7 @@ user-group:
     source:
       type: python
       script: group_4.py
-      cache_file: group_4_cache.json
+    cache: group_4_cache.json
 
 server:
   - name: http1

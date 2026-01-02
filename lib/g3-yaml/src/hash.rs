@@ -37,6 +37,20 @@ pub fn get_required_str<'a>(map: &'a yaml::Hash, k: &str) -> anyhow::Result<&'a 
     }
 }
 
+pub fn get_optional_str<'a>(map: &'a yaml::Hash, k: &str) -> anyhow::Result<Option<&'a str>> {
+    let key = Yaml::String(k.to_owned());
+    match map.get(&key) {
+        Some(v) => {
+            if let Yaml::String(s) = v {
+                Ok(Some(s))
+            } else {
+                Err(anyhow!("invalid string value for optional key {k}"))
+            }
+        }
+        None => Ok(None),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

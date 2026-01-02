@@ -25,7 +25,7 @@ is make up of the following entries:
 +-----------+----------+-------+------------------------------------------------+
 |escaper    |Mix [#m]_ |yes    |Escaper config, see :doc:`escapers/index`       |
 +-----------+----------+-------+------------------------------------------------+
-|user_group |Mix [#m]_ |yes    |User group config, see :doc:`user_group/index`  |
+|user_group |Mix [#m]_ |yes    |User group config, see :doc:`auth/index`        |
 +-----------+----------+-------+------------------------------------------------+
 |auditor    |Mix [#m]_ |yes    |Auditor config, see :doc:`auditors/index`       |
 +-----------+----------+-------+------------------------------------------------+
@@ -46,6 +46,6 @@ is make up of the following entries:
    resolvers/index
    escapers/index
    auditors/index
-   user_group/index
+   auth/index
    servers/index
    values/index

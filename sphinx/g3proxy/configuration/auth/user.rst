@@ -1,4 +1,4 @@
-.. _configuration_user_group_user:
+.. _configuration_auth_user:
 
 ****
 User
@@ -14,12 +14,20 @@ name
 
 Set the username.
 
+.. _conf_auth_user_token:
+
 token
 -----
 
 **required**, **type**: mix
 
-Set the token used to authenticate the user. The token can be in the following types:
+Set the token used to authenticate the user.
+
+This config option will only be used by the following user groups:
+
+* :ref:`basic <configuration_auth_user_group_basic>`
+
+The token can be in the following types:
 
 * null
 
@@ -54,7 +62,7 @@ expire
 **optional**, **type**: :ref:`rfc3339 datetime str <conf_value_rfc3339_datetime_str>`
 
 Set when the user should be considered expired. The check interval is set by
-:ref:`refresh interval <conf_user_group_refresh_interval>` in group config.
+:ref:`refresh interval <conf_auth_user_group_refresh_interval>` in group config.
 
 **default**: not set
 
@@ -436,7 +444,7 @@ Set if we should use socks udp associate instead of the simplified udp connect m
 audit
 -----
 
-**optional**, **type**: :ref:`user audit <configuration_user_group_user_audit>`
+**optional**, **type**: :ref:`user audit <configuration_auth_user_audit>`
 
 Set audit config for this user.
 
@@ -445,7 +453,7 @@ Set audit config for this user.
 explicit_sites
 --------------
 
-**optional**, **type**: seq of :ref:`user site <configuration_user_group_user_site>`
+**optional**, **type**: seq of :ref:`user site <configuration_auth_user_site>`
 
 Set explicit sites for this user.
 
