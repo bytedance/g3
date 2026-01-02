@@ -4,7 +4,7 @@
  */
 
 use std::ffi::CString;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -23,8 +23,7 @@ const VAR_NAME_FILE: &str = "__file__";
 
 pub(super) async fn fetch_records(
     source: &Arc<UserDynamicPythonSource>,
-    cache: &Path,
-) -> anyhow::Result<Vec<UserConfig>> {
+) -> anyhow::Result<(String, Vec<UserConfig>)> {
     let contents = tokio::time::timeout(
         source.fetch_timeout,
         call_python_fetch(source.script_file.clone()),
@@ -60,19 +59,7 @@ pub(super) async fn fetch_records(
                 }
             }
 
-            let cache_file = source.real_cache_path(cache);
-            // we should avoid corrupt write at process exit
-            if let Some(Err(e)) =
-                crate::control::run_protected_io(tokio::fs::write(cache_file, contents)).await
-            {
-                warn!(
-                    "failed to cache dynamic users to file {} ({e:?}),\
-                    this may lead to auth error during restart",
-                    cache_file.display()
-                );
-            }
-
-            Ok(all_config)
+            Ok((contents, all_config))
         }
         Err(e) => {
             match tokio::time::timeout(

@@ -7,13 +7,11 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
-use log::warn;
 use yaml_rust::{Yaml, yaml};
 
 use g3_types::fs::ConfigFileFormat;
 
 use super::UserDynamicFileSource;
-use crate::config::auth::UserConfig;
 
 #[derive(Clone)]
 pub(crate) struct UserDynamicLuaSource {
@@ -21,7 +19,6 @@ pub(crate) struct UserDynamicLuaSource {
     pub(crate) fetch_timeout: Duration,
     pub(crate) report_script: Option<PathBuf>,
     pub(crate) report_timeout: Duration,
-    pub(crate) cache_file: PathBuf,
 }
 
 impl Default for UserDynamicLuaSource {
@@ -31,7 +28,6 @@ impl Default for UserDynamicLuaSource {
             fetch_timeout: Duration::from_secs(30),
             report_script: None,
             report_timeout: Duration::from_secs(15),
-            cache_file: PathBuf::default(),
         }
     }
 }
@@ -70,14 +66,6 @@ impl UserDynamicLuaSource {
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }
-            "cache_file" => {
-                warn!(
-                    "this config option is deprecated, use user-group level cache option instead"
-                );
-                self.cache_file = g3_yaml::value::as_file_path(v, lookup_dir, true)
-                    .context(format!("invalid file path value for key {k}"))?;
-                Ok(())
-            }
             _ => Err(anyhow!("invalid key {k}")),
         }
     }
@@ -90,22 +78,10 @@ impl UserDynamicLuaSource {
         Ok(())
     }
 
-    pub(crate) fn real_cache_path<'a>(&'a self, cache: &'a Path) -> &'a Path {
-        if cache.as_os_str().is_empty() {
-            self.cache_file.as_path()
-        } else {
-            cache
-        }
-    }
-
-    pub(crate) async fn fetch_cached_records(
-        &self,
-        cache: &Path,
-    ) -> anyhow::Result<Vec<UserConfig>> {
-        let file_source = UserDynamicFileSource {
-            path: self.real_cache_path(cache).to_path_buf(),
+    pub(crate) fn cache(&self, cache: &Path) -> UserDynamicFileSource {
+        UserDynamicFileSource {
+            path: cache.to_path_buf(),
             format: ConfigFileFormat::Json,
-        };
-        file_source.fetch_records().await
+        }
     }
 }

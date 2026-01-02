@@ -52,8 +52,6 @@ For *seq* value, each of its element must be :ref:`weighted upstream addr <conf_
 
 **alias**: proxy_pass
 
-.. versionchanged:: 1.5.3 Allow set multiple upstream addresses.
-
 upstream_pick_policy
 ----------------------
 

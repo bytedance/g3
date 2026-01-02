@@ -76,25 +76,26 @@ impl UserDynamicFileSource {
         }
     }
 
-    pub(crate) async fn fetch_records(&self) -> anyhow::Result<Vec<UserConfig>> {
+    pub(crate) async fn fetch_records(&self) -> anyhow::Result<(String, Vec<UserConfig>)> {
         // TODO limit the read size
         let contents = tokio::fs::read_to_string(&self.path)
             .await
             .map_err(|e| anyhow!("failed to read in file {}: {e}", self.path.display()))?;
         if contents.is_empty() {
-            return Ok(Vec::new());
+            return Ok((contents, Vec::new()));
         }
-        match self.format {
+        let all_config = match self.format {
             ConfigFileFormat::Yaml => {
                 let docs = yaml_rust::YamlLoader::load_from_str(&contents)
                     .map_err(|e| anyhow!("invalid yaml file {}: {e}", self.path.display()))?;
-                UserConfig::parse_yaml_many(&docs)
+                UserConfig::parse_yaml_many(&docs)?
             }
             ConfigFileFormat::Json => {
                 let doc = serde_json::Value::from_str(&contents)
                     .map_err(|e| anyhow!("invalid json file {}: {e}", self.path.display()))?;
-                UserConfig::parse_json_many(&doc)
+                UserConfig::parse_json_many(&doc)?
             }
-        }
+        };
+        Ok((contents, all_config))
     }
 }

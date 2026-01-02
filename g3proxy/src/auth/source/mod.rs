@@ -12,9 +12,10 @@ use arcstr::ArcStr;
 use chrono::{DateTime, Utc};
 use log::warn;
 use tokio::sync::{mpsc, oneshot};
+use uuid::Uuid;
 
-use super::{User, UserGroupConfig};
-use crate::config::auth::{UserConfig, UserDynamicSource};
+use super::User;
+use crate::config::auth::{BasicUserGroupConfig, UserDynamicSource, UserGroupConfig};
 
 #[cfg(feature = "lua")]
 mod lua;
@@ -23,28 +24,30 @@ mod lua;
 mod python;
 
 pub(super) async fn load_initial_users(
-    group_config: &UserGroupConfig,
+    group_config: &BasicUserGroupConfig,
     source: &UserDynamicSource,
 ) -> anyhow::Result<AHashMap<ArcStr, Arc<User>>> {
-    let r = match source {
+    let (_, all_config) = match source {
         UserDynamicSource::File(config) => config.fetch_records().await?,
         #[cfg(feature = "lua")]
         UserDynamicSource::Lua(config) => {
             config
-                .fetch_cached_records(&group_config.dynamic_cache)
+                .cache(&group_config.dynamic_cache)
+                .fetch_records()
                 .await?
         }
         #[cfg(feature = "python")]
         UserDynamicSource::Python(config) => {
             config
-                .fetch_cached_records(&group_config.dynamic_cache)
+                .cache(&group_config.dynamic_cache)
+                .fetch_records()
                 .await?
         }
     };
 
     let datetime_now = Utc::now();
     let mut dynamic_users = AHashMap::new();
-    for user_config in r {
+    for user_config in all_config {
         let user_config = Arc::new(user_config);
         let username = user_config.name().clone();
         let user = User::new(group_config.name(), &user_config, &datetime_now)?;
@@ -54,16 +57,17 @@ pub(super) async fn load_initial_users(
     Ok(dynamic_users)
 }
 
-pub(super) fn new_fetch_job(
-    group_config: Arc<UserGroupConfig>,
-    dynamic_users_container: Arc<ArcSwap<AHashMap<ArcStr, Arc<User>>>>,
-) -> mpsc::Sender<()> {
+pub(super) fn new_fetch_job<T>(group_config: Arc<T>, dynamic_key: Uuid) -> mpsc::Sender<()>
+where
+    T: UserGroupConfig + Send + Sync + 'static,
+{
     use mpsc::error::TryRecvError;
 
     let (quit_sender, mut quit_receiver) = mpsc::channel(1);
 
     tokio::spawn(async move {
-        let mut interval = tokio::time::interval(group_config.refresh_interval);
+        let basic_config = group_config.basic_config();
+        let mut interval = tokio::time::interval(basic_config.refresh_interval);
         interval.tick().await; // will tick immediately
         loop {
             match quit_receiver.try_recv() {
@@ -72,35 +76,34 @@ pub(super) fn new_fetch_job(
                 Err(TryRecvError::Disconnected) => break,
             }
 
-            let Some(source) = &group_config.dynamic_source else {
+            let Some(source) = &basic_config.dynamic_source else {
                 break;
             };
 
             let r = match source {
                 UserDynamicSource::File(config) => config.fetch_records().await,
                 #[cfg(feature = "lua")]
-                UserDynamicSource::Lua(config) => {
-                    lua::fetch_records(config, &group_config.dynamic_cache).await
-                }
+                UserDynamicSource::Lua(config) => lua::fetch_records(config).await,
                 #[cfg(feature = "python")]
-                UserDynamicSource::Python(config) => {
-                    python::fetch_records(config, &group_config.dynamic_cache).await
-                }
+                UserDynamicSource::Python(config) => python::fetch_records(config).await,
             };
             match r {
-                Ok(dynamic_config) => {
-                    if let Err(e) = publish_dynamic_users(
-                        group_config.as_ref(),
-                        dynamic_config,
-                        &dynamic_users_container,
-                    ) {
-                        warn!("failed to update dynamic users: {e:?}");
+                Ok((contents, dynamic_config)) => {
+                    if let Some(group) = super::registry::get(basic_config.name())
+                        && let Err(e) = group
+                            .save_dynamic_users(&contents, dynamic_config, dynamic_key)
+                            .await
+                    {
+                        warn!(
+                            "failed to save dynamic user for group {}: {e:?}",
+                            basic_config.name(),
+                        );
                     }
                 }
                 Err(e) => {
                     warn!(
                         "failed to fetch dynamic user for group {}: {e:?}",
-                        group_config.name(),
+                        basic_config.name(),
                     );
                 }
             }
@@ -140,29 +143,6 @@ pub(super) fn new_check_job(
     });
 
     quit_sender
-}
-
-pub(super) fn publish_dynamic_users(
-    group_config: &UserGroupConfig,
-    dynamic_config: Vec<UserConfig>,
-    dynamic_users_container: &Arc<ArcSwap<AHashMap<ArcStr, Arc<User>>>>,
-) -> anyhow::Result<()> {
-    let datetime_now = Utc::now();
-    let old_dynamic_users = dynamic_users_container.load();
-    let mut new_dynamic_users = AHashMap::new();
-    for user_config in dynamic_config {
-        let user_config = Arc::new(user_config);
-        let username = user_config.name();
-        let user = if let Some(old_user) = old_dynamic_users.get(username) {
-            old_user.new_for_reload(&user_config, &datetime_now)?
-        } else {
-            User::new(group_config.name(), &user_config, &datetime_now)?
-        };
-        new_dynamic_users.insert(username.clone(), Arc::new(user));
-    }
-
-    dynamic_users_container.store(Arc::new(new_dynamic_users));
-    Ok(())
 }
 
 fn check_dynamic_users(

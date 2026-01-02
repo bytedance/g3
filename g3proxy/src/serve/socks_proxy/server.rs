@@ -79,7 +79,7 @@ impl SocksProxyServer {
         server_stats.set_extra_tags(config.extra_metrics_tags.clone());
 
         let escaper = Arc::new(crate::escape::get_or_insert_default(config.escaper()));
-        let user_group = config.get_user_group();
+        let user_group = config.get_user_group().map(Arc::new);
         let audit_handle = config.get_audit_handle()?;
 
         let server = SocksProxyServer {
@@ -202,7 +202,8 @@ impl ServerInternal for SocksProxyServer {
     }
 
     fn _update_user_group_in_place(&self) {
-        self.user_group.store(self.config.get_user_group());
+        self.user_group
+            .store(self.config.get_user_group().map(Arc::new));
     }
 
     fn _update_audit_handle_in_place(&self) -> anyhow::Result<()> {

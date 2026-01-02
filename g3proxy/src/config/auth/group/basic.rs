@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
  * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * Copyright 2026 G3-OSS developers.
  */
 
 use std::collections::HashMap;
@@ -15,12 +16,16 @@ use yaml_rust::{Yaml, yaml};
 use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
+use super::UserGroupConfig;
+use crate::config::auth::{CONFIG_KEY_USER_GROUP_NAME, CONFIG_KEY_USER_GROUP_TYPE};
 use crate::config::auth::{UserConfig, UserDynamicSource};
 
 const DEFAULT_REFRESH_INTERVAL: Duration = Duration::from_secs(60);
 
+const USER_GROUP_TYPE: &str = "basic";
+
 #[derive(Clone)]
-pub(crate) struct UserGroupConfig {
+pub(crate) struct BasicUserGroupConfig {
     name: NodeName,
     position: Option<YamlDocPosition>,
     pub(crate) static_users: HashMap<ArcStr, Arc<UserConfig>>,
@@ -30,7 +35,7 @@ pub(crate) struct UserGroupConfig {
     pub(crate) anonymous_user: Option<Arc<UserConfig>>,
 }
 
-impl UserGroupConfig {
+impl BasicUserGroupConfig {
     pub(crate) fn name(&self) -> &NodeName {
         &self.name
     }
@@ -40,7 +45,7 @@ impl UserGroupConfig {
     }
 
     pub(crate) fn empty(name: &NodeName) -> Self {
-        UserGroupConfig {
+        BasicUserGroupConfig {
             name: name.clone(),
             position: None,
             static_users: HashMap::new(),
@@ -51,8 +56,8 @@ impl UserGroupConfig {
         }
     }
 
-    pub(crate) fn new(position: Option<YamlDocPosition>) -> Self {
-        UserGroupConfig {
+    pub(super) fn new(position: Option<YamlDocPosition>) -> Self {
+        BasicUserGroupConfig {
             name: NodeName::default(),
             position,
             static_users: HashMap::new(),
@@ -63,13 +68,17 @@ impl UserGroupConfig {
         }
     }
 
-    pub(crate) fn parse(&mut self, map: &yaml::Hash) -> anyhow::Result<()> {
-        g3_yaml::foreach_kv(map, |k, v| self.set(k, v))?;
-        self.check()?;
-        Ok(())
+    pub(crate) fn parse(
+        map: &yaml::Hash,
+        position: Option<YamlDocPosition>,
+    ) -> anyhow::Result<Self> {
+        let mut config = Self::new(position);
+        g3_yaml::foreach_kv(map, |k, v| config.set(k, v))?;
+        config.check()?;
+        Ok(config)
     }
 
-    fn check(&self) -> anyhow::Result<()> {
+    pub(super) fn check(&self) -> anyhow::Result<()> {
         if self.name.is_empty() {
             return Err(anyhow!("name is not set"));
         }
@@ -77,9 +86,10 @@ impl UserGroupConfig {
         Ok(())
     }
 
-    fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
+    pub(super) fn set(&mut self, k: &str, v: &Yaml) -> anyhow::Result<()> {
         match g3_yaml::key::normalize(k).as_str() {
-            "name" => {
+            CONFIG_KEY_USER_GROUP_TYPE => Ok(()),
+            CONFIG_KEY_USER_GROUP_NAME => {
                 self.name = g3_yaml::value::as_metric_node_name(v)?;
                 Ok(())
             }
@@ -136,5 +146,15 @@ impl UserGroupConfig {
             }
             _ => Err(anyhow!("invalid key {k}")),
         }
+    }
+}
+
+impl UserGroupConfig for BasicUserGroupConfig {
+    fn basic_config(&self) -> &BasicUserGroupConfig {
+        self
+    }
+
+    fn r#type(&self) -> &'static str {
+        USER_GROUP_TYPE
     }
 }

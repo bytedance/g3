@@ -98,7 +98,7 @@ pub(crate) trait ServerConfig {
         1
     }
 
-    fn get_user_group(&self) -> Option<Arc<UserGroup>> {
+    fn get_user_group(&self) -> Option<UserGroup> {
         if self.user_group().is_empty() {
             None
         } else {

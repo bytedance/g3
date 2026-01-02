@@ -1,15 +1,13 @@
-.. _configuration_user_group_user_site:
+.. _configuration_auth_user_site:
 
 *********
 User Site
 *********
 
-.. versionadded:: 1.3.4
-
 The user site config is in map format. We can set how to match this site, enable site level metrics, or do any other
 site level config.
 
-.. _conf_user_group_user_site_id:
+.. _conf_auth_user_site_id:
 
 id
 --

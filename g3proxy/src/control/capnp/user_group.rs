@@ -4,7 +4,6 @@
  */
 
 use std::rc::Rc;
-use std::sync::Arc;
 
 use g3_types::metrics::NodeName;
 
@@ -14,7 +13,7 @@ use super::set_operation_result;
 use crate::auth::UserGroup;
 
 pub(super) struct UserGroupControlImpl {
-    user_group: Arc<UserGroup>,
+    user_group: UserGroup,
 }
 
 impl UserGroupControlImpl {

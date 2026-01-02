@@ -9,10 +9,12 @@ use std::sync::{Arc, Mutex};
 use anyhow::anyhow;
 use foldhash::fast::FixedState;
 
-use super::UserGroupConfig;
+use g3_types::metrics::NodeName;
+
+use super::AnyUserGroupConfig;
 
 static INITIAL_USER_GROUP_CONFIG_REGISTRY: Mutex<
-    HashMap<String, Arc<UserGroupConfig>, FixedState>,
+    HashMap<NodeName, Arc<AnyUserGroupConfig>, FixedState>,
 > = Mutex::new(HashMap::with_hasher(FixedState::with_seed(0)));
 
 pub(crate) fn clear() {
@@ -20,8 +22,8 @@ pub(crate) fn clear() {
     ht.clear();
 }
 
-pub(super) fn add(group: UserGroupConfig, replace: bool) -> anyhow::Result<()> {
-    let name = group.name().to_string();
+pub(super) fn add(group: AnyUserGroupConfig, replace: bool) -> anyhow::Result<()> {
+    let name = group.name().clone();
     let group = Arc::new(group);
     let mut ht = INITIAL_USER_GROUP_CONFIG_REGISTRY.lock().unwrap();
     if let Some(old) = ht.insert(name, group) {
@@ -38,7 +40,7 @@ pub(super) fn add(group: UserGroupConfig, replace: bool) -> anyhow::Result<()> {
     }
 }
 
-pub(crate) fn get_all() -> Vec<Arc<UserGroupConfig>> {
+pub(crate) fn get_all() -> Vec<Arc<AnyUserGroupConfig>> {
     let mut vec = Vec::new();
     let ht = INITIAL_USER_GROUP_CONFIG_REGISTRY.lock().unwrap();
     for v in ht.values() {

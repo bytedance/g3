@@ -14,7 +14,7 @@ use g3_yaml::YamlDocPosition;
 
 use super::registry;
 use crate::auth::UserGroup;
-use crate::config::auth::UserGroupConfig;
+use crate::config::auth::AnyUserGroupConfig;
 
 static USER_GROUP_OPS_LOCK: Mutex<()> = Mutex::const_new(());
 
@@ -95,7 +95,10 @@ pub(crate) async fn reload(
     Ok(())
 }
 
-async fn reload_old_unlocked(old: UserGroupConfig, new: UserGroupConfig) -> anyhow::Result<()> {
+async fn reload_old_unlocked(
+    old: AnyUserGroupConfig,
+    new: AnyUserGroupConfig,
+) -> anyhow::Result<()> {
     let name = old.name();
     let Some(old_group) = registry::get(name) else {
         return Err(anyhow!("no user group with name {name} found"));
@@ -106,7 +109,7 @@ async fn reload_old_unlocked(old: UserGroupConfig, new: UserGroupConfig) -> anyh
     Ok(())
 }
 
-async fn spawn_new_unlocked(config: UserGroupConfig) -> anyhow::Result<()> {
+async fn spawn_new_unlocked(config: AnyUserGroupConfig) -> anyhow::Result<()> {
     let name = config.name().clone();
     let group = UserGroup::new_with_config(config).await?;
     registry::add(name.clone(), group);

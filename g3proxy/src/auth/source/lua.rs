@@ -17,8 +17,7 @@ const LUA_GLOBAL_VAR_FILE: &str = "__file__";
 
 pub(super) async fn fetch_records(
     source: &Arc<UserDynamicLuaSource>,
-    cache: &Path,
-) -> anyhow::Result<Vec<UserConfig>> {
+) -> anyhow::Result<(String, Vec<UserConfig>)> {
     let contents = tokio::time::timeout(
         source.fetch_timeout,
         call_lua_fetch(source.fetch_script.clone()),
@@ -56,19 +55,7 @@ pub(super) async fn fetch_records(
                 }
             }
 
-            let cache_file = source.real_cache_path(cache);
-            // we should avoid corrupt write at process exit
-            if let Some(Err(e)) =
-                crate::control::run_protected_io(tokio::fs::write(cache_file, contents)).await
-            {
-                warn!(
-                    "failed to cache dynamic users to file {} ({e:?}),\
-                     this may lead to auth error during restart",
-                    cache_file.display()
-                );
-            }
-
-            Ok(all_config)
+            Ok((contents, all_config))
         }
         Err(e) => {
             if let Some(script) = &source.report_script {

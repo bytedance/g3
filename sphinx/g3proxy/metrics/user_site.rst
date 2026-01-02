@@ -7,7 +7,7 @@ User Site Metrics
 The metrics in user site side shows the application layer stats for each explicit user sites.
 
 The metrics path will have prefix user.site.<site_id>,
-where *site_id* is specified in config option :ref:`id <conf_user_group_user_site_id>`.
+where *site_id* is specified in config option :ref:`id <conf_auth_user_site_id>`.
 
 The following are the tags for all user metrics:
 
