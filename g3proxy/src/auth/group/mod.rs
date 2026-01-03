@@ -35,7 +35,7 @@ pub(crate) enum UserGroup {
 }
 
 impl UserGroup {
-    pub(super) fn r#type(&self) -> &'static str {
+    pub(crate) fn r#type(&self) -> &'static str {
         match self {
             UserGroup::Basic(v) => v.base().r#type(),
             UserGroup::Facts(v) => v.base().r#type(),
@@ -159,7 +159,9 @@ impl UserGroup {
             UserGroup::Facts(v) => {
                 v.base()
                     .save_dynamic_users(contents, dynamic_config, Some(dynamic_key))
-                    .await
+                    .await?;
+                v.rebuild_match_table();
+                Ok(())
             }
         }
     }

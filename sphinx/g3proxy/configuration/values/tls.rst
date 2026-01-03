@@ -373,8 +373,7 @@ The map is consists of the following fields:
 
 * cert_pair
 
-  **optional**, **type**: :ref:`tls cert pair <conf_value_tls_cert_pair>`
-  **conflict**: certificate, private_key
+  **optional**, **type**: :ref:`tls cert pair <conf_value_tls_cert_pair>`, **conflict**: certificate, private_key
 
   Set the client certificate and private key pair.
 
@@ -393,8 +392,7 @@ The map is consists of the following fields:
 
 * certificate
 
-  **optional**, **type**: :ref:`tls certificates <conf_value_tls_certificates>`
-  **conflict**: cert_pair
+  **optional**, **type**: :ref:`tls certificates <conf_value_tls_certificates>`, **conflict**: cert_pair
 
   Set client certificates if client auth is needed by remote server.
   Private key must also be set if client auth is needed.
@@ -403,8 +401,7 @@ The map is consists of the following fields:
 
 * private_key
 
-  **optional**, **type**: :ref:`tls private_key <conf_value_tls_private_key>`
-  **conflict**: cert_pair
+  **optional**, **type**: :ref:`tls private_key <conf_value_tls_private_key>`, **conflict**: cert_pair
 
   Set the private key for client if client auth is needed by remote server.
   Client certificates are also needed if client auth is needed.
@@ -661,8 +658,7 @@ The map is consists of the following fields:
 
 * cert_pair
 
-  **optional**, **type**: :ref:`tls cert pair <conf_value_tls_cert_pair>`
-  **conflict**: certificate, private_key
+  **optional**, **type**: :ref:`tls cert pair <conf_value_tls_cert_pair>`, **conflict**: certificate, private_key
 
   Set the client certificate and private key pair.
 

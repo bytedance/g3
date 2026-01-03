@@ -9,6 +9,7 @@ The meanings and formats of them are described as follows:
 .. toctree::
 
    base
+   auth
    fs
    network
    acl

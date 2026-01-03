@@ -4,13 +4,17 @@
  */
 
 mod error;
-mod user;
-
 pub use error::{AuthParseError, UserAuthError};
+
+mod user;
 pub use user::{Password, Username};
 
 #[cfg(feature = "auth-crypt")]
 mod crypt;
-
 #[cfg(feature = "auth-crypt")]
 pub use crypt::FastHashedPassPhrase;
+
+#[cfg(feature = "auth-facts")]
+mod facts;
+#[cfg(feature = "auth-facts")]
+pub use facts::{FactsMatchType, FactsMatchValue};

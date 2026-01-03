@@ -16,6 +16,7 @@ use g3_types::acl::{
     AclExactPortRule, AclNetworkRuleBuilder, AclProxyRequestRule, AclUserAgentRule,
 };
 use g3_types::acl_set::AclDstHostRuleSetBuilder;
+use g3_types::auth::FactsMatchValue;
 use g3_types::limit::{
     GlobalDatagramSpeedLimitConfig, GlobalStreamSpeedLimitConfig, RateLimitQuota,
 };
@@ -47,6 +48,7 @@ mod yaml;
 pub(crate) struct UserConfig {
     name: ArcStr,
     password_token: PasswordToken,
+    pub(crate) match_by_facts: Vec<FactsMatchValue>,
     expire_datetime: Option<DateTime<Utc>>,
     pub(crate) audit: UserAuditConfig,
     pub(crate) block_and_delay: Option<Duration>,
@@ -87,6 +89,7 @@ impl Default for UserConfig {
         UserConfig {
             name: Default::default(),
             password_token: PasswordToken::Forbidden,
+            match_by_facts: Vec::new(),
             expire_datetime: None,
             audit: UserAuditConfig::default(),
             block_and_delay: None,

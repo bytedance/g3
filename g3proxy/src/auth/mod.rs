@@ -18,7 +18,7 @@ mod user;
 pub(crate) use user::{User, UserContext};
 
 mod group;
-pub(crate) use group::UserGroup;
+pub(crate) use group::{FactsUserGroup, UserGroup};
 
 mod stats;
 pub(crate) use stats::{

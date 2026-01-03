@@ -32,6 +32,7 @@ chrono = { workspace = true, features = ["serde", "clock"] }
 
 [features]
 default = []
+auth-facts = ["g3-types/auth-facts"]
 histogram = ["dep:g3-histogram"]
 regex = ["dep:regex"]
 resolve = ["g3-types/resolve"]

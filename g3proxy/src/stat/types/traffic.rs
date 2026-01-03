@@ -7,6 +7,7 @@ use g3_types::stats::{TcpIoSnapshot, TcpIoStats, UdpIoSnapshot, UdpIoStats};
 
 #[derive(Default)]
 pub(crate) struct TrafficStats {
+    pub(crate) tcp_connect: TcpIoStats,
     pub(crate) http_forward: TcpIoStats,
     pub(crate) https_forward: TcpIoStats,
     pub(crate) http_connect: TcpIoStats,
@@ -18,6 +19,7 @@ pub(crate) struct TrafficStats {
 
 #[derive(Default)]
 pub(crate) struct TrafficSnapshot {
+    pub(crate) tcp_connect: TcpIoSnapshot,
     pub(crate) http_forward: TcpIoSnapshot,
     pub(crate) https_forward: TcpIoSnapshot,
     pub(crate) http_connect: TcpIoSnapshot,

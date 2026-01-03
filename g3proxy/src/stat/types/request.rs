@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicI32, AtomicU64, Ordering};
 
 #[derive(Default)]
 pub(crate) struct RequestStats {
+    tcp_connect: AtomicU64,
     http_forward: AtomicU64,
     https_forward: AtomicU64,
     http_connect: AtomicU64,
@@ -18,6 +19,7 @@ pub(crate) struct RequestStats {
 
 #[derive(Default)]
 pub(crate) struct RequestSnapshot {
+    pub(crate) tcp_connect: u64,
     pub(crate) http_forward: u64,
     pub(crate) https_forward: u64,
     pub(crate) http_connect: u64,
@@ -28,6 +30,14 @@ pub(crate) struct RequestSnapshot {
 }
 
 impl RequestStats {
+    pub(crate) fn add_tcp_connect(&self) {
+        self.tcp_connect.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn tcp_connect(&self) -> u64 {
+        self.tcp_connect.load(Ordering::Relaxed)
+    }
+
     pub(crate) fn add_http_forward(&self, is_https: bool) {
         if is_https {
             self.https_forward.fetch_add(1, Ordering::Relaxed);
@@ -117,6 +127,7 @@ impl KeepaliveRequestStats {
 
 #[derive(Default)]
 pub(crate) struct RequestAliveStats {
+    tcp_connect: AtomicI32,
     http_forward: AtomicI32,
     https_forward: AtomicI32,
     http_connect: AtomicI32,
@@ -127,6 +138,18 @@ pub(crate) struct RequestAliveStats {
 }
 
 impl RequestAliveStats {
+    pub(crate) fn add_tcp_connect(&self) {
+        self.tcp_connect.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn del_tcp_connect(&self) {
+        self.tcp_connect.fetch_sub(1, Ordering::Relaxed);
+    }
+
+    pub(crate) fn tcp_connect(&self) -> i32 {
+        self.tcp_connect.load(Ordering::Relaxed)
+    }
+
     pub(crate) fn add_http_forward(&self, is_https: bool) {
         if is_https {
             self.https_forward.fetch_add(1, Ordering::Relaxed);

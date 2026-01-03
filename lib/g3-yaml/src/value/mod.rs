@@ -14,7 +14,7 @@ mod random;
 mod rate_limit;
 mod speed_limit;
 
-pub use auth::{as_password, as_username};
+pub use auth::*;
 pub use collection::as_selective_pick_policy;
 pub use datetime::as_rfc3339_datetime;
 pub use fs::{as_absolute_path, as_config_file_format, as_dir_path, as_file, as_file_path};
