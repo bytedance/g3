@@ -56,6 +56,7 @@ g3-std-ext.workspace = true
 default = []
 quic = []
 auth-crypt = ["dep:openssl", "dep:blake3", "dep:hex"]
+auth-facts = ["dep:ip_network"]
 resolve = ["dep:ahash", "dep:radix_trie", "dep:fastrand"]
 quinn = ["dep:quinn", "quic"]
 rustls = ["dep:rustls", "dep:rustls-pki-types", "dep:webpki-roots", "dep:rustls-native-certs", "dep:lru", "dep:ahash"]

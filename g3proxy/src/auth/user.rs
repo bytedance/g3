@@ -18,7 +18,7 @@ use tokio::time::Instant;
 use g3_io_ext::{GlobalDatagramLimiter, GlobalLimitGroup, GlobalStreamLimiter};
 use g3_types::acl::{AclAction, AclNetworkRule};
 use g3_types::acl_set::AclDstHostRuleSet;
-use g3_types::auth::UserAuthError;
+use g3_types::auth::{FactsMatchValue, UserAuthError};
 use g3_types::limit::{GaugeSemaphore, GaugeSemaphorePermit, GlobalRateLimitState, RateLimiter};
 use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{HttpHeaderMap, ProxyRequestType, UpstreamAddr};
@@ -388,7 +388,7 @@ impl User {
         }
     }
 
-    pub(crate) fn check_password(
+    pub(super) fn check_password(
         &self,
         password: &str,
         forbid_stats: &Arc<UserForbiddenStats>,
@@ -406,6 +406,11 @@ impl User {
             return Err(UserAuthError::BlockedUser(duration));
         }
         Ok(())
+    }
+
+    #[inline]
+    pub(super) fn match_facts(&self) -> &[FactsMatchValue] {
+        &self.config.match_by_facts
     }
 
     fn fetch_forbidden_stats(

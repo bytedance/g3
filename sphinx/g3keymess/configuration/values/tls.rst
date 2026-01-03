@@ -219,8 +219,7 @@ The map is consists of the following fields:
 
 * cert_pair
 
-  **optional**, **type**: :ref:`tls cert pair <conf_value_tls_cert_pair>`
-  **conflict**: certificate, private_key
+  **optional**, **type**: :ref:`tls cert pair <conf_value_tls_cert_pair>`, **conflict**: certificate, private_key
 
   Set the client certificate and private key pair.
 

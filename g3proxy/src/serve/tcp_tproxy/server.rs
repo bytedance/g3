@@ -5,10 +5,12 @@
 
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use anyhow::anyhow;
 use arc_swap::{ArcSwap, ArcSwapOption};
 use async_trait::async_trait;
+use log::warn;
 #[cfg(feature = "quic")]
 use quinn::Connection;
 use slog::Logger;
@@ -21,18 +23,20 @@ use g3_daemon::server::{BaseServer, ClientConnectionInfo, ServerReloadCommand};
 use g3_io_ext::IdleWheel;
 use g3_openssl::SslStream;
 use g3_types::acl::{AclAction, AclNetworkRule};
+use g3_types::auth::FactsMatchType;
 use g3_types::metrics::NodeName;
 
 use super::common::CommonTaskContext;
 use super::task::TProxyStreamTask;
 use crate::audit::{AuditContext, AuditHandle};
+use crate::auth::{FactsUserGroup, UserContext, UserGroup};
 use crate::config::server::tcp_tproxy::TcpTProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
 use crate::serve::tcp_stream::TcpStreamServerStats;
 use crate::serve::{
     ArcServer, ArcServerInternal, ArcServerStats, Server, ServerInternal, ServerQuitPolicy,
-    ServerRegistry, ServerStats, WrapArcServer,
+    ServerRegistry, ServerStats, ServerTaskNotes, WrapArcServer,
 };
 
 pub(crate) struct TcpTProxyServer {
@@ -44,6 +48,7 @@ pub(crate) struct TcpTProxyServer {
     task_logger: Option<Logger>,
 
     escaper: ArcSwap<ArcEscaper>,
+    user_group: ArcSwapOption<FactsUserGroup>,
     audit_handle: ArcSwapOption<AuditHandle>,
     quit_policy: Arc<ServerQuitPolicy>,
     idle_wheel: Arc<IdleWheel>,
@@ -80,11 +85,13 @@ impl TcpTProxyServer {
             reload_sender,
             task_logger,
             escaper: ArcSwap::new(escaper),
+            user_group: ArcSwapOption::new(None),
             audit_handle: ArcSwapOption::new(audit_handle),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             idle_wheel,
             reload_version: version,
         };
+        server._update_user_group_in_place();
 
         Ok(server)
     }
@@ -140,6 +147,37 @@ impl TcpTProxyServer {
     }
 
     async fn run_task(&self, stream: TcpStream, cc_info: ClientConnectionInfo) {
+        let task_notes = if let Some(auth_match) = self.config.auth_match {
+            let ip = match auth_match {
+                FactsMatchType::ClientIp => cc_info.client_ip(),
+                FactsMatchType::ServerIp => cc_info.server_ip(),
+                FactsMatchType::ServerName => return,
+            };
+            let Some((user, user_type)) = self
+                .user_group
+                .load()
+                .as_ref()
+                .and_then(|g| g.get_user_by_ip(ip))
+            else {
+                // TODO log
+                return;
+            };
+            let user_ctx = UserContext::new(
+                None,
+                user,
+                user_type,
+                self.config.name(),
+                self.server_stats.share_extra_tags(),
+            );
+            if user_ctx.check_client_addr(cc_info.client_addr()).is_err() {
+                // TODO may be attack
+                return;
+            }
+            ServerTaskNotes::new(cc_info.clone(), Some(user_ctx), Duration::ZERO)
+        } else {
+            ServerTaskNotes::new(cc_info.clone(), None, Duration::ZERO)
+        };
+
         let ctx = CommonTaskContext {
             server_config: self.config.clone(),
             server_stats: self.server_stats.clone(),
@@ -150,7 +188,7 @@ impl TcpTProxyServer {
             task_logger: self.task_logger.clone(),
         };
 
-        TProxyStreamTask::new(ctx, self.audit_context())
+        TProxyStreamTask::new(ctx, self.audit_context(), task_notes)
             .into_running(stream)
             .await;
     }
@@ -177,7 +215,24 @@ impl ServerInternal for TcpTProxyServer {
         self.escaper.store(Arc::new(escaper));
     }
 
-    fn _update_user_group_in_place(&self) {}
+    fn _update_user_group_in_place(&self) {
+        let user_group = if let Some(g) = self.config.get_user_group() {
+            let g_type = g.r#type();
+            if let UserGroup::Facts(g) = g {
+                Some(g)
+            } else {
+                warn!(
+                    "server {}: user group {}(type {g_type}) ignored",
+                    self.config.name(),
+                    self.config.user_group
+                );
+                None
+            }
+        } else {
+            None
+        };
+        self.user_group.store(user_group);
+    }
 
     fn _update_audit_handle_in_place(&self) -> anyhow::Result<()> {
         let audit_handle = self.config.get_audit_handle()?;
@@ -265,7 +320,7 @@ impl Server for TcpTProxyServer {
     }
 
     fn user_group(&self) -> &NodeName {
-        Default::default()
+        self.config.user_group()
     }
 
     fn auditor(&self) -> &NodeName {

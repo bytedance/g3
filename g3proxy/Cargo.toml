@@ -78,7 +78,7 @@ g3-imap-proto.workspace = true
 g3-io-ext = { workspace = true, features = ["resolver", "openssl", "rustls", "log"] }
 g3-io-sys.workspace = true
 g3-ip-locate = { workspace = true, features = ["yaml"] }
-g3-json = { workspace = true, features = ["acl-rule", "resolve", "http", "rustls", "openssl", "histogram"] }
+g3-json = { workspace = true, features = ["auth-facts", "acl-rule", "resolve", "http", "rustls", "openssl", "histogram"] }
 g3-macros.workspace = true
 g3-msgpack.workspace = true
 g3-openssl.workspace = true
@@ -90,11 +90,11 @@ g3-socket.workspace = true
 g3-socks.workspace = true
 g3-statsd-client.workspace = true
 g3-std-ext.workspace = true
-g3-types = { workspace = true, features = ["auth-crypt", "openssl", "rustls", "acl-rule", "http", "route", "async-log"] }
+g3-types = { workspace = true, features = ["auth-crypt", "auth-facts", "openssl", "rustls", "acl-rule", "http", "route", "async-log"] }
 g3-tls-ticket = { workspace = true, features = ["yaml"] }
 g3-udpdump = { workspace = true, features = ["yaml"] }
 g3-xcrypt.workspace = true
-g3-yaml = { workspace = true, features = ["resolve", "rustls", "openssl", "acl-rule", "http", "route", "dpi", "histogram", "geoip"] }
+g3-yaml = { workspace = true, features = ["auth-facts", "resolve", "rustls", "openssl", "acl-rule", "http", "route", "dpi", "histogram", "geoip"] }
 g3proxy-proto = { path = "proto" }
 
 [dev-dependencies]

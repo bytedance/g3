@@ -36,6 +36,12 @@ impl UserConfig {
                     PasswordToken::parse_json(v).context(format!("invalid value for key {k}"))?;
                 Ok(())
             }
+            "match_by_facts" => {
+                self.match_by_facts =
+                    g3_json::value::as_list(v, g3_json::value::as_facts_match_value)
+                        .context(format!("invalid FactsMatchValue list for key {k}"))?;
+                Ok(())
+            }
             "expire" => {
                 let expire_datetime = g3_json::value::as_rfc3339_datetime(v)
                     .context(format!("invalid rfc3339 datetime value for key {k}"))?;

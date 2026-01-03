@@ -25,6 +25,7 @@ g3-histogram = { workspace = true, optional = true }
 
 [features]
 default = []
+auth-facts = ["g3-types/auth-facts"]
 regex = ["dep:regex"]
 resolve = ["g3-types/resolve"]
 acl-rule = ["regex", "g3-types/acl-rule", "dep:ip_network"]

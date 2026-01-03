@@ -78,26 +78,6 @@ For *int* and *real* value, the unit will be seconds.
 
 .. _duration units: https://docs.rs/humanize-rs/0.1.5/src/humanize_rs/duration/mod.rs.html#115
 
-.. _conf_value_username:
-
-username
-========
-
-**yaml value**: str
-
-The UTF-8 username to be used in different contexts.
-Should be less than or equal to 255 bytes.
-
-.. _conf_value_password:
-
-password
-========
-
-**yaml value**: str
-
-The UTF-8 password to be used in different contexts.
-Should be less than or equal to 255 bytes.
-
 .. _conf_value_upstream_str:
 
 upstream str

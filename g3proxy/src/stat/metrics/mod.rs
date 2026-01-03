@@ -37,6 +37,7 @@ impl AsRef<str> for MetricUserConnectionType {
 
 #[derive(Copy, Clone)]
 enum MetricUserRequestType {
+    TcpConnect,
     HttpForward,
     HttpsForward,
     HttpConnect,
@@ -49,6 +50,7 @@ enum MetricUserRequestType {
 impl MetricUserRequestType {
     const fn as_str(&self) -> &'static str {
         match self {
+            MetricUserRequestType::TcpConnect => "tcp_connect",
             MetricUserRequestType::HttpForward => "http_forward",
             MetricUserRequestType::HttpsForward => "https_forward",
             MetricUserRequestType::HttpConnect => "http_connect",

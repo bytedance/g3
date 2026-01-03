@@ -48,6 +48,7 @@ The following is the common tags for all metrics:
 
   Show the request type. Values ars:
 
+  - tcp_connect
   - http_forward
   - https_forward
   - http_connect

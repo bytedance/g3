@@ -183,10 +183,11 @@ impl TcpStreamTask {
         UR: AsyncRead + Send + Sync + Unpin + 'static,
         UW: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        let (clt_r_stats, clt_w_stats) =
-            TcpStreamTaskCltWrapperStats::new_pair(&self.ctx.server_stats, &self.task_stats);
-        clt_r.reset_stats(clt_r_stats);
-        clt_w.reset_stats(clt_w_stats);
+        let wrapper_stats =
+            TcpStreamTaskCltWrapperStats::new(&self.ctx.server_stats, &self.task_stats);
+        let wrapper_stats = Arc::new(wrapper_stats);
+        clt_r.reset_stats(wrapper_stats.clone());
+        clt_w.reset_stats(wrapper_stats);
 
         if let Some(audit_handle) = self.audit_ctx.check_take_handle() {
             let ctx = StreamInspectContext::new(

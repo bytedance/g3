@@ -12,7 +12,7 @@ mod random;
 mod rate_limit;
 mod speed_limit;
 
-pub use auth::{as_password, as_username};
+pub use auth::*;
 pub use datetime::as_rfc3339_datetime;
 pub use metrics::{as_metric_node_name, as_weighted_metric_node_name};
 pub use net::*;

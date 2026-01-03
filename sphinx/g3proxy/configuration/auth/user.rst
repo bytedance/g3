@@ -56,6 +56,21 @@ The token can be in the following types:
 
 The currently supported crypt(5) methods are: md5, sha256, sha512.
 
+match_by_facts
+--------------
+
+**optional**, **type**: :ref:`facts_match_value <conf_value_facts_match_value>` | seq
+
+Set the authenticate facts that will match this user.
+
+This config option will only be used by the following user groups:
+
+* :ref:`facts <configuration_auth_user_group_facts>`
+
+**default**: not set
+
+.. versionadded:: 1.13.0
+
 expire
 ------
 

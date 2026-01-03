@@ -451,6 +451,7 @@ where
         };
     }
 
+    emit_field!(tcp_connect, MetricUserRequestType::TcpConnect);
     emit_field!(http_forward, MetricUserRequestType::HttpForward);
     emit_field!(https_forward, MetricUserRequestType::HttpsForward);
     emit_field!(http_connect, MetricUserRequestType::HttpConnect);
@@ -467,6 +468,7 @@ fn find_req_alive_stat<F>(stats: &RequestAliveStats, mut emit: F)
 where
     F: FnMut(i32, MetricUserRequestType),
 {
+    emit(stats.tcp_connect(), MetricUserRequestType::TcpConnect);
     emit(stats.http_forward(), MetricUserRequestType::HttpForward);
     emit(stats.https_forward(), MetricUserRequestType::HttpsForward);
     emit(stats.http_connect(), MetricUserRequestType::HttpConnect);
@@ -527,6 +529,7 @@ fn find_io_stat<'a, F>(
         };
     }
 
+    emit_tcp_field!(tcp_connect, MetricUserRequestType::TcpConnect);
     emit_tcp_field!(http_forward, MetricUserRequestType::HttpForward);
     emit_tcp_field!(https_forward, MetricUserRequestType::HttpsForward);
     emit_tcp_field!(http_connect, MetricUserRequestType::HttpConnect);
