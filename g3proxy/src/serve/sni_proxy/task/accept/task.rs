@@ -14,12 +14,16 @@ use tokio::time::Instant;
 use g3_daemon::stat::task::TcpStreamConnectionStats;
 use g3_dpi::{Protocol, ProtocolInspectError, ProtocolInspector};
 use g3_io_ext::{LimitedReader, LimitedWriter};
-use g3_types::net::UpstreamAddr;
+use g3_types::auth::FactsMatchType;
+use g3_types::net::{Host, UpstreamAddr};
 
 use super::{CommonTaskContext, SniProxyCltWrapperStats, TcpStreamTask};
 use crate::audit::AuditContext;
+use crate::auth::UserContext;
 use crate::config::server::ServerConfig;
-use crate::serve::{ServerTaskError, ServerTaskForbiddenError, ServerTaskResult};
+use crate::serve::{
+    ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
+};
 
 pub(crate) struct ClientHelloAcceptTask {
     ctx: CommonTaskContext,
@@ -106,7 +110,7 @@ impl ClientHelloAcceptTask {
             }
         }
 
-        let (upstream, protocol) = tokio::time::timeout(
+        let (mut upstream, protocol) = tokio::time::timeout(
             self.ctx.server_config.request_recv_timeout,
             self.inspect(&mut clt_r, &mut clt_r_buf),
         )
@@ -117,37 +121,72 @@ impl ClientHelloAcceptTask {
 
         if let Some(allowed_sites) = &self.ctx.server_config.allowed_sites {
             if let Some(site) = allowed_sites.get(upstream.host()) {
-                let final_upstream = site.redirect(&upstream);
-                TcpStreamTask::new(
-                    self.ctx,
-                    self.audit_ctx,
-                    protocol,
-                    final_upstream,
-                    self.time_accepted.elapsed(),
-                    self.pre_handshake_stats.as_ref().clone(),
-                )
-                .into_running(clt_r, clt_r_buf, clt_w)
-                .await;
-                Ok(())
+                upstream = site.redirect(&upstream);
             } else {
                 // just close the connection
-                Err(ServerTaskError::ForbiddenByRule(
+                return Err(ServerTaskError::ForbiddenByRule(
                     ServerTaskForbiddenError::DestDenied,
-                ))
+                ));
             }
-        } else {
-            TcpStreamTask::new(
-                self.ctx,
-                self.audit_ctx,
-                protocol,
-                upstream,
-                self.time_accepted.elapsed(),
-                self.pre_handshake_stats.as_ref().clone(),
-            )
-            .into_running(clt_r, clt_r_buf, clt_w)
-            .await;
-            Ok(())
         }
+
+        let task_notes = if let Some(auth_match) = self.ctx.server_config.auth_match {
+            let user_group = self
+                .ctx
+                .user_group
+                .as_ref()
+                .ok_or(ServerTaskError::ClientAuthFailed)?;
+
+            let (user, user_type) = match auth_match {
+                FactsMatchType::ClientIp => user_group
+                    .get_user_by_ip(self.ctx.cc_info.client_ip())
+                    .ok_or(ServerTaskError::ClientAuthFailed)?,
+                FactsMatchType::ServerIp => {
+                    return Err(ServerTaskError::ClientAuthFailed);
+                }
+                FactsMatchType::ServerName => match upstream.host() {
+                    Host::Ip(ip) => user_group
+                        .get_user_by_ip(*ip)
+                        .ok_or(ServerTaskError::ClientAuthFailed)?,
+                    Host::Domain(domain) => user_group
+                        .get_user_by_domain(domain)
+                        .ok_or(ServerTaskError::ClientAuthFailed)?,
+                },
+            };
+
+            let user_ctx = UserContext::new(
+                None,
+                user,
+                user_type,
+                self.ctx.server_config.name(),
+                self.ctx.server_stats.share_extra_tags(),
+            );
+            if user_ctx.check_client_addr(self.ctx.client_addr()).is_err() {
+                // TODO may be attack
+                return Err(ServerTaskError::ForbiddenByRule(
+                    ServerTaskForbiddenError::ClientIpBlocked,
+                ));
+            }
+            ServerTaskNotes::new(
+                self.ctx.cc_info.clone(),
+                Some(user_ctx),
+                self.time_accepted.elapsed(),
+            )
+        } else {
+            ServerTaskNotes::new(self.ctx.cc_info.clone(), None, self.time_accepted.elapsed())
+        };
+
+        TcpStreamTask::new(
+            self.ctx,
+            self.audit_ctx,
+            protocol,
+            upstream,
+            self.pre_handshake_stats.as_ref().clone(),
+            task_notes,
+        )
+        .into_running(clt_r, clt_r_buf, clt_w)
+        .await;
+        Ok(())
     }
 
     async fn inspect<CDR>(

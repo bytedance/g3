@@ -13,6 +13,7 @@ use ip_network::IpNetwork;
 pub enum FactsMatchType {
     ClientIp,
     ServerIp,
+    ServerName,
 }
 
 impl FromStr for FactsMatchType {
@@ -22,6 +23,7 @@ impl FromStr for FactsMatchType {
         match s.to_ascii_lowercase().replace('-', "_").as_str() {
             "client_ip" => Ok(FactsMatchType::ClientIp),
             "server_ip" => Ok(FactsMatchType::ServerIp),
+            "server_name" => Ok(FactsMatchType::ServerName),
             _ => Err(anyhow!("invalid facts match type {s}")),
         }
     }
@@ -31,11 +33,14 @@ impl FromStr for FactsMatchType {
 pub enum FactsMatchValue {
     Ip(IpAddr),
     Network(IpNetwork),
+    ExactDomain(String),
+    #[cfg(feature = "resolve")]
+    ChildDomain(String),
 }
 
 impl FactsMatchValue {
     pub fn new(ty: &str, value: &str) -> anyhow::Result<Self> {
-        match ty.to_ascii_lowercase().as_str() {
+        match ty.to_ascii_lowercase().replace('-', "_").as_str() {
             "ip" => {
                 let v = IpAddr::from_str(value)
                     .map_err(|e| anyhow!("invalid ip address value {value}: {e}"))?;
@@ -49,6 +54,18 @@ impl FactsMatchValue {
                 } else {
                     Ok(FactsMatchValue::Network(v))
                 }
+            }
+            "exact_domain" => {
+                let domain = idna::domain_to_ascii(value)
+                    .map_err(|e| anyhow!("invalid domain {value}: {e}"))?;
+                Ok(FactsMatchValue::ExactDomain(domain))
+            }
+            #[cfg(feature = "resolve")]
+            "child_domain" => {
+                let domain = idna::domain_to_ascii(value)
+                    .map_err(|e| anyhow!("invalid domain {value}: {e}"))?;
+                let reversed_domain = crate::resolve::reverse_idna_domain(&domain);
+                Ok(FactsMatchValue::ExactDomain(reversed_domain))
             }
             _ => Err(anyhow!("invalid facts match value type {ty}")),
         }

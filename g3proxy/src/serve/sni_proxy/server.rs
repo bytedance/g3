@@ -9,6 +9,7 @@ use std::sync::Arc;
 use anyhow::anyhow;
 use arc_swap::{ArcSwap, ArcSwapOption};
 use async_trait::async_trait;
+use log::warn;
 #[cfg(feature = "quic")]
 use quinn::Connection;
 use slog::Logger;
@@ -26,6 +27,7 @@ use g3_types::metrics::NodeName;
 
 use super::{ClientHelloAcceptTask, CommonTaskContext, TcpStreamServerStats};
 use crate::audit::{AuditContext, AuditHandle};
+use crate::auth::{FactsUserGroup, UserGroup};
 use crate::config::server::sni_proxy::SniProxyServerConfig;
 use crate::config::server::{AnyServerConfig, ServerConfig};
 use crate::escape::ArcEscaper;
@@ -45,6 +47,7 @@ pub(crate) struct SniProxyServer {
     task_logger: Option<Logger>,
 
     escaper: ArcSwap<ArcEscaper>,
+    user_group: ArcSwapOption<FactsUserGroup>,
     audit_handle: ArcSwapOption<AuditHandle>,
     quit_policy: Arc<ServerQuitPolicy>,
     idle_wheel: Arc<IdleWheel>,
@@ -86,11 +89,13 @@ impl SniProxyServer {
             reload_sender,
             task_logger,
             escaper: ArcSwap::new(escaper),
+            user_group: ArcSwapOption::new(None),
             audit_handle: ArcSwapOption::new(audit_handle),
             quit_policy: Arc::new(ServerQuitPolicy::default()),
             idle_wheel,
             reload_version: version,
         };
+        server._update_user_group_in_place();
 
         Ok(server)
     }
@@ -152,6 +157,7 @@ impl SniProxyServer {
             server_quit_policy: self.quit_policy.clone(),
             idle_wheel: self.idle_wheel.clone(),
             escaper: self.escaper.load().as_ref().clone(),
+            user_group: self.user_group.load_full(),
             cc_info,
             task_logger: self.task_logger.clone(),
             server_tcp_portmap: Arc::clone(&self.server_tcp_portmap),
@@ -184,7 +190,24 @@ impl ServerInternal for SniProxyServer {
         self.escaper.store(Arc::new(escaper));
     }
 
-    fn _update_user_group_in_place(&self) {}
+    fn _update_user_group_in_place(&self) {
+        let user_group = if let Some(g) = self.config.get_user_group() {
+            let g_type = g.r#type();
+            if let UserGroup::Facts(g) = g {
+                Some(g)
+            } else {
+                warn!(
+                    "server {}: user group {}(type {g_type}) ignored",
+                    self.config.name(),
+                    self.config.user_group
+                );
+                None
+            }
+        } else {
+            None
+        };
+        self.user_group.store(user_group);
+    }
 
     fn _update_audit_handle_in_place(&self) -> anyhow::Result<()> {
         let audit_handle = self.config.get_audit_handle()?;
@@ -275,7 +298,7 @@ impl Server for SniProxyServer {
     }
 
     fn user_group(&self) -> &NodeName {
-        Default::default()
+        self.config.user_group()
     }
 
     fn auditor(&self) -> &NodeName {

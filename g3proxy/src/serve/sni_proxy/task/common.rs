@@ -13,6 +13,7 @@ use g3_daemon::server::ClientConnectionInfo;
 use g3_dpi::ProtocolPortMap;
 use g3_io_ext::IdleWheel;
 
+use crate::auth::FactsUserGroup;
 use crate::config::server::sni_proxy::SniProxyServerConfig;
 use crate::escape::ArcEscaper;
 use crate::serve::ServerQuitPolicy;
@@ -24,6 +25,7 @@ pub(crate) struct CommonTaskContext {
     pub(crate) server_quit_policy: Arc<ServerQuitPolicy>,
     pub(crate) idle_wheel: Arc<IdleWheel>,
     pub(crate) escaper: ArcEscaper,
+    pub(crate) user_group: Option<Arc<FactsUserGroup>>,
     pub(crate) cc_info: ClientConnectionInfo,
     pub(crate) task_logger: Option<Logger>,
 
