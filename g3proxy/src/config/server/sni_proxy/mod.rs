@@ -131,7 +131,7 @@ impl SniProxyServerConfig {
                 self.auth_by_client_ip = g3_yaml::value::as_bool(v)?;
                 Ok(())
             }
-            "auth_by_server_ip" => {
+            "auth_by_server_name" => {
                 self.auth_by_server_name = g3_yaml::value::as_bool(v)?;
                 Ok(())
             }
