@@ -14,6 +14,7 @@ use yaml_rust::{Yaml, yaml};
 use g3_dpi::{ProtocolInspectionConfig, ProtocolPortMap};
 use g3_io_ext::StreamCopyConfig;
 use g3_types::acl::AclNetworkRuleBuilder;
+use g3_types::auth::FactsMatchType;
 use g3_types::metrics::{MetricTagMap, NodeName};
 use g3_types::net::{TcpListenConfig, TcpMiscSockOpts, TcpSockSpeedLimitConfig};
 use g3_types::route::HostMatch;
@@ -35,6 +36,10 @@ pub(crate) struct SniProxyServerConfig {
     position: Option<YamlDocPosition>,
     pub(crate) escaper: NodeName,
     pub(crate) auditor: NodeName,
+    pub(crate) user_group: NodeName,
+    auth_by_client_ip: bool,
+    auth_by_server_name: bool,
+    pub(crate) auth_match: Option<FactsMatchType>,
     pub(crate) shared_logger: Option<AsciiString>,
     pub(crate) listen: Option<TcpListenConfig>,
     pub(crate) listen_in_worker: bool,
@@ -64,6 +69,10 @@ impl SniProxyServerConfig {
             position,
             escaper: NodeName::default(),
             auditor: NodeName::default(),
+            user_group: NodeName::default(),
+            auth_by_client_ip: false,
+            auth_by_server_name: false,
+            auth_match: None,
             shared_logger: None,
             listen: None,
             listen_in_worker: false,
@@ -112,6 +121,18 @@ impl SniProxyServerConfig {
             }
             "auditor" => {
                 self.auditor = g3_yaml::value::as_metric_node_name(v)?;
+                Ok(())
+            }
+            "user_group" => {
+                self.user_group = g3_yaml::value::as_metric_node_name(v)?;
+                Ok(())
+            }
+            "auth_by_client_ip" => {
+                self.auth_by_client_ip = g3_yaml::value::as_bool(v)?;
+                Ok(())
+            }
+            "auth_by_server_ip" => {
+                self.auth_by_server_name = g3_yaml::value::as_bool(v)?;
                 Ok(())
             }
             "shared_logger" => {
@@ -245,6 +266,21 @@ impl SniProxyServerConfig {
         if self.escaper.is_empty() {
             return Err(anyhow!("escaper is not set"));
         }
+
+        if self.auth_by_server_name {
+            if self.auth_by_client_ip {
+                return Err(anyhow!(
+                    "only one of auth_by_client_ip, auth_by_server_ip can be enabled"
+                ));
+            }
+            self.auth_match = Some(FactsMatchType::ServerName);
+        } else if self.auth_by_client_ip {
+            self.auth_match = Some(FactsMatchType::ClientIp);
+        };
+        if self.auth_match.is_some() && self.user_group.is_empty() {
+            return Err(anyhow!("user group is not set but auth is enabled"));
+        }
+
         if self.task_idle_check_interval > IDLE_CHECK_MAXIMUM_DURATION {
             self.task_idle_check_interval = IDLE_CHECK_MAXIMUM_DURATION;
         }
@@ -271,7 +307,7 @@ impl ServerConfig for SniProxyServerConfig {
     }
 
     fn user_group(&self) -> &NodeName {
-        Default::default()
+        &self.user_group
     }
 
     fn auditor(&self) -> &NodeName {

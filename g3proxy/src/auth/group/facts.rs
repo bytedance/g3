@@ -9,6 +9,7 @@ use std::sync::Arc;
 use arc_swap::ArcSwap;
 use foldhash::HashMap;
 use ip_network_table::IpNetworkTable;
+use radix_trie::Trie;
 
 use g3_types::auth::FactsMatchValue;
 
@@ -61,11 +62,24 @@ impl FactsUserGroup {
 
         self.base.get_anonymous_user()
     }
+
+    pub(crate) fn get_user_by_domain(&self, domain: &str) -> Option<(Arc<User>, UserType)> {
+        let match_table = self.match_table.load();
+        if let Some(v) = match_table.get_user_by_domain(domain) {
+            return Some(v);
+        }
+
+        self.base.get_anonymous_user()
+    }
 }
 
+type MatchedUser = (Arc<User>, UserType);
+
 struct FactsMatchTable {
-    exact_ip: HashMap<IpAddr, (Arc<User>, UserType)>,
-    network: IpNetworkTable<(Arc<User>, UserType)>,
+    exact_ip: HashMap<IpAddr, MatchedUser>,
+    network: IpNetworkTable<MatchedUser>,
+    exact_domain: HashMap<String, MatchedUser>,
+    child_domain: Trie<String, MatchedUser>,
 }
 
 impl FactsMatchTable {
@@ -73,6 +87,8 @@ impl FactsMatchTable {
         let mut table = FactsMatchTable {
             exact_ip: Default::default(),
             network: IpNetworkTable::new(),
+            exact_domain: Default::default(),
+            child_domain: Default::default(),
         };
 
         base.foreach_dynamic_user(|_, user| {
@@ -95,16 +111,36 @@ impl FactsMatchTable {
                 FactsMatchValue::Network(net) => {
                     self.network.insert(*net, (user.clone(), user_type));
                 }
+                FactsMatchValue::ExactDomain(domain) => {
+                    self.exact_domain
+                        .insert(domain.clone(), (user.clone(), user_type));
+                }
+                FactsMatchValue::ChildDomain(child_domain) => {
+                    self.child_domain
+                        .insert(child_domain.clone(), (user.clone(), user_type));
+                }
             }
         }
     }
 
-    fn get_user_by_ip(&self, ip: IpAddr) -> Option<(Arc<User>, UserType)> {
+    fn get_user_by_ip(&self, ip: IpAddr) -> Option<MatchedUser> {
         if let Some((user, user_type)) = self.exact_ip.get(&ip) {
             return Some((user.clone(), *user_type));
         }
 
         if let Some((_, (user, user_type))) = self.network.longest_match(ip) {
+            return Some((user.clone(), *user_type));
+        }
+
+        None
+    }
+
+    fn get_user_by_domain(&self, domain: &str) -> Option<MatchedUser> {
+        if let Some((user, user_type)) = self.exact_domain.get(domain) {
+            return Some((user.clone(), *user_type));
+        }
+
+        if let Some((user, user_type)) = self.child_domain.get_ancestor_value(domain) {
             return Some((user.clone(), *user_type));
         }
 

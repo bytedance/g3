@@ -151,7 +151,7 @@ pin_project! {
     }
 }
 
-impl<W: AsyncWrite> LimitedWriter<W> {
+impl<W> LimitedWriter<W> {
     pub fn new(inner: W, stats: ArcLimitedWriterStats) -> Self {
         LimitedWriter {
             inner,

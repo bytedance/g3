@@ -9,6 +9,13 @@ The following common keys are supported:
 
 * :ref:`escaper <conf_server_common_escaper>`
 * :ref:`auditor <conf_server_common_auditor>`
+* :ref:`user_group <conf_server_common_user_group>`
+
+  The user group should be `facts` authenticate type.
+  It will be used only if either `auth_by_client_ip` or `auth_by_server_name` is set.
+
+  .. versionadded:: 1.13.0
+
 * :ref:`shared_logger <conf_server_common_shared_logger>`
 * :ref:`listen_in_worker <conf_server_common_listen_in_worker>`
 * :ref:`tcp_sock_speed_limit <conf_server_common_tcp_sock_speed_limit>`
@@ -35,6 +42,28 @@ The instance count setting will be ignored if *listen_in_worker* is correctly en
 **default**: not set
 
 .. versionadded:: 1.7.20 change listen config to be optional
+
+auth_by_client_ip
+-----------------
+
+**optional**, **type**: bool, **conflict**: auth_by_server_ip
+
+Enable facts user authenticate and use client IP as the authenticate fact.
+
+**default**: false
+
+.. versionadded:: 1.13.0
+
+auth_by_server_name
+-------------------
+
+**optional**, **type**: bool, **conflict**: auth_by_client_ip
+
+Enable facts user authenticate and use server name as the authenticate fact.
+
+**default**: false
+
+.. versionadded:: 1.13.0
 
 tls_max_client_hello_size
 -------------------------
