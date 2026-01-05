@@ -48,7 +48,7 @@ The fact-type should be one of:
   `<fact-value>` should be :ref:`ip network str <conf_value_ip_network_str>`.
   It will match if the auth fact is an IP address contained in that CIDR range and it's the smallest one.
 
-- exact-domain
+- domain | exact-domain
 
   `<fact-value>` should be :ref:`domain str <conf_value_domain>`.
   It will match if the auth fact is exactly this domain.

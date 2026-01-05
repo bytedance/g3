@@ -55,7 +55,7 @@ impl FactsMatchValue {
                     Ok(FactsMatchValue::Network(v))
                 }
             }
-            "exact_domain" => {
+            "domain" | "exact_domain" => {
                 let domain = idna::domain_to_ascii(value)
                     .map_err(|e| anyhow!("invalid domain {value}: {e}"))?;
                 Ok(FactsMatchValue::ExactDomain(domain))
