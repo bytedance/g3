@@ -42,6 +42,7 @@ impl ProtocolInspectState {
         self.exclude_other(MaybeProtocol::Stomp);
         self.exclude_other(MaybeProtocol::Rtmp);
         self.exclude_other(MaybeProtocol::BitTorrent);
+        self.exclude_other(MaybeProtocol::Ldap);
 
         let cmd_len = u32::from_be_bytes([data[0], data[1], data[2], data[3]]) as usize;
         if cmd_len < SMPP_SESSION_REQUEST_HEADER_LEN {

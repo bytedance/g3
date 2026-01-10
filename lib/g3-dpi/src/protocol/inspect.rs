@@ -89,6 +89,7 @@ impl ProtocolInspectState {
         match proto {
             MaybeProtocol::Ssh => self.check_ssh_client_protocol_version_exchange(data),
             MaybeProtocol::Dns => self.check_dns_tcp_request_message(data),
+            MaybeProtocol::Ldap => self.check_ldap_tcp_request_message(data, size_limit),
             MaybeProtocol::Http => self.check_http_request(data, size_limit),
             MaybeProtocol::Ssl => self.check_ssl_client_hello(data),
             MaybeProtocol::Rtsp => self.check_rtsp_client_setup_request(data),
@@ -118,6 +119,7 @@ impl ProtocolInspectState {
             | MaybeProtocol::Ssmpp
             | MaybeProtocol::Rtmps
             | MaybeProtocol::DnsOverTls
+            | MaybeProtocol::Ldaps
             | MaybeProtocol::_MaxSize => {
                 unreachable!()
             }
@@ -144,6 +146,7 @@ impl ProtocolInspectState {
             MaybeProtocol::Nats => self.check_nats_server_info_msg(data, size_limit),
             MaybeProtocol::BitTorrent => self.check_bittorrent_tcp_handshake(data),
             MaybeProtocol::Dns
+            | MaybeProtocol::Ldap
             | MaybeProtocol::Ssl
             | MaybeProtocol::Http
             | MaybeProtocol::Rtsp
@@ -164,6 +167,7 @@ impl ProtocolInspectState {
             | MaybeProtocol::Ssmpp
             | MaybeProtocol::Rtmps
             | MaybeProtocol::DnsOverTls
+            | MaybeProtocol::Ldaps
             | MaybeProtocol::_MaxSize => {
                 unreachable!()
             }

@@ -211,6 +211,7 @@ impl ProtocolInspectState {
         self.exclude_other(MaybeProtocol::Smpp);
         self.exclude_other(MaybeProtocol::Rtmp);
         self.exclude_other(MaybeProtocol::BitTorrent);
+        self.exclude_other(MaybeProtocol::Ldap);
     }
 
     fn http_exclude_by_byte0_s(&mut self) {

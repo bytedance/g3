@@ -509,6 +509,11 @@ The code should comply to these, but should be more compliant to existing popula
  - [rfc8143](https://datatracker.ietf.org/doc/html/rfc8143)
     : Using Transport Layer Security (TLS) with Network News Transfer Protocol (NNTP)
 
+## LDAP
+
+ - [rfc4511](https://datatracker.ietf.org/doc/html/rfc4511)
+    : Lightweight Directory Access Protocol (LDAP): The Protocol
+
 ## MQTT
 
  - [mqtt-v5.0-os](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html)

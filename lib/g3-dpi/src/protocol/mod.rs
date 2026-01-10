@@ -24,6 +24,7 @@ pub enum MaybeProtocol {
     Ssh,
     Ftp,
     Dns,
+    Ldap,
     Pop3,
     Nntp,
     Nnsp,
@@ -46,6 +47,7 @@ pub enum MaybeProtocol {
     Ssmpp,
     Rtmps,
     DnsOverTls,
+    Ldaps,
 
     Ssl,
 
@@ -67,6 +69,7 @@ impl MaybeProtocol {
                 | MaybeProtocol::Ssmpp
                 | MaybeProtocol::Rtmps
                 | MaybeProtocol::DnsOverTls
+                | MaybeProtocol::Ldaps
         )
     }
 }
@@ -81,6 +84,8 @@ impl FromStr for MaybeProtocol {
             "odmr" => Ok(MaybeProtocol::Odmr),
             "ssh" => Ok(MaybeProtocol::Ssh),
             "ftp" => Ok(MaybeProtocol::Ftp),
+            "dns" => Ok(MaybeProtocol::Dns),
+            "ldap" => Ok(MaybeProtocol::Ldap),
             "pop3" => Ok(MaybeProtocol::Pop3),
             "nntp" => Ok(MaybeProtocol::Nntp),
             "nnsp" => Ok(MaybeProtocol::Nnsp),
@@ -102,6 +107,7 @@ impl FromStr for MaybeProtocol {
             "ssmpp" | "smpps" | "secure smpp" => Ok(MaybeProtocol::Ssmpp),
             "rtmps" | "rtmp+tls" => Ok(MaybeProtocol::Rtmps),
             "dot" | "dnsovertls" | "dns-over-tls" => Ok(MaybeProtocol::DnsOverTls),
+            "ldaps" => Ok(MaybeProtocol::Ldaps),
             "ssl" | "tls" => Ok(MaybeProtocol::Ssl),
             _ => Err(()),
         }
@@ -169,6 +175,7 @@ pub enum Protocol {
     BitTorrentOverUtp,
     Websocket,
     Dns,
+    Ldap,
 }
 
 impl Protocol {
@@ -200,10 +207,12 @@ impl Protocol {
             Protocol::BitTorrentOverTcp | Protocol::BitTorrentOverUtp => "bittorrent",
             Protocol::Websocket => "websocket",
             Protocol::Dns => "dns",
+            Protocol::Ldap => "ldap",
         }
     }
 
     pub const fn wireshark_dissector(&self) -> &'static str {
+        // wireshark register_dissector()
         match self {
             Protocol::Unknown | Protocol::Timeout => "",
             Protocol::SslLegacy | Protocol::TlsLegacy | Protocol::TlsModern => "tls",
@@ -228,10 +237,12 @@ impl Protocol {
             Protocol::BitTorrentOverUtp => "bittorrent.utp",
             Protocol::Websocket => "websocket",
             Protocol::Dns => "dns",
+            Protocol::Ldap => "ldap",
         }
     }
 
     pub const fn wireshark_protocol(&self) -> &'static str {
+        // wireshark proto_register_protocol()
         match self {
             Protocol::Unknown | Protocol::Timeout => "",
             Protocol::SslLegacy | Protocol::TlsLegacy | Protocol::TlsModern => "tls",
@@ -254,6 +265,7 @@ impl Protocol {
             Protocol::BitTorrentOverTcp | Protocol::BitTorrentOverUtp => "bittorrent",
             Protocol::Websocket => "websocket",
             Protocol::Dns => "dns",
+            Protocol::Ldap => "ldap",
         }
     }
 }
@@ -288,6 +300,7 @@ mod dns;
 mod ftp;
 mod http;
 mod imap;
+mod ldap;
 mod mqtt;
 mod nats;
 mod nntp;

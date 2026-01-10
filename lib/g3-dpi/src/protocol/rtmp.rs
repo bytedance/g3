@@ -38,6 +38,7 @@ impl ProtocolInspectState {
         self.exclude_other(MaybeProtocol::Stomp);
         self.exclude_other(MaybeProtocol::Smpp);
         self.exclude_other(MaybeProtocol::BitTorrent);
+        self.exclude_other(MaybeProtocol::Ldap);
 
         if &data[5..9] != b"\x00\x00\x00\x00" {
             self.exclude_current();
