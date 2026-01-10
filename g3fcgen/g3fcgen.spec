@@ -25,8 +25,7 @@ Fake Certificate Generator for G3 Project
 %build
 G3_PACKAGE_VERSION="%{version}-%{release}"
 export G3_PACKAGE_VERSION
-SSL_FEATURE=$(sh scripts/package/detect_openssl_feature.sh)
-cargo build --frozen --offline --profile %{build_profile} --no-default-features --features $SSL_FEATURE, --package g3fcgen
+cargo build --frozen --offline --profile %{build_profile} --no-default-features --package g3fcgen
 
 
 %install
