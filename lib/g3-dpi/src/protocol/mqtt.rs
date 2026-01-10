@@ -34,6 +34,7 @@ impl ProtocolInspectState {
         self.exclude_other(MaybeProtocol::Smpp);
         self.exclude_other(MaybeProtocol::Rtmp);
         self.exclude_other(MaybeProtocol::BitTorrent);
+        self.exclude_other(MaybeProtocol::Ldap);
 
         let remaining_len = data[1] as usize;
         if remaining_len + 2 < MINIMUM_DATA_LEN {

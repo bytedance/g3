@@ -78,6 +78,10 @@ impl ProtocolPortMapValue {
                 self.check_ssl = true;
                 MaybeProtocol::Dns
             }
+            MaybeProtocol::Ldaps => {
+                self.check_ssl = true;
+                MaybeProtocol::Ldap
+            }
             p => p,
         };
         if !self.protocols.contains(&p) {
@@ -122,12 +126,14 @@ impl ProtocolPortMap {
         map.insert(143, MaybeProtocol::Imap);
         map.insert(322, MaybeProtocol::Rtsps);
         map.insert(366, MaybeProtocol::Odmr);
+        map.insert(389, MaybeProtocol::Ldap);
         map.insert(433, MaybeProtocol::Nnsp);
         map.insert(443, MaybeProtocol::Https);
         map.insert(465, MaybeProtocol::Submissions);
         map.insert(554, MaybeProtocol::Rtsp);
         map.insert(563, MaybeProtocol::Nntps);
         map.insert(587, MaybeProtocol::Smtp);
+        map.insert(636, MaybeProtocol::Ldaps);
         map.insert(853, MaybeProtocol::DnsOverTls);
         map.insert(993, MaybeProtocol::Imaps);
         map.insert(995, MaybeProtocol::Pop3s);

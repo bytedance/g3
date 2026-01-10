@@ -38,6 +38,12 @@ pub fn parse_inspect_size_limit(
                 config.set_nats_server_info_line(size);
                 Ok(())
             }
+            "ldap_request_msg" => {
+                let size = crate::humanize::as_usize(v)
+                    .context(format!("invalid humanize usize value for key {k}"))?;
+                config.set_ldap_request_msg(size);
+                Ok(())
+            }
             "smtp_greeting_msg" | "smtp_server_greeting_msg" => Ok(()),
             _ => Err(anyhow!("invalid key {k}")),
         })
@@ -105,6 +111,7 @@ mod test {
                 http_request_uri: 2MB
                 imap_greeting_msg: 512B
                 nats_info_line: 1KB
+                ldap_request_msg: 1KiB
                 smtp_greeting_msg: 1KB
             "
         );
@@ -115,6 +122,7 @@ mod test {
         expected.set_http_client_request_uri(2 * 1000 * 1000);
         expected.set_imap_server_greeting_msg(512);
         expected.set_nats_server_info_line(1000);
+        expected.set_ldap_request_msg(1024);
         assert_eq!(limit, expected);
 
         // alias key
@@ -187,6 +195,7 @@ mod test {
                     http_client_request_uri: 2MB
                     imap_server_greeting_msg: 512B
                     nats_server_info_line: 1KB
+                    ldap_request_msg: 1KiB
                     smtp_server_greeting_msg: 1KB
             "
         );
@@ -201,6 +210,7 @@ mod test {
         size_limit.set_http_client_request_uri(2 * 1000 * 1000);
         size_limit.set_imap_server_greeting_msg(512);
         size_limit.set_nats_server_info_line(1000);
+        size_limit.set_ldap_request_msg(1024);
         *expected_config.size_limit_mut() = size_limit;
         assert_eq!(config, expected_config);
 

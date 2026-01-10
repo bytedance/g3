@@ -32,6 +32,7 @@ impl ProtocolInspectState {
         self.exclude_other(MaybeProtocol::Smpp);
         self.exclude_other(MaybeProtocol::Rtmp);
         self.exclude_other(MaybeProtocol::BitTorrent);
+        self.exclude_other(MaybeProtocol::Ldap);
 
         if !data.starts_with(b"SETUP rtsp://") {
             self.exclude_current();

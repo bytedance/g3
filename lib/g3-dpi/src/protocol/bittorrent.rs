@@ -40,6 +40,7 @@ impl ProtocolInspectState {
         self.exclude_other(MaybeProtocol::Smpp);
         self.exclude_other(MaybeProtocol::Rtmp);
         self.exclude_other(MaybeProtocol::Nats);
+        self.exclude_other(MaybeProtocol::Ldap);
 
         if data[1..].starts_with(b"BitTorrent protocol") {
             Ok(Some(Protocol::BitTorrentOverTcp))

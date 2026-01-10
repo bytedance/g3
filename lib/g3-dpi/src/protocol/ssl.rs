@@ -44,6 +44,7 @@ impl ProtocolInspectState {
         self.exclude_other(MaybeProtocol::Smpp);
         self.exclude_other(MaybeProtocol::Rtmp);
         self.exclude_other(MaybeProtocol::BitTorrent);
+        self.exclude_other(MaybeProtocol::Ldap);
 
         if check_legacy_version(data[1], data[2]).is_err() {
             self.exclude_current();

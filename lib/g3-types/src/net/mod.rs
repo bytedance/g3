@@ -9,14 +9,15 @@ mod egress;
 mod error;
 mod haproxy;
 mod host;
+mod ldap;
 mod pool;
 mod port;
 mod proxy;
+mod quic;
 mod rate_limit;
 mod socks;
 mod tcp;
 mod tls;
-mod tlv;
 mod udp;
 mod upstream;
 
@@ -45,9 +46,11 @@ pub use haproxy::{
     ProxyProtocolEncodeError, ProxyProtocolEncoder, ProxyProtocolV2Encoder, ProxyProtocolVersion,
 };
 pub use host::Host;
+pub use ldap::*;
 pub use pool::ConnectionPoolConfig;
 pub use port::{PortRange, Ports};
 pub use proxy::{Proxy, ProxyParseError, ProxyRequestType, Socks4Proxy, Socks5Proxy};
+pub use quic::*;
 pub use rate_limit::{
     RATE_LIMIT_SHIFT_MILLIS_DEFAULT, RATE_LIMIT_SHIFT_MILLIS_MAX, TcpSockSpeedLimitConfig,
     UdpSockSpeedLimitConfig,
@@ -55,7 +58,6 @@ pub use rate_limit::{
 pub use socks::SocksAuth;
 pub use tcp::*;
 pub use tls::*;
-pub use tlv::{T1L2BVParse, TlvParse};
 pub use udp::{UdpListenConfig, UdpMiscSockOpts};
 pub use upstream::{UpstreamAddr, UpstreamHostRef, WeightedUpstreamAddr};
 
