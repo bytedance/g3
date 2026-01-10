@@ -4,7 +4,6 @@ PACKAGE_NAME := g3fcgen
 BUILD_PROFILE := release-lto
 
 DEB_VERSION ?= $(shell dpkg-parsechangelog -SVersion)
-SSL_FEATURE ?= $(shell scripts/package/detect_openssl_feature.sh)
 
 %:
 	dh $@
@@ -18,7 +17,7 @@ override_dh_auto_clean:
 override_dh_auto_build:
 	G3_PACKAGE_VERSION=$(DEB_VERSION) \
 	  cargo build --frozen --offline --profile $(BUILD_PROFILE) \
-	    --no-default-features --features $(SSL_FEATURE), \
+	    --no-default-features \
 	    --package g3fcgen
 
 override_dh_auto_install:

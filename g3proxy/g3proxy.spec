@@ -26,12 +26,10 @@ Generic proxy for G3 Project
 %build
 G3_PACKAGE_VERSION="%{version}-%{release}"
 export G3_PACKAGE_VERSION
-LUA_VERSION=$(pkg-config --variable=V lua | tr -d '.')
-LUA_FEATURE=lua$LUA_VERSION
-SSL_FEATURE=$(sh scripts/package/detect_openssl_feature.sh)
+LUA_FEATURE=$(lua -v | sed 's/Lua \([0-9]\+\)[.]\([0-9]\+\)[.].*/lua\1\2/')
 CARES_FEATURE=$(sh scripts/package/detect_c-ares_feature.sh)
 export CMAKE="%{cmake_real}"
-cargo build --frozen --profile %{build_profile} --no-default-features --features $LUA_FEATURE,$SSL_FEATURE,rustls-ring,quic,$CARES_FEATURE --package g3proxy --package g3proxy-ctl --package g3proxy-lua
+cargo build --frozen --profile %{build_profile} --no-default-features --features $LUA_FEATURE,rustls-ring,quic,$CARES_FEATURE --package g3proxy --package g3proxy-ctl --package g3proxy-lua
 cargo build --frozen --profile %{build_profile} --package g3proxy-ftp
 sh %{name}/service/generate_systemd.sh
 
