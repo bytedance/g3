@@ -54,12 +54,12 @@ impl RawSocket {
         }
         #[cfg(unix)]
         if let Some(mss) = misc_opts.max_segment_size {
-            socket.set_tcp_mss(mss)?;
+            socket.set_tcp_mss(mss as u32)?;
         }
         match family {
             AddressFamily::Ipv4 => {
                 if let Some(ttl) = misc_opts.time_to_live {
-                    socket.set_ttl_v4(ttl)?;
+                    socket.set_ttl_v4(ttl as u32)?;
                 }
                 if let Some(tos) = misc_opts.type_of_service {
                     crate::sockopt::set_tos_v4(socket, tos)?;
@@ -67,7 +67,7 @@ impl RawSocket {
             }
             AddressFamily::Ipv6 => {
                 if let Some(hops) = misc_opts.hop_limit {
-                    socket.set_unicast_hops_v6(hops)?;
+                    socket.set_unicast_hops_v6(hops as u32)?;
                 }
                 #[cfg(not(windows))]
                 if let Some(class) = misc_opts.traffic_class {
@@ -112,7 +112,7 @@ impl RawSocket {
         match local_addr {
             SocketAddr::V4(_) => {
                 if let Some(ttl) = misc_opts.time_to_live {
-                    socket.set_ttl_v4(ttl)?;
+                    socket.set_ttl_v4(ttl as u32)?;
                 }
                 if let Some(tos) = misc_opts.type_of_service {
                     crate::sockopt::set_tos_v4(socket, tos)?;
@@ -121,7 +121,7 @@ impl RawSocket {
             #[cfg(not(target_os = "openbsd"))]
             SocketAddr::V6(s6) => {
                 if let Some(hops) = misc_opts.hop_limit {
-                    socket.set_unicast_hops_v6(hops)?;
+                    socket.set_unicast_hops_v6(hops as u32)?;
                 }
                 #[cfg(not(windows))]
                 if let Some(class) = misc_opts.traffic_class {
@@ -134,7 +134,7 @@ impl RawSocket {
                     let v6only = super::sockopt::ipv6_only(socket)?;
                     if !v6only {
                         if let Some(ttl) = misc_opts.time_to_live {
-                            socket.set_ttl_v4(ttl)?;
+                            socket.set_ttl_v4(ttl as u32)?;
                         }
                         if let Some(tos) = misc_opts.type_of_service {
                             crate::sockopt::set_tos_v4(socket, tos)?;
@@ -145,7 +145,7 @@ impl RawSocket {
             #[cfg(target_os = "openbsd")]
             SocketAddr::V6(_) => {
                 if let Some(hops) = misc_opts.hop_limit {
-                    socket.set_unicast_hops_v6(hops)?;
+                    socket.set_unicast_hops_v6(hops as u32)?;
                 }
                 if let Some(class) = misc_opts.traffic_class {
                     crate::sockopt::set_tclass_v6(socket, class)?;

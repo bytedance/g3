@@ -100,6 +100,16 @@ It consists of the following fields:
 
   .. versionadded:: 0.4.4
 
+* max_segment_size
+
+  **optional**, **type**: u16, **alias**: mss
+
+  Set value for tcp level socket option TCP_MAXSEG, which set the maximum segment size TCP option in SYN packet.
+
+  **default**: not set
+
+  .. versionadded:: 0.5.0
+
 * backlog
 
   **optional**, **type**: unsigned int

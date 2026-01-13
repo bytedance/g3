@@ -3,6 +3,7 @@ v1.13.0:
  - Feature: add facts user group type and enable it in the following servers:
      - tcp_tproxy
      - sni_proxy
+ - Feature: support set TCP max segment size in listen config
  - Compatibility: bump MSRV to 1.90.0
  - Deprecated: the following config options are deprecated:
      - tcp_conn_rate_limit/tcp_conn_limit_quota in user config, use connection_rate_limit instead

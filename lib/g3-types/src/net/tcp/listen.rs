@@ -38,6 +38,7 @@ pub struct TcpListenConfig {
     transparent: bool,
     #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
     mark: Option<u32>,
+    max_segment_size: Option<u16>,
     backlog: u32,
     instance: usize,
     scale: usize,
@@ -69,6 +70,7 @@ impl TcpListenConfig {
             transparent: false,
             #[cfg(any(target_os = "android", target_os = "fuchsia", target_os = "linux"))]
             mark: None,
+            max_segment_size: None,
             backlog: DEFAULT_LISTEN_BACKLOG,
             instance: 1,
             scale: 0,
@@ -126,6 +128,11 @@ impl TcpListenConfig {
     }
 
     #[inline]
+    pub fn max_segment_size(&self) -> Option<u16> {
+        self.max_segment_size
+    }
+
+    #[inline]
     pub fn backlog(&self) -> u32 {
         self.backlog
     }
@@ -173,6 +180,10 @@ impl TcpListenConfig {
     #[inline]
     pub fn set_mark(&mut self, mark: u32) {
         self.mark = Some(mark);
+    }
+
+    pub fn set_max_segment_size(&mut self, max_segment_size: u16) {
+        self.max_segment_size = Some(max_segment_size);
     }
 
     #[inline]

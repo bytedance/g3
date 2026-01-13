@@ -1,5 +1,6 @@
 
 v0.5.0:
+ - Feature: support set TCP max segment size in listen config
  - Compatibility: update MSRV to 1.90.0
 
 v0.4.4:

@@ -7,8 +7,8 @@ use g3_std_ext::core::OptionExt;
 
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct UdpMiscSockOpts {
-    pub time_to_live: Option<u32>,
-    pub hop_limit: Option<u32>,
+    pub time_to_live: Option<u8>,
+    pub hop_limit: Option<u8>,
     pub type_of_service: Option<u8>,
     #[cfg(not(windows))]
     pub traffic_class: Option<u8>,

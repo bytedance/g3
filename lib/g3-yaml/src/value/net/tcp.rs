@@ -118,6 +118,12 @@ pub fn as_tcp_listen_config(value: &Yaml) -> anyhow::Result<TcpListenConfig> {
                     config.set_mark(mark);
                     Ok(())
                 }
+                "max_segment_size" | "mss" => {
+                    let mss = crate::value::as_u16(v)
+                        .context(format!("invalid u16 value for key {k}"))?;
+                    config.set_max_segment_size(mss);
+                    Ok(())
+                }
                 "scale" => set_tcp_listen_scale(&mut config, v)
                     .context(format!("invalid scale value for key {k}")),
                 "follow_cpu_affinity" => {
@@ -259,19 +265,19 @@ pub fn as_tcp_misc_sock_opts(v: &Yaml) -> anyhow::Result<TcpMiscSockOpts> {
             }
             "max_segment_size" | "mss" => {
                 let mss =
-                    crate::value::as_u32(v).context(format!("invalid u32 value for key {k}"))?;
+                    crate::value::as_u16(v).context(format!("invalid u16 value for key {k}"))?;
                 config.max_segment_size = Some(mss);
                 Ok(())
             }
             "time_to_live" | "ttl" => {
                 let ttl =
-                    crate::value::as_u32(v).context(format!("invalid u32 value for key {k}"))?;
+                    crate::value::as_u8(v).context(format!("invalid u8 value for key {k}"))?;
                 config.time_to_live = Some(ttl);
                 Ok(())
             }
             "hop_limit" => {
                 let hops =
-                    crate::value::as_u32(v).context(format!("invalid u32 value for key {k}"))?;
+                    crate::value::as_u8(v).context(format!("invalid u8 value for key {k}"))?;
                 config.hop_limit = Some(hops);
                 Ok(())
             }
