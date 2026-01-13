@@ -93,18 +93,18 @@ pub fn as_tcp_misc_sock_opts(v: &Value) -> anyhow::Result<TcpMiscSockOpts> {
                     config.no_delay = Some(no_delay);
                 }
                 "max_segment_size" | "mss" => {
-                    let mss = crate::value::as_u32(v)
-                        .context(format!("invalid u32 value for key {k}"))?;
+                    let mss = crate::value::as_u16(v)
+                        .context(format!("invalid u16 value for key {k}"))?;
                     config.max_segment_size = Some(mss);
                 }
                 "time_to_live" | "ttl" => {
-                    let ttl = crate::value::as_u32(v)
-                        .context(format!("invalid u32 value for key {k}"))?;
+                    let ttl =
+                        crate::value::as_u8(v).context(format!("invalid u8 value for key {k}"))?;
                     config.time_to_live = Some(ttl);
                 }
                 "hop_limit" => {
-                    let hops = crate::value::as_u32(v)
-                        .context(format!("invalid u32 value for key {k}"))?;
+                    let hops =
+                        crate::value::as_u8(v).context(format!("invalid u8 value for key {k}"))?;
                     config.hop_limit = Some(hops);
                 }
                 "type_of_service" | "tos" => {

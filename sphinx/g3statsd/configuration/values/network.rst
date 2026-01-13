@@ -202,7 +202,7 @@ Keys:
 
 * time_to_live
 
-  **optional**, **type**: u32, **alias**: ttl
+  **optional**, **type**: u8, **alias**: ttl
 
   Set value for ip level socket option IP_TTL, the time-to-live field in each sent packet.
 
@@ -210,7 +210,7 @@ Keys:
 
 * hop_limit
 
-  **optional**, **type**: u32
+  **optional**, **type**: u8
 
   Set value for ipv6 level socket option IPV6_UNICAST_HOPS, the hop limit field in each sent packet.
 

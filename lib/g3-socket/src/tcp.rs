@@ -40,6 +40,10 @@ pub fn new_std_listener(config: &TcpListenConfig) -> io::Result<std::net::TcpLis
     if let Some(mark) = config.mark() {
         socket.set_mark(mark)?;
     }
+    #[cfg(unix)]
+    if let Some(mss) = config.max_segment_size() {
+        socket.set_tcp_mss(mss as u32)?;
+    }
     let bind_addr: SockAddr = addr.into();
     socket.bind(&bind_addr)?;
     #[cfg(any(target_os = "linux", target_os = "android"))]

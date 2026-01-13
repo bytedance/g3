@@ -1,5 +1,6 @@
 
 v0.4.0:
+ - Feature: support set TCP max segment size in listen config
  - Compatibility: bump MSRV to 1.90.0
  - Deprecated: the following config options are deprecated:
      - task_idle_check_duration in server config, use task_idle_check_interval instead

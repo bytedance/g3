@@ -15,13 +15,13 @@ pub fn as_udp_misc_sock_opts(v: &Value) -> anyhow::Result<UdpMiscSockOpts> {
         for (k, v) in map {
             match crate::key::normalize(k).as_str() {
                 "time_to_live" | "ttl" => {
-                    let ttl = crate::value::as_u32(v)
-                        .context(format!("invalid u32 value for key {k}"))?;
+                    let ttl =
+                        crate::value::as_u8(v).context(format!("invalid u8 value for key {k}"))?;
                     config.time_to_live = Some(ttl);
                 }
                 "hop_limit" => {
-                    let hops = crate::value::as_u32(v)
-                        .context(format!("invalid u32 value for key {k}"))?;
+                    let hops =
+                        crate::value::as_u8(v).context(format!("invalid u8 value for key {k}"))?;
                     config.hop_limit = Some(hops);
                 }
                 "type_of_service" | "tos" => {

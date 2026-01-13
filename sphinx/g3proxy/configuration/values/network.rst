@@ -300,6 +300,16 @@ It consists of the following fields:
 
   .. versionadded:: 1.11.9
 
+* max_segment_size
+
+  **optional**, **type**: u16, **alias**: mss
+
+  Set value for tcp level socket option TCP_MAXSEG, which set the maximum segment size TCP option in SYN packet.
+
+  **default**: not set
+
+  .. versionadded:: 1.13.0
+
 * backlog
 
   **optional**, **type**: unsigned int
@@ -630,15 +640,15 @@ Keys:
 
 * max_segment_size
 
-  **optional**, **type**: u32, **alias**: mss
+  **optional**, **type**: u16, **alias**: mss
 
-  Set value for tcp level socket option TCP_MAXSEG, the maximum segment size for outgoing TCP packets.
+  Set value for tcp level socket option TCP_MAXSEG, which set the maximum segment size TCP option in SYN packet.
 
   **default**: not set
 
 * time_to_live
 
-  **optional**, **type**: u32, **alias**: ttl
+  **optional**, **type**: u8, **alias**: ttl
 
   Set value for ip level socket option IP_TTL, the time-to-live field in each sent packet.
 
@@ -646,7 +656,7 @@ Keys:
 
 * hop_limit
 
-  **optional**, **type**: u32
+  **optional**, **type**: u8
 
   Set value for ipv6 level socket option IPV6_UNICAST_HOPS, the hop limit field in each sent packet.
 
@@ -705,7 +715,7 @@ Keys:
 
 * time_to_live
 
-  **optional**, **type**: u32, **alias**: ttl
+  **optional**, **type**: u8, **alias**: ttl
 
   Set value for ip level socket option IP_TTL, the time-to-live field in each sent packet.
 
@@ -713,7 +723,7 @@ Keys:
 
 * hop_limit
 
-  **optional**, **type**: u32
+  **optional**, **type**: u8
 
   Set value for ipv6 level socket option IPV6_UNICAST_HOPS, the hop limit field in each sent packet.
 
