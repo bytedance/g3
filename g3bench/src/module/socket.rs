@@ -20,6 +20,7 @@ use g3_socket::{BindAddr, TcpConnectInfo, UdpConnectInfo};
     target_os = "solaris"
 ))]
 use g3_types::net::Interface;
+use g3_types::net::TcpMiscSockOpts;
 
 const SOCKET_ARG_LOCAL_ADDRESS: &str = "local-address";
 #[cfg(any(
@@ -30,6 +31,7 @@ const SOCKET_ARG_LOCAL_ADDRESS: &str = "local-address";
     target_os = "solaris"
 ))]
 const SOCKET_ARG_INTERFACE: &str = "interface";
+const SOCKET_ARG_TCP_MSS: &str = "tcp-mss";
 
 pub(crate) trait AppendSocketArgs {
     fn append_socket_args(self) -> Self;
@@ -38,6 +40,7 @@ pub(crate) trait AppendSocketArgs {
 #[derive(Default)]
 pub(crate) struct SocketArgs {
     bind: BindAddr,
+    tcp_opts: TcpMiscSockOpts,
 }
 
 impl SocketArgs {
@@ -46,7 +49,7 @@ impl SocketArgs {
             peer.ip(),
             &self.bind,
             &Default::default(),
-            &Default::default(),
+            &self.tcp_opts,
             true,
         )
         .map_err(|e| anyhow!("failed to setup socket to {peer}: {e:?}"))?;
@@ -76,7 +79,7 @@ impl SocketArgs {
             server,
             bind: self.bind,
             keepalive: Default::default(),
-            misc_opts: Default::default(),
+            misc_opts: self.tcp_opts.clone(),
         }
     }
 
@@ -93,6 +96,9 @@ impl SocketArgs {
         ))]
         if let Some(name) = args.get_one::<Interface>(SOCKET_ARG_INTERFACE) {
             self.bind = BindAddr::Interface(*name);
+        }
+        if let Some(mss) = args.get_one::<u16>(SOCKET_ARG_TCP_MSS) {
+            self.tcp_opts.max_segment_size = Some(*mss);
         }
         Ok(())
     }
@@ -111,14 +117,6 @@ pub(crate) fn append_socket_args(mut cmd: Command) -> Command {
         };
     }
 
-    add_arg!(
-        Arg::new(SOCKET_ARG_LOCAL_ADDRESS)
-            .value_name("LOCAL IP ADDRESS")
-            .short('B')
-            .long(SOCKET_ARG_LOCAL_ADDRESS)
-            .num_args(1)
-            .value_parser(value_parser!(IpAddr))
-    );
     #[cfg(any(
         target_os = "linux",
         target_os = "android",
@@ -134,6 +132,21 @@ pub(crate) fn append_socket_args(mut cmd: Command) -> Command {
             .num_args(1)
             .value_parser(value_parser!(Interface))
             .conflicts_with(SOCKET_ARG_LOCAL_ADDRESS)
+    );
+    add_arg!(
+        Arg::new(SOCKET_ARG_LOCAL_ADDRESS)
+            .value_name("LOCAL IP ADDRESS")
+            .short('B')
+            .long(SOCKET_ARG_LOCAL_ADDRESS)
+            .num_args(1)
+            .value_parser(value_parser!(IpAddr))
+    );
+    add_arg!(
+        Arg::new(SOCKET_ARG_TCP_MSS)
+            .value_name("TCP Max Segments Size")
+            .long(SOCKET_ARG_TCP_MSS)
+            .num_args(1)
+            .value_parser(value_parser!(u16))
     );
     cmd
 }
