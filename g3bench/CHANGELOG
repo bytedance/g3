@@ -1,6 +1,9 @@
 
 v0.9.7:
  - Feature: allow to set more flexible rate limit value
+ - Feature: allow to set tcp max segment size
+ - Feature: allow to send http request with body in h1/h2/h3 target
+ - Feature: add initial support for websocket over h1 target
 
 v0.9.6:
  - BUG FIX: fix wake in cloudflare keyless multiplex task
