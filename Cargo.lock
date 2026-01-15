@@ -1632,7 +1632,7 @@ dependencies = [
 
 [[package]]
 name = "g3bench"
-version = "0.9.6"
+version = "0.9.7"
 dependencies = [
  "ahash",
  "anyhow",
