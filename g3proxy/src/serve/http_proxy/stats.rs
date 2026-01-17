@@ -28,10 +28,10 @@ pub(crate) struct HttpProxyServerStats {
 
     pub forbidden: ServerForbiddenStats,
 
-    pub task_http_untrusted: ServerPerTaskStats,
-    pub task_http_connect: ServerPerTaskStats,
-    pub task_http_forward: ServerPerTaskStats,
-    pub task_ftp_over_http: ServerPerTaskStats,
+    task_http_untrusted: ServerPerTaskStats,
+    task_http_connect: ServerPerTaskStats,
+    task_http_forward: ServerPerTaskStats,
+    task_ftp_over_http: ServerPerTaskStats,
 
     pub io_http: TcpIoStats,
     pub io_connect: TcpIoStats,
@@ -71,6 +71,62 @@ impl HttpProxyServerStats {
 
     pub(super) fn add_conn(&self, _addr: SocketAddr) {
         self.conn_total.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn add_http_forward_task(self: &Arc<Self>) -> HttpForwardTaskAliveGuard {
+        self.task_http_forward.add_task();
+        self.task_http_forward.inc_alive_task();
+        HttpForwardTaskAliveGuard(self.clone())
+    }
+
+    pub(super) fn add_http_connect_task(self: &Arc<Self>) -> HttpConnectTaskAliveGuard {
+        self.task_http_connect.add_task();
+        self.task_http_connect.inc_alive_task();
+        HttpConnectTaskAliveGuard(self.clone())
+    }
+
+    pub(super) fn add_ftp_over_http_task(self: &Arc<Self>) -> FtpOverHttpTaskAliveGuard {
+        self.task_ftp_over_http.add_task();
+        self.task_ftp_over_http.inc_alive_task();
+        FtpOverHttpTaskAliveGuard(self.clone())
+    }
+
+    pub(super) fn add_http_untrusted_task(self: &Arc<Self>) -> HttpUntrustedTaskAliveGuard {
+        self.task_http_untrusted.add_task();
+        self.task_http_untrusted.inc_alive_task();
+        HttpUntrustedTaskAliveGuard(self.clone())
+    }
+}
+
+pub(super) struct HttpForwardTaskAliveGuard(Arc<HttpProxyServerStats>);
+
+impl Drop for HttpForwardTaskAliveGuard {
+    fn drop(&mut self) {
+        self.0.task_http_forward.dec_alive_task();
+    }
+}
+
+pub(super) struct HttpConnectTaskAliveGuard(Arc<HttpProxyServerStats>);
+
+impl Drop for HttpConnectTaskAliveGuard {
+    fn drop(&mut self) {
+        self.0.task_http_connect.dec_alive_task();
+    }
+}
+
+pub(super) struct FtpOverHttpTaskAliveGuard(Arc<HttpProxyServerStats>);
+
+impl Drop for FtpOverHttpTaskAliveGuard {
+    fn drop(&mut self) {
+        self.0.task_ftp_over_http.dec_alive_task();
+    }
+}
+
+pub(super) struct HttpUntrustedTaskAliveGuard(Arc<HttpProxyServerStats>);
+
+impl Drop for HttpUntrustedTaskAliveGuard {
+    fn drop(&mut self) {
+        self.0.task_http_untrusted.dec_alive_task();
     }
 }
 

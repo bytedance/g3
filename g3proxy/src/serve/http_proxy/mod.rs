@@ -4,7 +4,10 @@
  */
 
 mod stats;
-use stats::HttpProxyServerStats;
+use stats::{
+    FtpOverHttpTaskAliveGuard, HttpConnectTaskAliveGuard, HttpForwardTaskAliveGuard,
+    HttpProxyServerStats, HttpUntrustedTaskAliveGuard,
+};
 
 mod task;
 

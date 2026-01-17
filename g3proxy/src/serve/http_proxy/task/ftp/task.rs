@@ -31,6 +31,7 @@ use crate::log::task::ftp_over_http::TaskLogForFtpOverHttp;
 use crate::module::ftp_over_http::{BoxFtpRemoteConnection, FtpOverHttpTaskNotes, FtpRequestPath};
 use crate::module::http_forward::HttpProxyClientResponse;
 use crate::module::tcp_connect::{TcpConnectError, TcpConnectTaskConf};
+use crate::serve::http_proxy::FtpOverHttpTaskAliveGuard;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
@@ -52,6 +53,7 @@ pub(crate) struct FtpOverHttpTask<'a> {
     task_stats: Arc<FtpOverHttpTaskStats>,
     max_idle_count: usize,
     started: bool,
+    _alive_guard: Option<FtpOverHttpTaskAliveGuard>,
 }
 
 impl Drop for FtpOverHttpTask<'_> {
@@ -87,6 +89,7 @@ impl<'a> FtpOverHttpTask<'a> {
             task_stats: Arc::new(FtpOverHttpTaskStats::default()),
             max_idle_count,
             started: false,
+            _alive_guard: None,
         }
     }
 
@@ -138,8 +141,7 @@ impl<'a> FtpOverHttpTask<'a> {
     }
 
     fn pre_start(&mut self) {
-        self.ctx.server_stats.task_ftp_over_http.add_task();
-        self.ctx.server_stats.task_ftp_over_http.inc_alive_task();
+        self._alive_guard = Some(self.ctx.server_stats.add_ftp_over_http_task());
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx.foreach_req_stats(|s| {
@@ -158,8 +160,6 @@ impl<'a> FtpOverHttpTask<'a> {
     }
 
     fn post_stop(&mut self) {
-        self.ctx.server_stats.task_ftp_over_http.dec_alive_task();
-
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx.foreach_req_stats(|s| s.req_alive.del_ftp_over_http());
 
