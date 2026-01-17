@@ -9,6 +9,13 @@ The following common keys are supported:
 
 * :ref:`escaper <conf_server_common_escaper>`
 * :ref:`auditor <conf_server_common_auditor>`
+* :ref:`user_group <conf_server_common_user_group>`
+
+  The user group should be `facts` authenticate type.
+  It will be used only if `auth_by_client_ip` is set.
+
+  .. versionadded:: 1.13.0
+
 * :ref:`shared_logger <conf_server_common_shared_logger>`
 * :ref:`listen_in_worker <conf_server_common_listen_in_worker>`
 * :ref:`tls_server <conf_server_common_tls_server>`
@@ -82,3 +89,14 @@ Set an explicit tls server name to do upstream tls certificate verification.
 If not set, the host of upstream address will be used.
 
 **default**: not set
+
+auth_by_client_ip
+-----------------
+
+**optional**, **type**: bool, **conflict**: auth_by_server_ip
+
+Enable facts user authenticate and use client IP as the authenticate fact.
+
+**default**: false
+
+.. versionadded:: 1.13.0
