@@ -14,6 +14,7 @@ use g3_io_ext::{StreamCopy, StreamCopyError};
 use super::protocol::{HttpClientReader, HttpClientWriter, HttpRProxyRequest};
 use super::{CommonTaskContext, UntrustedCltReadWrapperStats};
 use crate::module::http_forward::HttpProxyClientResponse;
+use crate::serve::http_rproxy::HttpUntrustedTaskAliveGuard;
 use crate::serve::{ServerTaskError, ServerTaskResult};
 
 pub(crate) struct HttpRProxyUntrustedTask<'a> {
@@ -21,6 +22,7 @@ pub(crate) struct HttpRProxyUntrustedTask<'a> {
     req: &'a HttpProxyClientRequest,
     should_close: bool,
     started: bool,
+    _alive_guard: Option<HttpUntrustedTaskAliveGuard>,
 }
 
 impl Drop for HttpRProxyUntrustedTask<'_> {
@@ -42,19 +44,17 @@ impl<'a> HttpRProxyUntrustedTask<'a> {
             req: &req.inner,
             should_close: !req.inner.keep_alive(),
             started: false,
+            _alive_guard: None,
         }
     }
 
     fn pre_start(&mut self) {
-        self.ctx.server_stats.task_http_untrusted.add_task();
-        self.ctx.server_stats.task_http_untrusted.inc_alive_task();
+        self._alive_guard = Some(self.ctx.server_stats.add_untrusted_task());
 
         self.started = true;
     }
 
-    fn post_stop(&self) {
-        self.ctx.server_stats.task_http_untrusted.dec_alive_task();
-    }
+    fn post_stop(&self) {}
 
     #[inline]
     pub(crate) fn should_close(&self) -> bool {

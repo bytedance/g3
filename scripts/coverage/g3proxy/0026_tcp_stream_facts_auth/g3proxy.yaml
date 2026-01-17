@@ -1,0 +1,50 @@
+---
+
+log: stdout
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+resolver:
+  - name: default
+    type: c-ares
+    server:
+      - 127.0.0.1
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: default
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.1
+
+user_group:
+  - name: match_by_facts
+    type: facts
+    static_users:
+      - name: t1
+        match_by_facts:
+          - ip: 127.0.0.1
+          - ip: "::1"
+
+server:
+  - name: tcp
+    type: tcp_stream
+    listen: 127.0.0.1:8080
+    escaper: default
+    user_group: match_by_facts
+    auth_by_client_ip: true
+    upstream: 127.0.0.1:80
+  - name: tls
+    type: tls_stream
+    listen: 127.0.0.1:8443
+    escaper: default
+    user_group: match_by_facts
+    auth_by_client_ip: true
+    tls_server:
+      cert_pairs:
+        certificate: ../httpbin.local.pem
+        private-key: ../httpbin.local-key.pem
+    upstream: 127.0.0.1:80

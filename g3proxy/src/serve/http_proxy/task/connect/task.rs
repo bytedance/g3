@@ -27,6 +27,7 @@ use crate::module::http_forward::HttpProxyClientResponse;
 use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TcpConnection,
 };
+use crate::serve::http_proxy::HttpConnectTaskAliveGuard;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
@@ -43,6 +44,7 @@ pub(crate) struct HttpProxyConnectTask {
     audit_ctx: AuditContext,
     http_version: Version,
     started: bool,
+    _alive_guard: Option<HttpConnectTaskAliveGuard>,
 }
 
 impl Drop for HttpProxyConnectTask {
@@ -72,6 +74,7 @@ impl HttpProxyConnectTask {
             audit_ctx,
             http_version: req.inner.version,
             started: false,
+            _alive_guard: None,
         }
     }
 
@@ -348,8 +351,7 @@ impl HttpProxyConnectTask {
     }
 
     fn pre_start(&mut self) {
-        self.ctx.server_stats.task_http_connect.add_task();
-        self.ctx.server_stats.task_http_connect.inc_alive_task();
+        self._alive_guard = Some(self.ctx.server_stats.add_http_connect_task());
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx.foreach_req_stats(|s| {
@@ -368,8 +370,6 @@ impl HttpProxyConnectTask {
     }
 
     fn post_stop(&mut self) {
-        self.ctx.server_stats.task_http_connect.dec_alive_task();
-
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx.foreach_req_stats(|s| {
                 s.req_alive.del_http_connect();

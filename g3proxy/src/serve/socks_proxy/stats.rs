@@ -27,9 +27,9 @@ pub(crate) struct SocksProxyServerStats {
 
     pub(crate) forbidden: ServerForbiddenStats,
 
-    pub(crate) task_tcp_connect: ServerPerTaskStats,
-    pub(crate) task_udp_associate: ServerPerTaskStats,
-    pub(crate) task_udp_connect: ServerPerTaskStats,
+    task_tcp_connect: ServerPerTaskStats,
+    task_udp_associate: ServerPerTaskStats,
+    task_udp_connect: ServerPerTaskStats,
 
     pub(crate) io_tcp: TcpIoStats,
     pub(crate) io_udp: UdpIoStats,
@@ -66,6 +66,48 @@ impl SocksProxyServerStats {
 
     pub(crate) fn add_conn(&self, _addr: SocketAddr) {
         self.conn_total.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn add_tcp_connect_task(self: &Arc<Self>) -> TcpConnectTaskAliveGuard {
+        self.task_tcp_connect.add_task();
+        self.task_tcp_connect.inc_alive_task();
+        TcpConnectTaskAliveGuard(self.clone())
+    }
+
+    pub(super) fn add_udp_associate_task(self: &Arc<Self>) -> UdpAssociateTaskAliveGuard {
+        self.task_udp_associate.add_task();
+        self.task_udp_associate.inc_alive_task();
+        UdpAssociateTaskAliveGuard(self.clone())
+    }
+
+    pub(super) fn add_udp_connect_task(self: &Arc<Self>) -> UdpConnectTaskAliveGuard {
+        self.task_udp_connect.add_task();
+        self.task_udp_connect.inc_alive_task();
+        UdpConnectTaskAliveGuard(self.clone())
+    }
+}
+
+pub(super) struct TcpConnectTaskAliveGuard(Arc<SocksProxyServerStats>);
+
+impl Drop for TcpConnectTaskAliveGuard {
+    fn drop(&mut self) {
+        self.0.task_tcp_connect.dec_alive_task();
+    }
+}
+
+pub(super) struct UdpAssociateTaskAliveGuard(Arc<SocksProxyServerStats>);
+
+impl Drop for UdpAssociateTaskAliveGuard {
+    fn drop(&mut self) {
+        self.0.task_udp_associate.dec_alive_task();
+    }
+}
+
+pub(super) struct UdpConnectTaskAliveGuard(Arc<SocksProxyServerStats>);
+
+impl Drop for UdpConnectTaskAliveGuard {
+    fn drop(&mut self) {
+        self.0.task_udp_connect.dec_alive_task();
     }
 }
 

@@ -34,6 +34,7 @@ use crate::module::http_forward::{
 use crate::module::tcp_connect::{
     TcpConnectError, TcpConnectTaskConf, TcpConnectTaskNotes, TlsConnectTaskConf,
 };
+use crate::serve::http_rproxy::HttpForwardTaskAliveGuard;
 use crate::serve::http_rproxy::host::HttpHost;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
@@ -53,6 +54,7 @@ pub(crate) struct HttpRProxyForwardTask<'a> {
     task_stats: Arc<HttpForwardTaskStats>,
     max_idle_count: usize,
     started: bool,
+    _alive_guard: Option<HttpForwardTaskAliveGuard>,
 }
 
 impl Drop for HttpRProxyForwardTask<'_> {
@@ -100,6 +102,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
             task_stats: Arc::new(HttpForwardTaskStats::default()),
             max_idle_count,
             started: false,
+            _alive_guard: None,
         }
     }
 
@@ -233,8 +236,7 @@ impl<'a> HttpRProxyForwardTask<'a> {
     }
 
     fn pre_start(&mut self) {
-        self.ctx.server_stats.task_http_forward.add_task();
-        self.ctx.server_stats.task_http_forward.inc_alive_task();
+        self._alive_guard = Some(self.ctx.server_stats.add_forward_task());
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx.foreach_req_stats(|s| {
@@ -253,8 +255,6 @@ impl<'a> HttpRProxyForwardTask<'a> {
     }
 
     fn post_stop(&mut self) {
-        self.ctx.server_stats.task_http_forward.dec_alive_task();
-
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx.foreach_req_stats(|s| s.req_alive.del_http_forward(self.is_https));
 

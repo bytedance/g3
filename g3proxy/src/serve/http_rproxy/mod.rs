@@ -4,7 +4,7 @@
  */
 
 mod stats;
-use stats::HttpRProxyServerStats;
+use stats::{HttpForwardTaskAliveGuard, HttpRProxyServerStats, HttpUntrustedTaskAliveGuard};
 
 mod task;
 

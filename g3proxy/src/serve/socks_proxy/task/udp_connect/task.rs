@@ -27,6 +27,7 @@ use crate::config::server::ServerConfig;
 use crate::log::escape::udp_sendto::EscapeLogForUdpConnectSendTo;
 use crate::log::task::udp_connect::TaskLogForUdpConnect;
 use crate::module::udp_connect::{UdpConnectTaskConf, UdpConnectTaskNotes};
+use crate::serve::socks_proxy::UdpConnectTaskAliveGuard;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
@@ -42,6 +43,7 @@ pub(crate) struct SocksProxyUdpConnectTask {
     udp_client_addr: Option<SocketAddr>,
     max_idle_count: usize,
     started: bool,
+    _alive_guard: Option<UdpConnectTaskAliveGuard>,
 }
 
 impl Drop for SocksProxyUdpConnectTask {
@@ -72,6 +74,7 @@ impl SocksProxyUdpConnectTask {
             udp_client_addr,
             max_idle_count,
             started: false,
+            _alive_guard: None,
         }
     }
 
@@ -117,8 +120,7 @@ impl SocksProxyUdpConnectTask {
     }
 
     fn pre_start(&mut self) {
-        self.ctx.server_stats.task_udp_connect.add_task();
-        self.ctx.server_stats.task_udp_connect.inc_alive_task();
+        self._alive_guard = Some(self.ctx.server_stats.add_udp_connect_task());
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx.req_stats().req_total.add_socks_udp_connect();
@@ -135,8 +137,6 @@ impl SocksProxyUdpConnectTask {
     }
 
     fn post_stop(&mut self) {
-        self.ctx.server_stats.task_udp_connect.dec_alive_task();
-
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx.foreach_req_stats(|s| s.req_alive.del_socks_udp_connect());
 

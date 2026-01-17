@@ -24,6 +24,7 @@ use crate::config::server::ServerConfig;
 use crate::inspect::{StreamInspectContext, StreamTransitTask};
 use crate::log::task::tcp_connect::TaskLogForTcpConnect;
 use crate::module::tcp_connect::{TcpConnectTaskConf, TcpConnectTaskNotes};
+use crate::serve::socks_proxy::TcpConnectTaskAliveGuard;
 use crate::serve::{
     ServerStats, ServerTaskError, ServerTaskForbiddenError, ServerTaskNotes, ServerTaskResult,
     ServerTaskStage,
@@ -38,6 +39,7 @@ pub(crate) struct SocksProxyTcpConnectTask {
     task_stats: Arc<TcpStreamTaskStats>,
     audit_ctx: AuditContext,
     started: bool,
+    _alive_guard: Option<TcpConnectTaskAliveGuard>,
 }
 
 impl Drop for SocksProxyTcpConnectTask {
@@ -76,6 +78,7 @@ impl SocksProxyTcpConnectTask {
             task_stats: Arc::new(TcpStreamTaskStats::default()),
             audit_ctx,
             started: false,
+            _alive_guard: None,
         }
     }
 
@@ -113,8 +116,7 @@ impl SocksProxyTcpConnectTask {
     }
 
     fn pre_start(&mut self) {
-        self.ctx.server_stats.task_tcp_connect.add_task();
-        self.ctx.server_stats.task_tcp_connect.inc_alive_task();
+        self._alive_guard = Some(self.ctx.server_stats.add_tcp_connect_task());
 
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx.foreach_req_stats(|s| {
@@ -133,8 +135,6 @@ impl SocksProxyTcpConnectTask {
     }
 
     fn post_stop(&mut self) {
-        self.ctx.server_stats.task_tcp_connect.dec_alive_task();
-
         if let Some(user_ctx) = self.task_notes.user_ctx() {
             user_ctx.foreach_req_stats(|s| s.req_alive.del_socks_tcp_connect());
 
