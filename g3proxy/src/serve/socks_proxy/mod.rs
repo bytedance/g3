@@ -7,6 +7,9 @@ mod server;
 mod stats;
 mod task;
 
-use stats::SocksProxyServerStats;
+use stats::{
+    SocksProxyServerStats, TcpConnectTaskAliveGuard, UdpAssociateTaskAliveGuard,
+    UdpConnectTaskAliveGuard,
+};
 
 pub(crate) use server::SocksProxyServer;

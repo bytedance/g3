@@ -28,8 +28,8 @@ pub(crate) struct HttpRProxyServerStats {
 
     pub forbidden: ServerForbiddenStats,
 
-    pub task_http_untrusted: ServerPerTaskStats,
-    pub task_http_forward: ServerPerTaskStats,
+    task_http_untrusted: ServerPerTaskStats,
+    task_http_forward: ServerPerTaskStats,
 
     pub io_http: TcpIoStats,
     pub io_untrusted: TcpIoStats,
@@ -65,6 +65,34 @@ impl HttpRProxyServerStats {
 
     pub(super) fn add_conn(&self, _addr: SocketAddr) {
         self.conn_total.fetch_add(1, Ordering::Relaxed);
+    }
+
+    pub(super) fn add_forward_task(self: &Arc<Self>) -> HttpForwardTaskAliveGuard {
+        self.task_http_forward.add_task();
+        self.task_http_forward.inc_alive_task();
+        HttpForwardTaskAliveGuard(self.clone())
+    }
+
+    pub(super) fn add_untrusted_task(self: &Arc<Self>) -> HttpUntrustedTaskAliveGuard {
+        self.task_http_untrusted.add_task();
+        self.task_http_untrusted.inc_alive_task();
+        HttpUntrustedTaskAliveGuard(self.clone())
+    }
+}
+
+pub(super) struct HttpForwardTaskAliveGuard(Arc<HttpRProxyServerStats>);
+
+impl Drop for HttpForwardTaskAliveGuard {
+    fn drop(&mut self) {
+        self.0.task_http_forward.dec_alive_task();
+    }
+}
+
+pub(super) struct HttpUntrustedTaskAliveGuard(Arc<HttpRProxyServerStats>);
+
+impl Drop for HttpUntrustedTaskAliveGuard {
+    fn drop(&mut self) {
+        self.0.task_http_untrusted.dec_alive_task();
     }
 }
 
