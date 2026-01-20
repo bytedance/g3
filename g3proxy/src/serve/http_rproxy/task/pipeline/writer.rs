@@ -114,7 +114,7 @@ where
         }
     }
 
-    fn do_auth(
+    async fn do_auth(
         &mut self,
         req: &HttpRProxyRequest<CDR>,
     ) -> Result<Option<UserContext>, UserAuthError> {
@@ -132,12 +132,16 @@ where
                         )
                     })
                     .ok_or(UserAuthError::NoUserSupplied)?,
-                HttpAuth::Basic(v) => user_group.check_user_with_password(
-                    v.username.as_original(),
-                    &v.password,
-                    self.ctx.server_config.name(),
-                    self.ctx.server_stats.share_extra_tags(),
-                )?,
+                HttpAuth::Basic(v) => {
+                    user_group
+                        .check_user_with_password(
+                            v.username.as_original(),
+                            &v.password,
+                            self.ctx.server_config.name(),
+                            self.ctx.server_stats.share_extra_tags(),
+                        )
+                        .await?
+                }
             };
             user_ctx.check_client_addr(self.ctx.client_addr())?;
 
@@ -182,7 +186,7 @@ where
         loop {
             let res = match self.task_queue.recv().await {
                 Some(Ok(req)) => {
-                    let res = match self.do_auth(&req) {
+                    let res = match self.do_auth(&req).await {
                         Ok(user_ctx) => {
                             self.req_count.consequent_auth_failed = 0;
 

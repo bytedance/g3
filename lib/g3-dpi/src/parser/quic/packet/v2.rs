@@ -5,9 +5,7 @@
 
 use openssl::error::ErrorStack;
 
-use g3_types::net::QuicVarInt;
-
-use super::{Header, PacketParseError};
+use super::{Header, PacketParseError, VarInt};
 
 const INITIAL_SALT: &[u8] = &[
     0x0d, 0xed, 0xe3, 0xde, 0xf7, 0x00, 0xa6, 0xdb, 0x81, 0x93, 0x81, 0xbe, 0x6e, 0x26, 0x9d, 0xcb,
@@ -66,7 +64,7 @@ impl InitialPacketV2 {
 
         // Token
         let left = &data[offset..];
-        let Some(token_len) = QuicVarInt::parse(left) else {
+        let Some(token_len) = VarInt::parse(left) else {
             return Err(PacketParseError::TooSmall);
         };
         let start = offset + token_len.encoded_len();
@@ -77,7 +75,7 @@ impl InitialPacketV2 {
 
         // Length
         let left = &data[offset..];
-        let Some(length) = QuicVarInt::parse(left) else {
+        let Some(length) = VarInt::parse(left) else {
             return Err(PacketParseError::TooSmall);
         };
         offset += length.encoded_len();

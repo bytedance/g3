@@ -28,10 +28,14 @@ pub(crate) use basic::BasicUserGroup;
 mod facts;
 pub(crate) use facts::FactsUserGroup;
 
+mod ldap;
+pub(crate) use ldap::LdapUserGroup;
+
 #[derive(Clone)]
 pub(crate) enum UserGroup {
     Basic(Arc<BasicUserGroup>),
     Facts(Arc<FactsUserGroup>),
+    Ldap(Arc<LdapUserGroup>),
 }
 
 impl UserGroup {
@@ -39,6 +43,7 @@ impl UserGroup {
         match self {
             UserGroup::Basic(v) => v.base().r#type(),
             UserGroup::Facts(v) => v.base().r#type(),
+            UserGroup::Ldap(v) => v.base().r#type(),
         }
     }
 
@@ -51,6 +56,10 @@ impl UserGroup {
             UserGroup::Facts(v) => {
                 let c = v.clone_config();
                 AnyUserGroupConfig::Facts(c)
+            }
+            UserGroup::Ldap(v) => {
+                let c = v.clone_config();
+                AnyUserGroupConfig::Ldap(c)
             }
         }
     }
@@ -70,6 +79,10 @@ impl UserGroup {
                 let group = FactsUserGroup::new_with_config(c).await?;
                 Ok(UserGroup::Facts(group))
             }
+            AnyUserGroupConfig::Ldap(c) => {
+                let group = LdapUserGroup::new_with_config(c).await?;
+                Ok(UserGroup::Ldap(group))
+            }
         }
     }
 
@@ -82,6 +95,10 @@ impl UserGroup {
             (UserGroup::Facts(g), AnyUserGroupConfig::Facts(c)) => {
                 let group = g.reload(c)?;
                 Ok(UserGroup::Facts(group))
+            }
+            (UserGroup::Ldap(g), AnyUserGroupConfig::Ldap(c)) => {
+                let group = g.reload(c)?;
+                Ok(UserGroup::Ldap(group))
             }
             (_, config) => Err(anyhow!(
                 "reload user group {} type {} to {} is invalid",
@@ -96,6 +113,7 @@ impl UserGroup {
         match self {
             UserGroup::Basic(v) => v.base().stop_fetch_job(),
             UserGroup::Facts(v) => v.base().stop_fetch_job(),
+            UserGroup::Ldap(v) => v.base().stop_fetch_job(),
         }
     }
 
@@ -103,6 +121,7 @@ impl UserGroup {
         match self {
             UserGroup::Basic(v) => v.base().allow_anonymous(client_addr),
             UserGroup::Facts(v) => v.base().allow_anonymous(client_addr),
+            UserGroup::Ldap(v) => v.base().allow_anonymous(client_addr),
         }
     }
 
@@ -110,6 +129,7 @@ impl UserGroup {
         match self {
             UserGroup::Basic(v) => v.base().get_anonymous_user(),
             UserGroup::Facts(v) => v.base().get_anonymous_user(),
+            UserGroup::Ldap(v) => v.base().get_anonymous_user(),
         }
     }
 
@@ -120,6 +140,7 @@ impl UserGroup {
         match self {
             UserGroup::Basic(v) => v.base().foreach_user(f),
             UserGroup::Facts(v) => v.base().foreach_user(f),
+            UserGroup::Ldap(v) => v.base().foreach_user(f),
         }
     }
 
@@ -127,6 +148,7 @@ impl UserGroup {
         match self {
             UserGroup::Basic(v) => v.base().all_static_users(),
             UserGroup::Facts(v) => v.base().all_static_users(),
+            UserGroup::Ldap(v) => v.base().all_static_users(),
         }
     }
 
@@ -134,6 +156,7 @@ impl UserGroup {
         match self {
             UserGroup::Basic(v) => v.base().all_dynamic_users(),
             UserGroup::Facts(v) => v.base().all_dynamic_users(),
+            UserGroup::Ldap(v) => v.base().all_dynamic_users(),
         }
     }
 
@@ -141,6 +164,7 @@ impl UserGroup {
         match self {
             UserGroup::Basic(v) => v.base().publish_dynamic_users(contents).await,
             UserGroup::Facts(v) => v.base().publish_dynamic_users(contents).await,
+            UserGroup::Ldap(v) => v.base().publish_dynamic_users(contents).await,
         }
     }
 
@@ -163,10 +187,15 @@ impl UserGroup {
                 v.rebuild_match_table();
                 Ok(())
             }
+            UserGroup::Ldap(v) => {
+                v.base()
+                    .save_dynamic_users(contents, dynamic_config, Some(dynamic_key))
+                    .await
+            }
         }
     }
 
-    pub(crate) fn check_user_with_password(
+    pub(crate) async fn check_user_with_password(
         &self,
         username: &str,
         password: &Password,
@@ -181,6 +210,10 @@ impl UserGroup {
                 server_extra_tags,
             ),
             UserGroup::Facts(_) => Err(UserAuthError::NoSuchUser),
+            UserGroup::Ldap(v) => {
+                v.check_user_with_password(username, password, server_name, server_extra_tags)
+                    .await
+            }
         }
     }
 }

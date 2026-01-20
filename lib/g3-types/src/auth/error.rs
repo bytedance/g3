@@ -22,6 +22,10 @@ pub enum UserAuthError {
     BlockedUser(Duration),
     #[error("src addr {0} is blocked")]
     BlockedSrcIp(SocketAddr),
+    #[error("remote timeout")]
+    RemoteTimeout,
+    #[error("remote error")]
+    RemoteError,
 }
 
 impl UserAuthError {

@@ -6,9 +6,7 @@
 use openssl::error::ErrorStack;
 use thiserror::Error;
 
-use g3_types::net::QuicVarInt;
-
-use super::{AckFrame, CryptoFrame, FrameConsume, FrameParseError};
+use super::{AckFrame, CryptoFrame, FrameConsume, FrameParseError, VarInt};
 
 mod hkdf;
 use hkdf::{quic_hkdf_expand, quic_hkdf_extract_expand};
@@ -96,7 +94,7 @@ impl InitialPacket {
 
         while offset < payload.len() {
             let left = &payload[offset..];
-            let Some(frame_type) = QuicVarInt::parse(left) else {
+            let Some(frame_type) = VarInt::parse(left) else {
                 return Err(FrameParseError::NotEnoughData);
             };
 

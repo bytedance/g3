@@ -4,12 +4,12 @@
  */
 
 #[derive(Debug)]
-pub struct QuicVarInt {
+pub struct VarInt {
     value: u64,
     encoded_len: usize,
 }
 
-impl QuicVarInt {
+impl VarInt {
     /// Try to parse a QUIC variant-length int value from the buffer
     pub fn parse(data: &[u8]) -> Option<Self> {
         if data.is_empty() {
@@ -18,7 +18,7 @@ impl QuicVarInt {
 
         let value0 = data[0] & 0b0011_1111;
         match data[0] >> 6 {
-            0 => Some(QuicVarInt {
+            0 => Some(VarInt {
                 value: value0 as u64,
                 encoded_len: 1,
             }),
@@ -26,7 +26,7 @@ impl QuicVarInt {
                 if data.len() < 2 {
                     return None;
                 }
-                Some(QuicVarInt {
+                Some(VarInt {
                     value: u16::from_be_bytes([value0, data[1]]) as u64,
                     encoded_len: 2,
                 })
@@ -35,7 +35,7 @@ impl QuicVarInt {
                 if data.len() < 4 {
                     return None;
                 }
-                Some(QuicVarInt {
+                Some(VarInt {
                     value: u32::from_be_bytes([value0, data[1], data[2], data[3]]) as u64,
                     encoded_len: 4,
                 })
@@ -44,7 +44,7 @@ impl QuicVarInt {
                 if data.len() < 8 {
                     return None;
                 }
-                Some(QuicVarInt {
+                Some(VarInt {
                     value: u64::from_be_bytes([
                         value0, data[1], data[2], data[3], data[4], data[5], data[6], data[7],
                     ]),
@@ -72,24 +72,24 @@ mod tests {
 
     #[test]
     fn parse() {
-        assert!(QuicVarInt::parse(b"").is_none());
+        assert!(VarInt::parse(b"").is_none());
 
-        let v = QuicVarInt::parse(&[0x02]).unwrap();
+        let v = VarInt::parse(&[0x02]).unwrap();
         assert_eq!(v.value, 2);
         assert_eq!(v.encoded_len(), 1);
 
-        assert!(QuicVarInt::parse(&[0b0100_1111]).is_none());
-        let v = QuicVarInt::parse(&[0b0100_1111, 0]).unwrap();
+        assert!(VarInt::parse(&[0b0100_1111]).is_none());
+        let v = VarInt::parse(&[0b0100_1111, 0]).unwrap();
         assert_eq!(v.value, 0x0F00);
         assert_eq!(v.encoded_len(), 2);
 
-        assert!(QuicVarInt::parse(&[0b1000_1111, 0x00]).is_none());
-        let v = QuicVarInt::parse(&[0b1000_1111, 0, 0, 0x01]).unwrap();
+        assert!(VarInt::parse(&[0b1000_1111, 0x00]).is_none());
+        let v = VarInt::parse(&[0b1000_1111, 0, 0, 0x01]).unwrap();
         assert_eq!(v.value, 0x0F000001);
         assert_eq!(v.encoded_len(), 4);
 
-        assert!(QuicVarInt::parse(&[0b1100_1111, 0]).is_none());
-        let v = QuicVarInt::parse(&[0b1100_1111, 0, 0, 0, 0, 0, 0, 0x01]).unwrap();
+        assert!(VarInt::parse(&[0b1100_1111, 0]).is_none());
+        let v = VarInt::parse(&[0b1100_1111, 0, 0, 0, 0, 0, 0, 0x01]).unwrap();
         assert_eq!(v.value, 0x0F00000000000001);
         assert_eq!(v.encoded_len(), 8);
     }

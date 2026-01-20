@@ -3,9 +3,7 @@
  * Copyright 2026 G3-OSS developers.
  */
 
-use g3_types::net::{
-    LdapMessageId, LdapMessageIdParseError, LdapMessageLength, LdapMessageLengthParseError,
-};
+use g3_types::codec::{LdapLength, LdapLengthParseError, LdapMessageId};
 
 use super::{MaybeProtocol, Protocol, ProtocolInspectError, ProtocolInspectState};
 use crate::ProtocolInspectionSizeLimit;
@@ -43,7 +41,7 @@ impl ProtocolInspectState {
 
         let header_len;
         let content_len;
-        match LdapMessageLength::parse(&data[1..]) {
+        match LdapLength::parse(&data[1..]) {
             Ok(v) => {
                 if v.value() > size_limit.ldap_request_msg as u64 {
                     self.exclude_current();
@@ -57,7 +55,7 @@ impl ProtocolInspectState {
                     ));
                 }
             }
-            Err(LdapMessageLengthParseError::NeedMoreData(n)) => {
+            Err(LdapLengthParseError::NeedMoreData(n)) => {
                 return Err(ProtocolInspectError::NeedMoreData(n));
             }
             Err(_) => {
@@ -66,16 +64,13 @@ impl ProtocolInspectState {
             }
         }
 
-        let content = &data[header_len..];
+        let content = &data[header_len..header_len + content_len];
         match LdapMessageId::parse(content) {
             Ok(id) => {
                 if id.value() == 0 {
                     self.exclude_current();
                     return Ok(None);
                 }
-            }
-            Err(LdapMessageIdParseError::NeedMoreData(n)) => {
-                return Err(ProtocolInspectError::NeedMoreData(n));
             }
             Err(_) => {
                 self.exclude_current();

@@ -254,12 +254,15 @@ impl SocksProxyNegotiationTask {
                         base_username = username.as_original();
                     }
 
-                    match user_group.check_user_with_password(
-                        base_username,
-                        &password,
-                        self.ctx.server_config.name(),
-                        self.ctx.server_stats.share_extra_tags(),
-                    ) {
+                    match user_group
+                        .check_user_with_password(
+                            base_username,
+                            &password,
+                            self.ctx.server_config.name(),
+                            self.ctx.server_stats.share_extra_tags(),
+                        )
+                        .await
+                    {
                         Ok(user_ctx) => {
                             if user_ctx.check_client_addr(self.ctx.client_addr()).is_err() {
                                 self.ctx.server_stats.forbidden.add_auth_failed();
