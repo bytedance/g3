@@ -27,7 +27,7 @@ const USER_GROUP_TYPE: &str = "basic";
 #[derive(Clone)]
 pub(crate) struct BasicUserGroupConfig {
     name: NodeName,
-    position: Option<YamlDocPosition>,
+    pub(super) position: Option<YamlDocPosition>,
     pub(crate) static_users: HashMap<ArcStr, Arc<UserConfig>>,
     pub(crate) dynamic_source: Option<UserDynamicSource>,
     pub(crate) dynamic_cache: PathBuf,

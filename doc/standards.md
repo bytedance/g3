@@ -513,6 +513,12 @@ The code should comply to these, but should be more compliant to existing popula
 
  - [rfc4511](https://datatracker.ietf.org/doc/html/rfc4511)
     : Lightweight Directory Access Protocol (LDAP): The Protocol
+ - [rfc4513](https://datatracker.ietf.org/doc/html/rfc4513)
+    : Lightweight Directory Access Protocol (LDAP): Authentication Methods and Security Mechanisms
+ - [rfc4516](https://datatracker.ietf.org/doc/html/rfc4516)
+    : Lightweight Directory Access Protocol (LDAP): Uniform Resource Locator
+ - [rfc4519](https://datatracker.ietf.org/doc/html/rfc4519)
+    : Lightweight Directory Access Protocol (LDAP): Schema for User Applications
 
 ## MQTT
 

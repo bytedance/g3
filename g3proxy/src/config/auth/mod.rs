@@ -21,7 +21,8 @@ pub(crate) use source::*;
 
 pub(crate) mod group;
 pub(crate) use group::{
-    AnyUserGroupConfig, BasicUserGroupConfig, FactsUserGroupConfig, UserGroupConfig,
+    AnyUserGroupConfig, BasicUserGroupConfig, FactsUserGroupConfig, LdapUserGroupConfig,
+    UserGroupConfig,
 };
 
 mod registry;
@@ -61,6 +62,10 @@ fn load_user_group(
         "facts" => {
             let group = FactsUserGroupConfig::parse(map, position)?;
             Ok(AnyUserGroupConfig::Facts(group))
+        }
+        "ldap" => {
+            let group = LdapUserGroupConfig::parse(map, position)?;
+            Ok(AnyUserGroupConfig::Ldap(group))
         }
         _ => Err(anyhow!("unsupported user group type {group_type}")),
     }
