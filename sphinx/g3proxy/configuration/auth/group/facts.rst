@@ -3,7 +3,9 @@
 Facts
 =====
 
-The following keys are supported:
+The user group that auth the user based on connection facts.
+
+The following common keys are supported:
 
 * :ref:`name <conf_auth_user_group_name>`
 * :ref:`type <conf_auth_user_group_type>`

@@ -3,14 +3,12 @@
  * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use g3_types::net::QuicVarInt;
-
-use super::FrameParseError;
+use super::{FrameParseError, VarInt};
 
 pub struct AckFrame {
-    pub largest_ack: QuicVarInt,
-    pub ack_delay: QuicVarInt,
-    pub first_ack_range: QuicVarInt,
+    pub largest_ack: VarInt,
+    pub ack_delay: VarInt,
+    pub first_ack_range: VarInt,
     pub ack_ranges: Vec<AckRange>,
     pub ecn_counts: Option<EcnCounts>,
     pub(crate) encoded_len: usize,
@@ -23,7 +21,7 @@ impl AckFrame {
 
         macro_rules! read_var_int {
             ($var:ident) => {
-                let Some($var) = QuicVarInt::parse(&data[offset..]) else {
+                let Some($var) = VarInt::parse(&data[offset..]) else {
                     return Err(FrameParseError::NotEnoughData);
                 };
                 offset += $var.encoded_len();
@@ -69,19 +67,19 @@ impl AckFrame {
 }
 
 pub struct AckRange {
-    pub gap: QuicVarInt,
-    pub length: QuicVarInt,
+    pub gap: VarInt,
+    pub length: VarInt,
     encoded_len: usize,
 }
 
 impl AckRange {
     fn parse(data: &[u8]) -> Result<Self, FrameParseError> {
-        let Some(gap) = QuicVarInt::parse(data) else {
+        let Some(gap) = VarInt::parse(data) else {
             return Err(FrameParseError::NotEnoughData);
         };
 
         let offset = gap.encoded_len();
-        let Some(length) = QuicVarInt::parse(&data[offset..]) else {
+        let Some(length) = VarInt::parse(&data[offset..]) else {
             return Err(FrameParseError::NotEnoughData);
         };
 
@@ -95,9 +93,9 @@ impl AckRange {
 }
 
 pub struct EcnCounts {
-    pub ect0: QuicVarInt,
-    pub ect1: QuicVarInt,
-    pub ecn_ce: QuicVarInt,
+    pub ect0: VarInt,
+    pub ect1: VarInt,
+    pub ecn_ce: VarInt,
     encoded_len: usize,
 }
 
@@ -107,7 +105,7 @@ impl EcnCounts {
 
         macro_rules! read_var_int {
             ($var:ident) => {
-                let Some($var) = QuicVarInt::parse(&data[offset..]) else {
+                let Some($var) = VarInt::parse(&data[offset..]) else {
                     return Err(FrameParseError::NotEnoughData);
                 };
                 offset += $var.encoded_len();

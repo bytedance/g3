@@ -33,6 +33,7 @@ mod source;
 pub(crate) enum UserType {
     Static,
     Dynamic,
+    Unmanaged,
     Anonymous,
 }
 
@@ -41,6 +42,7 @@ impl UserType {
         match self {
             UserType::Static => "Static",
             UserType::Dynamic => "Dynamic",
+            UserType::Unmanaged => "Unmanaged",
             UserType::Anonymous => "Anonymous",
         }
     }

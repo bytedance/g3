@@ -25,6 +25,7 @@ Groups
 
    basic
    facts
+   ldap
 
 Common Keys
 ===========

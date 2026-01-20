@@ -99,8 +99,8 @@ impl fmt::Display for Host {
     }
 }
 
-impl From<url::Host> for Host {
-    fn from(v: url::Host) -> Self {
+impl<T: Into<ArcStr>> From<url::Host<T>> for Host {
+    fn from(v: url::Host<T>) -> Self {
         match v {
             url::Host::Ipv4(ip4) => Host::Ip(IpAddr::V4(ip4)),
             url::Host::Ipv6(ip6) => Host::Ip(IpAddr::V6(ip6)),

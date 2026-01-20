@@ -1,0 +1,58 @@
+---
+
+log: journal
+
+user_group:
+  - name: default
+    type: ldap
+    ldap_url: ldap://ldap.forumsys.com/dc=example,dc=com
+    pool:
+      min_idle_count: 1
+    static_users:
+      - name: gauss
+        dst_port_filter:
+          - 80
+          - 443
+        dst_host_filter_set:
+          exact:
+            # for ipinfo.io
+            - ipinfo.io
+            - 1.1.1.1
+          child:
+            # for myip.ipip.net
+            - "ipip.net"
+          regex:
+            # for lumtest.com/myip.json
+            - "lum[a-z]*[.]com$"
+    source:
+      type: file
+      path: dynamic_users.json
+    unmanaged_user:
+      name: unmanaged
+
+server:
+  - name: socks
+    escaper: default
+    user_group: default
+    type: socks_proxy
+    enable_udp_associate: true
+    listen:
+      address: "[::]:11080"
+  - name: http
+    escaper: default
+    user_group: default
+    type: http_proxy
+    listen:
+      address: "[::]:13128"
+
+resolver:
+  - name: default
+    type: c-ares
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: default
+    resolve_strategy: IPv4First
+    tcp_sock_speed_limit: 80M
+    udp_sock_speed_limit: 10M

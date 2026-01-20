@@ -32,6 +32,7 @@ use crate::config::auth::{UserAuditConfig, UserConfig};
 
 pub(crate) struct User {
     config: Arc<UserConfig>,
+    name: ArcStr,
     group: NodeName,
     started: Instant,
     is_expired: AtomicBool,
@@ -89,6 +90,24 @@ impl User {
         config: &Arc<UserConfig>,
         datetime_now: &DateTime<Utc>,
     ) -> anyhow::Result<Self> {
+        Self::new_with_name(config.name().clone(), group, config, datetime_now)
+    }
+
+    pub(super) fn new_unmanaged(
+        name: &ArcStr,
+        group: &NodeName,
+        config: &Arc<UserConfig>,
+    ) -> anyhow::Result<Self> {
+        let now = Utc::now();
+        Self::new_with_name(name.clone(), group, config, &now)
+    }
+
+    fn new_with_name(
+        name: ArcStr,
+        group: &NodeName,
+        config: &Arc<UserConfig>,
+        datetime_now: &DateTime<Utc>,
+    ) -> anyhow::Result<Self> {
         let request_rate_limit = config
             .request_rate_limit
             .map(|quota| Arc::new(RateLimiter::new_global(quota)));
@@ -133,10 +152,11 @@ impl User {
         let is_expired = AtomicBool::new(config.is_expired(datetime_now));
         let is_blocked = Arc::new(AtomicBool::new(config.block_and_delay.is_some()));
 
-        let explicit_sites = UserSites::new(config.explicit_sites.values(), config.name(), group)
+        let explicit_sites = UserSites::new(config.explicit_sites.values(), &name, group)
             .context("failed to build sites config")?;
 
         let mut user = User {
+            name,
             config: Arc::clone(config),
             group: group.clone(),
             started: Instant::now(),
@@ -291,10 +311,11 @@ impl User {
 
         let explicit_sites = self
             .explicit_sites
-            .new_for_reload(config.explicit_sites.values(), config.name(), &self.group)
+            .new_for_reload(config.explicit_sites.values(), &self.name, &self.group)
             .context("failed to build sites config")?;
 
         let mut user = User {
+            name: self.name.clone(),
             config: Arc::clone(config),
             group: self.group.clone(),
             started: self.started,
@@ -423,7 +444,7 @@ impl User {
         let stats = map.entry(server.clone()).or_insert_with(|| {
             Arc::new(UserForbiddenStats::new(
                 &self.group,
-                self.config.name().clone(),
+                self.name.clone(),
                 user_type,
                 server,
                 server_extra_tags,
@@ -451,7 +472,7 @@ impl User {
         let stats = map.entry(server.clone()).or_insert_with(|| {
             Arc::new(UserRequestStats::new(
                 &self.group,
-                self.config.name().clone(),
+                self.name.clone(),
                 user_type,
                 server,
                 server_extra_tags,
@@ -479,7 +500,7 @@ impl User {
         let stats = map.entry(server.clone()).or_insert_with(|| {
             Arc::new(UserTrafficStats::new(
                 &self.group,
-                self.config.name().clone(),
+                self.name.clone(),
                 user_type,
                 server,
                 server_extra_tags,
@@ -507,7 +528,7 @@ impl User {
         let stats = map.entry(escaper.clone()).or_insert_with(|| {
             Arc::new(UserUpstreamTrafficStats::new(
                 &self.group,
-                self.config.name().clone(),
+                self.name.clone(),
                 user_type,
                 escaper,
                 escaper_extra_tags,
@@ -754,7 +775,7 @@ impl UserContext {
 
     #[inline]
     pub(crate) fn user_name(&self) -> &ArcStr {
-        self.user.config.name()
+        &self.user.name
     }
 
     #[inline]

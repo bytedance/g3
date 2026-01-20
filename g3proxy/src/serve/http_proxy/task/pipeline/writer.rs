@@ -118,7 +118,7 @@ where
         }
     }
 
-    fn do_auth(
+    async fn do_auth(
         &mut self,
         req: &HttpProxyRequest<CDR>,
     ) -> Result<Option<UserContext>, UserAuthError> {
@@ -145,12 +145,14 @@ where
                         .as_ref()
                         .map(|c| c.real_username(username))
                         .unwrap_or(username);
-                    user_group.check_user_with_password(
-                        username,
-                        &v.password,
-                        self.ctx.server_config.name(),
-                        self.ctx.server_stats.share_extra_tags(),
-                    )?
+                    user_group
+                        .check_user_with_password(
+                            username,
+                            &v.password,
+                            self.ctx.server_config.name(),
+                            self.ctx.server_stats.share_extra_tags(),
+                        )
+                        .await?
                 }
             };
             user_ctx.check_client_addr(self.ctx.client_addr())?;
@@ -195,7 +197,7 @@ where
         loop {
             let res = match self.task_queue.recv().await {
                 Some(Ok(req)) => {
-                    let res = match self.do_auth(&req) {
+                    let res = match self.do_auth(&req).await {
                         Ok(user_ctx) => {
                             self.req_count.consequent_auth_failed = 0;
                             self.run(req, user_ctx).await
