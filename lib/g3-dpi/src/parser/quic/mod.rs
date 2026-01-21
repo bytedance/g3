@@ -3,6 +3,9 @@
  * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
+mod var_int;
+use var_int::VarInt;
+
 mod packet;
 pub use packet::{InitialPacket, PacketParseError};
 

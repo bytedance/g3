@@ -8,6 +8,12 @@ use std::sync::Arc;
 use super::BaseUserGroup;
 use crate::config::auth::LdapUserGroupConfig;
 
+mod protocol;
+use protocol::{LdapMessageReceiver, SimpleBindRequestEncoder};
+
+mod pool;
+use pool::LdapConnector;
+
 pub(crate) struct LdapUserGroup {
     base: BaseUserGroup<LdapUserGroupConfig>,
 }

@@ -6,6 +6,7 @@
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
+use arcstr::ArcStr;
 use yaml_rust::{Yaml, yaml};
 
 use g3_types::net::{OpensslClientConfigBuilder, UpstreamAddr};
@@ -22,8 +23,9 @@ pub(crate) struct LdapUserGroupConfig {
     pub(crate) server: UpstreamAddr,
     pub(crate) tls_client: Option<OpensslClientConfigBuilder>,
     pub(crate) direct_tls: bool,
-    pub(crate) base_dn: String,
+    pub(crate) base_dn: ArcStr,
     pub(crate) unmanaged_user: Option<Arc<UserConfig>>,
+    pub(crate) max_message_size: usize,
 }
 
 impl LdapUserGroupConfig {
@@ -33,8 +35,9 @@ impl LdapUserGroupConfig {
             server: UpstreamAddr::empty(),
             tls_client: None,
             direct_tls: false,
-            base_dn: String::new(),
+            base_dn: ArcStr::new(),
             unmanaged_user: None,
+            max_message_size: 256,
         }
     }
 
@@ -79,7 +82,10 @@ impl LdapUserGroupConfig {
                 };
                 let port = url.port().unwrap_or(default_port);
                 self.server = UpstreamAddr::new(host, port);
-                self.base_dn = url.path().to_string();
+                let base_dn = percent_encoding::percent_decode_str(url.path())
+                    .decode_utf8()
+                    .map_err(|e| anyhow!("the base dn is not valid utf-8 string: {e}"))?;
+                self.base_dn = ArcStr::from(base_dn.as_ref());
                 Ok(())
             }
             "tls_client" => {
@@ -103,6 +109,10 @@ impl LdapUserGroupConfig {
                 } else {
                     Err(anyhow!("invalid hash value for key {k}"))
                 }
+            }
+            "max_message_size" => {
+                self.max_message_size = g3_yaml::value::as_usize(v)?;
+                Ok(())
             }
             _ => self.set(k, v),
         }
