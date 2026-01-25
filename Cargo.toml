@@ -97,7 +97,7 @@ rand = { version = "0.9", default-features = false, features = ["thread_rng"] }
 fastrand = "2.3"
 memchr = "2.4"
 constant_time_eq = "0.4"
-uuid = "1.13"
+uuid = "1.20"
 base64 = "0.22"
 regex = "1.11"
 arc-swap = "1.2"
