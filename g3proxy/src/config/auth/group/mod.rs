@@ -13,6 +13,9 @@ pub(crate) use basic::BasicUserGroupConfig;
 mod facts;
 pub(crate) use facts::FactsUserGroupConfig;
 
+mod ldap;
+pub(crate) use ldap::LdapUserGroupConfig;
+
 pub(crate) trait UserGroupConfig {
     fn basic_config(&self) -> &BasicUserGroupConfig;
 
@@ -25,6 +28,7 @@ pub(crate) trait UserGroupConfig {
 pub(crate) enum AnyUserGroupConfig {
     Basic(BasicUserGroupConfig),
     Facts(FactsUserGroupConfig),
+    Ldap(LdapUserGroupConfig),
 }
 
 impl AnyUserGroupConfig {

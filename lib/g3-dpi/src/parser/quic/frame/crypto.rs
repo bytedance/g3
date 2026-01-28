@@ -6,9 +6,7 @@
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
 
-use g3_types::net::QuicVarInt;
-
-use super::{FrameConsume, FrameParseError};
+use super::{FrameConsume, FrameParseError, VarInt};
 use crate::parser::tls::{ClientHello, ClientHelloParseError, HandshakeHeader, HandshakeType};
 
 pub struct CryptoFrame<'a> {
@@ -20,7 +18,7 @@ pub struct CryptoFrame<'a> {
 impl<'a> CryptoFrame<'a> {
     /// Parse a Crypto Frame from a packet buffer
     pub fn parse(data: &'a [u8]) -> Result<Self, FrameParseError> {
-        let Some(stream_offset) = QuicVarInt::parse(data) else {
+        let Some(stream_offset) = VarInt::parse(data) else {
             return Err(FrameParseError::NotEnoughData);
         };
         let mut offset = stream_offset.encoded_len();
@@ -28,7 +26,7 @@ impl<'a> CryptoFrame<'a> {
             .map_err(|_| FrameParseError::TooBigOffsetValue(stream_offset.value()))?;
 
         let left = &data[offset..];
-        let Some(length) = QuicVarInt::parse(left) else {
+        let Some(length) = VarInt::parse(left) else {
             return Err(FrameParseError::NotEnoughData);
         };
         offset += length.encoded_len();

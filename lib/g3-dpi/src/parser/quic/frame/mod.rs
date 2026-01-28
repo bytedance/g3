@@ -5,6 +5,8 @@
 
 use thiserror::Error;
 
+use super::VarInt;
+
 mod crypto;
 pub use crypto::{CryptoFrame, HandshakeCoalescer};
 

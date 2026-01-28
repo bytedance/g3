@@ -28,8 +28,11 @@ pub struct UpstreamAddr {
 }
 
 impl UpstreamAddr {
-    pub fn new(host: Host, port: u16) -> Self {
-        UpstreamAddr { host, port }
+    pub fn new<T: Into<Host>>(host: T, port: u16) -> Self {
+        UpstreamAddr {
+            host: host.into(),
+            port,
+        }
     }
 
     pub fn empty() -> Self {
@@ -109,14 +112,6 @@ impl UpstreamAddr {
         let host = Host::from_maybe_mapped_ip6(ip6);
         UpstreamAddr { host, port }
     }
-
-    #[inline]
-    pub(crate) fn from_url_host_and_port(host: url::Host, port: u16) -> Self {
-        UpstreamAddr {
-            host: host.into(),
-            port,
-        }
-    }
 }
 
 impl TryFrom<&Url> for UpstreamAddr {
@@ -127,7 +122,7 @@ impl TryFrom<&Url> for UpstreamAddr {
             let port = u
                 .port_or_known_default()
                 .ok_or_else(|| anyhow!("unable to detect port in this url"))?;
-            Ok(UpstreamAddr::from_url_host_and_port(host.to_owned(), port))
+            Ok(UpstreamAddr::new(host, port))
         } else {
             Err(anyhow!("no host found in this url"))
         }
