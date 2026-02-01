@@ -1,0 +1,44 @@
+---
+
+log: journal
+
+stat:
+  target:
+    udp: 127.0.0.1:8125
+
+resolver:
+  - name: default
+    type: c-ares
+    server:
+      - 127.0.0.1
+
+escaper:
+  - name: default
+    type: direct_fixed
+    resolver: default
+    egress_net_filter:
+      default: allow
+      allow: 127.0.0.1
+
+user-group:
+  - name: default
+    type: ldap
+    ldap_url: ldap://127.0.0.1:3893/dc=glauth,dc=com
+    unmanaged_user:
+      name: unmanaged
+    static_users:
+      - name: t1
+
+server:
+  - name: http
+    type: http_proxy
+    listen: 127.0.0.1:8080
+    escaper: default
+    user-group: default
+    tls_client:
+      ca_certificate: ../rootCA.pem
+  - name: socks
+    type: socks_proxy
+    listen: 127.0.0.1:1080
+    escaper: default
+    user-group: default

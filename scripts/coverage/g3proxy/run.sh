@@ -5,6 +5,14 @@
 [ -d /tmp/nginx ] || mkdir /tmp/nginx
 /usr/sbin/nginx -c "${PROJECT_DIR}"/scripts/coverage/g3proxy/nginx.conf
 
+# start glauth
+git clone https://github.com/glauth/glauth --depth 1
+cd glauth/v2
+go build
+./glauth -c "${PROJECT_DIR}"/scripts/coverage/g3proxy/glauth.cfg &
+GLAUTH_PID=$!
+cd -
+
 # start g3fcgen
 "${PROJECT_DIR}"/target/debug/g3fcgen -c "${RUN_DIR}"/g3fcgen.yaml -G port2999 &
 FCGEN_PID=$!
@@ -68,6 +76,7 @@ set +x
 kill -INT $STATSD_PID
 kill -INT $IPLOC_PID
 kill -INT $FCGEN_PID
+kill -INT $GLAUTH_PID
 NGINX_PID=$(cat /tmp/nginx.pid)
 kill -INT $NGINX_PID
 
