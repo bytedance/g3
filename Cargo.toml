@@ -105,7 +105,7 @@ chrono = { version = "0.4.39", default-features = false }
 ascii = "1.0"
 humanize-rs = "0.1"
 #
-portable-atomic = "1.9"
+portable-atomic = "1.13"
 itoa = "1.0"
 atoi = "2.0"
 zmij = "1.0"
@@ -145,7 +145,7 @@ log = "0.4"
 slog = { version = "2.8", features = ["dynamic-keys"] }
 hdrhistogram = { version = "7.5", default-features = false }
 #
-clap = "4.5.51"
+clap = "4.5.56"
 clap_complete = "4.5.60"
 #
 tokio = "1.49.0"
