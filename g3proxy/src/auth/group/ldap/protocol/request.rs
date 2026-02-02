@@ -39,13 +39,12 @@ impl SimpleBindRequestEncoder {
         self.message_id as u32
     }
 
-    pub(crate) fn encode(&mut self, username: &str, password: &str, base_dn: &str) -> &[u8] {
+    pub(crate) fn encode(&mut self, bind_dn: &str, password: &str) -> &[u8] {
         self.message_id += 1;
         if self.message_id > MAX_MESSAGE_ID {
             self.message_id = MIN_MESSAGE_ID;
         }
 
-        let bind_dn = format!("uid={username},{base_dn}");
         let bind_dn_len = bind_dn.len();
         let bind_dn_length_bytes = self.bind_dn_length_encoder.encode(bind_dn_len);
         let bind_dn_encoded_len = 1 + bind_dn_length_bytes.len() + bind_dn_len;
@@ -102,9 +101,9 @@ mod tests {
     #[test]
     fn encode() {
         let mut encoder = SimpleBindRequestEncoder::default();
-        let base_dn = "ou=People,dc=example,dc=com";
+        let bind_dn = "uid=jdoe,ou=People,dc=example,dc=com";
 
-        let request = encoder.encode("jdoe", "secret123", base_dn);
+        let request = encoder.encode(bind_dn, "secret123");
         assert_eq!(
             request,
             [

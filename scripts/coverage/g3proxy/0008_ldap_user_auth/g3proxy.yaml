@@ -24,6 +24,7 @@ user-group:
   - name: default
     type: ldap
     ldap_url: ldap://127.0.0.1:3893/dc=glauth,dc=com
+    username_attribute: cn
     unmanaged_user:
       name: unmanaged
     static_users:
