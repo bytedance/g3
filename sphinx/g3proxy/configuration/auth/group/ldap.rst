@@ -37,6 +37,28 @@ If the schema is "ldaps", a default value will be used if not set.
 
 **default**: not set
 
+tls_name
+--------
+
+**optional**, **type**: :ref:`tls name <conf_value_tls_name>`
+
+Set the tls server name to verify tls certificate for all peers.
+
+If not set, the host part of each peer will be used.
+
+**default**: not set
+
+username_attribute
+------------------
+
+**optional**, **type**: string
+
+Set the LDAP attribute name for username.
+
+The most common value is `uid` while some LDAP servers may use `cn`.
+
+**default**: uid
+
 unmanaged_user
 --------------
 

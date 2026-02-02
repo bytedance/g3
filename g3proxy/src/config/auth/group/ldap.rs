@@ -10,7 +10,7 @@ use anyhow::{Context, anyhow};
 use arcstr::ArcStr;
 use yaml_rust::{Yaml, yaml};
 
-use g3_types::net::{ConnectionPoolConfig, OpensslClientConfigBuilder, UpstreamAddr};
+use g3_types::net::{ConnectionPoolConfig, Host, OpensslClientConfigBuilder, UpstreamAddr};
 use g3_yaml::YamlDocPosition;
 
 use super::{BasicUserGroupConfig, UserGroupConfig};
@@ -23,8 +23,10 @@ pub(crate) struct LdapUserGroupConfig {
     basic: BasicUserGroupConfig,
     pub(crate) server: UpstreamAddr,
     pub(crate) tls_client: Option<OpensslClientConfigBuilder>,
+    pub(crate) tls_name: Option<Host>,
     pub(crate) direct_tls: bool,
     pub(crate) base_dn: ArcStr,
+    pub(crate) username_attribute: String,
     pub(crate) unmanaged_user: Option<Arc<UserConfig>>,
     pub(crate) max_message_size: usize,
     pub(crate) connect_timeout: Duration,
@@ -40,8 +42,10 @@ impl LdapUserGroupConfig {
             basic: BasicUserGroupConfig::new(position),
             server: UpstreamAddr::empty(),
             tls_client: None,
+            tls_name: None,
             direct_tls: false,
             base_dn: ArcStr::new(),
+            username_attribute: "uid".to_string(),
             unmanaged_user: None,
             max_message_size: 256,
             connect_timeout: Duration::from_secs(4),
@@ -65,6 +69,9 @@ impl LdapUserGroupConfig {
     fn check(&mut self) -> anyhow::Result<()> {
         if self.server.is_empty() {
             return Err(anyhow!("no ldap url set"));
+        }
+        if self.username_attribute.is_empty() {
+            return Err(anyhow!("no username attribute set"));
         }
 
         if self.direct_tls && self.tls_client.is_none() {
@@ -101,6 +108,10 @@ impl LdapUserGroupConfig {
                 self.base_dn = ArcStr::from(base_dn.as_ref());
                 Ok(())
             }
+            "username_attribute" => {
+                self.username_attribute = g3_yaml::value::as_string(v)?;
+                Ok(())
+            }
             "tls_client" => {
                 let lookup_dir = g3_daemon::config::get_lookup_dir(self.basic.position.as_ref())?;
                 let config = g3_yaml::value::as_to_one_openssl_tls_client_config_builder(
@@ -111,6 +122,12 @@ impl LdapUserGroupConfig {
                     "invalid openssl tls client config value for key {k}"
                 ))?;
                 self.tls_client = Some(config);
+                Ok(())
+            }
+            "tls_name" => {
+                let name = g3_yaml::value::as_host(v)
+                    .context(format!("invalid tls server name value for key {k}"))?;
+                self.tls_name = Some(name);
                 Ok(())
             }
             "unmanaged_user" => {

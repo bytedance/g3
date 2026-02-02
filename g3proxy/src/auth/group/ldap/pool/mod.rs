@@ -6,6 +6,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use log::warn;
 use tokio::sync::{mpsc, oneshot};
 
 use g3_types::auth::UserAuthError;
@@ -21,11 +22,12 @@ use task::LdapAuthTask;
 enum PoolCommand {
     Exit,
     NeedMoreConnection,
+    ConnectFailed,
     ConnectionClosed,
 }
 
 struct LdapAuthRequest {
-    uid: String,
+    username: String,
     password: String,
     retry: bool,
     result_sender: oneshot::Sender<Option<(String, String)>>,
@@ -51,7 +53,7 @@ impl LdapAuthPoolHandle {
     ) -> Result<(), UserAuthError> {
         let (sender, receiver) = oneshot::channel();
         let req = LdapAuthRequest {
-            uid: username.to_string(),
+            username: username.to_string(),
             password: password.to_string(),
             retry: true,
             result_sender: sender,
@@ -118,6 +120,7 @@ impl LdapAuthPool {
                         Some(PoolCommand::Exit) => {
                             return;
                         }
+                        Some(PoolCommand::ConnectFailed) => {}
                         Some(PoolCommand::ConnectionClosed) => {
                             if self.idle_conn_count() < self.expected_idle_count {
                                 self.create_connection();
@@ -173,9 +176,17 @@ impl LdapAuthPool {
 
         idle_count.fetch_add(1, Ordering::Relaxed);
         tokio::spawn(async move {
-            task.run(req_receiver).await;
-            idle_count.fetch_sub(1, Ordering::Relaxed);
-            let _ = cmd_sender.send(PoolCommand::ConnectionClosed).await;
+            match task.run(req_receiver).await {
+                Ok(_) => {
+                    idle_count.fetch_sub(1, Ordering::Relaxed);
+                    let _ = cmd_sender.send(PoolCommand::ConnectionClosed).await;
+                }
+                Err(e) => {
+                    warn!("connect to ldap server failed: {e}");
+                    idle_count.fetch_sub(1, Ordering::Relaxed);
+                    let _ = cmd_sender.send(PoolCommand::ConnectFailed).await;
+                }
+            }
         });
     }
 }

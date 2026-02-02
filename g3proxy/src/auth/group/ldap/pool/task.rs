@@ -37,15 +37,17 @@ impl LdapAuthTask {
         }
     }
 
-    pub(super) async fn run(mut self, receiver: AsyncReceiver<LdapAuthRequest>) {
+    pub(super) async fn run(
+        mut self,
+        receiver: AsyncReceiver<LdapAuthRequest>,
+    ) -> anyhow::Result<()> {
         loop {
-            let r = match self.connector.connect().await {
-                Ok(MaybeSslStream::Plain(stream)) => self.run_with_stream(stream, &receiver).await,
-                Ok(MaybeSslStream::Ssl(stream)) => self.run_with_stream(stream, &receiver).await,
-                Err(e) => Err(anyhow!("failed to connect to ldap server: {e}")),
+            let r = match self.connector.connect().await? {
+                MaybeSslStream::Plain(stream) => self.run_with_stream(stream, &receiver).await,
+                MaybeSslStream::Ssl(stream) => self.run_with_stream(stream, &receiver).await,
             };
             if let Err(e) = r {
-                warn!("close connection on error: {e}");
+                warn!("connection closed with error: {e}");
             }
 
             if let Some(mut request) = self.pending_request
@@ -56,7 +58,7 @@ impl LdapAuthTask {
                 continue;
             }
 
-            break;
+            return Ok(());
         }
     }
 
@@ -167,9 +169,11 @@ impl LdapAuthTask {
     where
         W: AsyncWrite + Unpin,
     {
-        let request_msg = self
-            .request_encoder
-            .encode(&r.uid, &r.password, &self.config.base_dn);
+        let bind_dn = format!(
+            "{}={},{}",
+            self.config.username_attribute, r.username, self.config.base_dn
+        );
+        let request_msg = self.request_encoder.encode(&bind_dn, &r.password);
         writer
             .write_all_flush(request_msg)
             .await
@@ -197,7 +201,7 @@ impl LdapAuthTask {
         let data = rsp_sequence.data();
         let result = LdapResult::parse(data)?;
         if result.result_code() == 0 {
-            let _ = r.result_sender.send(Some((r.uid, r.password)));
+            let _ = r.result_sender.send(Some((r.username, r.password)));
         } else {
             // TODO log error
             let _ = r.result_sender.send(None);

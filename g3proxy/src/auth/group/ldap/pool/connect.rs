@@ -116,9 +116,14 @@ impl LdapTlsConnector {
     }
 
     async fn tls_handshake(&self, stream: TcpStream) -> anyhow::Result<SslStream<TcpStream>> {
+        let tls_name = self
+            .config
+            .tls_name
+            .as_ref()
+            .unwrap_or_else(|| self.config.server.host());
         let ssl = self
             .tls_client
-            .build_ssl(self.config.server.host(), self.config.server.port())
+            .build_ssl(tls_name, self.config.server.port())
             .map_err(|e| anyhow!("build ssl context failed: {e}"))?;
         let tls_connector = SslConnector::new(ssl, stream)
             .map_err(|e| anyhow!("build ssl connector failed: {e}"))?;
