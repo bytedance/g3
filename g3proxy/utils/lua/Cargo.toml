@@ -18,6 +18,7 @@ lua = ["mlua"]
 luajit = ["lua", "mlua/luajit"]
 lua53 = ["lua", "mlua/lua53"]
 lua54 = ["lua", "mlua/lua54"]
+lua55 = ["lua", "mlua/lua55"]
 
 [[bin]]
 name = "g3proxy-lua"

@@ -15,6 +15,8 @@ fn main() {
             println!("cargo:rustc-env=G3_LUA_FEATURE=lua53");
         } else if env::var("CARGO_FEATURE_LUA54").is_ok() {
             println!("cargo:rustc-env=G3_LUA_FEATURE=lua54");
+        } else if env::var("CARGO_FEATURE_LUA55").is_ok() {
+            println!("cargo:rustc-env=G3_LUA_FEATURE=lua55");
         } else if env::var("CARGO_FEATURE_LUAJIT").is_ok() {
             println!("cargo:rustc-env=G3_LUA_FEATURE=luajit");
         }
