@@ -65,7 +65,7 @@ impl LdapAuthTask {
     async fn run_with_stream<S>(
         &mut self,
         stream: S,
-        receiver: &AsyncReceiver<LdapAuthRequest>,
+        req_receiver: &AsyncReceiver<LdapAuthRequest>,
     ) -> anyhow::Result<()>
     where
         S: AsyncStream,
@@ -74,7 +74,7 @@ impl LdapAuthTask {
     {
         self.request_encoder.reset();
         let (mut reader, mut writer) = stream.into_split();
-        let mut response_receiver = LdapMessageReceiver::new(self.config.max_message_size);
+        let mut ldap_rsp_receiver = LdapMessageReceiver::new(self.config.max_message_size);
 
         loop {
             if let Some(r) = self.pending_request.take() {
@@ -88,7 +88,7 @@ impl LdapAuthTask {
 
                 match tokio::time::timeout(
                     self.config.response_timeout,
-                    response_receiver.recv(&mut reader),
+                    ldap_rsp_receiver.recv(&mut reader),
                 )
                 .await
                 {
@@ -123,10 +123,11 @@ impl LdapAuthTask {
                 }
             }
 
+            let timeout = tokio::time::sleep(self.config.connection_pool.idle_timeout());
             tokio::select! {
                 biased;
 
-                r = receiver.recv() => {
+                r = req_receiver.recv() => {
                     match r {
                         Ok(r) => self.pending_request = Some(r),
                         Err(_) => {
@@ -135,7 +136,10 @@ impl LdapAuthTask {
                         }
                     }
                 }
-                r = response_receiver.recv(&mut reader) => {
+                _ = timeout => {
+                    return self.send_unbind(&mut writer).await;
+                }
+                r = ldap_rsp_receiver.recv(&mut reader) => {
                     // detect the close of ldap server
                     match r {
                         Ok(message) => {
@@ -179,6 +183,17 @@ impl LdapAuthTask {
             .await
             .map_err(|e| anyhow!("failed to write bind request: {e}"))?;
         Ok(self.request_encoder.message_id())
+    }
+
+    async fn send_unbind<W>(&mut self, writer: &mut W) -> anyhow::Result<()>
+    where
+        W: AsyncWrite + Unpin,
+    {
+        let unbind_message = self.request_encoder.unbind_sequence();
+        writer
+            .write_all_flush(&unbind_message)
+            .await
+            .map_err(|e| anyhow!("failed to write unbind request: {e}"))
     }
 
     fn handle_unsolicited_notification(&self, op_data: &[u8]) -> anyhow::Result<bool> {
