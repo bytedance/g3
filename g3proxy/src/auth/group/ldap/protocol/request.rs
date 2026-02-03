@@ -32,7 +32,7 @@ impl Default for SimpleBindRequestEncoder {
 
 impl SimpleBindRequestEncoder {
     pub(crate) fn reset(&mut self) {
-        self.message_id = 1;
+        self.message_id = MAX_MESSAGE_ID;
     }
 
     pub(crate) fn message_id(&self) -> u32 {
@@ -91,6 +91,15 @@ impl SimpleBindRequestEncoder {
         self.request_buf.extend_from_slice(password.as_bytes());
 
         &self.request_buf
+    }
+
+    pub(crate) fn unbind_sequence(&mut self) -> [u8; 7] {
+        self.message_id += 1;
+        if self.message_id > MAX_MESSAGE_ID {
+            self.message_id = MIN_MESSAGE_ID;
+        }
+
+        [0x30, 0x05, 0x02, 0x01, self.message_id, 0x42, 0x00]
     }
 }
 
