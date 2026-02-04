@@ -3,6 +3,7 @@
  * Copyright 2026 G3-OSS developers.
  */
 
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -34,6 +35,8 @@ pub(crate) struct LdapUserGroupConfig {
     pub(crate) connection_pool: ConnectionPoolConfig,
     pub(crate) queue_channel_size: usize,
     pub(crate) queue_wait_timeout: Duration,
+    pub(crate) cache_user_count: NonZeroUsize,
+    pub(crate) cache_expire_time: Duration,
 }
 
 impl LdapUserGroupConfig {
@@ -53,6 +56,8 @@ impl LdapUserGroupConfig {
             connection_pool: ConnectionPoolConfig::new(1024, 8),
             queue_channel_size: 64,
             queue_wait_timeout: Duration::from_secs(4),
+            cache_user_count: super::DEFAULT_CACHE_USER_COUNT,
+            cache_expire_time: super::DEFAULT_CACHE_EXPIRE_TIME,
         }
     }
 
@@ -166,6 +171,15 @@ impl LdapUserGroupConfig {
             }
             "queue_wait_timeout" => {
                 self.queue_wait_timeout = g3_yaml::humanize::as_duration(v)
+                    .context(format!("invalid humanize duration value for key {k}"))?;
+                Ok(())
+            }
+            "cache_user_count" => {
+                self.cache_user_count = g3_yaml::value::as_nonzero_usize(v)?;
+                Ok(())
+            }
+            "cache_expire_time" => {
+                self.cache_expire_time = g3_yaml::humanize::as_duration(v)
                     .context(format!("invalid humanize duration value for key {k}"))?;
                 Ok(())
             }

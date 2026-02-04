@@ -3,6 +3,9 @@
  * Copyright 2026 G3-OSS developers.
  */
 
+use std::num::NonZeroUsize;
+use std::time::Duration;
+
 use g3_macros::AnyConfig;
 use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
@@ -15,6 +18,9 @@ pub(crate) use facts::FactsUserGroupConfig;
 
 mod ldap;
 pub(crate) use ldap::LdapUserGroupConfig;
+
+pub(crate) const DEFAULT_CACHE_USER_COUNT: NonZeroUsize = NonZeroUsize::new(128).unwrap();
+const DEFAULT_CACHE_EXPIRE_TIME: Duration = Duration::from_secs(300);
 
 pub(crate) trait UserGroupConfig {
     fn basic_config(&self) -> &BasicUserGroupConfig;

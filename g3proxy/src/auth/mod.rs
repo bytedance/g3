@@ -10,6 +10,8 @@ pub(crate) use ops::reload;
 mod registry;
 pub(crate) use registry::{get_all_groups, get_names, get_or_insert_default};
 
+mod cache;
+
 mod site;
 pub(crate) use site::UserSite;
 use site::UserSites;
