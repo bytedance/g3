@@ -126,3 +126,21 @@ queue_wait_timeout
 Set the timeout value when auth with the LDAP server for a client request.
 
 **default**: 4s
+
+cache_user_count
+----------------
+
+**optional**, **type**: usize
+
+Set how many users will be LRU cached in thread local storage.
+
+**default**: 128
+
+cache_expire_time
+-----------------
+
+**optional**, **type**: :ref:`humanize duration <conf_value_humanize_duration>`
+
+Set the expire time for valid passwords in the thread local LRU cache.
+
+**default**: 5min

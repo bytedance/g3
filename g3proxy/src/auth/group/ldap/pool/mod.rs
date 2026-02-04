@@ -11,7 +11,7 @@ use tokio::sync::{mpsc, oneshot};
 
 use g3_types::auth::UserAuthError;
 
-use crate::config::auth::LdapUserGroupConfig;
+use crate::config::auth::{LdapUserGroupConfig, UserGroupConfig};
 
 mod connect;
 use connect::LdapConnector;
@@ -51,6 +51,14 @@ impl LdapAuthPoolHandle {
         username: &str,
         password: &str,
     ) -> Result<(), UserAuthError> {
+        if crate::auth::cache::has_valid_password(
+            self.config.basic_config().name(),
+            username,
+            password,
+        ) {
+            return Ok(());
+        }
+
         let (sender, receiver) = oneshot::channel();
         let req = LdapAuthRequest {
             username: username.to_string(),
@@ -65,7 +73,16 @@ impl LdapAuthPoolHandle {
         let _ = self.req_sender.send(req).await;
 
         match tokio::time::timeout(self.config.queue_wait_timeout, receiver).await {
-            Ok(Ok(Some(_))) => Ok(()),
+            Ok(Ok(Some((username, password)))) => {
+                crate::auth::cache::save_user_password(
+                    self.config.basic_config().name(),
+                    self.config.cache_user_count,
+                    username,
+                    password,
+                    self.config.cache_expire_time,
+                );
+                Ok(())
+            }
             Ok(Ok(None)) => Err(UserAuthError::TokenNotMatch),
             Ok(Err(_)) => Err(UserAuthError::RemoteError),
             Err(_) => Err(UserAuthError::RemoteTimeout),
