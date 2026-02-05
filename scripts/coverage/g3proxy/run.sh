@@ -8,6 +8,7 @@
 # start glauth
 git clone https://github.com/glauth/glauth --depth 1
 cd glauth/v2
+cp "${PROJECT_DIR}"/scripts/coverage/g3proxy/*pem .
 go build
 ./glauth -c "${PROJECT_DIR}"/scripts/coverage/g3proxy/glauth.cfg &
 GLAUTH_PID=$!
