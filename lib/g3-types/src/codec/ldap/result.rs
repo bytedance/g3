@@ -71,14 +71,18 @@ impl<'a> LdapResult<'a> {
         self.result_code
     }
 
+    pub fn is_success(&self) -> bool {
+        self.result_code == 0
+    }
+
     #[inline]
     pub fn matched_dn(&self) -> &[u8] {
         self.matched_dn
     }
 
     #[inline]
-    pub fn diagnostic_message(&self) -> &[u8] {
-        self.diagnostic_message
+    pub fn diagnostic_message(&self) -> &str {
+        std::str::from_utf8(self.diagnostic_message).unwrap_or("invalid utf-8 diagnostic message")
     }
 
     #[inline]

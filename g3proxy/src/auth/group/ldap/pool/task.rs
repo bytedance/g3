@@ -215,7 +215,7 @@ impl LdapAuthTask {
         let rsp_sequence = LdapSequence::parse_bind_response(op_data)?;
         let data = rsp_sequence.data();
         let result = LdapResult::parse(data)?;
-        if result.result_code() == 0 {
+        if result.is_success() {
             let _ = r.result_sender.send(Some((r.username, r.password)));
         } else {
             // TODO log error
