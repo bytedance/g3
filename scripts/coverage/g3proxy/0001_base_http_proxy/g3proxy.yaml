@@ -28,7 +28,6 @@ server:
     flush_task_log_on_created: true
     flush_task_log_on_connected: true
     task_log_flush_interval: 1s
-    tcp_sock_speed_limit: 500K
   - name: tcp
     type: plain_tcp_port
     listen: '[::1]:8080'
@@ -57,3 +56,4 @@ server:
       cert_pairs:
         certificate: ../g3proxy.local.pem
         private-key: ../g3proxy.local-key.pem
+    tcp_sock_speed_limit: 500K
