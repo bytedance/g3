@@ -154,11 +154,27 @@ impl LdapTlsConnector {
             .map_err(|_| anyhow!("timed out when waiting for STARTTLS response"))?
             .map_err(|e| anyhow!("failed to read StartTls response: {e}"))?;
 
-        let rsp_sequence = LdapSequence::parse_extended_response(rsp.payload())?;
+        let rsp_sequence = LdapSequence::parse_extended_response(rsp.payload())
+            .map_err(|e| anyhow!("invalid ldap response sequence: {e}"))?;
         let data = rsp_sequence.data();
-        let result = LdapResult::parse(data)?;
-        let left = &data[result.encoded_len()..];
-        let oid = LdapSequence::parse_extended_response_oid(left)?;
+        let result =
+            LdapResult::parse(data).map_err(|e| anyhow!("invalid ldap response result: {e}"))?;
+        if !result.is_success() {
+            return Err(anyhow!(
+                "STARTTLS failed with error code {}: {}",
+                result.result_code(),
+                result.diagnostic_message()
+            ));
+        }
+
+        let ext_data = &data[result.encoded_len()..];
+        if ext_data.is_empty() {
+            // OID is optional
+            return Ok(());
+        }
+
+        let oid = LdapSequence::parse_extended_response_oid(ext_data)
+            .map_err(|e| anyhow!("invalid ldap extended response oid sequence: {e}"))?;
         if oid.data() == b"1.3.6.1.4.1.1466.20037" {
             Err(anyhow!(
                 "unexpected StartTls response payload: {:?}",
