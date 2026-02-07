@@ -36,7 +36,6 @@ rustc-hash.workspace = true
 concurrent-queue = "2.5"
 hex.workspace = true
 itoa.workspace = true
-integer-encoding = "4.0"
 fastrand.workspace = true
 base64.workspace = true
 hickory-client.workspace = true

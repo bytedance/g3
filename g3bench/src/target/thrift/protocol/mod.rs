@@ -5,6 +5,8 @@
 
 use thiserror::Error;
 
+use g3_types::codec::Leb128DecodeError;
+
 mod binary;
 pub(super) use binary::BinaryMessageBuilder;
 use binary::BinaryMessageParser;
@@ -66,8 +68,8 @@ pub(super) enum ThriftResponseMessageParseError {
     InvalidVersion,
     #[error("invalid message type {0}")]
     InvalidMessageType(u8),
-    #[error("invalid varint encoding for {0}")]
-    InvalidVarIntEncoding(&'static str),
+    #[error("invalid varint encoding for {0}: {1}")]
+    InvalidVarIntEncoding(&'static str, Leb128DecodeError),
     #[error("invalid name length")]
     InvalidNameLength,
     #[error("invalid name encoding")]
