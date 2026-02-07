@@ -5,3 +5,6 @@
 
 mod option;
 pub use option::OptionExt;
+
+mod zig_zag;
+pub use zig_zag::{FromZigZag, ToZigZag};

@@ -1666,7 +1666,6 @@ dependencies = [
  "hickory-proto",
  "http",
  "indicatif",
- "integer-encoding",
  "itoa",
  "openssl-probe",
  "quinn",
@@ -2443,12 +2442,6 @@ checksum = "e05c02b5e89bff3b946cedeca278abc628fe811e604f027c45a8aa3cf793d0eb"
 dependencies = [
  "libc",
 ]
-
-[[package]]
-name = "integer-encoding"
-version = "4.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14c00403deb17c3221a1fe4fb571b9ed0370b3dcd116553c77fa294a3d918699"
 
 [[package]]
 name = "ip_network"
