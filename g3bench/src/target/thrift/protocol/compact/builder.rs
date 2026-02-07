@@ -4,7 +4,8 @@
  */
 
 use anyhow::anyhow;
-use integer_encoding::VarInt;
+
+use g3_types::codec::ThriftVarIntEncoder;
 
 pub(crate) struct CompactMessageBuilder {
     name: String,
@@ -15,8 +16,10 @@ impl CompactMessageBuilder {
     pub(crate) fn new_call(name: &str) -> anyhow::Result<Self> {
         // the name length is encoded from an unsigned integer, which is different from
         // https://github.com/apache/thrift/blob/master/doc/specs/thrift-compact-protocol.md
-        let name_len = u32::try_from(name.len()).map_err(|_| anyhow!("too long method name"))?;
-        let name_len_bytes = name_len.encode_var_vec();
+        let name_len = i32::try_from(name.len()).map_err(|_| anyhow!("too long method name"))?;
+
+        let mut encoder = ThriftVarIntEncoder::default();
+        let name_len_bytes = encoder.encode_i32(name_len).to_vec();
 
         Ok(CompactMessageBuilder {
             name: name.to_string(),
@@ -39,10 +42,9 @@ impl CompactMessageBuilder {
         // set fixed bits and message type to "Call"
         buf.extend_from_slice(&[0x82, 0x21]);
 
-        let seq_id_size = seq_id.required_space();
-        let seq_id_offset = buf.len();
-        buf.resize(seq_id_offset + seq_id_size, 0);
-        seq_id.encode_var(&mut buf[seq_id_offset..]);
+        let mut encoder = ThriftVarIntEncoder::default();
+        let seq_id_bytes = encoder.encode_i32(seq_id);
+        buf.extend_from_slice(seq_id_bytes);
 
         buf.extend_from_slice(&self.name_len_bytes);
         buf.extend_from_slice(self.name.as_bytes());
@@ -75,7 +77,7 @@ mod tests {
         assert_eq!(
             &buf,
             &[
-                0x0, 0x0, 0x0, 0x9, 0x82, 0x21, 0x1, 0x4, 0x70, 0x69, 0x6e, 0x67, 0x0
+                0x0, 0x0, 0x0, 0x9, 0x82, 0x21, 0x1, 0x8, 0x70, 0x69, 0x6e, 0x67, 0x0
             ]
         );
     }

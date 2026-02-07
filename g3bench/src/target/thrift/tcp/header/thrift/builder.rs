@@ -3,10 +3,12 @@
  * Copyright 2025 ByteDance and/or its affiliates.
  */
 
-use anyhow::{Context, anyhow};
-use integer_encoding::VarInt;
 use std::collections::BTreeMap;
 use std::convert::TryFrom;
+
+use anyhow::{Context, anyhow};
+
+use g3_types::codec::ThriftVarIntEncoder;
 
 use super::HeaderBufOffsets;
 use crate::target::thrift::protocol::ThriftProtocol;
@@ -21,14 +23,15 @@ impl TryFrom<String> for StringValue {
     type Error = anyhow::Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        let len = i16::try_from(value.len()).map_err(|_| {
+        let len = i32::try_from(value.len()).map_err(|_| {
             anyhow!(
                 "too long Thrift THeader string value length {}",
                 value.len()
             )
         })?;
+        let mut encoder = ThriftVarIntEncoder::default();
         Ok(StringValue {
-            len_bytes: len.encode_var_vec(),
+            len_bytes: encoder.encode_i32(len).to_vec(),
             value,
         })
     }
@@ -67,6 +70,8 @@ impl ThriftTHeaderBuilder {
 
         let content_offset = buf.len();
 
+        let mut encoder = ThriftVarIntEncoder::default();
+
         // PROTOCOL ID (varint, i32)
         // See `THeaderProtocolID` in
         // https://github.com/apache/thrift/blob/master/lib/go/thrift/header_transport.go
@@ -74,17 +79,17 @@ impl ThriftTHeaderBuilder {
             ThriftProtocol::Binary => 0i32,
             ThriftProtocol::Compact => 2i32,
         };
-        varint_encode(protocol_id, buf);
+        buf.extend_from_slice(encoder.encode_i32(protocol_id));
 
         // NUM TRANSFORMS (varint, i32)
-        varint_encode(0i32, buf);
+        buf.extend_from_slice(encoder.encode_i32(0));
 
         // INFO_KEYVALUE
         if !self.info_key_values.is_empty() {
-            varint_encode(1i32, buf);
+            buf.extend_from_slice(encoder.encode_i32(1));
             let kv_count = i32::try_from(self.info_key_values.len())
                 .map_err(|_| anyhow!("too many INFO_KEYVALUE headers"))?;
-            varint_encode(kv_count, buf);
+            buf.extend_from_slice(encoder.encode_i32(kv_count));
             for (k, v) in self.info_key_values.iter() {
                 buf.extend_from_slice(&k.len_bytes);
                 buf.extend_from_slice(k.value.as_bytes());
@@ -115,15 +120,6 @@ impl ThriftTHeaderBuilder {
             seq_id: length_offset + 8,
         })
     }
-}
-
-fn varint_encode<T>(v: T, buf: &mut Vec<u8>)
-where
-    T: VarInt,
-{
-    let write_offset = buf.len();
-    buf.resize(write_offset + v.required_space(), 0);
-    v.encode_var(&mut buf[write_offset..]);
 }
 
 #[cfg(test)]
