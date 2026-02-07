@@ -3,7 +3,7 @@
  * Copyright 2025 ByteDance and/or its affiliates.
  */
 
-use integer_encoding::VarInt;
+use g3_types::codec::ThriftVarInt32;
 
 use crate::target::thrift::protocol::{ThriftResponseMessage, ThriftResponseMessageParseError};
 
@@ -36,33 +36,19 @@ impl CompactMessageParser {
         }
 
         let left = &buf[2..];
-        let Some((seq_id, nr)) = i32::decode_var(left) else {
-            return Err(ThriftResponseMessageParseError::InvalidVarIntEncoding(
-                "seq id",
-            ));
-        };
-        if nr == 0 {
-            return Err(ThriftResponseMessageParseError::InvalidVarIntEncoding(
-                "seq id",
-            ));
-        }
+        let seq_id = ThriftVarInt32::parse(left)
+            .map_err(|e| ThriftResponseMessageParseError::InvalidVarIntEncoding("seq id", e))?;
 
-        let left = &left[nr..];
+        let left = &left[seq_id.encoded_len()..];
         if left.is_empty() {
             return Err(ThriftResponseMessageParseError::NoEnoughData);
         }
-        let Some((name_len, nr)) = i32::decode_var(left) else {
-            return Err(ThriftResponseMessageParseError::InvalidVarIntEncoding(
-                "name length",
-            ));
-        };
-        if nr == 0 {
-            return Err(ThriftResponseMessageParseError::InvalidVarIntEncoding(
-                "name length",
-            ));
-        }
+        let name_len = ThriftVarInt32::parse(left).map_err(|e| {
+            ThriftResponseMessageParseError::InvalidVarIntEncoding("name length", e)
+        })?;
 
-        let name_len = usize::try_from(name_len)
+        let left = &left[name_len.encoded_len()..];
+        let name_len = usize::try_from(name_len.value())
             .map_err(|_| ThriftResponseMessageParseError::InvalidNameLength)?;
         if left.len() < name_len {
             return Err(ThriftResponseMessageParseError::NoEnoughData);
@@ -74,7 +60,7 @@ impl CompactMessageParser {
 
         Ok(ThriftResponseMessage {
             method: name.to_string(),
-            seq_id,
+            seq_id: seq_id.value(),
             encoded_length: data.len(),
         })
     }
