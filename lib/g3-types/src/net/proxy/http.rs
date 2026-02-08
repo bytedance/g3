@@ -43,9 +43,7 @@ impl HttpProxy {
     pub(super) fn from_url_authority_with_tls(url: &Url) -> Result<Self, ProxyParseError> {
         let mut v = HttpProxy::from_url_authority(url)?;
         let tls_config = OpensslClientConfigBuilder::with_cache_for_one_site();
-        // for (_k, _v) in value.query_pairs() {
-        //     // TODO set tls_config
-        // }
+        // TODO: allow tls_config customization via URL query parameters
         v.tls_config = Some(tls_config);
         Ok(v)
     }
