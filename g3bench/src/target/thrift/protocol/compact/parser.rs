@@ -59,7 +59,7 @@ impl CompactMessageParser {
 
         Ok(ThriftResponseMessage {
             method: name.to_string(),
-            seq_id: seq_id.positive_value() as i32,
+            seq_id: seq_id.positive_value(),
             encoded_length: data.len(),
         })
     }

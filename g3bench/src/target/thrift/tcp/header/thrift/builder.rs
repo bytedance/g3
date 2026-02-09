@@ -23,7 +23,7 @@ impl TryFrom<String> for StringValue {
     type Error = anyhow::Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        let len = u32::try_from(value.len()).map_err(|_| {
+        let len = i16::try_from(value.len()).map_err(|_| {
             anyhow!(
                 "too long Thrift THeader string value length {}",
                 value.len()
@@ -31,7 +31,7 @@ impl TryFrom<String> for StringValue {
         })?;
         let mut encoder = ThriftVarIntEncoder::default();
         Ok(StringValue {
-            len_bytes: encoder.encode_positive_i32(len).to_vec(),
+            len_bytes: encoder.encode_positive_i32(len as i32).to_vec(),
             value,
         })
     }
@@ -79,17 +79,17 @@ impl ThriftTHeaderBuilder {
             ThriftProtocol::Binary => 0i32,
             ThriftProtocol::Compact => 2i32,
         };
-        buf.extend_from_slice(encoder.encode_i32(protocol_id));
+        buf.extend_from_slice(encoder.encode_positive_i32(protocol_id));
 
         // NUM TRANSFORMS (varint, i32)
-        buf.extend_from_slice(encoder.encode_i32(0));
+        buf.extend_from_slice(encoder.encode_positive_i32(0));
 
         // INFO_KEYVALUE
         if !self.info_key_values.is_empty() {
-            buf.extend_from_slice(encoder.encode_i32(1));
+            buf.extend_from_slice(encoder.encode_positive_i32(1));
             let kv_count = i32::try_from(self.info_key_values.len())
                 .map_err(|_| anyhow!("too many INFO_KEYVALUE headers"))?;
-            buf.extend_from_slice(encoder.encode_i32(kv_count));
+            buf.extend_from_slice(encoder.encode_positive_i32(kv_count));
             for (k, v) in self.info_key_values.iter() {
                 buf.extend_from_slice(&k.len_bytes);
                 buf.extend_from_slice(k.value.as_bytes());
