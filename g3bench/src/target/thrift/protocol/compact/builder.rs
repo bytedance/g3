@@ -14,7 +14,7 @@ pub(crate) struct CompactMessageBuilder {
 
 impl CompactMessageBuilder {
     pub(crate) fn new_call(name: &str) -> anyhow::Result<Self> {
-        let name_len = u32::try_from(name.len()).map_err(|_| anyhow!("too long method name"))?;
+        let name_len = i32::try_from(name.len()).map_err(|_| anyhow!("too long method name"))?;
 
         let mut encoder = ThriftVarIntEncoder::default();
         let name_len_bytes = encoder.encode_positive_i32(name_len).to_vec();
@@ -41,7 +41,7 @@ impl CompactMessageBuilder {
         buf.extend_from_slice(&[0x82, 0x21]);
 
         let mut encoder = ThriftVarIntEncoder::default();
-        let seq_id_bytes = encoder.encode_positive_i32(seq_id as u32);
+        let seq_id_bytes = encoder.encode_positive_i32(seq_id);
         buf.extend_from_slice(seq_id_bytes);
 
         buf.extend_from_slice(&self.name_len_bytes);
