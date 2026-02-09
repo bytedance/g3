@@ -23,7 +23,7 @@ impl TryFrom<String> for StringValue {
     type Error = anyhow::Error;
 
     fn try_from(value: String) -> Result<Self, Self::Error> {
-        let len = i32::try_from(value.len()).map_err(|_| {
+        let len = u32::try_from(value.len()).map_err(|_| {
             anyhow!(
                 "too long Thrift THeader string value length {}",
                 value.len()
@@ -31,7 +31,7 @@ impl TryFrom<String> for StringValue {
         })?;
         let mut encoder = ThriftVarIntEncoder::default();
         Ok(StringValue {
-            len_bytes: encoder.encode_i32(len).to_vec(),
+            len_bytes: encoder.encode_positive_i32(len).to_vec(),
             value,
         })
     }

@@ -17,6 +17,10 @@ impl ThriftVarInt32 {
         Ok(ThriftVarInt32 { leb128 })
     }
 
+    pub fn positive_value(&self) -> u32 {
+        self.leb128.value()
+    }
+
     pub fn value(&self) -> i32 {
         let uv = self.leb128.value();
         i32::from_zig_zag(uv)
@@ -36,5 +40,9 @@ impl ThriftVarIntEncoder {
     pub fn encode_i32(&mut self, v: i32) -> &[u8] {
         let uv = v.to_zig_zag();
         self.leb128.encode_u32(uv)
+    }
+
+    pub fn encode_positive_i32(&mut self, v: u32) -> &[u8] {
+        self.leb128.encode_u32(v)
     }
 }
