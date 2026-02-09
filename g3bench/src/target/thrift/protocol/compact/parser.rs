@@ -48,8 +48,7 @@ impl CompactMessageParser {
         })?;
 
         let left = &left[name_len.encoded_len()..];
-        let name_len = usize::try_from(name_len.value())
-            .map_err(|_| ThriftResponseMessageParseError::InvalidNameLength)?;
+        let name_len = name_len.positive_value() as usize;
         if left.len() < name_len {
             return Err(ThriftResponseMessageParseError::NoEnoughData);
         }
@@ -60,7 +59,7 @@ impl CompactMessageParser {
 
         Ok(ThriftResponseMessage {
             method: name.to_string(),
-            seq_id: seq_id.value(),
+            seq_id: seq_id.positive_value() as i32,
             encoded_length: data.len(),
         })
     }

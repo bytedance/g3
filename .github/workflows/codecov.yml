@@ -285,6 +285,9 @@ jobs:
       - name: Run dnsmasq
         run: |
           sudo dnsmasq --local-service -C ${{ github.workspace }}/scripts/coverage/g3bench/dnsmasq.conf
+      - name: Install thrift compiler
+        run: |
+          sudo apt-get install thrift-compiler
       - name: run unit test
         run: |
           ./scripts/coverage/g3bench.sh
