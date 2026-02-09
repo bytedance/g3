@@ -20,7 +20,7 @@ impl ThriftVarInt32 {
     // Get the varint value used directly in thrift protocol,
     // which is always positive and not zigzag encoded
     pub fn positive_value(&self) -> i32 {
-        self.leb128.value() as i32
+        u32::cast_signed(self.leb128.value())
     }
 
     // Get the thrift integer value, which is zigzag encoded
@@ -48,6 +48,6 @@ impl ThriftVarIntEncoder {
 
     // Encode the positive varint used directly in thrift protocol, which will not be zigzag encoded
     pub fn encode_positive_i32(&mut self, v: i32) -> &[u8] {
-        self.leb128.encode_u32(v as u32)
+        self.leb128.encode_u32(i32::cast_unsigned(v))
     }
 }
