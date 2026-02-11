@@ -11,33 +11,51 @@ pub trait FromZigZag<T> {
     fn from_zig_zag(value: T) -> Self;
 }
 
-impl ToZigZag<u32> for i32 {
-    fn to_zig_zag(self) -> u32 {
-        ((self >> 31) ^ (self << 1)) as u32
-    }
+macro_rules! impl_zig_zag {
+    ($it:ty, $ut:ty) => {
+        impl ToZigZag<$ut> for $it {
+            fn to_zig_zag(self) -> $ut {
+                <$it>::cast_unsigned((self >> (<$it>::BITS - 1)) ^ (self << 1))
+            }
+        }
+
+        impl FromZigZag<$ut> for $it {
+            fn from_zig_zag(value: $ut) -> Self {
+                <$ut>::cast_signed(value >> 1) ^ -<$ut>::cast_signed(value & 1)
+            }
+        }
+    };
 }
 
-impl FromZigZag<u32> for i32 {
-    fn from_zig_zag(value: u32) -> Self {
-        (value >> 1) as i32 ^ -(value as i32 & 1)
-    }
-}
-
-impl ToZigZag<u64> for i64 {
-    fn to_zig_zag(self) -> u64 {
-        ((self >> 63) ^ (self << 1)) as u64
-    }
-}
-
-impl FromZigZag<u64> for i64 {
-    fn from_zig_zag(value: u64) -> Self {
-        (value >> 1) as i64 ^ -(value as i64 & 1)
-    }
-}
+impl_zig_zag!(i16, u16);
+impl_zig_zag!(i32, u32);
+impl_zig_zag!(i64, u64);
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn encode_i16() {
+        assert_eq!(0i16.to_zig_zag(), 0);
+        assert_eq!((-1i16).to_zig_zag(), 1);
+        assert_eq!(1i16.to_zig_zag(), 2);
+        assert_eq!((-2i16).to_zig_zag(), 3);
+        assert_eq!(2i32.to_zig_zag(), 4);
+        assert_eq!(i16::MAX.to_zig_zag(), u16::MAX - 1);
+        assert_eq!(i16::MIN.to_zig_zag(), u16::MAX);
+    }
+
+    #[test]
+    fn decode_u16() {
+        assert_eq!(i16::from_zig_zag(0), 0);
+        assert_eq!(i16::from_zig_zag(1), -1);
+        assert_eq!(i16::from_zig_zag(2), 1);
+        assert_eq!(i16::from_zig_zag(3), -2);
+        assert_eq!(i16::from_zig_zag(4), 2);
+        assert_eq!(i16::from_zig_zag(u16::MAX - 1), i16::MAX);
+        assert_eq!(i16::from_zig_zag(u16::MAX), i16::MIN);
+    }
 
     #[test]
     fn encode_i32() {
