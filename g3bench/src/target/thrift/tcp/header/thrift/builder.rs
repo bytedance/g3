@@ -8,7 +8,7 @@ use std::convert::TryFrom;
 
 use anyhow::{Context, anyhow};
 
-use g3_types::codec::ThriftVarIntEncoder;
+use g3_codec::thrift::VarIntEncoder;
 
 use super::HeaderBufOffsets;
 use crate::target::thrift::protocol::ThriftProtocol;
@@ -29,7 +29,7 @@ impl TryFrom<String> for StringValue {
                 value.len()
             )
         })?;
-        let mut encoder = ThriftVarIntEncoder::default();
+        let mut encoder = VarIntEncoder::default();
         Ok(StringValue {
             len_bytes: encoder.encode_positive_i32(len as i32).to_vec(),
             value,
@@ -70,7 +70,7 @@ impl ThriftTHeaderBuilder {
 
         let content_offset = buf.len();
 
-        let mut encoder = ThriftVarIntEncoder::default();
+        let mut encoder = VarIntEncoder::default();
 
         // PROTOCOL ID (varint, i32)
         // See `THeaderProtocolID` in

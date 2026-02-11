@@ -3,7 +3,7 @@
  * Copyright 2025 ByteDance and/or its affiliates.
  */
 
-use g3_types::codec::ThriftVarInt32;
+use g3_codec::thrift::VarInt32;
 
 use crate::target::thrift::protocol::{ThriftResponseMessage, ThriftResponseMessageParseError};
 
@@ -36,14 +36,14 @@ impl CompactMessageParser {
         }
 
         let left = &buf[2..];
-        let seq_id = ThriftVarInt32::parse(left)
+        let seq_id = VarInt32::parse(left)
             .map_err(|e| ThriftResponseMessageParseError::InvalidVarIntEncoding("seq id", e))?;
 
         let left = &left[seq_id.encoded_len()..];
         if left.is_empty() {
             return Err(ThriftResponseMessageParseError::NoEnoughData);
         }
-        let name_len = ThriftVarInt32::parse(left).map_err(|e| {
+        let name_len = VarInt32::parse(left).map_err(|e| {
             ThriftResponseMessageParseError::InvalidVarIntEncoding("name length", e)
         })?;
 

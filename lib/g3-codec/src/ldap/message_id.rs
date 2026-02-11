@@ -5,7 +5,7 @@
 
 use thiserror::Error;
 
-use crate::codec::{BerInteger, BerIntegerParseError};
+use crate::ber::{BerInteger, BerIntegerParseError};
 
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum LdapMessageIdParseError {

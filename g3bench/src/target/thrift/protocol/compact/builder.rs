@@ -5,7 +5,7 @@
 
 use anyhow::anyhow;
 
-use g3_types::codec::ThriftVarIntEncoder;
+use g3_codec::thrift::VarIntEncoder;
 
 pub(crate) struct CompactMessageBuilder {
     name: String,
@@ -16,7 +16,7 @@ impl CompactMessageBuilder {
     pub(crate) fn new_call(name: &str) -> anyhow::Result<Self> {
         let name_len = i32::try_from(name.len()).map_err(|_| anyhow!("too long method name"))?;
 
-        let mut encoder = ThriftVarIntEncoder::default();
+        let mut encoder = VarIntEncoder::default();
         let name_len_bytes = encoder.encode_positive_i32(name_len).to_vec();
 
         Ok(CompactMessageBuilder {
@@ -40,7 +40,7 @@ impl CompactMessageBuilder {
         // set fixed bits and message type to "Call"
         buf.extend_from_slice(&[0x82, 0x21]);
 
-        let mut encoder = ThriftVarIntEncoder::default();
+        let mut encoder = VarIntEncoder::default();
         let seq_id_bytes = encoder.encode_positive_i32(seq_id);
         buf.extend_from_slice(seq_id_bytes);
 

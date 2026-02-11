@@ -1,0 +1,21 @@
+[package]
+name = "g3-codec"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+thiserror.workspace = true
+g3-std-ext.workspace = true
+
+[features]
+default = []
+ber = []
+ldap = ["ber"]
+leb128 = []
+thrift = ["leb128"]
+quic = []
+
+[dev-dependencies]
+hex-literal.workspace = true

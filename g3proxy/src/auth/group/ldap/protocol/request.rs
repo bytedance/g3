@@ -3,7 +3,7 @@
  * Copyright 2026 G3-OSS developers.
  */
 
-use g3_types::codec::BerLengthEncoder;
+use g3_codec::ber::BerLengthEncoder;
 
 const MAX_MESSAGE_ID: u8 = 0x7F;
 const MIN_MESSAGE_ID: u8 = 1;

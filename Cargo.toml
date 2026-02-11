@@ -21,6 +21,7 @@ members = [
     "lib/g3-build-env",
     "lib/g3-cert-agent",
     "lib/g3-clap",
+    "lib/g3-codec",
     "lib/g3-compat",
     "lib/g3-ctl",
     "lib/g3-daemon",
@@ -200,6 +201,7 @@ cfg-if = "1.0"
 g3-build-env = { version = "0.2", path = "lib/g3-build-env" }
 g3-cert-agent = { version = "0.3", path = "lib/g3-cert-agent" }
 g3-clap = { version = "0.2", path = "lib/g3-clap" }
+g3-codec = { version = "0.1", path = "lib/g3-codec" }
 g3-compat = { version = "0.2", path = "lib/g3-compat" }
 g3-ctl = { version = "0.2", path = "lib/g3-ctl" }
 g3-daemon = { version = "0.4", path = "lib/g3-daemon" }

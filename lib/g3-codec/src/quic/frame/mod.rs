@@ -5,13 +5,11 @@
 
 use thiserror::Error;
 
-use super::VarInt;
+mod ack;
+pub use ack::{AckFrame, AckRange, EcnCounts};
 
 mod crypto;
-pub use crypto::{CryptoFrame, HandshakeCoalescer};
-
-mod ack;
-pub use ack::AckFrame;
+pub use crypto::CryptoFrame;
 
 #[derive(Debug, Error)]
 pub enum FrameParseError {

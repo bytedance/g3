@@ -3,5 +3,5 @@
  * Copyright 2026 G3-OSS developers.
  */
 
-mod var_int;
-pub use var_int::{ThriftVarInt32, ThriftVarIntEncoder};
+mod handshake;
+pub use handshake::HandshakeCoalescer;

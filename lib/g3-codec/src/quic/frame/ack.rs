@@ -3,7 +3,9 @@
  * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use super::{FrameParseError, VarInt};
+use crate::quic::VarInt;
+
+use super::FrameParseError;
 
 pub struct AckFrame {
     pub largest_ack: VarInt,
@@ -11,7 +13,7 @@ pub struct AckFrame {
     pub first_ack_range: VarInt,
     pub ack_ranges: Vec<AckRange>,
     pub ecn_counts: Option<EcnCounts>,
-    pub(crate) encoded_len: usize,
+    encoded_len: usize,
 }
 
 impl AckFrame {
@@ -63,6 +65,11 @@ impl AckFrame {
                 encoded_len: offset,
             })
         }
+    }
+
+    #[inline]
+    pub fn encoded_len(&self) -> usize {
+        self.encoded_len
     }
 }
 

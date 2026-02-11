@@ -6,7 +6,7 @@
 use openssl::error::ErrorStack;
 use thiserror::Error;
 
-use super::{AckFrame, CryptoFrame, FrameConsume, FrameParseError, VarInt};
+use g3_codec::quic::{AckFrame, CryptoFrame, FrameConsume, FrameParseError, VarInt};
 
 mod hkdf;
 use hkdf::{quic_hkdf_expand, quic_hkdf_extract_expand};
@@ -104,17 +104,17 @@ impl InitialPacket {
                 0x01 => {} // PING
                 0x02 => {
                     let ack = AckFrame::parse(&payload[offset..], false)?;
-                    offset += ack.encoded_len;
+                    offset += ack.encoded_len();
                 }
                 0x03 => {
                     let ack = AckFrame::parse(&payload[offset..], true)?;
-                    offset += ack.encoded_len;
+                    offset += ack.encoded_len();
                 }
                 0x06 => {
                     // CRYPTO
                     let crypto = CryptoFrame::parse(&payload[offset..])?;
                     consumer.recv_crypto(&crypto)?;
-                    offset += crypto.encoded_len;
+                    offset += crypto.encoded_len();
                 }
                 _ => return Err(FrameParseError::InvalidFrameType(frame_type.value())),
             }
