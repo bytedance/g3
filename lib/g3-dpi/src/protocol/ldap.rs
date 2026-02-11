@@ -3,7 +3,7 @@
  * Copyright 2026 G3-OSS developers.
  */
 
-use g3_types::codec::{LdapLength, LdapLengthParseError, LdapMessageId};
+use g3_codec::ldap::{LdapLength, LdapLengthParseError, LdapMessageId};
 
 use super::{MaybeProtocol, Protocol, ProtocolInspectError, ProtocolInspectState};
 use crate::ProtocolInspectionSizeLimit;

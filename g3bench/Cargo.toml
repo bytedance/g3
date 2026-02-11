@@ -44,6 +44,7 @@ g3-runtime.workspace = true
 g3-std-ext.workspace = true
 g3-types = { workspace = true, features = ["openssl", "rustls"] }
 g3-clap = { workspace = true, features = ["http", "limit"] }
+g3-codec = { workspace = true, features = ["thrift"] }
 g3-socket.workspace = true
 g3-http.workspace = true
 g3-socks.workspace = true

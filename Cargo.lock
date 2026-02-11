@@ -941,6 +941,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "g3-codec"
+version = "0.1.0"
+dependencies = [
+ "g3-std-ext",
+ "hex-literal",
+ "thiserror",
+]
+
+[[package]]
 name = "g3-compat"
 version = "0.2.0"
 dependencies = [
@@ -1020,6 +1029,7 @@ version = "0.3.0"
 dependencies = [
  "fixedbitset",
  "fnv",
+ "g3-codec",
  "g3-types",
  "hex-literal",
  "memchr",
@@ -1645,6 +1655,7 @@ dependencies = [
  "futures-util",
  "g3-build-env",
  "g3-clap",
+ "g3-codec",
  "g3-hickory-client",
  "g3-histogram",
  "g3-http",
@@ -1738,6 +1749,7 @@ dependencies = [
  "foldhash",
  "futures-util",
  "g3-build-env",
+ "g3-codec",
  "g3-compat",
  "g3-daemon",
  "g3-histogram",
@@ -1831,6 +1843,7 @@ dependencies = [
  "futures-util",
  "g3-build-env",
  "g3-cert-agent",
+ "g3-codec",
  "g3-daemon",
  "g3-datetime",
  "g3-dpi",

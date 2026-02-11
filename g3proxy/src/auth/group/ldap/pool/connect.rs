@@ -9,11 +9,11 @@ use std::sync::Arc;
 use anyhow::{Context, anyhow};
 use tokio::net::TcpStream;
 
+use g3_codec::ldap::{LdapResult, LdapSequence};
 use g3_io_ext::LimitedWriteExt;
 use g3_io_ext::openssl::MaybeSslStream;
 use g3_openssl::{SslConnector, SslStream};
 use g3_socket::BindAddr;
-use g3_types::codec::{LdapResult, LdapSequence};
 use g3_types::net::{Host, OpensslClientConfig};
 
 use crate::auth::group::ldap::LdapMessageReceiver;

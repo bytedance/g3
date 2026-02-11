@@ -5,7 +5,7 @@
 
 use thiserror::Error;
 
-use crate::codec::{BerLength, BerLengthParseError};
+use crate::ber::{BerLength, BerLengthParseError};
 
 #[derive(Debug, Error)]
 pub enum LdapSequenceParseError {

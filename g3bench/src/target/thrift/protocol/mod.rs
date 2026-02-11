@@ -5,7 +5,7 @@
 
 use thiserror::Error;
 
-use g3_types::codec::Leb128DecodeError;
+use g3_codec::leb128::Leb128DecodeError;
 
 mod binary;
 pub(super) use binary::BinaryMessageBuilder;

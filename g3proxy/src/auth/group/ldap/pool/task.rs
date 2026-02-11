@@ -10,9 +10,9 @@ use kanal::AsyncReceiver;
 use log::{debug, warn};
 use tokio::io::{AsyncRead, AsyncWrite};
 
+use g3_codec::ldap::{LdapResult, LdapSequence};
 use g3_io_ext::openssl::MaybeSslStream;
 use g3_io_ext::{AsyncStream, LimitedWriteExt};
-use g3_types::codec::{LdapResult, LdapSequence};
 
 use super::{LdapAuthRequest, LdapConnector};
 use crate::auth::group::ldap::{LdapMessageReceiver, SimpleBindRequestEncoder};

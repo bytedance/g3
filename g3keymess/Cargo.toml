@@ -29,6 +29,7 @@ foldhash.workspace = true
 futures-util.workspace = true
 arc-swap.workspace = true
 serde_json.workspace = true
+g3-codec.workspace = true
 g3-daemon = { workspace = true, features = ["register", "event-log"] }
 g3-macros.workspace = true
 g3-yaml = { workspace = true, features = ["histogram"] }

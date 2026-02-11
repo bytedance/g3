@@ -5,16 +5,16 @@
 
 use g3_std_ext::core::{FromZigZag, ToZigZag};
 
-use crate::codec::{Leb128, Leb128DecodeError, Leb128Encoder};
+use crate::leb128::{Leb128, Leb128DecodeError, Leb128Encoder};
 
-pub struct ThriftVarInt32 {
+pub struct VarInt32 {
     leb128: Leb128<u32>,
 }
 
-impl ThriftVarInt32 {
-    pub fn parse(data: &[u8]) -> Result<ThriftVarInt32, Leb128DecodeError> {
+impl VarInt32 {
+    pub fn parse(data: &[u8]) -> Result<VarInt32, Leb128DecodeError> {
         let leb128 = Leb128::decode(data)?;
-        Ok(ThriftVarInt32 { leb128 })
+        Ok(VarInt32 { leb128 })
     }
 
     // Get the varint value used directly in thrift protocol,
@@ -35,11 +35,11 @@ impl ThriftVarInt32 {
 }
 
 #[derive(Default)]
-pub struct ThriftVarIntEncoder {
+pub struct VarIntEncoder {
     leb128: Leb128Encoder,
 }
 
-impl ThriftVarIntEncoder {
+impl VarIntEncoder {
     // Encode the thrift integer value, with correct zigzag encoding
     pub fn encode_i32(&mut self, v: i32) -> &[u8] {
         let uv = v.to_zig_zag();
