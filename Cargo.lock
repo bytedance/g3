@@ -945,8 +945,11 @@ name = "g3-codec"
 version = "0.1.0"
 dependencies = [
  "g3-std-ext",
+ "g3-types",
  "hex-literal",
+ "smallvec",
  "thiserror",
+ "variant-ssl",
 ]
 
 [[package]]
@@ -1031,11 +1034,7 @@ dependencies = [
  "fnv",
  "g3-codec",
  "g3-types",
- "hex-literal",
  "memchr",
- "smallvec",
- "thiserror",
- "variant-ssl",
 ]
 
 [[package]]
@@ -2039,6 +2038,7 @@ dependencies = [
  "foldhash",
  "futures-util",
  "g3-build-env",
+ "g3-codec",
  "g3-daemon",
  "g3-dpi",
  "g3-histogram",

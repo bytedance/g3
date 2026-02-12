@@ -3,8 +3,9 @@
  * Copyright 2023-2025 ByteDance and/or its affiliates.
  */
 
+use g3_codec::tls::{ContentType, HandshakeType};
+
 use super::{MaybeProtocol, Protocol, ProtocolInspectError, ProtocolInspectState};
-use crate::parser::tls::{ContentType, HandshakeType};
 
 const SSL_HDR_LEN: usize = 5;
 const SSL_HANDSHAKE_HDR_LEN: usize = 4;

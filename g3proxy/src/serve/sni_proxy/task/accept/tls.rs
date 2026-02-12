@@ -6,9 +6,7 @@
 use bytes::BytesMut;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
-use g3_dpi::parser::tls::{
-    ClientHello, ExtensionType, HandshakeCoalescer, Record, RecordParseError,
-};
+use g3_codec::tls::{ClientHello, ExtensionType, HandshakeCoalescer, Record, RecordParseError};
 use g3_types::net::{Host, TlsServerName, UpstreamAddr};
 
 use crate::serve::{ServerTaskError, ServerTaskResult};

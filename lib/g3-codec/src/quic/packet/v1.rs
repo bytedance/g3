@@ -5,29 +5,27 @@
 
 use openssl::error::ErrorStack;
 
-use g3_codec::quic::VarInt;
+use crate::quic::VarInt;
 
 use super::{Header, PacketParseError};
 
 const INITIAL_SALT: &[u8] = &[
-    0x0d, 0xed, 0xe3, 0xde, 0xf7, 0x00, 0xa6, 0xdb, 0x81, 0x93, 0x81, 0xbe, 0x6e, 0x26, 0x9d, 0xcb,
-    0xf9, 0xbd, 0x2e, 0xd9,
+    0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17, 0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad,
+    0xcc, 0xbb, 0x7f, 0x0a,
 ];
 
-pub struct InitialPacketV2 {
+pub struct InitialPacketV1 {
     pub(super) packet_number: u32,
     pub(super) payload: Vec<u8>,
 }
 
-impl InitialPacketV2 {
-    /// Parse a QUIC v2 Initial Packet
+impl InitialPacketV1 {
+    /// Parse a QUIC v1 Initial Packet
     ///
-    /// According to:
-    ///  - https://datatracker.ietf.org/doc/html/rfc9000#name-packets-and-frames
-    ///  - https://datatracker.ietf.org/doc/html/rfc9369#name-differences-with-quic-versi
+    /// According to https://datatracker.ietf.org/doc/html/rfc9000#name-packets-and-frames
     pub(super) fn parse_client(data: &[u8]) -> Result<Self, PacketParseError> {
         let byte1 = data[0];
-        if byte1 & 0b0011_0000 != 0b0001_0000 {
+        if byte1 & 0b0011_0000 != 0b0000_0000 {
             return Err(PacketParseError::InvalidLongPacketType);
         }
         let mut offset = super::LONG_PACKET_FIXED_LEN;
@@ -110,7 +108,7 @@ impl InitialPacketV2 {
         let payload =
             super::aes::aes_gcm_decrypt(&secrets.key, &secrets.iv, &aad_vec, ciphertext, tag)?;
 
-        Ok(InitialPacketV2 {
+        Ok(InitialPacketV1 {
             packet_number: header.packet_number,
             payload,
         })
@@ -134,13 +132,13 @@ impl ClientSecrets {
         )?;
 
         let mut key = [0u8; 16];
-        super::quic_hkdf_expand(&client_initial_secret, b"quicv2 key", &mut key)?;
+        super::quic_hkdf_expand(&client_initial_secret, b"quic key", &mut key)?;
 
         let mut iv = [0u8; 12];
-        super::quic_hkdf_expand(&client_initial_secret, b"quicv2 iv", &mut iv)?;
+        super::quic_hkdf_expand(&client_initial_secret, b"quic iv", &mut iv)?;
 
         let mut hp = [0u8; 16];
-        super::quic_hkdf_expand(&client_initial_secret, b"quicv2 hp", &mut hp)?;
+        super::quic_hkdf_expand(&client_initial_secret, b"quic hp", &mut hp)?;
 
         Ok(ClientSecrets { key, iv, hp })
     }
@@ -153,11 +151,11 @@ mod tests {
 
     #[test]
     fn gen_secret() {
-        // https://datatracker.ietf.org/doc/html/rfc9369#name-client-initial
+        // https://datatracker.ietf.org/doc/html/rfc9001#section-a.2
         let cid = hex!("8394c8f03e515708");
-        let key = hex!("8b1a0bc121284290a29e0971b5cd045d");
-        let iv = hex!("91f73e2351d8fa91660e909f");
-        let hp = hex!("45b95e15235d6f45a6b19cbcb0294ba9");
+        let key = hex!("1f369613dd76d5467730efcbe3b1a22d");
+        let iv = hex!("fa044b2f42a3fd3b46fb255c");
+        let hp = hex!("9f50449e04a0e810283a1e9933adedd2");
 
         let secrets = ClientSecrets::new(&cid).unwrap();
         assert_eq!(secrets.key, key);

@@ -5,8 +5,7 @@
 
 use thiserror::Error;
 
-use super::{HandshakeCoalescer, HandshakeMessage, RawVersion};
-use crate::parser::tls::handshake::HandshakeCoalesceError;
+use super::{HandshakeCoalesceError, HandshakeCoalescer, HandshakeMessage, RawVersion};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]

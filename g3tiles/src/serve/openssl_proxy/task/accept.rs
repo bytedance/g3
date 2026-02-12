@@ -14,10 +14,10 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::TcpStream;
 use tokio::time::Instant;
 
-use g3_daemon::stat::task::TcpStreamConnectionStats;
-use g3_dpi::parser::tls::{
+use g3_codec::tls::{
     ClientHello, ExtensionType, HandshakeCoalescer, RawVersion, Record, RecordParseError,
 };
+use g3_daemon::stat::task::TcpStreamConnectionStats;
 use g3_io_ext::{LimitedStream, OnceBufReader};
 use g3_openssl::{SslAcceptor, SslStream};
 use g3_types::limit::GaugeSemaphorePermit;

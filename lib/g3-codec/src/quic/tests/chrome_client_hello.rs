@@ -5,8 +5,8 @@
 
 use g3_types::net::TlsServerName;
 
-use crate::parser::quic::{HandshakeCoalescer, InitialPacket};
-use crate::parser::tls::ExtensionType;
+use crate::quic::{HandshakeCoalescer, InitialPacket};
+use crate::tls::ExtensionType;
 
 const PACKET1_BYTES: &[u8] = &[
     0xc7, 0x00, 0x00, 0x00, 0x01, 0x08, 0xc8, 0xce, 0x86, 0x5d, 0x32, 0xec, 0x58, 0x20, 0x00, 0x00,

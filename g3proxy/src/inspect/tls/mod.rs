@@ -12,7 +12,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use tokio::runtime::Handle;
 
 use g3_cert_agent::CertAgentHandle;
-use g3_dpi::parser::tls::{
+use g3_codec::tls::{
     ClientHello, ExtensionType, HandshakeCoalescer, RawVersion, Record, RecordParseError,
 };
 use g3_dpi::{Protocol, ProtocolInspector};

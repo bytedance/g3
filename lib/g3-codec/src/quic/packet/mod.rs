@@ -6,7 +6,7 @@
 use openssl::error::ErrorStack;
 use thiserror::Error;
 
-use g3_codec::quic::{AckFrame, CryptoFrame, FrameConsume, FrameParseError, VarInt};
+use crate::quic::{AckFrame, CryptoFrame, FrameConsume, FrameParseError, VarInt};
 
 mod hkdf;
 use hkdf::{quic_hkdf_expand, quic_hkdf_extract_expand};

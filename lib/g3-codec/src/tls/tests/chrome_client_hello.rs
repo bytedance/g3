@@ -5,7 +5,7 @@
 
 use g3_types::net::TlsServerName;
 
-use crate::parser::tls::{ExtensionType, HandshakeCoalescer, Record, RecordParseError};
+use crate::tls::{ExtensionType, HandshakeCoalescer, Record, RecordParseError};
 
 const STREAM_BYTES: &[u8] = &[
     0x16, 0x03, 0x01, 0x07, 0x1c, 0x01, 0x00, 0x07, 0x18, 0x03, 0x03, 0x77, 0x6e, 0x9c, 0x10, 0x89,

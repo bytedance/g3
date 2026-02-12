@@ -5,7 +5,7 @@
 
 use g3_types::net::TlsServerName;
 
-use crate::parser::tls::{ExtensionType, HandshakeCoalescer, Record};
+use crate::tls::{ExtensionType, HandshakeCoalescer, Record};
 
 const RECORD_1_BYTES: &[u8] = &[
     0x16, 0x03, 0x01, 0x00, 0x64, 0x01, 0x00, 0x01, 0x8a, 0x03, 0x03, 0x02, 0x86, 0x70, 0x33, 0x46,

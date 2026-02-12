@@ -18,5 +18,3 @@ pub use config::{
     ProtocolInspectPolicy, ProtocolInspectPolicyBuilder, ProtocolInspectionConfig,
     ProtocolInspectionSizeLimit, SmtpInterceptionConfig,
 };
-
-pub mod parser;

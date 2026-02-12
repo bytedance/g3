@@ -6,8 +6,8 @@
 use thiserror::Error;
 
 use super::{HandshakeHeader, HandshakeType};
-use crate::parser::tls::extension::ExtensionIter;
-use crate::parser::tls::{ExtensionList, ExtensionParseError, ExtensionType, RawVersion};
+use crate::tls::extension::ExtensionIter;
+use crate::tls::{ExtensionList, ExtensionParseError, ExtensionType, RawVersion};
 
 #[derive(Debug, Error)]
 pub enum ClientHelloParseError {
@@ -178,7 +178,7 @@ impl<'a> ClientHello<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::tls::HandshakeMessage;
+    use crate::tls::HandshakeMessage;
 
     #[test]
     fn invalid_ext_len() {
