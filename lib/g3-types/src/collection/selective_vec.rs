@@ -204,11 +204,11 @@ impl<T: SelectiveItem> SelectiveVec<T> {
                 let mut rng = rand::rng();
                 if self.weighted {
                     self.inner
-                        .choose_multiple_weighted(&mut rng, len, |v| v.weight())
-                        .unwrap_or_else(|_| self.inner.choose_multiple(&mut rng, len))
+                        .sample_weighted(&mut rng, len, |v| v.weight())
+                        .unwrap_or_else(|_| self.inner.sample(&mut rng, len))
                         .collect()
                 } else {
-                    self.inner.choose_multiple(&mut rng, len).collect()
+                    self.inner.sample(&mut rng, len).collect()
                 }
             }
         }

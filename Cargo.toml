@@ -94,7 +94,7 @@ rust-version = "1.90.0"
 anyhow = "1.0"
 thiserror = "2.0"
 itertools = "0.14"
-rand = { version = "0.9", default-features = false, features = ["thread_rng"] }
+rand = { version = "0.10", default-features = false, features = ["thread_rng"] }
 fastrand = "2.3"
 memchr = "2.8"
 constant_time_eq = "0.4"
