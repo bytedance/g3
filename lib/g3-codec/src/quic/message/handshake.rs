@@ -6,9 +6,9 @@
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
 
-use g3_codec::quic::{CryptoFrame, FrameConsume, FrameParseError};
+use crate::quic::{CryptoFrame, FrameConsume, FrameParseError};
 
-use crate::parser::tls::{ClientHello, ClientHelloParseError, HandshakeHeader, HandshakeType};
+use crate::tls::{ClientHello, ClientHelloParseError, HandshakeHeader, HandshakeType};
 
 #[derive(PartialEq, Eq)]
 struct Fragment {

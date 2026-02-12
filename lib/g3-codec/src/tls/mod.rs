@@ -16,14 +16,15 @@ impl RawVersion {
 }
 
 mod record;
-pub(crate) use record::ContentType;
-pub use record::{Record, RecordHeader, RecordParseError};
+pub use record::{ContentType, Record, RecordHeader, RecordParseError};
 
 mod handshake;
 #[cfg(feature = "quic")]
 pub(crate) use handshake::HandshakeHeader;
-pub(crate) use handshake::HandshakeType;
-pub use handshake::{ClientHello, ClientHelloParseError, HandshakeCoalescer, HandshakeMessage};
+pub use handshake::{
+    ClientHello, ClientHelloParseError, HandshakeCoalesceError, HandshakeCoalescer,
+    HandshakeMessage, HandshakeType,
+};
 
 mod extension;
 pub use extension::{ExtensionList, ExtensionParseError, ExtensionType};

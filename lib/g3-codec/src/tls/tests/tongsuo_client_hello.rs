@@ -5,7 +5,7 @@
 
 use g3_types::net::TlsServerName;
 
-use crate::parser::tls::{ExtensionType, HandshakeCoalescer, Record};
+use crate::tls::{ExtensionType, HandshakeCoalescer, Record};
 
 #[test]
 fn tls1_2() {

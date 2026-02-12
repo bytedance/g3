@@ -17,5 +17,8 @@ pub mod thrift;
 #[cfg(feature = "ldap")]
 pub mod ldap;
 
+#[cfg(feature = "tls")]
+pub mod tls;
+
 #[cfg(feature = "quic")]
 pub mod quic;
