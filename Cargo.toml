@@ -101,7 +101,7 @@ constant_time_eq = "0.4"
 uuid = "1.20"
 base64 = "0.22"
 regex = "1.11"
-arc-swap = "1.2"
+arc-swap = "1.8"
 chrono = { version = "0.4.39", default-features = false }
 ascii = "1.0"
 humanize-rs = "0.1"
@@ -180,7 +180,7 @@ capnp-rpc = "0.25"
 capnp = "0.25"
 capnpc = "0.25"
 #
-libc = "0.2.179"
+libc = "0.2.182"
 rustix = { version = "1.0", default-features = false }
 windows-sys = "0.61"
 #
