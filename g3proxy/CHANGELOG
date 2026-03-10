@@ -1,4 +1,7 @@
 
+v1.12.3:
+ - BUG FIX: fix default ingress network filter rules
+
 v1.12.2:
  - Compatibility: support to build rpm packages on OpenSUSE
 
