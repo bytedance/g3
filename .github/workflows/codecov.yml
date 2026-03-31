@@ -53,7 +53,7 @@ jobs:
         run: |
           ./scripts/coverage/lib_unit_test.sh
       - name: Upload coverage data
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true
           disable_search: true
@@ -86,7 +86,7 @@ jobs:
         run: |
           ./scripts/coverage/g3mkcert.sh
       - name: Upload coverage data
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true
           disable_search: true
@@ -119,7 +119,7 @@ jobs:
         run: |
           ./scripts/coverage/g3keymess.sh
       - name: Upload coverage data
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true
           disable_search: true
@@ -219,7 +219,7 @@ jobs:
         run: |
           sudo mv /etc/resolv.conf.backup /etc/resolv.conf
       - name: Upload coverage data
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true
           disable_search: true
@@ -295,7 +295,7 @@ jobs:
         run: |
           sudo mv /etc/resolv.conf.backup /etc/resolv.conf
       - name: Upload coverage data
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true
           disable_search: true
@@ -348,7 +348,7 @@ jobs:
         run: |
           ./scripts/coverage/g3statsd.sh
       - name: Upload coverage data
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true
           disable_search: true
