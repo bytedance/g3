@@ -96,7 +96,7 @@ impl AclNetworkRuleBuilder<AclAction> {
         let v = DEFAULT_INGRESS_RULE.clone();
         let mut inner = HashMap::with_capacity(v.len());
         for ip_network in v {
-            inner.insert(ip_network, AclAction::Forbid);
+            inner.insert(ip_network, AclAction::Permit);
         }
         Self {
             inner,

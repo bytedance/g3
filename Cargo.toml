@@ -121,7 +121,7 @@ foldhash = "0.2"
 ahash = "0.8"
 rustc-hash = "2.1"
 fnv = "1"
-indexmap = "2.9"
+indexmap = "2.13"
 ip_network = "0.4"
 ip_network_table = "0.2"
 radix_trie = "0.3"
@@ -129,7 +129,7 @@ fixedbitset = "0.5"
 bitflags = "2.11"
 lru = { version = "0.16", default-features = false }
 #
-blake3 = { version = "1.5", default-features = false }
+blake3 = { version = "1.8", default-features = false }
 hex = "0.4.2"
 hex-literal = "1.1"
 #
@@ -147,7 +147,7 @@ slog = { version = "2.8", features = ["dynamic-keys"] }
 hdrhistogram = { version = "7.5", default-features = false }
 #
 clap = "4.5.60"
-clap_complete = "4.5.60"
+clap_complete = "4.6.0"
 #
 tokio = "1.49.0"
 tokio-util = "0.7"
@@ -180,7 +180,7 @@ capnp-rpc = "0.25"
 capnp = "0.25"
 capnpc = "0.25"
 #
-libc = "0.2.182"
+libc = "0.2.184"
 rustix = { version = "1.1", default-features = false }
 windows-sys = "0.61"
 #
