@@ -48,10 +48,8 @@ where
                         // proxy-connection is not standard, but at least curl use it
                         return req.parse_header_connection(header);
                     }
-                    "forwarded" | "x-forwarded-for" => {
-                        if config.steal_forwarded_for {
-                            return Ok(());
-                        }
+                    "forwarded" | "x-forwarded-for" if config.steal_forwarded_for => {
+                        return Ok(());
                     }
                     _ => {}
                 }

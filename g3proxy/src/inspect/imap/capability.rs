@@ -62,21 +62,13 @@ impl Capability {
                 b"LIST-EXTENDED" => {}                       // rfc5258, rev2
                 b"LIST-STATUS" => {}                         // rfc5819, rev2
                 b"CREATE-SPECIAL-USE" | b"SPECIAL-USE" => {} // rfc6154, rev2
-                b"LITERAL+" => {
+                b"LITERAL+" if !self.has_non_sync_literal => {
                     // rfc7888
-                    if !self.has_non_sync_literal {
-                        self.has_non_sync_literal = true;
-                    } else {
-                        return None;
-                    };
+                    self.has_non_sync_literal = true;
                 }
-                b"LITERAL-" => {
+                b"LITERAL-" if !self.has_non_sync_literal => {
                     // rfc7888, rev2
-                    if !self.has_non_sync_literal {
-                        self.has_non_sync_literal = true;
-                    } else {
-                        return None;
-                    }
+                    self.has_non_sync_literal = true;
                 }
                 b"BINARY" => {}                 // rfc3516, partially merged into rev2
                 b"CONVERT" => {}                // rfc5259, require "BINARY"

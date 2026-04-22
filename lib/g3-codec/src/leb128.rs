@@ -45,12 +45,9 @@ impl Leb128<u32> {
         }
 
         let mut value = bv as u32;
-        let mut encoded_len = 1;
         let mut total_bits = 7;
         let left = &data[1..];
-        for b in left {
-            encoded_len += 1;
-
+        for (encoded_len, b) in (2..).zip(left.iter()) {
             let bv = *b & 0x7f;
             value |= (bv as u32) << total_bits;
             if (*b & 0x80) == 0 {
