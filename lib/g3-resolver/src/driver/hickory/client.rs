@@ -171,21 +171,15 @@ impl HickoryClientJob {
                     for r in msg.take_answers() {
                         ttl = r.ttl();
                         match r.data() {
-                            RData::A(v) => {
-                                if req.rtype == RecordType::A {
-                                    ips.push(IpAddr::V4(v.0));
-                                }
+                            RData::A(v) if req.rtype == RecordType::A => {
+                                ips.push(IpAddr::V4(v.0));
                             }
-                            RData::AAAA(v) => {
-                                if req.rtype == RecordType::AAAA {
-                                    ips.push(IpAddr::V6(v.0))
-                                }
+                            RData::AAAA(v) if req.rtype == RecordType::AAAA => {
+                                ips.push(IpAddr::V6(v.0));
                             }
-                            RData::CNAME(v) => {
-                                if name.eq(r.name()) {
-                                    has_cname = true;
-                                    name = v.0.clone();
-                                }
+                            RData::CNAME(v) if name.eq(r.name()) => {
+                                has_cname = true;
+                                name = v.0.clone();
                             }
                             _ => {}
                         }

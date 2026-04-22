@@ -439,10 +439,8 @@ impl HttpTransparentRequest {
             "te" | "proxy-authorization" => {
                 return self.insert_hop_by_hop_header(name, &header);
             }
-            "forwarded" | "x-forwarded-for" => {
-                if self.steal_forwarded_for {
-                    return Ok(());
-                }
+            "forwarded" | "x-forwarded-for" if self.steal_forwarded_for => {
+                return Ok(());
             }
             // ignore "expect"
             _ => {}

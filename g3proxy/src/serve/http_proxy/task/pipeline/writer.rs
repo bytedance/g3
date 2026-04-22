@@ -244,7 +244,9 @@ where
             // check and remove the custom header
             if let Some(value) = req.inner.end_to_end_headers.remove(header) {
                 match usize::from_str(value.to_str()) {
-                    Ok(id) => egress_path.set_number_id(self.ctx.server_config.escaper().clone(), id),
+                    Ok(id) => {
+                        egress_path.set_number_id(self.ctx.server_config.escaper().clone(), id)
+                    }
                     Err(e) => {
                         debug!("invalid egress path number id value in header {header}: {e}");
                         return Err(());

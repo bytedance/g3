@@ -22,10 +22,8 @@ impl FtpServerFeature {
             "utf8" => self.utf8_path = true,
             "size" => self.file_size = true,
             "mdtm" => self.file_mtime = true,
-            "rest" => {
-                if v.to_lowercase().eq("stream") {
-                    self.rest_stream = true;
-                }
+            "rest" if v.to_lowercase().eq("stream") => {
+                self.rest_stream = true;
             }
             "pret" => self.pre_transfer = true,
             "mlst" => self.machine_list = true,

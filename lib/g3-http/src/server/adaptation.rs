@@ -146,10 +146,8 @@ impl HttpAdaptedRequest {
                 // this will always be chunked encoding
                 return Ok(());
             }
-            "via" => {
-                if ignore_via {
-                    return Ok(());
-                }
+            "via" if ignore_via => {
+                return Ok(());
             }
             _ => {}
         }

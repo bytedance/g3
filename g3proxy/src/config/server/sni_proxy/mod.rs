@@ -295,7 +295,9 @@ impl SniProxyServerConfig {
         }
 
         #[cfg(target_os = "linux")]
-        if self.listen_transparent && let Some(listen) = &mut self.listen {
+        if self.listen_transparent
+            && let Some(listen) = &mut self.listen
+        {
             listen.set_transparent();
         }
 

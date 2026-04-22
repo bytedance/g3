@@ -251,10 +251,8 @@ impl KeylessRequest {
 
     fn check_payload_for_key_size(&self, key_size: usize) -> Result<(), KeylessErrorResponse> {
         match self.opcode {
-            0x01 | 0x08 => {
-                if self.payload.len() != key_size {
-                    return Err(KeylessErrorResponse::new(self.id).format_error());
-                }
+            0x01 | 0x08 if self.payload.len() != key_size => {
+                return Err(KeylessErrorResponse::new(self.id).format_error());
             }
             _ => {}
         }
