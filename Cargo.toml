@@ -127,7 +127,7 @@ ip_network_table = "0.2"
 radix_trie = "0.3"
 fixedbitset = "0.5"
 bitflags = "2.11"
-lru = { version = "0.16", default-features = false }
+lru = { version = "0.17", default-features = false }
 #
 blake3 = { version = "1.8", default-features = false }
 hex = "0.4.2"
