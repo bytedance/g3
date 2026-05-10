@@ -147,9 +147,9 @@ slog = { version = "2.8", features = ["dynamic-keys"] }
 hdrhistogram = { version = "7.5", default-features = false }
 #
 clap = "4.6.0"
-clap_complete = "4.6.3"
+clap_complete = "4.6.4"
 #
-tokio = "1.49.0"
+tokio = "1.52.3"
 tokio-util = "0.7"
 tokio-test = "0.4"
 futures-util = "0.3"
