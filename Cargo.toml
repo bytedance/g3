@@ -102,7 +102,7 @@ uuid = "1.23"
 base64 = "0.22"
 regex = "1.11"
 arc-swap = "1.9"
-chrono = { version = "0.4.39", default-features = false }
+chrono = { version = "0.4.45", default-features = false }
 ascii = "1.0"
 humanize-rs = "0.1"
 #
