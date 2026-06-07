@@ -108,7 +108,7 @@ humanize-rs = "0.1"
 #
 portable-atomic = "1.9"
 itoa = "1.0"
-atoi = "2.0"
+atoi = "3.0"
 zmij = "1.0"
 num-traits = "0.2"
 #
