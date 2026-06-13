@@ -6,8 +6,8 @@
 use std::str::FromStr;
 
 use bytes::{Buf, BufMut, BytesMut};
-use hickory_proto::ProtoError;
-use hickory_proto::xfer::DnsResponse;
+use hickory_net::NetError;
+use hickory_proto::op::DnsResponse;
 use http::{Response, header};
 
 pub struct HttpDnsResponse {
@@ -17,13 +17,13 @@ pub struct HttpDnsResponse {
 }
 
 impl HttpDnsResponse {
-    pub fn new(rsp: Response<()>) -> Result<Self, ProtoError> {
+    pub fn new(rsp: Response<()>) -> Result<Self, NetError> {
         let headers = rsp.headers();
 
         if let Some(ct) = headers.get(header::CONTENT_TYPE)
             && ct.as_bytes() != super::MIME_APPLICATION_DNS.as_bytes()
         {
-            return Err(ProtoError::from(format!(
+            return Err(NetError::from(format!(
                 "unsupported ContentType, should be {}",
                 super::MIME_APPLICATION_DNS
             )));
@@ -32,9 +32,9 @@ impl HttpDnsResponse {
         let content_length = if let Some(cl) = headers.get(header::CONTENT_LENGTH) {
             let s = cl
                 .to_str()
-                .map_err(|e| ProtoError::from(format!("invalid Content-Length header: {e}")))?;
+                .map_err(|e| NetError::from(format!("invalid Content-Length header: {e}")))?;
             let len = usize::from_str(s)
-                .map_err(|e| ProtoError::from(format!("invalid Content-Length header: {e}")))?;
+                .map_err(|e| NetError::from(format!("invalid Content-Length header: {e}")))?;
             Some(len)
         } else {
             None
@@ -66,13 +66,13 @@ impl HttpDnsResponse {
         false
     }
 
-    pub fn into_dns_response(self) -> Result<DnsResponse, ProtoError> {
+    pub fn into_dns_response(self) -> Result<DnsResponse, NetError> {
         // assert the length
         if let Some(content_length) = self.content_length
             && self.body.len() != content_length
         {
             // TODO: make explicit error type
-            return Err(ProtoError::from(format!(
+            return Err(NetError::from(format!(
                 "expected byte length: {}, got: {}",
                 content_length,
                 self.body.len()
@@ -84,7 +84,7 @@ impl HttpDnsResponse {
             let error_string = String::from_utf8_lossy(self.body.as_ref());
 
             // TODO: make explicit error type
-            return Err(ProtoError::from(format!(
+            return Err(NetError::from(format!(
                 "http unsuccessful code: {}, message: {}",
                 self.rsp.status(),
                 error_string
@@ -92,6 +92,6 @@ impl HttpDnsResponse {
         }
 
         // and finally convert the bytes into a DNS message
-        DnsResponse::from_buffer(self.body.to_vec())
+        DnsResponse::from_buffer(self.body.to_vec()).map_err(NetError::Proto)
     }
 }

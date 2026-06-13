@@ -3,9 +3,9 @@
  * Copyright 2024-2025 ByteDance and/or its affiliates.
  */
 
-use hickory_client::{ClientError, ClientErrorKind};
+use hickory_net::{DnsError, NetError};
+use hickory_proto::ProtoError;
 use hickory_proto::op::ResponseCode;
-use hickory_proto::{ProtoError, ProtoErrorKind};
 
 use crate::error::{ResolveDriverError, ResolveError, ResolveServerError};
 
@@ -26,21 +26,29 @@ impl ResolveError {
 
 impl From<&ProtoError> for ResolveDriverError {
     fn from(value: &ProtoError) -> Self {
-        match value.kind() {
-            ProtoErrorKind::Timeout => ResolveDriverError::Timeout,
-            ProtoErrorKind::DomainNameTooLong(_) => ResolveDriverError::BadName,
-            _ => ResolveDriverError::Internal(value.to_string()),
+        ResolveDriverError::Internal(value.to_string())
+    }
+}
+impl From<DnsError> for ResolveError {
+    fn from(value: DnsError) -> Self {
+        match value {
+            DnsError::ResponseCode(c) => {
+                ResolveError::from_response_code(c).unwrap_or(ResolveError::EmptyResult)
+            }
+            DnsError::NoRecordsFound(c) => ResolveError::from_response_code(c.response_code)
+                .unwrap_or(ResolveError::EmptyResult),
+            _ => ResolveError::UnexpectedError("unexpected DNS error"),
         }
     }
 }
 
-impl From<ClientError> for ResolveError {
-    fn from(value: ClientError) -> Self {
-        let driver_error = match value.kind() {
-            ClientErrorKind::Timeout => ResolveDriverError::Timeout,
-            ClientErrorKind::Proto(e) => ResolveDriverError::from(e),
-            _ => ResolveDriverError::Internal(value.to_string()),
-        };
-        ResolveError::FromDriver(driver_error)
+impl From<NetError> for ResolveError {
+    fn from(value: NetError) -> Self {
+        match value {
+            NetError::Dns(e) => ResolveError::from(e),
+            NetError::Timeout => ResolveDriverError::Timeout.into(),
+            NetError::Proto(e) => ResolveDriverError::from(&e).into(),
+            e => ResolveDriverError::Internal(e.to_string()).into(),
+        }
     }
 }

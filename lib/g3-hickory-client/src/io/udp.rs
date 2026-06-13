@@ -8,10 +8,12 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 
 use futures_util::Stream;
-use hickory_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
-use hickory_proto::{ProtoError, ProtoErrorKind};
+use hickory_net::NetError;
+use hickory_net::xfer::{DnsRequestSender, DnsResponseStream};
 
 use g3_socket::UdpConnectInfo;
+use hickory_proto::ProtoError;
+use hickory_proto::op::{DnsRequest, DnsResponse};
 
 /// Max size for the UDP receive buffer as recommended by
 /// [RFC6891](https://datatracker.ietf.org/doc/html/rfc6891#section-6.2.5).
@@ -60,7 +62,7 @@ impl DnsRequestSender for UdpClientStream {
 }
 
 impl Stream for UdpClientStream {
-    type Item = Result<(), ProtoError>;
+    type Item = Result<(), NetError>;
 
     fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         if self.is_shutdown {
@@ -75,19 +77,19 @@ async fn timed_udp_send_recv(
     connect_info: UdpConnectInfo,
     request: DnsRequest,
     request_timeout: Duration,
-) -> Result<DnsResponse, ProtoError> {
+) -> Result<DnsResponse, NetError> {
     tokio::time::timeout(request_timeout, udp_send_recv(connect_info, request))
         .await
-        .map_err(|_| ProtoErrorKind::Timeout)?
+        .map_err(|_| NetError::Timeout)?
 }
 
 async fn udp_send_recv(
     connect_info: UdpConnectInfo,
     mut request: DnsRequest,
-) -> Result<DnsResponse, ProtoError> {
+) -> Result<DnsResponse, NetError> {
     // set a random ID
     let id = fastrand::u16(..);
-    request.set_id(id);
+    request.metadata.id = id;
 
     let socket = connect_info.udp_connect()?;
     let socket = tokio::net::UdpSocket::from_std(socket)?;
@@ -95,7 +97,7 @@ async fn udp_send_recv(
     let bytes = request.to_vec()?;
     let nw = socket.send(&bytes).await?;
     if nw != bytes.len() {
-        return Err(ProtoError::from(format!(
+        return Err(NetError::from(format!(
             "Not all bytes of message sent, {nw} of {}",
             bytes.len()
         )));
@@ -107,14 +109,14 @@ async fn udp_send_recv(
         let nr = socket.recv(&mut recv_buf).await?;
         recv_buf.resize(nr, 0);
         let response = DnsResponse::from_buffer(recv_buf)?;
-        if response.id() != id {
+        if response.id != id {
             continue;
         }
 
         if !response
-            .queries()
+            .queries
             .iter()
-            .all(|rq| request.queries().contains(rq))
+            .all(|rq| request.queries.contains(rq))
         {
             continue;
         }
