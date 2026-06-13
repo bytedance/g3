@@ -11,8 +11,11 @@ use std::time::Duration;
 use bytes::{Buf, Bytes};
 use futures_util::Stream;
 use h3::client::{Connection, SendRequest};
-use hickory_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
-use hickory_proto::{ProtoError, ProtoErrorKind};
+
+use hickory_net::NetError;
+use hickory_net::xfer::{DnsRequestSender, DnsResponseStream};
+use hickory_proto::op::{DnsRequest, DnsResponse};
+
 use http::Version;
 use rustls::ClientConfig;
 
@@ -27,13 +30,13 @@ pub async fn connect(
     tls_name: String,
     connect_timeout: Duration,
     request_timeout: Duration,
-) -> Result<H3ClientStream, ProtoError> {
+) -> Result<H3ClientStream, NetError> {
     let connection = tokio::time::timeout(
         connect_timeout,
         crate::connect::quinn::quic_connect(connect_info, tls_config, &tls_name, b"h3"),
     )
     .await
-    .map_err(|_| ProtoError::from("quic connect timed out"))??;
+    .map_err(|_| NetError::from("quic connect timed out"))??;
 
     let h3_connection = h3_quinn::Connection::new(connection);
     let (driver, send_request) = h3::client::new(h3_connection)
@@ -60,7 +63,7 @@ impl H3ClientStream {
         connection: Connection<h3_quinn::Connection, Bytes>,
         send_request: SendRequest<h3_quinn::OpenStreams, Bytes>,
         request_timeout: Duration,
-    ) -> Result<Self, ProtoError> {
+    ) -> Result<Self, NetError> {
         let request_builder = HttpDnsRequestBuilder::new(Version::HTTP_3, name_server_name)?;
         Ok(H3ClientStream {
             request_builder: Arc::new(request_builder),
@@ -83,11 +86,11 @@ impl DnsRequestSender for H3ClientStream {
         }
 
         // per the RFC, a zero id allows for the HTTP packet to be cached better
-        message.set_id(0);
+        message.metadata.id = 0;
 
         let bytes = match message.to_vec() {
             Ok(bytes) => bytes,
-            Err(err) => return err.into(),
+            Err(err) => return DnsResponseStream::from(NetError::from(err)),
         };
 
         Box::pin(timed_h3_send_recv(
@@ -109,7 +112,7 @@ impl DnsRequestSender for H3ClientStream {
 }
 
 impl Stream for H3ClientStream {
-    type Item = Result<(), ProtoError>;
+    type Item = Result<(), NetError>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         if self.is_shutdown {
@@ -119,7 +122,7 @@ impl Stream for H3ClientStream {
         // just checking if the connection is ok
         match self.driver.poll_close(cx) {
             Poll::Pending => Poll::Pending,
-            Poll::Ready(e) => Poll::Ready(Some(Err(ProtoError::from(format!(
+            Poll::Ready(e) => Poll::Ready(Some(Err(NetError::from(format!(
                 "h3 stream errored: {e}",
             ))))),
         }
@@ -131,17 +134,17 @@ async fn timed_h3_send_recv(
     message: Bytes,
     request_builder: Arc<HttpDnsRequestBuilder>,
     request_timeout: Duration,
-) -> Result<DnsResponse, ProtoError> {
+) -> Result<DnsResponse, NetError> {
     tokio::time::timeout(request_timeout, h3_send_recv(h3, message, request_builder))
         .await
-        .map_err(|_| ProtoErrorKind::Timeout)?
+        .map_err(|_| NetError::Timeout)?
 }
 
 async fn h3_send_recv(
     mut h3: SendRequest<h3_quinn::OpenStreams, Bytes>,
     message: Bytes,
     request_builder: Arc<HttpDnsRequestBuilder>,
-) -> Result<DnsResponse, ProtoError> {
+) -> Result<DnsResponse, NetError> {
     // build up the http request
     let request = request_builder.post(message.remaining());
 

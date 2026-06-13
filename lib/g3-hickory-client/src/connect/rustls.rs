@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use hickory_proto::ProtoError;
+use hickory_net::NetError;
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
 use tokio::net::TcpStream;
@@ -19,7 +19,7 @@ pub(crate) async fn tls_connect(
     mut tls_config: ClientConfig,
     tls_name: ServerName<'static>,
     alpn_protocol: &'static [u8],
-) -> Result<TlsStream<TcpStream>, ProtoError> {
+) -> Result<TlsStream<TcpStream>, NetError> {
     let tcp_stream = connect_info.tcp_connect().await?;
 
     if tls_config.alpn_protocols.is_empty() {

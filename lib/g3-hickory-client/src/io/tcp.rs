@@ -5,10 +5,10 @@
 
 use std::time::Duration;
 
-use hickory_proto::ProtoError;
-use hickory_proto::runtime::iocompat::AsyncIoTokioAsStd;
-use hickory_proto::tcp::{DnsTcpStream, TcpClientStream, TcpStream};
-use hickory_proto::xfer::StreamReceiver;
+use hickory_net::NetError;
+use hickory_net::runtime::{DnsTcpStream, iocompat::AsyncIoTokioAsStd};
+use hickory_net::tcp::{TcpClientStream, TcpStream};
+use hickory_net::xfer::StreamReceiver;
 
 use g3_socket::TcpConnectInfo;
 
@@ -16,10 +16,10 @@ pub async fn connect(
     connect_info: TcpConnectInfo,
     outbound_messages: StreamReceiver,
     connect_timeout: Duration,
-) -> Result<TcpClientStream<impl DnsTcpStream>, ProtoError> {
+) -> Result<TcpClientStream<impl DnsTcpStream>, NetError> {
     let tls_stream = tokio::time::timeout(connect_timeout, connect_info.tcp_connect())
         .await
-        .map_err(|_| ProtoError::from("tcp connect timed out"))??;
+        .map_err(|_| NetError::from("tcp connect timed out"))??;
 
     let stream = TcpStream::from_stream_with_receiver(
         AsyncIoTokioAsStd(tls_stream),

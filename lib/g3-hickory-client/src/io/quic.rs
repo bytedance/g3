@@ -9,8 +9,12 @@ use std::time::Duration;
 
 use bytes::Bytes;
 use futures_util::Stream;
-use hickory_proto::xfer::{DnsRequest, DnsRequestSender, DnsResponse, DnsResponseStream};
-use hickory_proto::{ProtoError, ProtoErrorKind};
+
+use hickory_net::NetError;
+use hickory_net::xfer::{DnsRequestSender, DnsResponseStream};
+use hickory_proto::ProtoError;
+use hickory_proto::op::{DnsRequest, DnsResponse};
+
 use quinn::{Connection, RecvStream, VarInt};
 use rustls::ClientConfig;
 
@@ -22,13 +26,13 @@ pub async fn connect(
     tls_name: String,
     connect_timeout: Duration,
     request_timeout: Duration,
-) -> Result<QuicClientStream, ProtoError> {
+) -> Result<QuicClientStream, NetError> {
     let connection = tokio::time::timeout(
         connect_timeout,
         crate::connect::quinn::quic_connect(connect_info, tls_config, &tls_name, b"doq"),
     )
     .await
-    .map_err(|_| ProtoError::from("quic connect timed out"))??;
+    .map_err(|_| NetError::from("quic connect timed out"))??;
     Ok(QuicClientStream::new(connection, request_timeout))
 }
 
@@ -59,8 +63,8 @@ impl DnsRequestSender for QuicClientStream {
             panic!("can not send messages after stream is shutdown")
         }
 
-        // per the RFC, the DNS Message ID MUST be set to zero
-        message.set_id(0);
+        // per the RFC, a zero id allows for the HTTP packet to be cached better
+        message.metadata.id = 0;
 
         Box::pin(timed_quic_send_recv(
             self.quic_connection.clone(),
@@ -82,7 +86,7 @@ impl DnsRequestSender for QuicClientStream {
 }
 
 impl Stream for QuicClientStream {
-    type Item = Result<(), ProtoError>;
+    type Item = Result<(), NetError>;
 
     fn poll_next(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         if self.is_shutdown {
@@ -97,16 +101,16 @@ async fn timed_quic_send_recv(
     connection: Connection,
     message: DnsRequest,
     request_timeout: Duration,
-) -> Result<DnsResponse, ProtoError> {
+) -> Result<DnsResponse, NetError> {
     tokio::time::timeout(request_timeout, quic_send_recv(connection, message))
         .await
-        .map_err(|_| ProtoErrorKind::Timeout)?
+        .map_err(|_| NetError::Timeout)?
 }
 
 async fn quic_send_recv(
     connection: Connection,
     message: DnsRequest,
-) -> Result<DnsResponse, ProtoError> {
+) -> Result<DnsResponse, NetError> {
     let message = message.into_parts().0;
     let (mut send_stream, recv_stream) = connection
         .open_bi()
@@ -116,7 +120,7 @@ async fn quic_send_recv(
     // prepare the buffer
     let buffer = Bytes::from(message.to_vec()?);
     let message_len = u16::try_from(buffer.len())
-        .map_err(|_| ProtoErrorKind::MaxBufferSizeExceeded(buffer.len()))?;
+        .map_err(|_| NetError::from(ProtoError::MaxBufferSizeExceeded(buffer.len())))?;
     let len = Bytes::from(message_len.to_be_bytes().to_vec());
 
     send_stream
@@ -132,7 +136,7 @@ async fn quic_send_recv(
     quic_recv(recv_stream).await
 }
 
-async fn quic_recv(mut recv_stream: RecvStream) -> Result<DnsResponse, ProtoError> {
+async fn quic_recv(mut recv_stream: RecvStream) -> Result<DnsResponse, NetError> {
     let mut len_buf = [0u8; 2];
     recv_stream
         .read_exact(&mut len_buf)
@@ -146,8 +150,8 @@ async fn quic_recv(mut recv_stream: RecvStream) -> Result<DnsResponse, ProtoErro
         .await
         .map_err(|e| format!("quic read message error: {e}"))?;
     let rsp = DnsResponse::from_buffer(buffer)?;
-    if rsp.id() != 0 {
-        return Err(ProtoError::from("quic response message id is not zero"));
+    if rsp.id != 0 {
+        return Err(NetError::from("quic response message id is not zero"));
     }
 
     Ok(rsp)

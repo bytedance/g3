@@ -8,11 +8,11 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-use anyhow::anyhow;
 use arcstr::ArcStr;
 use async_recursion::async_recursion;
-use hickory_client::client::{Client, ClientHandle};
-use hickory_proto::BufDnsStreamHandle;
+use hickory_net::BufDnsStreamHandle;
+use hickory_net::client::{Client, ClientHandle};
+use hickory_net::runtime::TokioRuntimeProvider;
 use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
@@ -64,7 +64,7 @@ impl HickoryClientState {
 pub(super) struct HickoryClient {
     config: Arc<HickoryClientConfig>,
     state: Arc<HickoryClientState>,
-    client: Client,
+    client: Client<TokioRuntimeProvider>,
 }
 
 impl HickoryClient {
@@ -134,7 +134,11 @@ pub(super) struct HickoryClientJob {
 
 impl HickoryClientJob {
     #[async_recursion]
-    async fn run(mut self, mut async_client: Client, req: DnsRequest) -> ResolvedRecord {
+    async fn run(
+        mut self,
+        mut async_client: Client<TokioRuntimeProvider>,
+        req: DnsRequest,
+    ) -> ResolvedRecord {
         let Ok(mut name) = Name::from_ascii(&req.domain) else {
             return ResolvedRecord::failed(
                 req.domain,
@@ -151,14 +155,13 @@ impl HickoryClientJob {
                 .await
             {
                 Ok(rsp) => {
-                    let (mut msg, _) = rsp.into_parts();
+                    let (msg, _) = rsp.into_parts();
 
-                    let response_code = msg.response_code();
-                    if let Some(e) = ResolveError::from_response_code(response_code) {
+                    if let Some(e) = ResolveError::from_response_code(msg.response_code) {
                         return ResolvedRecord::failed(req.domain, self.config.negative_ttl, e);
                     }
 
-                    if msg.truncated() && self.try_truncated {
+                    if msg.truncation && self.try_truncated {
                         self.try_truncated = false;
                         if let Ok(client) = self.config.new_dns_over_tcp_client().await {
                             return self.run(client, req).await;
@@ -168,16 +171,16 @@ impl HickoryClientJob {
                     let mut has_cname = false;
                     let mut ips = Vec::with_capacity(4);
                     let mut ttl = 0;
-                    for r in msg.take_answers() {
-                        ttl = r.ttl();
-                        match r.data() {
+                    for r in msg.answers {
+                        ttl = r.ttl;
+                        match r.data {
                             RData::A(v) if req.rtype == RecordType::A => {
                                 ips.push(IpAddr::V4(v.0));
                             }
                             RData::AAAA(v) if req.rtype == RecordType::AAAA => {
                                 ips.push(IpAddr::V6(v.0));
                             }
-                            RData::CNAME(v) if name.eq(r.name()) => {
+                            RData::CNAME(v) if name.eq(&r.name) => {
                                 has_cname = true;
                                 name = v.0.clone();
                             }
@@ -235,7 +238,7 @@ impl HickoryClientConfig {
         self.encryption.is_none()
     }
 
-    async fn build_async_client(&self) -> anyhow::Result<Client> {
+    async fn build_async_client(&self) -> anyhow::Result<Client<TokioRuntimeProvider>> {
         if let Some(ec) = &self.encryption {
             let tls_client = ec.tls_client().driver.as_ref().clone();
 
@@ -281,35 +284,28 @@ impl HickoryClientConfig {
         }
     }
 
-    async fn new_dns_over_udp_client(&self) -> anyhow::Result<Client> {
+    async fn new_dns_over_udp_client(&self) -> anyhow::Result<Client<TokioRuntimeProvider>> {
         // random port is used here
         let client_connect =
-            g3_hickory_client::io::udp::connect(self.udp_connect_info(), self.request_timeout);
+            g3_hickory_client::io::udp::connect(self.udp_connect_info(), self.request_timeout)
+                .await?;
 
-        let (client, bg) = Client::connect(Box::pin(client_connect))
-            .await
-            .map_err(|e| anyhow!("failed to create udp async client: {e}"))?;
+        let (client, bg) = Client::from_sender(client_connect);
         tokio::spawn(bg);
         Ok(client)
     }
 
-    async fn new_dns_over_tcp_client(&self) -> anyhow::Result<Client> {
+    async fn new_dns_over_tcp_client(&self) -> anyhow::Result<Client<TokioRuntimeProvider>> {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(self.target);
 
         let tcp_connect = g3_hickory_client::io::tcp::connect(
             self.tcp_connect_info(),
             outbound_messages,
             self.connect_timeout,
-        );
-
-        let (client, bg) = Client::with_timeout(
-            Box::pin(tcp_connect),
-            message_sender,
-            self.request_timeout,
-            None,
         )
-        .await
-        .map_err(|e| anyhow!("failed to create tcp async client: {e}"))?;
+        .await?;
+
+        let (client, bg) = Client::with_timeout(tcp_connect, message_sender, self.request_timeout);
         tokio::spawn(bg);
         Ok(client)
     }
@@ -318,7 +314,7 @@ impl HickoryClientConfig {
         &self,
         tls_client: ClientConfig,
         tls_name: ServerName<'static>,
-    ) -> anyhow::Result<Client> {
+    ) -> anyhow::Result<Client<TokioRuntimeProvider>> {
         let (message_sender, outbound_messages) = BufDnsStreamHandle::new(self.target);
 
         let tls_connect = g3_hickory_client::io::tls::connect(
@@ -327,16 +323,10 @@ impl HickoryClientConfig {
             tls_name,
             outbound_messages,
             self.connect_timeout,
-        );
-
-        let (client, bg) = Client::with_timeout(
-            Box::pin(tls_connect),
-            message_sender,
-            self.request_timeout,
-            None,
         )
-        .await
-        .map_err(|e| anyhow!("failed to create tls async client: {e}"))?;
+        .await?;
+
+        let (client, bg) = Client::with_timeout(tls_connect, message_sender, self.request_timeout);
         tokio::spawn(bg);
         Ok(client)
     }
@@ -345,18 +335,17 @@ impl HickoryClientConfig {
         &self,
         tls_client: ClientConfig,
         tls_name: ServerName<'static>,
-    ) -> anyhow::Result<Client> {
+    ) -> anyhow::Result<Client<TokioRuntimeProvider>> {
         let client_connect = g3_hickory_client::io::h2::connect(
             self.tcp_connect_info(),
             tls_client,
             tls_name,
             self.connect_timeout,
             self.request_timeout,
-        );
+        )
+        .await?;
 
-        let (client, bg) = Client::connect(Box::pin(client_connect))
-            .await
-            .map_err(|e| anyhow!("failed to create h2 async client: {e}"))?;
+        let (client, bg) = Client::from_sender(client_connect);
         tokio::spawn(bg);
         Ok(client)
     }
@@ -366,11 +355,11 @@ impl HickoryClientConfig {
         &self,
         tls_client: ClientConfig,
         tls_name: &ServerName<'static>,
-    ) -> anyhow::Result<Client> {
+    ) -> anyhow::Result<Client<TokioRuntimeProvider>> {
         let tls_name = match tls_name {
             ServerName::DnsName(domain) => domain.as_ref().to_string(),
             ServerName::IpAddress(ip) => IpAddr::from(*ip).to_string(),
-            _ => return Err(anyhow!("unsupported tls server name type")),
+            _ => return Err(anyhow::anyhow!("unsupported tls server name type")),
         };
 
         let client_connect = g3_hickory_client::io::quic::connect(
@@ -379,11 +368,10 @@ impl HickoryClientConfig {
             tls_name,
             self.connect_timeout,
             self.request_timeout,
-        );
+        )
+        .await?;
 
-        let (client, bg) = Client::connect(Box::pin(client_connect))
-            .await
-            .map_err(|e| anyhow!("failed to create udp async client: {e}"))?;
+        let (client, bg) = Client::from_sender(client_connect);
         tokio::spawn(bg);
         Ok(client)
     }
@@ -393,11 +381,11 @@ impl HickoryClientConfig {
         &self,
         tls_client: ClientConfig,
         tls_name: &ServerName<'static>,
-    ) -> anyhow::Result<Client> {
+    ) -> anyhow::Result<Client<TokioRuntimeProvider>> {
         let tls_name = match tls_name {
             ServerName::DnsName(domain) => domain.as_ref().to_string(),
             ServerName::IpAddress(ip) => IpAddr::from(*ip).to_string(),
-            _ => return Err(anyhow!("unsupported tls server name type")),
+            _ => return Err(anyhow::anyhow!("unsupported tls server name type")),
         };
 
         let client_connect = g3_hickory_client::io::h3::connect(
@@ -406,11 +394,10 @@ impl HickoryClientConfig {
             tls_name,
             self.connect_timeout,
             self.request_timeout,
-        );
+        )
+        .await?;
 
-        let (client, bg) = Client::connect(Box::pin(client_connect))
-            .await
-            .map_err(|e| anyhow!("failed to create h3 async client: {e}"))?;
+        let (client, bg) = Client::from_sender(client_connect);
         tokio::spawn(bg);
         Ok(client)
     }

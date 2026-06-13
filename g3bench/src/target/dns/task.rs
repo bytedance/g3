@@ -7,7 +7,8 @@ use std::cell::UnsafeCell;
 use std::sync::Arc;
 
 use anyhow::{Context, anyhow};
-use hickory_client::client::{Client, ClientHandle};
+use hickory_net::client::{Client, ClientHandle};
+use hickory_net::runtime::TokioRuntimeProvider;
 use hickory_proto::op::ResponseCode;
 use tokio::time::Instant;
 
@@ -51,7 +52,7 @@ impl DnsRequestPickState for LocalRequestPicker {
 pub(super) struct DnsTaskContext {
     args: Arc<BenchDnsArgs>,
 
-    client: Option<Client>,
+    client: Option<Client<TokioRuntimeProvider>>,
 
     runtime_stats: Arc<DnsRuntimeStats>,
     histogram_recorder: DnsHistogramRecorder,
@@ -74,7 +75,7 @@ impl DnsTaskContext {
         })
     }
 
-    async fn fetch_client(&mut self) -> anyhow::Result<Client> {
+    async fn fetch_client(&mut self) -> anyhow::Result<Client<TokioRuntimeProvider>> {
         if let Some(client) = &self.client {
             return Ok(client.clone());
         }
@@ -90,7 +91,11 @@ impl DnsTaskContext {
         self.client = None;
     }
 
-    async fn run_with_client(&self, mut client: Client, req: &DnsRequest) -> anyhow::Result<()> {
+    async fn run_with_client(
+        &self,
+        mut client: Client<TokioRuntimeProvider>,
+        req: &DnsRequest,
+    ) -> anyhow::Result<()> {
         let rsp = match tokio::time::timeout(
             self.args.timeout,
             client.query(req.name.clone(), req.class, req.rtype),
@@ -102,13 +107,13 @@ impl DnsTaskContext {
             Err(_) => return Err(anyhow!("timed out to read query response")),
         };
 
-        if rsp.response_code() != ResponseCode::NoError {
-            return Err(anyhow!("Got error response code {}", rsp.response_code()));
+        if rsp.response_code != ResponseCode::NoError {
+            return Err(anyhow!("Got error response code {}", rsp.response_code));
         }
 
         if self.args.dump_result {
-            println!("Total {} answers", rsp.answer_count());
-            for r in rsp.answers() {
+            println!("Total {} answers", rsp.answers.len());
+            for r in &rsp.answers {
                 println!(" {r}");
             }
         }
