@@ -414,9 +414,18 @@ dependencies = [
 
 [[package]]
 name = "capnp"
-version = "0.25.5"
+version = "0.25.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1cfd2485d4b36ac9c5aa6572d7d35daa63a5b34f517627d6c34d068e616e4a73"
+checksum = "4777a3bc19b8f8e5fb2d0196c6b5dfcbbcc8b2fe08ae57f873f2f35f15cfc210"
+dependencies = [
+ "embedded-io",
+]
+
+[[package]]
+name = "capnp"
+version = "0.26.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71338171543626713e427635f7de390328d9e85828a816a0c88d959032b34a2f"
 dependencies = [
  "embedded-io",
 ]
@@ -427,7 +436,7 @@ version = "0.25.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "73b69dfddccc57844f9a90f9d72b44b97c326914851ea94fb7da40ef9cad6e8d"
 dependencies = [
- "capnp",
+ "capnp 0.25.6",
  "futures-channel",
  "futures-util",
 ]
@@ -447,7 +456,7 @@ version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3c74c337e87f75f3174ffb3513738ab0acc631c04f64cc33b867c60f84771da"
 dependencies = [
- "capnp",
+ "capnp 0.25.6",
  "capnp-futures",
  "futures",
 ]
@@ -458,7 +467,7 @@ version = "0.25.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fca02be865c8c5a78bfc24b9819006ab6b59bef238467203928e26459557af93"
 dependencies = [
- "capnp",
+ "capnp 0.25.6",
 ]
 
 [[package]]
@@ -995,7 +1004,7 @@ name = "g3-ctl"
 version = "0.2.0"
 dependencies = [
  "anyhow",
- "capnp",
+ "capnp 0.26.0",
  "capnp-rpc",
  "clap",
  "clap_complete",
@@ -1011,7 +1020,7 @@ version = "0.4.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "capnp",
+ "capnp 0.26.0",
  "capnp-rpc",
  "cfg-if",
  "chrono",
@@ -1771,7 +1780,7 @@ dependencies = [
  "anyhow",
  "arc-swap",
  "ascii",
- "capnp",
+ "capnp 0.26.0",
  "capnp-rpc",
  "chrono",
  "clap",
@@ -1812,7 +1821,7 @@ name = "g3keymess-ctl"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "capnp",
+ "capnp 0.26.0",
  "clap",
  "futures-util",
  "g3-ctl",
@@ -1827,7 +1836,7 @@ dependencies = [
 name = "g3keymess-proto"
 version = "0.1.0"
 dependencies = [
- "capnp",
+ "capnp 0.26.0",
  "capnpc",
 ]
 
@@ -1860,7 +1869,7 @@ dependencies = [
  "base64",
  "bitflags",
  "bytes",
- "capnp",
+ "capnp 0.26.0",
  "capnp-rpc",
  "chrono",
  "clap",
@@ -1947,7 +1956,7 @@ name = "g3proxy-ctl"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "capnp",
+ "capnp 0.26.0",
  "clap",
  "futures-util",
  "g3-ctl",
@@ -1987,7 +1996,7 @@ dependencies = [
 name = "g3proxy-proto"
 version = "0.1.0"
 dependencies = [
- "capnp",
+ "capnp 0.26.0",
  "capnpc",
 ]
 
@@ -1999,7 +2008,7 @@ dependencies = [
  "anyhow",
  "arc-swap",
  "async-recursion",
- "capnp",
+ "capnp 0.26.0",
  "capnp-rpc",
  "chrono",
  "clap",
@@ -2031,7 +2040,7 @@ name = "g3statsd-ctl"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "capnp",
+ "capnp 0.26.0",
  "clap",
  "futures-util",
  "g3-ctl",
@@ -2045,7 +2054,7 @@ dependencies = [
 name = "g3statsd-proto"
 version = "0.1.0"
 dependencies = [
- "capnp",
+ "capnp 0.26.0",
  "capnpc",
 ]
 
@@ -2060,7 +2069,7 @@ dependencies = [
  "async-trait",
  "bitflags",
  "bytes",
- "capnp",
+ "capnp 0.26.0",
  "capnp-rpc",
  "chrono",
  "clap",
@@ -2107,7 +2116,7 @@ name = "g3tiles-ctl"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "capnp",
+ "capnp 0.26.0",
  "clap",
  "futures-util",
  "g3-ctl",
@@ -2119,7 +2128,7 @@ dependencies = [
 name = "g3tiles-proto"
 version = "0.1.0"
 dependencies = [
- "capnp",
+ "capnp 0.26.0",
  "capnpc",
 ]
 
