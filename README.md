@@ -12,6 +12,9 @@
 This is the project we used to build enterprise-oriented generic proxy solutions,
 including but not limited to proxy / reverse proxy (WIP) / load balancer (TBD) / NAT traversal (WIP).
 
+**The G3 project is now in maintenance mode, and active development has been moved to
+the [VEY](https://github.com/VEY-OSS/vey) project.**
+
 ## Applications
 
 The G3 project consists of many applications, each of which has a separate subdirectory containing its own code,
