@@ -61,7 +61,7 @@ impl LocalDatagramLimiter {
         }
 
         // do packet limit first. The first packet will always pass.
-        if self.max_packets > 0 && self.cur_packets > self.max_packets {
+        if self.max_packets > 0 && self.cur_packets >= self.max_packets {
             return DatagramLimitAction::DelayFor(self.window.delay(cur_millis));
         }
 
@@ -124,5 +124,61 @@ impl LocalDatagramLimiter {
     pub fn set_advance(&mut self, packets: usize, size: usize) {
         self.cur_packets += packets;
         self.cur_bytes += size;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_check_packet_max_packets() {
+        let mut limiter = LocalDatagramLimiter::new(10, 2, 0); // 2 packets max
+        let cur_millis = 1000;
+
+        // Packet 1: should pass
+        assert!(matches!(
+            limiter.check_packet(cur_millis, 100),
+            DatagramLimitAction::Advance(1)
+        ));
+        limiter.set_advance(1, 100);
+
+        // Packet 2: should pass
+        assert!(matches!(
+            limiter.check_packet(cur_millis, 100),
+            DatagramLimitAction::Advance(1)
+        ));
+        limiter.set_advance(1, 100);
+
+        // Packet 3: max_packets reached (2), should be delayed
+        assert!(matches!(
+            limiter.check_packet(cur_millis, 100),
+            DatagramLimitAction::DelayFor(_)
+        ));
+    }
+
+    #[test]
+    fn test_check_packets_consistency() {
+        let mut limiter = LocalDatagramLimiter::new(10, 2, 0); // 2 packets max
+        let cur_millis = 1000;
+
+        // Check 2 packets together
+        assert!(matches!(
+            limiter.check_packets(cur_millis, &[100, 200]),
+            DatagramLimitAction::Advance(2)
+        ));
+        limiter.set_advance(2, 300);
+
+        // Third packet checked alone should delay
+        assert!(matches!(
+            limiter.check_packet(cur_millis, 100),
+            DatagramLimitAction::DelayFor(_)
+        ));
+
+        // Third packet checked in batch should delay
+        assert!(matches!(
+            limiter.check_packets(cur_millis, &[100]),
+            DatagramLimitAction::DelayFor(_)
+        ));
     }
 }

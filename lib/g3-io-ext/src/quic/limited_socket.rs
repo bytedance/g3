@@ -380,7 +380,7 @@ impl AsyncUdpSocket for LimitedUdpSocket {
             }
         } else {
             let nr = ready!(self.inner.poll_recv(cx, bufs, meta))?;
-            let len = bufs.iter().take(nr).map(|v| v.len()).sum();
+            let len = meta.iter().take(nr).map(|m| m.len).sum();
             l.stats.add_recv_packets(nr);
             l.stats.add_recv_bytes(len);
             Poll::Ready(Ok(nr))
