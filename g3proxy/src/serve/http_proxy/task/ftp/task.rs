@@ -1037,6 +1037,11 @@ impl<'a> FtpOverHttpTask<'a> {
 
                     self.task_notes.mark_relaying();
 
+                    if size == 0 {
+                        self.task_notes.stage = ServerTaskStage::Finished;
+                        return Ok(());
+                    }
+
                     match self
                         .receive_file_data(
                             ftp_client,
@@ -1135,7 +1140,10 @@ impl<'a> FtpOverHttpTask<'a> {
                     .media_type()
                     .unwrap_or(&mime::APPLICATION_OCTET_STREAM);
                 if let Some(file_size) = file_transfer_size {
-                    let end_size = end_size.unwrap_or(file_size - 1);
+                    if file_size == 0 {
+                        return self.reply_range_not_satisfiable(clt_w, None).await;
+                    }
+                    let end_size = end_size.unwrap_or(file_size - 1); // end_size is inclusive
                     if end_size < start_size {
                         return self.reply_range_not_satisfiable(clt_w, None).await;
                     }
