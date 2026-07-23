@@ -120,7 +120,7 @@ impl RouteGeoIpEscaper {
         }
 
         let check_asn_db = !asn_table.is_empty();
-        let check_country_db = !(country_bitset.is_empty() && country_bitset.is_empty());
+        let check_country_db = !(country_bitset.is_empty() && continent_bitset.is_empty());
         let check_ip_location = check_asn_db || check_country_db;
         let escaper = RouteGeoIpEscaper {
             config,
