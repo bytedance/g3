@@ -79,6 +79,7 @@ impl KeylessDataResponse {
     }
 }
 
+#[allow(unused)]
 #[derive(Clone, Copy, Debug, Error)]
 #[repr(u8)]
 pub(crate) enum KeylessResponseErrorCode {
@@ -111,6 +112,7 @@ pub(crate) enum KeylessResponseErrorCode {
 #[derive(Clone, Copy)]
 pub(crate) struct KeylessErrorResponse {
     pub(crate) id: u32,
+    pub(crate) code: KeylessResponseErrorCode,
     pub(crate) buf: [u8; BUF_PREFIX_LEN + 1],
 }
 
@@ -119,6 +121,7 @@ impl KeylessErrorResponse {
         let b = id.to_be_bytes();
         KeylessErrorResponse {
             id,
+            code: KeylessResponseErrorCode::NoError,
             buf: [
                 0x01, 0x00, // protocol version
                 0x00, 0x08, // message length
@@ -130,24 +133,11 @@ impl KeylessErrorResponse {
     }
 
     pub(crate) fn error_code(&self) -> KeylessResponseErrorCode {
-        match self.buf[BUF_PREFIX_LEN] {
-            0 => KeylessResponseErrorCode::NoError,
-            1 => KeylessResponseErrorCode::CryptographyFailure,
-            2 => KeylessResponseErrorCode::KeyNotFound,
-            3 => KeylessResponseErrorCode::ReadError,
-            4 => KeylessResponseErrorCode::VersionMismatch,
-            5 => KeylessResponseErrorCode::BadOpCode,
-            6 => KeylessResponseErrorCode::UnexpectedOpCode,
-            7 => KeylessResponseErrorCode::FormatError,
-            8 => KeylessResponseErrorCode::InternalError,
-            9 => KeylessResponseErrorCode::CertNotFound,
-            10 => KeylessResponseErrorCode::Expired,
-            11 => KeylessResponseErrorCode::RemoteConfiguration,
-            _ => unreachable!(),
-        }
+        self.code
     }
 
     fn set_error_code(mut self, error_code: KeylessResponseErrorCode) -> Self {
+        self.code = error_code;
         self.buf[BUF_PREFIX_LEN] = error_code as u8;
         self
     }
