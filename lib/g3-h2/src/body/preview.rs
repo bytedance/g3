@@ -85,6 +85,7 @@ impl H2PreviewData {
                     if data.is_empty() {
                         continue;
                     }
+                    is_active = true;
 
                     self.received += data.len();
                     match self.received.checked_sub(self.max_size) {
