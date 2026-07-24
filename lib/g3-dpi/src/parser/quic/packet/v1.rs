@@ -36,7 +36,7 @@ impl InitialPacketV1 {
         }
         let dst_cid_len = left[0] as usize;
         if dst_cid_len > 20 {
-            return Err(PacketParseError::InvalidConnectionIdLength(data[0]));
+            return Err(PacketParseError::InvalidConnectionIdLength(left[0]));
         }
         let start = offset + 1;
         let end = start + dst_cid_len;
