@@ -71,7 +71,7 @@ impl SocksV4Reply {
 
         let ip_bytes: [u8; 4] = buf[4..8].try_into().unwrap();
 
-        let port = ((buf[3] as u16) << 8) + (buf[4] as u16);
+        let port = ((buf[2] as u16) << 8) + (buf[3] as u16);
         let addr = SocketAddr::new(IpAddr::V4(Ipv4Addr::from(ip_bytes)), port);
 
         Ok(SocksV4Reply::new(code, addr))
