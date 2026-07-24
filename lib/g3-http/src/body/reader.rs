@@ -406,7 +406,8 @@ where
             cache
         };
 
-        if self.trailer_line_length != 0 && self.trailer_last_char == b'\r' {
+        // Resume after a lone '\r' even for the empty terminating trailer line.
+        if self.trailer_last_char == b'\r' {
             let next_char = cache[0];
             reader.as_mut().consume(1);
             self.check_trailer_header_last_char(next_char)?;
@@ -772,5 +773,82 @@ mod tests {
         assert_eq!(len, 2);
         assert_eq!(&buf[..len], b"\r\n");
         assert!(body_reader.finished);
+    }
+
+    #[tokio::test]
+    async fn direct_read_empty_trailer_split_crlf() {
+        // Terminating empty trailer line "\r\n" split across two underlying reads.
+        let stream = tokio_test::io::Builder::new()
+            .read(b"\r")
+            .read(b"\nXXXX")
+            .build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut body_reader = HttpBodyReader::new_trailer(&mut buf_stream, 1024);
+
+        let mut out = Vec::new();
+        let mut buf = [0u8; 64];
+        loop {
+            let len = body_reader.read(&mut buf).await.unwrap();
+            if len == 0 {
+                break;
+            }
+            out.extend_from_slice(&buf[..len]);
+            if body_reader.finished() {
+                break;
+            }
+        }
+        assert_eq!(out.as_slice(), b"\r\n");
+        assert!(body_reader.finished());
+    }
+
+    #[tokio::test]
+    async fn direct_read_trailer_split_terminating_crlf() {
+        // Non-empty trailer field, then terminating empty line with CRLF split.
+        let stream = tokio_test::io::Builder::new()
+            .read(b"A: B\r\n\r")
+            .read(b"\nXXXX")
+            .build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut body_reader = HttpBodyReader::new_trailer(&mut buf_stream, 1024);
+
+        let mut out = Vec::new();
+        let mut buf = [0u8; 64];
+        loop {
+            let len = body_reader.read(&mut buf).await.unwrap();
+            if len == 0 {
+                break;
+            }
+            out.extend_from_slice(&buf[..len]);
+            if body_reader.finished() {
+                break;
+            }
+        }
+        assert_eq!(out.as_slice(), b"A: B\r\n\r\n");
+        assert!(body_reader.finished());
+    }
+
+    #[tokio::test]
+    async fn read_chunked_trailer_split_terminating_crlf() {
+        let stream = tokio_test::io::Builder::new()
+            .read(b"5\r\ntest\n\r\n0\r\nA: B\r\n\r")
+            .read(b"\nXXXX")
+            .build();
+        let mut buf_stream = BufReader::new(stream);
+        let mut body_reader = HttpBodyReader::new(&mut buf_stream, HttpBodyType::Chunked, 1024);
+
+        let mut out = Vec::new();
+        let mut buf = [0u8; 64];
+        loop {
+            let len = body_reader.read(&mut buf).await.unwrap();
+            if len == 0 {
+                break;
+            }
+            out.extend_from_slice(&buf[..len]);
+            if body_reader.finished() {
+                break;
+            }
+        }
+        assert_eq!(out.as_slice(), b"5\r\ntest\n\r\n0\r\nA: B\r\n\r\n");
+        assert!(body_reader.finished());
     }
 }
