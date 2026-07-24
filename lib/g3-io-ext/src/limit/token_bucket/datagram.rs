@@ -158,6 +158,10 @@ impl GlobalDatagramLimit for GlobalDatagramLimiter {
     }
 
     fn check_packets(&self, total_size_v: &[usize]) -> DatagramLimitAction {
+        if total_size_v.is_empty() {
+            return DatagramLimitAction::Advance(0);
+        }
+
         let config = *self.config.load().as_ref();
 
         let mut to_advance = total_size_v.len();
