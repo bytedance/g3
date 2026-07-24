@@ -119,7 +119,7 @@ mod tests {
         ) -> anyhow::Result<()> {
             match key {
                 "id" => {
-                    self.id = value.as_i64().ok_or(anyhow!("invalid integer"))? as u32;
+                    self.id = crate::value::as_u32(value)?;
                     Ok(())
                 }
                 "enabled" => {
