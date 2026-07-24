@@ -122,7 +122,7 @@ impl IpLocationCacheRuntime {
             }
 
             // handle req
-            for _ in 1..self.request_batch_handle_count {
+            for _ in 0..self.request_batch_handle_count {
                 match self.req_receiver.poll_recv(cx) {
                     Poll::Pending => return Poll::Pending,
                     Poll::Ready(None) => return Poll::Ready(Ok(())),

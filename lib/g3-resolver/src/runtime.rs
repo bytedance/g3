@@ -392,7 +392,7 @@ impl ResolverRuntime {
             }
 
             // handle request
-            for _ in 1..self.config.runtime.batch_request_count {
+            for _ in 0..self.config.runtime.batch_request_count {
                 let req = match self.req_receiver.poll_recv(cx) {
                     Poll::Pending => return Poll::Pending,
                     Poll::Ready(req) => req,

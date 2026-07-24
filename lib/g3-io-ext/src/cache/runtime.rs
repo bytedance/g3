@@ -147,7 +147,7 @@ impl<K: Hash + Eq, R: Send + Sync> EffectiveCacheRuntime<K, R> {
             }
 
             // handle req
-            for _ in 1..self.request_batch_handle_count {
+            for _ in 0..self.request_batch_handle_count {
                 match self.req_receiver.poll_recv(cx) {
                     Poll::Pending => return Poll::Pending,
                     Poll::Ready(None) => return Poll::Ready(Ok(())),
@@ -163,5 +163,46 @@ impl<K: Hash + Eq, R: Send + Sync> Future for EffectiveCacheRuntime<K, R> {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         (*self).poll_loop(cx)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::cache::create_effective_cache;
+    use std::time::Duration;
+
+    #[tokio::test]
+    async fn test_request_batch_handle_count_one() {
+        let (runtime, handle, mut query_handle) = create_effective_cache::<String, String>(1);
+
+        let runtime_task = tokio::spawn(runtime);
+
+        let key = Arc::new("key1".to_string());
+        let fetch_handle = handle.clone();
+        let key_clone = key.clone();
+        let fetch_task = tokio::spawn(async move {
+            fetch_handle.fetch(key_clone, Duration::from_secs(5)).await
+        });
+
+        // Query handle receives the request key via poll_recv_req
+        let req_key = std::future::poll_fn(|cx| query_handle.poll_recv_req(cx))
+            .await
+            .expect("should receive request key");
+        assert_eq!(*req_key, "key1");
+
+        assert!(query_handle.should_send_raw_query(req_key.clone(), Duration::from_secs(10)));
+        query_handle.send_rsp_data(
+            req_key,
+            EffectiveCacheData::new("val1".to_string(), 60, Duration::from_secs(60)),
+            false,
+        );
+
+        let res = fetch_task.await.unwrap().expect("fetch should succeed");
+        assert_eq!(res.inner().map(|s| s.as_str()), Some("val1"));
+
+        drop(handle);
+        drop(query_handle);
+        let _ = runtime_task.await;
     }
 }
