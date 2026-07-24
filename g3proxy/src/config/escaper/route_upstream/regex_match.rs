@@ -114,7 +114,8 @@ impl RegexMatchBuilder {
                     .push((regex_set, value.clone()));
             }
             if !full_regex_set.is_empty() {
-                let regex_set = RegexSet::new(full_regex_set).unwrap();
+                let regex_set = RegexSet::new(full_regex_set)
+                    .map_err(|e| anyhow!("failed to build regex for escaper {escaper}: {e}"))?;
                 full_match_vec.push((regex_set, value.clone()));
             }
         }
