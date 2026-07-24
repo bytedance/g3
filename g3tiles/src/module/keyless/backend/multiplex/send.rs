@@ -78,7 +78,7 @@ impl KeylessUpstreamSendTask {
                             self.send_data(&mut writer, req)
                                 .await
                                 .map_err(|e| anyhow!("send request failed: {e}"))?;
-                            if request_count > self.max_request_count {
+                            if request_count >= self.max_request_count {
                                 let _ = writer.shutdown().await;
                                 return Ok(());
                             }
