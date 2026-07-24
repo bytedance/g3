@@ -42,7 +42,12 @@ pub trait SelectiveItem {
     fn weight(&self) -> f64;
     fn weight_u32(&self) -> u32 {
         // return the smallest integer greater than or equal to `self`
-        self.weight().ceil() as u32
+        let w = self.weight().ceil();
+        if !w.is_finite() || w <= 0.0 {
+            0
+        } else {
+            w.min(f64::from(u32::MAX)) as u32
+        }
     }
     fn selective_hash<H: Hasher>(&self, state: &mut H);
 }
@@ -103,14 +108,18 @@ fn ketama_ring_create<T: SelectiveItem>(nodes: &[T]) -> Vec<(usize, u32)> {
     // This constant is copied from nginx. It will create 160 points per weight unit. For
     // example, a weight of 2 will create 320 points on the ring.
     const POINT_MULTIPLE: u32 = 160;
-    let total_weights: u32 = nodes.iter().map(|v| v.weight_u32()).sum();
-    let mut ring = Vec::with_capacity((total_weights * POINT_MULTIPLE) as usize);
+    let mut total_weights: u32 = 0;
+    for v in nodes {
+        total_weights = total_weights.saturating_add(v.weight_u32());
+    }
+    let capacity = (total_weights as usize).saturating_mul(POINT_MULTIPLE as usize);
+    let mut ring = Vec::with_capacity(capacity);
 
     for (i, node) in nodes.iter().enumerate() {
         let mut hasher = crc32fast::Hasher::new();
         node.selective_hash(&mut hasher);
 
-        let num_points = node.weight_u32() * POINT_MULTIPLE;
+        let num_points = node.weight_u32().saturating_mul(POINT_MULTIPLE);
 
         let mut prev_hash: u32 = 0;
         for _ in 0..num_points {
@@ -283,9 +292,14 @@ impl<T: SelectiveItem> SelectiveVec<T> {
     where
         K: Hash + ?Sized,
     {
+        // The classic jump consistent hash uses f64→i64 in the loop. Values at or
+        // above 2^30 can saturate that cast and fail to converge, so clamp.
+        debug_assert!(slot_count > 0);
+        let slot_count = slot_count.min((1 << 30) - 1);
+
         let mut h = FixedState::default().hash_one(key);
         let (mut b, mut j) = (-1i64, 0i64);
-        while j < slot_count as i64 {
+        while j < i64::from(slot_count) {
             b = j;
             h = h.wrapping_mul(2862933555777941757).wrapping_add(1);
             j = ((b.wrapping_add(1) as f64) * (((1u64 << 31) as f64) / (((h >> 33) + 1) as f64)))
@@ -323,12 +337,18 @@ impl<T: SelectiveItem> SelectiveVec<T> {
     where
         K: Hash + ?Sized,
     {
+        let weight = item.weight();
+        if !weight.is_finite() || weight <= 0.0 {
+            // Zero / non-finite weight must not produce Inf/NaN that poisons ordering.
+            return f64::NEG_INFINITY;
+        }
+
         let mut hasher = FixedState::default().build_hasher();
         key.hash(&mut hasher);
         item.selective_hash(&mut hasher);
         let hash = hasher.finish() as f64;
         let distance = (hash / u64::MAX as f64).ln();
-        distance / item.weight()
+        distance / weight
     }
 
     pub fn pick_rendezvous<K>(&self, key: &K) -> &T
@@ -425,6 +445,10 @@ impl<T: SelectiveItem> SelectiveVec<T> {
             0 => panic_on_empty!(),
             1 => &self.inner[0],
             _ => {
+                if self.ketama_ring.is_empty() {
+                    // All nodes had non-positive weight_u32; fall back to first node.
+                    return &self.inner[0];
+                }
                 let idx = self.ketama_ring_idx(key);
                 let node = &self.ketama_ring[idx];
                 &self.inner[node.0]
@@ -812,5 +836,73 @@ mod tests {
         assert!(r1[0].ne(r1[1]));
         assert!(r1[0].eq(r2[0]));
         assert!(r1[1].eq(r2[1]));
+    }
+
+    #[test]
+    fn jump_hash_clamps_large_slot_count() {
+        let slot = SelectiveVec::<Node>::jump_hash("key", u32::MAX);
+        assert!(slot < (1 << 30));
+    }
+
+    #[test]
+    fn rendezvous_zero_weight_never_wins() {
+        let zero = Node {
+            name: "zero".to_string(),
+            weight: 0.0,
+        };
+        let positive = Node {
+            name: "positive".to_string(),
+            weight: 1.0,
+        };
+
+        let mut builder = SelectiveVecBuilder::with_capacity(2);
+        builder.insert(zero);
+        builder.insert(positive.clone());
+        let vec = builder.build().unwrap();
+
+        for i in 0..64u32 {
+            assert!(
+                positive.eq(vec.pick_rendezvous(&i)),
+                "zero-weight node must not be selected for key {i}"
+            );
+        }
+    }
+
+    #[test]
+    fn ketama_all_zero_weight_falls_back() {
+        let node = Node {
+            name: "zero".to_string(),
+            weight: 0.0,
+        };
+        let mut builder = SelectiveVecBuilder::with_capacity(2);
+        builder.insert(node.clone());
+        builder.insert(Node {
+            name: "also_zero".to_string(),
+            weight: 0.0,
+        });
+        let vec = builder.build().unwrap();
+        assert!(node.eq(vec.pick_ketama("k")));
+    }
+
+    #[test]
+    fn weight_u32_handles_non_finite() {
+        let nan = Node {
+            name: "nan".to_string(),
+            weight: f64::NAN,
+        };
+        let inf = Node {
+            name: "inf".to_string(),
+            weight: f64::INFINITY,
+        };
+        assert_eq!(nan.weight_u32(), 0);
+        assert_eq!(inf.weight_u32(), 0);
+        assert_eq!(
+            Node {
+                name: "huge".to_string(),
+                weight: f64::from(u32::MAX) * 2.0,
+            }
+            .weight_u32(),
+            u32::MAX
+        );
     }
 }
