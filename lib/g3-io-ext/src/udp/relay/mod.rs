@@ -367,6 +367,7 @@ impl UdpRelayBuffer {
                     .map(|p| p.buf_data_end - p.buf_data_off)
                     .sum::<usize>();
                 self.send_start += count;
+                self.total += count as u64;
                 self.active = true;
             }
             self.send_start = 0;
