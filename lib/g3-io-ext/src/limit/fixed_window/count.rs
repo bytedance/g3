@@ -33,7 +33,7 @@ impl InnerCountLimitInfo {
         self.window = FixedWindow::new(shift_millis, Some(cur_millis));
         self.max_count = max_count;
         self.time_slice_id = self.window.slice_id(cur_millis);
-        self.cur_count = 0;
+        self.cur_count = max_count;
     }
 
     fn check(&mut self, cur_millis: u64) -> Result<(), u64> {
