@@ -6,7 +6,6 @@
 use std::str::FromStr;
 
 use anyhow::{Context, anyhow};
-use atoi::FromRadix10;
 use rmpv::ValueRef;
 
 use g3_types::collection::WeightedValue;
@@ -35,12 +34,8 @@ pub fn as_u32(v: &ValueRef) -> anyhow::Result<u32> {
             None => Err(anyhow!("invalid utf-8 string")),
         },
         ValueRef::Binary(b) => {
-            let (v, len) = u32::from_radix_10(b);
-            if len != b.len() {
-                Err(anyhow!("invalid u32 binary string"))
-            } else {
-                Ok(v)
-            }
+            let s = std::str::from_utf8(b).map_err(|e| anyhow!("invalid utf-8 string: {e}"))?;
+            u32::from_str(s).map_err(|e| anyhow!("invalid u32 binary string: {e}"))
         }
         ValueRef::Integer(i) => match i.as_u64() {
             Some(i) => u32::try_from(i).map_err(|e| anyhow!("out of range u32 integer: {e}")),
@@ -159,6 +154,15 @@ mod tests {
         assert!(as_u32(&v).is_err());
 
         let v = ValueRef::Binary(b"123abc");
+        assert!(as_u32(&v).is_err());
+
+        let v = ValueRef::Binary(b"");
+        assert!(as_u32(&v).is_err());
+
+        let v = ValueRef::Binary(b"4294967296");
+        assert!(as_u32(&v).is_err());
+
+        let v = ValueRef::Binary(b"99999999999999999999");
         assert!(as_u32(&v).is_err());
 
         let v = ValueRef::Integer(Integer::from(4_294_967_296u64));
