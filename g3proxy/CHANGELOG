@@ -1,5 +1,7 @@
 
 v1.12.3:
+ - BUG FIX: stop double-counting sni_proxy pre-handshake bytes in task stats
+ - BUG FIX: split overlong FTP list lines across chunked HTTP chunks
  - BUG FIX: reject overflowing HTTP chunk sizes (checked hex parse)
  - BUG FIX: HostMatch child/suffix domain lookup uses longest-prefix (get_ancestor_value)
  - BUG FIX: parse SOCKS5 UDP headers against received length on single-packet paths

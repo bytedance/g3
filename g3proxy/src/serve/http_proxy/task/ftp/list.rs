@@ -52,6 +52,10 @@ where
     }
 
     async fn send_buf(&mut self) -> io::Result<()> {
+        if self.buf_len <= CHUNKED_BUF_HEAD_RESERVED {
+            return Ok(());
+        }
+
         let chunked_header = format!("{:x}\r\n", self.buf_len - CHUNKED_BUF_HEAD_RESERVED);
         let offset = CHUNKED_BUF_HEAD_RESERVED - chunked_header.len();
         let mut head = &mut self.buf[offset..];
@@ -73,15 +77,36 @@ where
     async fn recv_line(&mut self, line: &str) {
         self.active = true;
 
-        if self.buf_cap - self.buf_len < line.len() {
-            if let Err(e) = self.send_buf().await {
-                self.io_error = Some(e);
-                return;
+        let mut remaining = line.as_bytes();
+        while !remaining.is_empty() {
+            let available = self.buf_cap.saturating_sub(self.buf_len);
+            if available == 0 {
+                if self.buf_len <= CHUNKED_BUF_HEAD_RESERVED {
+                    self.io_error = Some(io::Error::new(
+                        io::ErrorKind::InvalidInput,
+                        "chunked list buffer is too small for FTP listing lines",
+                    ));
+                    return;
+                }
+                if let Err(e) = self.send_buf().await {
+                    self.io_error = Some(e);
+                    return;
+                }
+                continue;
+            }
+
+            let take = remaining.len().min(available);
+            self.buf.extend_from_slice(&remaining[..take]);
+            self.buf_len += take;
+            remaining = &remaining[take..];
+
+            if !remaining.is_empty() {
+                if let Err(e) = self.send_buf().await {
+                    self.io_error = Some(e);
+                    return;
+                }
             }
         }
-
-        self.buf.extend_from_slice(line.as_bytes());
-        self.buf_len += line.len();
     }
 
     #[inline]
