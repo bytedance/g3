@@ -132,7 +132,7 @@ where
     ) -> Poll<Result<(usize, usize, UpstreamAddr), UdpRelayClientError>> {
         let nr = ready!(self.inner.poll_recv(cx, buf)).map_err(UdpRelayClientError::RecvFailed)?;
 
-        let (off, upstream) = UdpInput::parse_header(buf)
+        let (off, upstream) = UdpInput::parse_header(&buf[..nr])
             .map_err(|e| UdpRelayClientError::InvalidPacket(e.to_string()))?;
         self.check_upstream(&upstream)?;
         Poll::Ready(Ok((off, nr, upstream)))
@@ -182,7 +182,7 @@ where
 
         self.client_addr = client_addr;
 
-        let (off, upstream) = UdpInput::parse_header(buf)
+        let (off, upstream) = UdpInput::parse_header(&buf[..nr])
             .map_err(|e| UdpRelayClientError::InvalidPacket(e.to_string()))?;
         *initial_peer = upstream;
         self.check_upstream(initial_peer)?;

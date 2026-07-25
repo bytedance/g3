@@ -111,7 +111,7 @@ where
         let nr = ready!(self.inner.poll_recv(cx, buf))
             .map_err(|e| UdpRelayRemoteError::RecvFailed(self.local_addr, e))?;
 
-        let (off, upstream) = UdpInput::parse_header(buf)
+        let (off, upstream) = UdpInput::parse_header(&buf[..nr])
             .map_err(|e| UdpRelayRemoteError::InvalidPacket(self.local_addr, e.to_string()))?;
 
         self.end_on_control_closed = true;

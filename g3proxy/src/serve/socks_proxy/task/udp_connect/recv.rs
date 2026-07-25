@@ -58,7 +58,7 @@ where
     ) -> Poll<Result<(usize, usize, UpstreamAddr), UdpCopyClientError>> {
         let nr = ready!(self.inner.poll_recv(cx, buf)).map_err(UdpCopyClientError::RecvFailed)?;
 
-        let (off, upstream) = UdpInput::parse_header(buf)
+        let (off, upstream) = UdpInput::parse_header(&buf[..nr])
             .map_err(|e| UdpCopyClientError::InvalidPacket(e.to_string()))?;
         Poll::Ready(Ok((off, nr, upstream)))
     }
@@ -106,7 +106,7 @@ where
 
         self.client_addr = client_addr;
 
-        let (off, upstream) = UdpInput::parse_header(buf)
+        let (off, upstream) = UdpInput::parse_header(&buf[..nr])
             .map_err(|e| UdpCopyClientError::InvalidPacket(e.to_string()))?;
         self.upstream = upstream;
 

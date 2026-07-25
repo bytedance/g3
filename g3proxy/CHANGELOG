@@ -1,5 +1,6 @@
 
 v1.12.3:
+ - BUG FIX: parse SOCKS5 UDP headers against received length on single-packet paths
  - BUG FIX: reject empty TLS Handshake fragments and bound ClientHello receive buffers
  - BUG FIX: accumulate SizedReader cur_size so FTP downloads are size-limited correctly
  - BUG FIX: fix default ingress network filter rules
