@@ -88,14 +88,14 @@ impl ResolvedRecord {
         ips: Vec<IpAddr>,
     ) -> Self {
         let created = Instant::now();
-        let (expire_ttl, vanish_ttl) = if ttl > max_ttl + min_ttl {
+        let (expire_ttl, vanish_ttl) = if ttl > max_ttl.saturating_add(min_ttl) {
             (max_ttl, ttl)
-        } else if ttl > min_ttl + min_ttl {
+        } else if ttl > min_ttl.saturating_add(min_ttl) {
             (ttl - min_ttl, ttl)
         } else if ttl > min_ttl {
             (min_ttl, ttl)
         } else {
-            (min_ttl, min_ttl + 1)
+            (min_ttl, min_ttl.saturating_add(1))
         };
         let expire = created.checked_add(Duration::from_secs(expire_ttl as u64));
         let vanish = created.checked_add(Duration::from_secs(vanish_ttl as u64));
@@ -130,5 +130,68 @@ impl ResolvedRecord {
             vanish: None,
             result: Err(err),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    fn domain() -> DomainName {
+        DomainName::from_str("example.com").unwrap()
+    }
+
+    #[test]
+    fn resolved_ttl_bounds() {
+        let record = ResolvedRecord::resolved(domain(), 3600, 60, 300, vec![]);
+        assert!(record.expire.is_some());
+        assert!(record.vanish.is_some());
+        // ttl > max + min → expire capped at max_ttl, vanish at ttl
+        assert_eq!(
+            record.expire.unwrap().duration_since(record.created),
+            Duration::from_secs(300)
+        );
+        assert_eq!(
+            record.vanish.unwrap().duration_since(record.created),
+            Duration::from_secs(3600)
+        );
+
+        let record = ResolvedRecord::resolved(domain(), 100, 30, 300, vec![]);
+        // min*2 < ttl <= max+min → expire = ttl - min
+        assert_eq!(
+            record.expire.unwrap().duration_since(record.created),
+            Duration::from_secs(70)
+        );
+        assert_eq!(
+            record.vanish.unwrap().duration_since(record.created),
+            Duration::from_secs(100)
+        );
+    }
+
+    #[test]
+    fn resolved_ttl_add_does_not_overflow() {
+        // Would wrap or panic with plain u32 addition in debug builds.
+        let record = ResolvedRecord::resolved(domain(), 100, u32::MAX, u32::MAX, vec![]);
+        assert!(record.is_ok());
+        assert_eq!(
+            record.expire.unwrap().duration_since(record.created),
+            Duration::from_secs(u32::MAX as u64)
+        );
+        assert_eq!(
+            record.vanish.unwrap().duration_since(record.created),
+            Duration::from_secs(u32::MAX as u64)
+        );
+
+        // Saturating sum avoids taking the first branch after a wrap to a small value.
+        let record = ResolvedRecord::resolved(domain(), 100, 2, u32::MAX - 1, vec![]);
+        assert_eq!(
+            record.expire.unwrap().duration_since(record.created),
+            Duration::from_secs(98)
+        );
+        assert_eq!(
+            record.vanish.unwrap().duration_since(record.created),
+            Duration::from_secs(100)
+        );
     }
 }
