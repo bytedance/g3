@@ -314,6 +314,7 @@ where
         ready!(this.inner.poll_read(cx, &mut limited_buf))?;
         let nr = limited_buf.filled().len();
         buf.advance(nr);
+        *this.cur_size += nr as u64;
         Poll::Ready(Ok(()))
     }
 }

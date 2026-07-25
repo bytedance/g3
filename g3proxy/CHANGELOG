@@ -1,5 +1,6 @@
 
 v1.12.3:
+ - BUG FIX: accumulate SizedReader cur_size so FTP downloads are size-limited correctly
  - BUG FIX: fix default ingress network filter rules
 
 v1.12.2:
