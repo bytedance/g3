@@ -16,7 +16,8 @@ use tokio::time::Instant;
 
 use g3_daemon::stat::task::TcpStreamConnectionStats;
 use g3_dpi::parser::tls::{
-    ClientHello, ExtensionType, HandshakeCoalescer, RawVersion, Record, RecordParseError,
+    ClientHello, ExtensionType, HandshakeCoalescer, RawVersion, Record, RecordHeader,
+    RecordParseError,
 };
 use g3_io_ext::{LimitedStream, OnceBufReader};
 use g3_openssl::{SslAcceptor, SslStream};
@@ -130,17 +131,29 @@ impl OpensslAcceptTask {
     where
         R: AsyncRead + Unpin,
     {
-        let mut handshake_coalescer =
-            HandshakeCoalescer::new(self.ctx.server_config.client_hello_max_size);
+        let max_hello_size = self.ctx.server_config.client_hello_max_size as usize;
+        // Bound the raw receive buffer even with 1-byte handshake fragments:
+        // each fragment needs a TLS record header, and one incomplete max-sized
+        // record may still be pending. The buffer cannot be advanced here because
+        // OpenSSL must re-read the original ClientHello wire bytes afterwards.
+        let max_buf_size = max_hello_size
+            .saturating_mul(RecordHeader::SIZE + 1)
+            .saturating_add(1 << 14);
+        let mut handshake_coalescer = HandshakeCoalescer::new(max_hello_size as u32);
         let mut record_offset = 0;
         loop {
             let mut record = match Record::parse(&clt_r_buf[record_offset..]) {
                 Ok(r) => r,
-                Err(RecordParseError::NeedMoreData(_)) => match clt_r.read_buf(clt_r_buf).await {
-                    Ok(0) => return Err(anyhow!("connection closed by client")),
-                    Ok(_) => continue,
-                    Err(e) => return Err(anyhow!("client read error: {e}")),
-                },
+                Err(RecordParseError::NeedMoreData(_)) => {
+                    if clt_r_buf.len() >= max_buf_size {
+                        return Err(anyhow!("tls client hello message too large"));
+                    }
+                    match clt_r.read_buf(clt_r_buf).await {
+                        Ok(0) => return Err(anyhow!("connection closed by client")),
+                        Ok(_) => continue,
+                        Err(e) => return Err(anyhow!("client read error: {e}")),
+                    }
+                }
                 Err(_) => {
                     return Err(anyhow!("invalid tls client hello request"));
                 }

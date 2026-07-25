@@ -7,7 +7,7 @@ use bytes::BytesMut;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
 use g3_dpi::parser::tls::{
-    ClientHello, ExtensionType, HandshakeCoalescer, Record, RecordParseError,
+    ClientHello, ExtensionType, HandshakeCoalescer, Record, RecordHeader, RecordParseError,
 };
 use g3_types::net::{Host, TlsServerName, UpstreamAddr};
 
@@ -22,16 +22,30 @@ pub(super) async fn parse_request<R>(
 where
     R: AsyncRead + Unpin,
 {
+    let max_hello_size = max_client_hello_size as usize;
+    // Bound the raw receive buffer even with 1-byte handshake fragments.
+    // The buffer cannot be advanced here because the original ClientHello
+    // wire bytes must be forwarded upstream afterwards.
+    let max_buf_size = max_hello_size
+        .saturating_mul(RecordHeader::SIZE + 1)
+        .saturating_add(1 << 14);
     let mut handshake_coalescer = HandshakeCoalescer::new(max_client_hello_size);
     let mut record_offset = 0;
     loop {
         let mut record = match Record::parse(&clt_r_buf[record_offset..]) {
             Ok(r) => r,
-            Err(RecordParseError::NeedMoreData(_)) => match clt_r.read_buf(clt_r_buf).await {
-                Ok(0) => return Err(ServerTaskError::ClosedByClient),
-                Ok(_) => continue,
-                Err(e) => return Err(ServerTaskError::ClientTcpReadFailed(e)),
-            },
+            Err(RecordParseError::NeedMoreData(_)) => {
+                if clt_r_buf.len() >= max_buf_size {
+                    return Err(ServerTaskError::InvalidClientProtocol(
+                        "tls client hello message too large",
+                    ));
+                }
+                match clt_r.read_buf(clt_r_buf).await {
+                    Ok(0) => return Err(ServerTaskError::ClosedByClient),
+                    Ok(_) => continue,
+                    Err(e) => return Err(ServerTaskError::ClientTcpReadFailed(e)),
+                }
+            }
             Err(_) => {
                 return Err(ServerTaskError::InvalidClientProtocol(
                     "invalid tls client hello request",

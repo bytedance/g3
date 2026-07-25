@@ -44,6 +44,8 @@ pub enum RecordParseError {
     InvalidContentType(u8),
     #[error("fragment length exceeded")]
     FragmentLengthExceeded,
+    #[error("empty handshake fragment")]
+    EmptyHandshakeFragment,
 }
 
 pub struct RecordHeader {
@@ -104,6 +106,12 @@ impl<'a> Record<'a> {
             // The length MUST NOT exceed 2^14 bytes.
             return Err(RecordParseError::FragmentLengthExceeded);
         }
+        // RFC 8446 5.1: Implementations MUST NOT send zero-length fragments of
+        // Handshake types. Accepting them would let a peer grow the caller's
+        // receive buffer without ever feeding the handshake coalescer.
+        if header.content_type == ContentType::Handshake && header.fragment_size == 0 {
+            return Err(RecordParseError::EmptyHandshakeFragment);
+        }
 
         let start = RecordHeader::SIZE;
         let end = start + header.fragment_size as usize;
@@ -153,5 +161,30 @@ impl<'a> Record<'a> {
     /// Check if all fragment data is consumed
     pub fn consume_done(&self) -> bool {
         self.consume_offset >= self.fragment.len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reject_empty_handshake_fragment() {
+        // ContentType::Handshake, TLS 1.2, fragment length 0
+        match Record::parse(&[0x16, 0x03, 0x03, 0x00, 0x00]) {
+            Err(RecordParseError::EmptyHandshakeFragment) => {}
+            Err(e) => panic!("unexpected error: {e}"),
+            Ok(_) => panic!("expected EmptyHandshakeFragment"),
+        }
+    }
+
+    #[test]
+    fn allow_empty_alert_fragment() {
+        // ContentType::Alert with empty fragment is syntactically accepted here;
+        // handshake consumers still reject non-Handshake content types.
+        match Record::parse(&[0x15, 0x03, 0x03, 0x00, 0x00]) {
+            Ok(record) => assert_eq!(record.encoded_len(), RecordHeader::SIZE),
+            Err(e) => panic!("unexpected error: {e}"),
+        }
     }
 }
