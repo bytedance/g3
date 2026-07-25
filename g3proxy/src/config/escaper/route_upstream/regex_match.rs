@@ -78,9 +78,9 @@ impl RegexMatchBuilder {
     pub(crate) fn build<T: Clone>(
         &self,
         value_table: &BTreeMap<NodeName, T>,
-    ) -> Option<RegexMatch<T>> {
+    ) -> anyhow::Result<Option<RegexMatch<T>>> {
         if self.inner.is_empty() {
-            return None;
+            return Ok(None);
         }
 
         let mut parent_match_map: BTreeMap<String, Vec<(RegexSet, T)>> = BTreeMap::new();
@@ -102,12 +102,11 @@ impl RegexMatchBuilder {
             }
 
             let Some(value) = value_table.get(escaper) else {
-                unreachable!()
+                return Err(anyhow!("no regex match value found for escaper {escaper}"));
             };
             for (parent_domain, regexes) in parent_regex_map {
-                let Ok(regex_set) = RegexSet::new(regexes) else {
-                    unreachable!()
-                };
+                let regex_set = RegexSet::new(regexes)
+                    .map_err(|e| anyhow!("failed to build regex for escaper {escaper}: {e}"))?;
                 parent_match_map
                     .entry(parent_domain)
                     .or_default()
@@ -124,12 +123,12 @@ impl RegexMatchBuilder {
             parent_match_trie.insert(parent_domain, value);
         }
         if parent_match_trie.is_empty() {
-            None
+            Ok(None)
         } else {
-            Some(RegexMatch {
+            Ok(Some(RegexMatch {
                 parent_match: parent_match_trie,
                 full_match: full_match_vec,
-            })
+            }))
         }
     }
 }
@@ -241,7 +240,7 @@ mod tests {
         let mut value_map = BTreeMap::new();
         value_map.insert(unsafe { NodeName::new_unchecked("escaper_1") }, "escaper_1");
         value_map.insert(unsafe { NodeName::new_unchecked("escaper_2") }, "escaper_2");
-        let regex_match = builder.build(&value_map).unwrap();
+        let regex_match = builder.build(&value_map).unwrap().unwrap();
 
         assert!(regex_match.check_domain("example.net").is_none());
         let value = *regex_match.check_domain("abc.example.net").unwrap();
@@ -273,7 +272,7 @@ mod tests {
         let mut value_map = BTreeMap::new();
         value_map.insert(unsafe { NodeName::new_unchecked("escaper_1") }, "escaper_1");
         value_map.insert(unsafe { NodeName::new_unchecked("escaper_2") }, "escaper_2");
-        let regex_match = builder.build(&value_map).unwrap();
+        let regex_match = builder.build(&value_map).unwrap().unwrap();
 
         assert!(regex_match.check_domain("example.net").is_none());
         let value = *regex_match.check_domain("abc.example.net").unwrap();

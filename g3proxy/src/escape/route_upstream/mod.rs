@@ -74,7 +74,7 @@ impl RouteUpstreamEscaper {
         let subnet_match = config.subnet_match.build(&next_table);
         let child_match = config.child_match.build(&next_table);
         let suffix_match = config.suffix_match.build(&next_table);
-        let regex_match = config.regex_match.build(&next_table);
+        let regex_match = config.regex_match.build(&next_table)?;
 
         let escaper = RouteUpstreamEscaper {
             config,
