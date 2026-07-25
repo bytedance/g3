@@ -410,7 +410,9 @@ impl HttpTransparentRequest {
                 self.has_transfer_encoding = true;
                 if self.has_content_length {
                     // delete content-length
+                    self.end_to_end_headers.remove(header::CONTENT_LENGTH);
                     self.content_length = 0;
+                    self.keep_alive = false; // according to rfc9112 Section 6.1
                 }
 
                 let v = header.value.to_lowercase();
@@ -424,6 +426,7 @@ impl HttpTransparentRequest {
             "content-length" => {
                 if self.has_transfer_encoding {
                     // ignore content-length
+                    self.keep_alive = false; // according to rfc9112 Section 6.1
                     return Ok(());
                 }
 
@@ -629,5 +632,44 @@ mod tests {
         assert_eq!(left_tokens, 1);
         let token = request.hop_by_hop_headers.get(header::UPGRADE).unwrap();
         assert_eq!(token.to_str(), "HTTP/2.0");
+    }
+
+    #[tokio::test]
+    async fn cl_before_te_drops_content_length() {
+        let content = b"POST /x HTTP/1.1\r\n\
+            Host: example.com\r\n\
+            Content-Length: 6\r\n\
+            Transfer-Encoding: chunked\r\n\
+            \r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let (request, _) = HttpTransparentRequest::parse(&mut buf_stream, 4096, false)
+            .await
+            .unwrap();
+        assert!(!request.keep_alive());
+        assert!(request.body_type().is_some());
+        let origin = request.serialize_for_origin();
+        let origin = std::str::from_utf8(&origin).unwrap();
+        assert!(origin.to_ascii_lowercase().contains("transfer-encoding"));
+        assert!(!origin.to_ascii_lowercase().contains("content-length"));
+    }
+
+    #[tokio::test]
+    async fn te_before_cl_ignores_content_length() {
+        let content = b"POST /x HTTP/1.1\r\n\
+            Host: example.com\r\n\
+            Transfer-Encoding: chunked\r\n\
+            Content-Length: 6\r\n\
+            \r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let (request, _) = HttpTransparentRequest::parse(&mut buf_stream, 4096, false)
+            .await
+            .unwrap();
+        assert!(!request.keep_alive());
+        let origin = request.serialize_for_origin();
+        let origin = std::str::from_utf8(&origin).unwrap();
+        assert!(origin.to_ascii_lowercase().contains("transfer-encoding"));
+        assert!(!origin.to_ascii_lowercase().contains("content-length"));
     }
 }
