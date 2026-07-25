@@ -133,13 +133,66 @@ where
         Ok((req, true))
     }
 
-    pub(crate) fn drop_default_port_in_host(&mut self) {
+    pub(crate) fn drop_default_port_in_host(&mut self, default_port: u16) {
         if let Some(v) = self.inner.end_to_end_headers.get_mut(header::HOST) {
             let b = v.inner().as_bytes();
-            if let Some(d) = memchr::memchr(b':', b) {
-                let new_v = HeaderValue::from_bytes(&b[..d]).unwrap();
+            if let Some(new_host) = host_header_without_default_port(b, default_port)
+                && let Ok(new_v) = HeaderValue::from_bytes(new_host)
+            {
                 v.set_inner(new_v);
             }
         }
+    }
+}
+
+fn host_header_without_default_port(host: &[u8], default_port: u16) -> Option<&[u8]> {
+    let colon = if host.starts_with(b"[") {
+        let bracket_end = memchr::memchr(b']', host)?;
+        if host.get(bracket_end + 1).copied() != Some(b':') {
+            return None;
+        }
+        bracket_end + 1
+    } else {
+        memchr::memchr(b':', host)?
+    };
+    let port: u16 = std::str::from_utf8(host.get(colon + 1..)?)
+        .ok()?
+        .parse()
+        .ok()?;
+    (port == default_port).then_some(&host[..colon])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn drop_default_port_hostname() {
+        assert_eq!(
+            host_header_without_default_port(b"example.com:80", 80),
+            Some(&b"example.com"[..])
+        );
+        assert_eq!(host_header_without_default_port(b"example.com:8080", 80), None);
+        assert_eq!(host_header_without_default_port(b"example.com", 80), None);
+    }
+
+    #[test]
+    fn drop_default_port_ipv6() {
+        assert_eq!(
+            host_header_without_default_port(b"[2001:db8::1]:80", 80),
+            Some(&b"[2001:db8::1]"[..])
+        );
+        assert_eq!(
+            host_header_without_default_port(b"[2001:db8::1]:443", 443),
+            Some(&b"[2001:db8::1]"[..])
+        );
+        assert_eq!(
+            host_header_without_default_port(b"[2001:db8::1]:8080", 80),
+            None
+        );
+        assert_eq!(
+            host_header_without_default_port(b"[2001:db8::1]", 80),
+            None
+        );
     }
 }
