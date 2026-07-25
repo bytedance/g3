@@ -231,6 +231,18 @@ impl GlobalDatagramLimit for GlobalDatagramLimiter {
                 to_advance = found_index + 1;
             }
             Err(insert_index) => {
+                if insert_index == 0 {
+                    // Remaining byte tokens are not enough for even the first datagram.
+                    // Refund everything already deducted and wait for replenish — never
+                    // Advance(0) (callers index with to_advance - 1).
+                    if config.replenish_packets() > 0 {
+                        self.add_packets(to_advance as u64, config.max_burst_packets());
+                    }
+                    if config.replenish_bytes() > 0 {
+                        self.add_bytes(buf_size as u64, config.max_burst_bytes());
+                    }
+                    return DatagramLimitAction::DelayUntil(self.wait_until());
+                }
                 if config.replenish_packets() > 0 {
                     // release unneeded packets
                     self.add_packets(
@@ -240,7 +252,7 @@ impl GlobalDatagramLimit for GlobalDatagramLimiter {
                 }
                 to_advance = insert_index;
                 if config.replenish_bytes() > 0 {
-                    // release unneeded bytes
+                    // release unneeded bytes beyond the prefix we can send
                     self.add_bytes(
                         (buf_size - total_size_v[to_advance - 1]) as u64,
                         config.max_burst_bytes(),
@@ -300,5 +312,21 @@ mod tests {
             limiter.check_packets(&total_len_v),
             DatagramLimitAction::Advance(3)
         );
+    }
+
+    #[test]
+    fn check_packets_insufficient_bytes_for_first_datagram() {
+        let config = GlobalDatagramSpeedLimitConfig::per_second(100);
+        let limiter = GlobalDatagramLimiter::new(config);
+        assert_eq!(limiter.check_packet(90), DatagramLimitAction::Advance(1));
+
+        // ~10 byte tokens left; first datagram needs 500. Must DelayUntil (not panic /
+        // Advance(0)), and refund the deducted tokens so a later fitting packet works.
+        let total_len_v = [500, 800];
+        assert!(matches!(
+            limiter.check_packets(&total_len_v),
+            DatagramLimitAction::DelayUntil(_)
+        ));
+        assert_eq!(limiter.check_packet(10), DatagramLimitAction::Advance(1));
     }
 }

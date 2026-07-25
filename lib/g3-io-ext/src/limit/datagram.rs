@@ -158,7 +158,7 @@ impl DatagramLimiter {
             }
         }
 
-        if total_size_v.len() > to_advance {
+        if to_advance > 0 && total_size_v.len() > to_advance {
             let buf_size = total_size_v[to_advance - 1];
             for limiter in &mut self.global {
                 let checked = limiter.checked_packets.take().unwrap();
