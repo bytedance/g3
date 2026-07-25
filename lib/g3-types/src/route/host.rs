@@ -76,7 +76,7 @@ impl<T> HostMatch<T> {
 
                 if let Some(trie) = &self.child_domain {
                     let reversed = reverse_idna_domain(domain);
-                    if let Some(v) = trie.get(&reversed) {
+                    if let Some(v) = trie.get_ancestor_value(&reversed) {
                         return Some(v);
                     }
                 }
