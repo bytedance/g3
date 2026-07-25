@@ -34,10 +34,17 @@ impl AckFrame {
         read_var_int!(ack_range_count);
         read_var_int!(first_ack_range);
 
-        // the value is not trusted, so just alloc a small space
-        let initial_capacity = ack_range_count.value().min(16) as usize;
+        // the value is not trusted, and each ACK Range takes at least 2 bytes,
+        // so reject counts that the left buffer can never satisfy,
+        // then alloc just a small space
+        let ack_range_count = ack_range_count.value();
+        if ack_range_count > ((data.len() - offset) / 2) as u64 {
+            return Err(FrameParseError::NotEnoughData);
+        }
+
+        let initial_capacity = ack_range_count.min(16) as usize;
         let mut ack_ranges = Vec::with_capacity(initial_capacity);
-        for _ in 0..ack_range_count.value() {
+        for _ in 0..ack_range_count {
             let ack_range = AckRange::parse(&data[offset..])?;
             offset += ack_range.encoded_len;
             ack_ranges.push(ack_range);
@@ -123,5 +130,30 @@ impl EcnCounts {
             ecn_ce,
             encoded_len: offset,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn ack_frame() {
+        // largest_ack, ack_delay, ack_range_count, first_ack_range, [gap, length]
+        let data = [0x0A, 0x00, 0x01, 0x02, 0x01, 0x03];
+        let frame = AckFrame::parse(&data, false).unwrap();
+        assert_eq!(frame.largest_ack.value(), 10);
+        assert_eq!(frame.ack_ranges.len(), 1);
+        assert_eq!(frame.encoded_len(), data.len());
+    }
+
+    #[test]
+    fn ack_frame_too_many_ranges() {
+        // ack_range_count is 0x00FFFFFF, but only 2 bytes are left
+        let data = [0x0A, 0x00, 0x80, 0xFF, 0xFF, 0xFF, 0x02, 0x01, 0x03];
+        assert!(matches!(
+            AckFrame::parse(&data, false),
+            Err(FrameParseError::NotEnoughData)
+        ));
     }
 }
