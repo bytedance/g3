@@ -64,7 +64,6 @@ mod tests {
         assert_eq!(chunk.chunk_size, 1);
         assert_eq!(chunk.extension, Some("ieof"));
     }
-}
 
     #[test]
     fn reject_overflowing_chunk_size() {
