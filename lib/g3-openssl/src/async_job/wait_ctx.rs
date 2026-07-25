@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
- * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use std::os::fd::RawFd;
@@ -114,7 +115,7 @@ mod ossl3 {
     }
 
     extern "C" fn wake(arg: *mut c_void) -> c_int {
-        let waker = unsafe { arg.cast::<AtomicWaker>().as_mut().unwrap() };
+        let waker = unsafe { arg.cast::<AtomicWaker>().as_ref().unwrap() };
         waker.wake();
         0
     }

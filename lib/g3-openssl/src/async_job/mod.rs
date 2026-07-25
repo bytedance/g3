@@ -1,6 +1,7 @@
 /*
  * SPDX-License-Identifier: Apache-2.0
- * Copyright 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2023-2025 ByteDance and/or its affiliates.
+ * SPDX-FileCopyrightText: 2026 VEY-OSS Developers.
  */
 
 use openssl::error::ErrorStack;
@@ -11,7 +12,10 @@ mod wait_ctx;
 pub use wait_ctx::AsyncWaitCtx;
 
 mod task;
-pub use task::{AsyncOperation, OpensslAsyncTask, SyncOperation};
+pub use task::{
+    AsyncOperation, OpensslAsyncCleanup, OpensslAsyncOutput, OpensslAsyncTask,
+    OpensslAsyncTaskError, SyncOperation,
+};
 
 mod tokio_op;
 pub use tokio_op::TokioAsyncOperation;

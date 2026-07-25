@@ -1,5 +1,6 @@
 
 v0.4.4:
+ - BUG FIX: drain timed-out ASYNC_JOBs via cleanup handle; count async-job crypto failures correctly
  - Feature: allow to set tcp keepalive on tcp listen socket in server
 
 v0.4.3:
