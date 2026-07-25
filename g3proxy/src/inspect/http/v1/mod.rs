@@ -201,6 +201,7 @@ where
                             req_acceptor.close();
                         } else {
                             pipeline_stats.del_task();
+                            let _ = io_sender.send(req_io).await;
                         }
                     } else if r.inner.upgrade {
                         let mut upgrade_task = H1UpgradeTask::new(self.ctx.clone(), r, self.req_id);
@@ -223,6 +224,7 @@ where
                             req_acceptor.close();
                         } else {
                             pipeline_stats.del_task();
+                            let _ = io_sender.send(req_io).await;
                         }
                     } else {
                         let mut forward_task =
