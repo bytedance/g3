@@ -97,6 +97,7 @@ impl ClientHelloAcceptTask {
         )
         .await
         {
+            Ok(Ok(0)) => return Err(ServerTaskError::ClosedByClient),
             Ok(Ok(_)) => {}
             Ok(Err(e)) => return Err(ServerTaskError::ClientTcpReadFailed(e)),
             Err(_) => {
@@ -108,7 +109,7 @@ impl ClientHelloAcceptTask {
 
         let (upstream, protocol) = tokio::time::timeout(
             self.ctx.server_config.request_recv_timeout,
-            self.inspect(&mut clt_r, &mut clt_r_buf),
+            self.inspect(&mut clt_r, &mut clt_r_buf, inspect_buffer_size),
         )
         .await
         .map_err(|_| {
@@ -154,6 +155,7 @@ impl ClientHelloAcceptTask {
         &self,
         clt_r: &mut LimitedReader<CDR>,
         clt_r_buf: &mut BytesMut,
+        inspect_buffer_size: usize,
     ) -> ServerTaskResult<(UpstreamAddr, Protocol)>
     where
         CDR: AsyncRead + Send + Sync + Unpin + 'static,
@@ -174,7 +176,7 @@ impl ClientHelloAcceptTask {
                     return Ok((upstream, p));
                 }
                 Err(ProtocolInspectError::NeedMoreData(_)) => {
-                    if clt_r_buf.remaining() == 0 {
+                    if clt_r_buf.len() >= inspect_buffer_size {
                         return Err(ServerTaskError::InvalidClientProtocol(
                             "unable to detect client protocol",
                         ));
