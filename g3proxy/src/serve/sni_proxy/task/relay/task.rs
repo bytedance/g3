@@ -114,8 +114,6 @@ impl TcpStreamTask {
         R: AsyncRead + Send + Sync + Unpin + 'static,
         W: AsyncWrite + Send + Sync + Unpin + 'static,
     {
-        self.task_stats.clt.read.add_bytes(clt_r_buf.len() as u64);
-
         // set client side socket options
         self.ctx
             .cc_info
