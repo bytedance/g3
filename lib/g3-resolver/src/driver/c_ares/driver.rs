@@ -45,31 +45,39 @@ trait ResultConverter {
     fn finalize(self) -> (u32, Vec<IpAddr>);
 }
 
+/// RFC 2181: an RRset with inconsistent TTLs should use the minimum.
+/// Negative TTLs (possible from c-ares) are clamped to 0; `ResolvedRecord::resolved`
+/// then raises them to `positive_min_ttl`.
+fn min_ttl_u32(ttls: impl IntoIterator<Item = i32>) -> u32 {
+    let mut min_ttl: Option<i32> = None;
+    for ttl in ttls {
+        min_ttl = Some(match min_ttl {
+            Some(t) => t.min(ttl),
+            None => ttl,
+        });
+    }
+    min_ttl
+        .map(|t| u32::try_from(t).unwrap_or(0))
+        .unwrap_or(0)
+}
+
 impl ResultConverter for AResults {
     fn finalize(self) -> (u32, Vec<IpAddr>) {
-        let mut ttl: i32 = 0; // see rfc2181
-        let mut addrs = Vec::<IpAddr>::new();
-        for result in self.iter() {
-            ttl = result.ttl();
-            addrs.push(IpAddr::V4(result.ipv4()));
-        }
-        let ttl = u32::try_from(ttl).unwrap_or_default();
-
-        (ttl, addrs)
+        let (ttls, addrs): (Vec<_>, Vec<_>) = self
+            .iter()
+            .map(|r| (r.ttl(), IpAddr::V4(r.ipv4())))
+            .unzip();
+        (min_ttl_u32(ttls), addrs)
     }
 }
 
 impl ResultConverter for AAAAResults {
     fn finalize(self) -> (u32, Vec<IpAddr>) {
-        let mut ttl: i32 = 0; // see rfc2181
-        let mut addrs = Vec::<IpAddr>::new();
-        for result in self.iter() {
-            ttl = result.ttl();
-            addrs.push(IpAddr::V6(result.ipv6()));
-        }
-        let ttl = u32::try_from(ttl).unwrap_or_default();
-
-        (ttl, addrs)
+        let (ttls, addrs): (Vec<_>, Vec<_>) = self
+            .iter()
+            .map(|r| (r.ttl(), IpAddr::V6(r.ipv6())))
+            .unzip();
+        (min_ttl_u32(ttls), addrs)
     }
 }
 
@@ -147,5 +155,23 @@ impl ResolveDriver for CAresResolver {
 
             let _ = sender.send(ResolveDriverResponse::V6(record)); // TODO log error
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn min_ttl_u32_takes_minimum() {
+        assert_eq!(min_ttl_u32([3600, 60, 300]), 60);
+        assert_eq!(min_ttl_u32([60]), 60);
+        assert_eq!(min_ttl_u32([]), 0);
+    }
+
+    #[test]
+    fn min_ttl_u32_clamps_negative_to_zero() {
+        assert_eq!(min_ttl_u32([-1]), 0);
+        assert_eq!(min_ttl_u32([300, -5, 60]), 0);
     }
 }
