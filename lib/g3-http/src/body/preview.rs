@@ -7,7 +7,7 @@ use std::io::{self, Write};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use atoi::FromRadix16;
+use atoi::FromRadix16Checked;
 use bytes::BufMut;
 use thiserror::Error;
 use tokio::io::AsyncBufRead;
@@ -145,7 +145,10 @@ fn push_chunked_preview_data(
         let Some(p) = memchr::memchr(b'\n', left) else {
             break;
         };
-        let (chunk_size, offset) = u64::from_radix_16(&left[0..p]);
+        let (chunk_size, offset) = u64::from_radix_16_checked(&left[0..p]);
+        let Some(chunk_size) = chunk_size else {
+            return Err(PreviewError::InvalidChunkedBody);
+        };
         if offset == 0 {
             return Err(PreviewError::InvalidChunkedBody);
         } else if offset + 1 == p {
