@@ -89,7 +89,8 @@ impl OpensslHostConfig {
                     .map_err(|e| anyhow!("failed to load default ca certs: {e}"))?;
             } else {
                 for (i, cert) in self.client_auth_certs.iter().enumerate() {
-                    let ca_cert = X509::from_der(cert.as_slice()).unwrap();
+                    let ca_cert = X509::from_der(cert.as_slice())
+                        .map_err(|e| anyhow!("[#{i}] failed to parse ca certificate: {e}"))?;
                     let subject = ca_cert
                         .subject_name()
                         .to_owned()
