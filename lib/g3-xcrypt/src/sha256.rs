@@ -185,7 +185,8 @@ impl Sha256Crypt {
                 return Err(XCryptParseError::InvalidHashSize);
             }
 
-            let hash = &v.as_bytes()[d + 1..];
+            // `d` is relative to `s` (post-rounds prefix), not the original `v`.
+            let hash = &s.as_bytes()[d + 1..];
             let mut bin = [0u8; HASH_BIN_LEN];
             for i in 0..10 {
                 let ii = i * 4;
@@ -216,5 +217,41 @@ impl Sha256Crypt {
     pub(super) fn verify(&self, phrase: &[u8]) -> Result<bool, ErrorStack> {
         do_sha256_hash(phrase, &self.salt, self.rounds)
             .map(|hash| constant_time_eq_32(&hash, &self.hash_bin))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::B64CryptEncoder;
+
+    fn encode_hash_str(hash: &[u8; HASH_BIN_LEN]) -> String {
+        let mut bin = [0u8; HASH_BIN_LEN];
+        for i in 0..HASH_BIN_LEN {
+            bin[i] = hash[ENCODE_INDEX_MAP[i] as usize];
+        }
+        let mut enc = B64CryptEncoder::new(HASH_STR_LEN);
+        for i in 0..10 {
+            let oi = i * 3;
+            enc.push::<4>(bin[oi], bin[oi + 1], bin[oi + 2]);
+        }
+        enc.push::<3>(0, bin[30], bin[31]);
+        enc.into()
+    }
+
+    #[test]
+    fn parse_and_verify_with_explicit_rounds() {
+        let phrase = b"123456";
+        let salt = "testsalt12345678";
+        let rounds = 10000usize;
+        let hash = do_sha256_hash(phrase, salt, rounds).unwrap();
+        let hash_str = encode_hash_str(&hash);
+        let encoded = format!("rounds={rounds}${salt}${hash_str}");
+
+        let crypt = Sha256Crypt::parse(&encoded).unwrap();
+        assert_eq!(crypt.rounds, rounds);
+        assert_eq!(crypt.salt, salt);
+        assert!(crypt.verify(phrase).unwrap());
+        assert!(!crypt.verify(b"wrong").unwrap());
     }
 }

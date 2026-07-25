@@ -68,6 +68,16 @@ mod tests {
     }
 
     #[test]
+    fn sha256_with_rounds() {
+        // Hash generated with rounds=10000 / salt=testsalt12345678 / phrase=123456
+        let crypt = XCryptHash::parse(
+            "$5$rounds=10000$testsalt12345678$GJFIxtlbVCt.BUeokRcgxlqpJSn.a0x/CXqRhBAQ472",
+        )
+        .unwrap();
+        assert!(crypt.verify(b"123456").unwrap());
+    }
+
+    #[test]
     fn sha512() {
         let s = "$6$yeDpErl4xq9E2vKP$\
             .reNyfNzRJyAJrlh38J1XGx/5QTfBy3IedVNdTqfWqSeZFPAbXzV85uNK9fdmXvGCxizHVcAiIoQ4uXMJWuB6/";
