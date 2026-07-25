@@ -344,8 +344,13 @@ impl HttpTransparentResponse {
                 // it's a hop-by-hop option, but we just pass it
                 self.has_transfer_encoding = true;
                 if self.has_content_length {
-                    // delete content-length
+                    // Content-Length must be ignored when Transfer-Encoding is present
+                    // (RFC 7230 / RFC 9112). Drop the header and the length flag so
+                    // body_type() does not treat a zeroed length as "no body".
+                    self.end_to_end_headers.remove(header::CONTENT_LENGTH);
                     self.content_length = 0;
+                    self.has_content_length = false;
+                    self.keep_alive = false; // according to rfc9112 Section 6.1
                 }
 
                 let v = header.value.to_lowercase();
@@ -353,12 +358,17 @@ impl HttpTransparentResponse {
                     self.chunked_transfer = true;
                 } else if v.contains("chunked") {
                     return Err(HttpResponseParseError::InvalidChunkedTransferEncoding);
+                } else {
+                    // Non-chunked TE (e.g. "gzip"): message length is delimited by
+                    // closing the connection.
+                    self.keep_alive = false;
                 }
                 return self.insert_hop_by_hop_header(name, &header);
             }
             "content-length" => {
                 if self.has_transfer_encoding {
                     // ignore content-length
+                    self.keep_alive = false; // according to rfc9112 Section 6.1
                     return Ok(());
                 }
 
@@ -455,5 +465,56 @@ mod tests {
         assert_eq!(rsp.code, 200);
         assert!(!rsp.keep_alive());
         assert_eq!(rsp.body_type(&method), Some(HttpBodyType::ReadUntilEnd));
+    }
+
+    #[tokio::test]
+    async fn cl_then_non_chunked_te_reads_until_end() {
+        let content = b"HTTP/1.1 200 OK\r\n\
+            Content-Length: 6\r\n\
+            Transfer-Encoding: gzip\r\n\
+            Connection: keep-alive\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let method = Method::GET;
+        let (rsp, _) = HttpTransparentResponse::parse(&mut buf_stream, &method, true, 4096)
+            .await
+            .unwrap();
+        assert!(!rsp.keep_alive());
+        assert_eq!(rsp.body_type(&method), Some(HttpBodyType::ReadUntilEnd));
+        assert!(!rsp.end_to_end_headers.contains_key(header::CONTENT_LENGTH));
+    }
+
+    #[tokio::test]
+    async fn te_then_cl_ignored_for_non_chunked_te() {
+        let content = b"HTTP/1.1 200 OK\r\n\
+            Transfer-Encoding: gzip\r\n\
+            Content-Length: 6\r\n\
+            Connection: keep-alive\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let method = Method::GET;
+        let (rsp, _) = HttpTransparentResponse::parse(&mut buf_stream, &method, true, 4096)
+            .await
+            .unwrap();
+        assert!(!rsp.keep_alive());
+        assert_eq!(rsp.body_type(&method), Some(HttpBodyType::ReadUntilEnd));
+        assert!(!rsp.end_to_end_headers.contains_key(header::CONTENT_LENGTH));
+    }
+
+    #[tokio::test]
+    async fn cl_then_chunked_te_uses_chunked() {
+        let content = b"HTTP/1.1 200 OK\r\n\
+            Content-Length: 6\r\n\
+            Transfer-Encoding: chunked\r\n\
+            Connection: keep-alive\r\n\r\n";
+        let stream = tokio_test::io::Builder::new().read(content).build();
+        let mut buf_stream = BufReader::new(stream);
+        let method = Method::GET;
+        let (rsp, _) = HttpTransparentResponse::parse(&mut buf_stream, &method, true, 4096)
+            .await
+            .unwrap();
+        assert!(!rsp.keep_alive());
+        assert_eq!(rsp.body_type(&method), Some(HttpBodyType::Chunked));
+        assert!(!rsp.end_to_end_headers.contains_key(header::CONTENT_LENGTH));
     }
 }
