@@ -88,6 +88,10 @@ impl HickoryClient {
 
                 r = req_receiver.recv_async() => {
                     let Ok((req, rsp_sender)) = r else {
+                        log::warn!(
+                            "hickory dns client to {} stopping: request channel closed",
+                            self.config.target
+                        );
                         break;
                     };
                     let client_job = HickoryClientJob {
