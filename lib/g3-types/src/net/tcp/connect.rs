@@ -22,7 +22,7 @@ impl Default for TcpConnectConfig {
 
 impl TcpConnectConfig {
     pub fn set_max_retry(&mut self, max_retry: usize) {
-        self.max_tries = max_retry + 1;
+        self.max_tries = max_retry.saturating_add(1);
     }
 
     #[inline]
@@ -31,7 +31,9 @@ impl TcpConnectConfig {
     }
 
     pub fn set_each_timeout(&mut self, each_timeout: Duration) {
-        self.each_timeout = each_timeout;
+        if !each_timeout.is_zero() {
+            self.each_timeout = each_timeout;
+        }
     }
 
     #[inline]
@@ -41,7 +43,9 @@ impl TcpConnectConfig {
 
     pub fn limit_to(&mut self, other: &Self) {
         self.max_tries = self.max_tries.min(other.max_tries);
-        self.each_timeout = self.each_timeout.min(other.each_timeout);
+        if !other.each_timeout.is_zero() {
+            self.each_timeout = self.each_timeout.min(other.each_timeout);
+        }
     }
 }
 
@@ -113,5 +117,40 @@ impl HappyEyeballsConfig {
                 id += 1;
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn set_max_retry_saturates() {
+        let mut config = TcpConnectConfig::default();
+        config.set_max_retry(usize::MAX);
+        assert_eq!(config.max_tries(), usize::MAX);
+    }
+
+    #[test]
+    fn set_each_timeout_rejects_zero() {
+        let mut config = TcpConnectConfig::default();
+        let default_timeout = config.each_timeout();
+        config.set_each_timeout(Duration::ZERO);
+        assert_eq!(config.each_timeout(), default_timeout);
+
+        config.set_each_timeout(Duration::from_secs(5));
+        assert_eq!(config.each_timeout(), Duration::from_secs(5));
+    }
+
+    #[test]
+    fn limit_to_ignores_zero_timeout() {
+        let mut config = TcpConnectConfig::default();
+        config.set_each_timeout(Duration::from_secs(10));
+
+        let mut other = TcpConnectConfig::default();
+        // Simulate a zero timeout that should not clamp us down to immediate failure.
+        other.each_timeout = Duration::ZERO;
+        config.limit_to(&other);
+        assert_eq!(config.each_timeout(), Duration::from_secs(10));
     }
 }
