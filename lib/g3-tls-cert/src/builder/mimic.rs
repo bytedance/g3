@@ -60,7 +60,8 @@ impl<'a> MimicCertBuilder<'a> {
         if diff.days < 0 {
             Err(anyhow!("the mimic cert is already expired"))
         } else {
-            Ok(diff.days * 3600 + diff.secs)
+            let seconds = diff.days as i64 * 86400 + diff.secs as i64;
+            Ok(i32::try_from(seconds).unwrap_or(i32::MAX))
         }
     }
 

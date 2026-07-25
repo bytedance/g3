@@ -264,7 +264,8 @@ impl ServerCertBuilder {
         if diff.days < 0 {
             Err(anyhow!("the generated cert is already expired"))
         } else {
-            Ok(diff.days * 3600 + diff.secs)
+            let seconds = diff.days as i64 * 86400 + diff.secs as i64;
+            Ok(i32::try_from(seconds).unwrap_or(i32::MAX))
         }
     }
 
@@ -373,5 +374,23 @@ impl ServerCertBuilder {
             .map_err(|e| anyhow!("failed to sign: {e}"))?;
 
         Ok(builder.build())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn valid_seconds_of_one_year() {
+        let mut builder = TlsServerCertBuilder::new_ec256().unwrap();
+        builder.refresh_datetime().unwrap();
+
+        // NotAfter is set to 365 days from now
+        let seconds = builder.valid_seconds().unwrap();
+        assert!(
+            (365 * 86400 - 60..=365 * 86400).contains(&seconds),
+            "unexpected valid seconds {seconds}"
+        );
     }
 }
