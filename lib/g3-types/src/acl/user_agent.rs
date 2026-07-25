@@ -40,6 +40,11 @@ impl<Action: ActionContract> AclUserAgentRule<Action> {
         let value = ua_value.to_ascii_lowercase();
 
         for (name, action) in self.inner.iter() {
+            // Empty names match every offset via str::find; skip to avoid a spin loop.
+            if name.is_empty() {
+                continue;
+            }
+
             let mut offset = 0usize;
 
             while offset < value.len() {
@@ -48,19 +53,17 @@ impl<Action: ActionContract> AclUserAgentRule<Action> {
                 if let Some(pos) = vs.find(name) {
                     let pos_pre = offset + pos;
                     if pos_pre != 0 && !matches!(value.as_bytes()[pos_pre - 1], b' ' | b';') {
-                        // just skip the current match and offset one more byte,
-                        // as the UserAgent name should not contain ' ' or ';'
-                        offset += name.len() + 1;
+                        // Skip past this match (name is ASCII, so this stays on a char boundary).
+                        offset = pos_pre + name.len();
                         continue;
                     }
 
-                    let pos_next = offset + pos + name.len();
+                    let pos_next = pos_pre + name.len();
                     if pos_next < value.len()
                         && !matches!(value.as_bytes()[pos_next], b'/' | b' ' | b';')
                     {
-                        // just skip the current match and offset one more byte,
-                        // as the UserAgent name should not contain ' ' or ';'
-                        offset += name.len();
+                        // Skip past this match (name is ASCII, so this stays on a char boundary).
+                        offset = pos_next;
                         continue;
                     }
 
@@ -135,5 +138,31 @@ mod tests {
         );
         assert!(found);
         assert_eq!(action, AclAction::Forbid);
+    }
+
+    #[test]
+    fn non_ascii_prefix_does_not_panic() {
+        let mut acl = AclUserAgentRule::new(AclAction::Permit);
+        acl.add_ua_name("go", AclAction::Forbid);
+
+        // Leading non-ASCII before a non-token match used to advance offset into a
+        // multi-byte UTF-8 character and panic on the next slice.
+        let (found, action) = acl.check("a€go");
+        assert!(!found);
+        assert_eq!(action, AclAction::Permit);
+
+        let (found, action) = acl.check("a€ go/1.0");
+        assert!(found);
+        assert_eq!(action, AclAction::Forbid);
+    }
+
+    #[test]
+    fn empty_ua_name_is_ignored() {
+        let mut acl = AclUserAgentRule::new(AclAction::Permit);
+        acl.add_ua_name("", AclAction::Forbid);
+
+        let (found, action) = acl.check("curl/7.74.0");
+        assert!(!found);
+        assert_eq!(action, AclAction::Permit);
     }
 }
