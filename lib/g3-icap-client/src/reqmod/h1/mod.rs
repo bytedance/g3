@@ -150,7 +150,7 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
         if self.icap_client.config.disable_preview {
             return None;
         }
-        self.icap_options.preview_size
+        self.icap_options.preview_size.filter(|&n| n > 0)
     }
 
     pub async fn xfer<H, CR, UW>(

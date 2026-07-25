@@ -56,13 +56,13 @@ impl<I: IdleCheck> HttpRequestAdapter<I> {
                 preview_buf = self
                     .read_preview_data(&mut clt_body_reader, preview_size)
                     .await?;
-                if preview_buf.is_empty() {
-                    state.clt_read_finished = true;
-                    return self
-                        .xfer_without_body(state, http_request, ups_writer)
-                        .await;
-                }
                 if clt_body_reader.finished() {
+                    if preview_buf.is_empty() {
+                        state.clt_read_finished = true;
+                        return self
+                            .xfer_without_body(state, http_request, ups_writer)
+                            .await;
+                    }
                     state.clt_read_finished = true;
                     return self
                         .xfer_small_body(state, http_request, preview_buf, ups_writer)
