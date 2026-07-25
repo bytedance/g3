@@ -158,7 +158,7 @@ impl DatagramLimiter {
             }
         }
 
-        if to_advance > 0 && total_size_v.len() > to_advance {
+        if to_advance > 0 {
             let buf_size = total_size_v[to_advance - 1];
             for limiter in &mut self.global {
                 let checked = limiter.checked_packets.take().unwrap();
@@ -207,5 +207,60 @@ impl DatagramLimiter {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use g3_types::limit::GlobalDatagramSpeedLimitConfig;
+
+    use super::*;
+    use crate::limit::GlobalDatagramLimiter;
+
+    #[test]
+    fn check_packets_full_batch_records_checked_bytes() {
+        let global = Arc::new(GlobalDatagramLimiter::new(
+            GlobalDatagramSpeedLimitConfig::per_second(1000),
+        ));
+        let mut limiter = DatagramLimiter::default();
+        limiter.add_global(global.clone());
+
+        let total_len_v = [100, 200];
+        assert_eq!(
+            limiter.check_packets(0, &total_len_v),
+            DatagramLimitAction::Advance(2)
+        );
+        // Pending/Err path must refund the reserved byte tokens.
+        limiter.release_global();
+        assert_eq!(
+            global.check_packet(900),
+            DatagramLimitAction::Advance(1),
+            "full-batch check_packets must record checked_bytes so release_global restores them"
+        );
+    }
+
+    #[test]
+    fn check_packets_trimmed_batch_still_records_checked_bytes() {
+        let global = Arc::new(GlobalDatagramLimiter::new(
+            GlobalDatagramSpeedLimitConfig::per_second(1000),
+        ));
+        let mut limiter = DatagramLimiter::default();
+        limiter.add_global(global.clone());
+
+        // 100 tokens left; only the first datagram (50) fits, so the batch is trimmed.
+        assert_eq!(global.check_packet(900), DatagramLimitAction::Advance(1));
+        let total_len_v = [50, 150];
+        assert_eq!(
+            limiter.check_packets(0, &total_len_v),
+            DatagramLimitAction::Advance(1)
+        );
+        limiter.release_global();
+        assert_eq!(
+            global.check_packet(60),
+            DatagramLimitAction::Advance(1),
+            "trimmed check_packets must refund reserved bytes on release_global"
+        );
     }
 }
