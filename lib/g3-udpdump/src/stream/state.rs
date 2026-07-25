@@ -76,9 +76,16 @@ impl<H: PduHeader> StreamDumpState<H> {
         }
     }
 
-    pub(crate) fn dump_all_bufs(&mut self, bufs: &[IoSlice<'_>]) {
+    /// Dump the first `nbytes` of application data across `bufs` (byte prefix, not
+    /// slice-count prefix). This matches `AsyncWrite::poll_write_vectored`'s return value.
+    pub(crate) fn dump_all_bufs(&mut self, bufs: &[IoSlice<'_>], mut nbytes: usize) {
         for buf in bufs {
-            self.dump_buf(buf.as_ref());
+            if nbytes == 0 {
+                break;
+            }
+            let take = nbytes.min(buf.len());
+            self.dump_buf(&buf[..take]);
+            nbytes -= take;
         }
         if self.has_pending_data() {
             self.flush_data();
