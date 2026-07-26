@@ -1,5 +1,5 @@
 
-v1.12.3:
+v1.12.4:
  - BUG FIX: stop double-counting sni_proxy pre-handshake bytes in task stats
  - BUG FIX: split overlong FTP list lines across chunked HTTP chunks
  - BUG FIX: reject overflowing HTTP chunk sizes (checked hex parse)
@@ -7,6 +7,22 @@ v1.12.3:
  - BUG FIX: parse SOCKS5 UDP headers against received length on single-packet paths
  - BUG FIX: reject empty TLS Handshake fragments and bound ClientHello receive buffers
  - BUG FIX: accumulate SizedReader cur_size so FTP downloads are size-limited correctly
+ - BUG FIX: fix parsing of IMAP command UNSUBSCRIBE and ENABLE, and accept non-synchronizing literals
+ - BUG FIX: take minimum TTL among Hickory A/AAAA answers (ignore CNAME/other RRtype TTLs)
+ - BUG FIX: clear ip-locate in-flight waiters on empty geo responses so misses cannot pin an IP
+ - BUG FIX: await delivery of rebuilt Hickory DNS clients instead of dropping them when the replacement channel is full
+ - BUG FIX: strip default ports from Host headers without truncating IPv6 literals
+ - BUG FIX: stop protocol inspection when data0 buffer is full by length
+ - BUG FIX: treat ICAP Preview: 0 as no-preview so REQMOD/H1 does not drop bodies
+ - BUG FIX: reject overflowing ICAP Options-TTL values
+ - BUG FIX: record checked_bytes for full-batch global datagram checks so Pending/Err paths refund byte tokens
+ - BUG FIX: reject overflowing decimal integers in msgpack binary as_u32
+ - BUG FIX: drop Content-Length when Transfer-Encoding is set in HTTP request/response parsing
+ - BUG FIX: return the client read half after a failed H1 CONNECT/Upgrade so the connection does not hang
+ - BUG FIX: use saturating TTL arithmetic in ResolvedRecord
+ - BUG FIX: advance User-Agent ACL search from the match position
+
+v1.12.3:
  - BUG FIX: fix default ingress network filter rules
 
 v1.12.2:
