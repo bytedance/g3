@@ -134,10 +134,10 @@ where
     pub(crate) fn drop_default_port_in_host(&mut self, default_port: u16) {
         if let Some(v) = self.inner.end_to_end_headers.get_mut(header::HOST) {
             let b = v.inner().as_bytes();
-            if let Some(new_host) = host_header_without_default_port(b, default_port)
-                && let Ok(new_v) = HeaderValue::from_bytes(new_host)
-            {
-                v.set_inner(new_v);
+            if let Some(new_host) = host_header_without_default_port(b, default_port) {
+                if let Ok(new_v) = HeaderValue::from_bytes(new_host) {
+                    v.set_inner(new_v);
+                }
             }
         }
     }
