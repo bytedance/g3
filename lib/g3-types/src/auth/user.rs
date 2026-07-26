@@ -24,23 +24,21 @@ const USER_INFO_PCT_ENCODING_SET: &AsciiSet = &CONTROLS
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Username {
     inner: String,
-    len: u8,
 }
 
 impl Username {
     pub fn empty() -> Self {
         Username {
             inner: String::new(),
-            len: 0,
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.len == 0
+        self.inner.is_empty()
     }
 
     pub fn len(&self) -> u8 {
-        self.len
+        self.inner.len() as u8
     }
 
     pub fn from_original(s: &str) -> anyhow::Result<Self> {
@@ -52,7 +50,6 @@ impl Username {
         }
         Ok(Username {
             inner: s.to_string(),
-            len: s.len() as u8,
         })
     }
 
@@ -76,23 +73,21 @@ impl Username {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Password {
     inner: String,
-    len: u8,
 }
 
 impl Password {
     pub fn empty() -> Self {
         Password {
             inner: String::new(),
-            len: 0,
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.len == 0
+        self.inner.is_empty()
     }
 
     pub fn len(&self) -> u8 {
-        self.len
+        self.inner.len() as u8
     }
 
     pub fn from_original(s: &str) -> anyhow::Result<Self> {
@@ -101,7 +96,6 @@ impl Password {
         }
         Ok(Password {
             inner: s.to_string(),
-            len: s.len() as u8,
         })
     }
 
