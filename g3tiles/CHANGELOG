@@ -1,6 +1,7 @@
 
 v0.3.9:
  - BUG FIX: reject empty TLS Handshake fragments and bound ClientHello receive buffers
+ - Compatibility: remove unused openssl_proxy option alert_unrecognized_name (never wired to send TLS alerts)
  - Feature: restore support for aws-lc
  - Feature: add support for aws-lc-fips
  - Feature: allow to set hop_limit and traffic_class ipv6 socket options

@@ -71,15 +71,6 @@ Set if we should spawn tasks in tokio unconstrained way.
 
 **default**: false
 
-alert_unrecognized_name
------------------------
-
-**optional**, **type**: bool
-
-Set if we should send TLS alert when no host config can be recognized.
-
-**default**: false
-
 tls_no_async_mode
 -----------------
 
