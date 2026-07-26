@@ -22,7 +22,7 @@ impl CertAgentConfig {
 
                 g3_yaml::foreach_kv(map, |k, v| match g3_yaml::key::normalize(k).as_str() {
                     "cache_request_batch_count" => {
-                        let count = g3_yaml::value::as_usize(v)?;
+                        let count = g3_yaml::value::as_nonzero_usize(v)?;
                         config.set_cache_request_batch_count(count);
                         Ok(())
                     }

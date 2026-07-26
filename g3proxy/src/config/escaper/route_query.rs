@@ -5,6 +5,7 @@
 
 use std::collections::BTreeSet;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::num::NonZeroUsize;
 use std::time::Duration;
 
 use anyhow::{Context, anyhow};
@@ -26,7 +27,7 @@ pub(crate) struct RouteQueryEscaperConfig {
     pub(crate) query_pass_client_ip: bool,
     pub(crate) query_allowed_nodes: BTreeSet<NodeName>,
     pub(crate) fallback_node: NodeName,
-    pub(crate) cache_request_batch_count: usize,
+    pub(crate) cache_request_batch_count: NonZeroUsize,
     pub(crate) cache_request_timeout: Duration,
     pub(crate) cache_pick_policy: SelectivePickPolicy,
     pub(crate) query_peer_addr: SocketAddr,
@@ -45,7 +46,7 @@ impl RouteQueryEscaperConfig {
             query_pass_client_ip: false,
             query_allowed_nodes: BTreeSet::new(),
             fallback_node: NodeName::default(),
-            cache_request_batch_count: 10,
+            cache_request_batch_count: NonZeroUsize::new(10).unwrap(),
             cache_request_timeout: Duration::from_millis(100),
             cache_pick_policy: SelectivePickPolicy::Ketama,
             query_peer_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 1053),
@@ -100,8 +101,7 @@ impl RouteQueryEscaperConfig {
                 Ok(())
             }
             "cache_request_batch_count" => {
-                self.cache_request_batch_count = g3_yaml::value::as_usize(v)
-                    .context(format!("invalid usize value for key {k}"))?;
+                self.cache_request_batch_count = g3_yaml::value::as_nonzero_usize(v)?;
                 Ok(())
             }
             "cache_request_timeout" => {

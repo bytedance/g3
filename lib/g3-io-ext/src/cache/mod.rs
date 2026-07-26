@@ -4,6 +4,7 @@
  */
 
 use std::hash::Hash;
+use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -62,7 +63,7 @@ pub struct CacheQueryRequest<K, R> {
 }
 
 pub fn create_effective_cache<K: Hash + Eq, R: Send + Sync>(
-    request_batch_handle_count: usize,
+    request_batch_handle_count: NonZeroUsize,
 ) -> (
     EffectiveCacheRuntime<K, R>,
     EffectiveCacheHandle<K, R>,

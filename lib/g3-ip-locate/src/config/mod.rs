@@ -4,6 +4,7 @@
  */
 
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::num::NonZeroUsize;
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -18,7 +19,7 @@ mod yaml;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IpLocateServiceConfig {
-    pub(crate) cache_request_batch_count: usize,
+    pub(crate) cache_request_batch_count: NonZeroUsize,
     pub(crate) cache_request_timeout: Duration,
     pub(crate) query_peer_addr: SocketAddr,
     pub(crate) query_socket_buffer: SocketBufferConfig,
@@ -30,7 +31,7 @@ pub struct IpLocateServiceConfig {
 impl Default for IpLocateServiceConfig {
     fn default() -> Self {
         IpLocateServiceConfig {
-            cache_request_batch_count: 10,
+            cache_request_batch_count: NonZeroUsize::new(10).unwrap(),
             cache_request_timeout: Duration::from_secs(2),
             query_peer_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 2888),
             query_socket_buffer: SocketBufferConfig::default(),
@@ -42,7 +43,7 @@ impl Default for IpLocateServiceConfig {
 }
 
 impl IpLocateServiceConfig {
-    pub fn set_cache_request_batch_count(&mut self, count: usize) {
+    pub fn set_cache_request_batch_count(&mut self, count: NonZeroUsize) {
         self.cache_request_batch_count = count;
     }
 

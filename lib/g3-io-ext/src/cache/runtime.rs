@@ -6,6 +6,7 @@
 use std::collections::hash_map;
 use std::hash::Hash;
 use std::io;
+use std::num::NonZeroUsize;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -23,7 +24,7 @@ struct CacheQueryValue<R> {
 }
 
 pub struct EffectiveCacheRuntime<K: Hash, R> {
-    request_batch_handle_count: usize,
+    request_batch_handle_count: NonZeroUsize,
     cache: AHashMap<Arc<K>, CacheQueryValue<R>>,
     doing: AHashMap<Arc<K>, Vec<CacheQueryRequest<K, R>>>,
     req_receiver: mpsc::UnboundedReceiver<CacheQueryRequest<K, R>>,
@@ -34,7 +35,7 @@ pub struct EffectiveCacheRuntime<K: Hash, R> {
 
 impl<K: Hash + Eq, R: Send + Sync> EffectiveCacheRuntime<K, R> {
     pub(super) fn new(
-        request_batch_handle_count: usize,
+        request_batch_handle_count: NonZeroUsize,
         req_receiver: mpsc::UnboundedReceiver<CacheQueryRequest<K, R>>,
         rsp_receiver: mpsc::UnboundedReceiver<(Arc<K>, EffectiveCacheData<R>)>,
         query_sender: mpsc::UnboundedSender<Arc<K>>,
@@ -147,7 +148,7 @@ impl<K: Hash + Eq, R: Send + Sync> EffectiveCacheRuntime<K, R> {
             }
 
             // handle req
-            for _ in 0..self.request_batch_handle_count {
+            for _ in 0..self.request_batch_handle_count.get() {
                 match self.req_receiver.poll_recv(cx) {
                     Poll::Pending => return Poll::Pending,
                     Poll::Ready(None) => return Poll::Ready(Ok(())),
@@ -174,7 +175,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_request_batch_handle_count_one() {
-        let (runtime, handle, mut query_handle) = create_effective_cache::<String, String>(1);
+        let (runtime, handle, mut query_handle) =
+            create_effective_cache::<String, String>(NonZeroUsize::MIN);
 
         let runtime_task = tokio::spawn(runtime);
 
