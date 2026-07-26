@@ -169,14 +169,14 @@ impl Command {
             let parsed = match upper_cmd.as_bytes() {
                 b"AUTHENTICATE" => ParsedCommand::Auth,
                 b"LOGIN" => ParsedCommand::Login, // TODO parse username
-                b"Enable" => ParsedCommand::Enable,
+                b"ENABLE" => ParsedCommand::Enable,
                 b"SELECT" => ParsedCommand::Select,
                 b"EXAMINE" => ParsedCommand::Examine,
                 b"CREATE" => ParsedCommand::Create,
                 b"DELETE" => ParsedCommand::Delete,
                 b"RENAME" => ParsedCommand::Rename,
                 b"SUBSCRIBE" => ParsedCommand::Subscribe,
-                b"UBSUBSCRIBE" => ParsedCommand::Unsubscribe,
+                b"UNSUBSCRIBE" => ParsedCommand::Unsubscribe,
                 b"LIST" => ParsedCommand::List,
                 b"LSUB" => ParsedCommand::Lsub,
                 b"STATUS" => ParsedCommand::Status,
@@ -301,5 +301,13 @@ mod tests {
         let literal = cmd.literal_arg.unwrap();
         assert!(!literal.wait_continuation);
         assert_eq!(literal.size, 297);
+    }
+
+    #[test]
+    fn enable() {
+        let cmd = Command::parse_line(b"A001 ENABLE CONDSTORE\r\n").unwrap();
+        assert_eq!(cmd.tag.as_str(), "A001");
+        assert_eq!(cmd.parsed, ParsedCommand::Enable);
+        assert!(cmd.literal_arg.is_none());
     }
 }

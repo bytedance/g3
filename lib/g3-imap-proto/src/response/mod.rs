@@ -296,14 +296,17 @@ fn check_literal_size(left: &[u8]) -> Result<Option<u64>, ResponseLineError> {
     if left.ends_with(b"}") {
         if let Some(p) = memchr::memrchr(b'{', left) {
             let size_s = &left[p + 1..left.len() - 1];
-            let (size, offset) = u64::from_radix_10_checked(size_s);
-            if offset != size_s.len() {
+            if size_s.is_empty() {
                 return Err(ResponseLineError::InvalidLiteralSize);
             }
-            return match size {
-                Some(size) => Ok(Some(size)),
-                None => Err(ResponseLineError::InvalidLiteralSize),
+            let (size, offset) = u64::from_radix_10_checked(size_s);
+            let Some(size) = size else {
+                return Err(ResponseLineError::InvalidLiteralSize);
             };
+            if offset == size_s.len() || (offset + 1 == size_s.len() && size_s[offset] == b'+') {
+                return Ok(Some(size));
+            }
+            return Err(ResponseLineError::InvalidLiteralSize);
         }
     }
     Ok(None)
@@ -348,6 +351,13 @@ mod tests {
     #[test]
     fn fetch() {
         let rsp = Response::parse_line(b"* 12 FETCH (BODY[HEADER] {342}\r\n").unwrap();
+        let Response::CommandData(r) = rsp else {
+            panic!("parse failed")
+        };
+        assert_eq!(r.command_data, CommandData::Fetch);
+        assert_eq!(r.literal_data, Some(342));
+
+        let rsp = Response::parse_line(b"* 12 FETCH (BODY[HEADER] {342+}\r\n").unwrap();
         let Response::CommandData(r) = rsp else {
             panic!("parse failed")
         };
