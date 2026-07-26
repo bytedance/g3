@@ -6,6 +6,7 @@
 use std::collections::hash_map;
 use std::io;
 use std::net::IpAddr;
+use std::num::NonZeroUsize;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -25,7 +26,7 @@ struct CacheValue {
 }
 
 pub(crate) struct IpLocationCacheRuntime {
-    request_batch_handle_count: usize,
+    request_batch_handle_count: NonZeroUsize,
     cache: IpNetworkTable<CacheValue>,
     doing: FxHashMap<IpAddr, Vec<CacheQueryRequest>>,
     req_receiver: mpsc::UnboundedReceiver<CacheQueryRequest>,
@@ -72,9 +73,11 @@ impl IpLocationCacheRuntime {
                 },
             );
         } else if let Some(ip) = ip {
-            // if no new value found, just use the old expired value
-            if let Some((_net, v)) = self.cache.longest_match(ip) {
-                if let Some(vec) = self.doing.remove(&ip) {
+            // Always clear doing so a miss (no geo data) cannot pin the IP forever.
+            // Prefer a stale cache entry when present; otherwise drop notifiers so
+            // waiters observe Err and map to None.
+            if let Some(vec) = self.doing.remove(&ip) {
+                if let Some((_net, v)) = self.cache.longest_match(ip) {
                     for req in vec.into_iter() {
                         let _ = req.notifier.send(v.location.clone());
                     }
@@ -122,7 +125,7 @@ impl IpLocationCacheRuntime {
             }
 
             // handle req
-            for _ in 0..self.request_batch_handle_count {
+            for _ in 0..self.request_batch_handle_count.get() {
                 match self.req_receiver.poll_recv(cx) {
                     Poll::Pending => return Poll::Pending,
                     Poll::Ready(None) => return Poll::Ready(Ok(())),
@@ -138,5 +141,66 @@ impl Future for IpLocationCacheRuntime {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         (*self).poll_loop(cx)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::Ipv4Addr;
+    use std::time::Duration;
+
+    use tokio::sync::oneshot;
+
+    use crate::IpLocationCacheResponse;
+
+    #[tokio::test]
+    async fn empty_response_without_cache_clears_doing_and_allows_requery() {
+        let config = IpLocateServiceConfig::default();
+        let (rsp_sender, rsp_receiver) = mpsc::unbounded_channel();
+        let (query_sender, mut query_receiver) = mpsc::unbounded_channel();
+        let (req_sender, req_receiver) = mpsc::unbounded_channel();
+        let runtime =
+            IpLocationCacheRuntime::new(&config, req_receiver, rsp_receiver, query_sender);
+        let runtime_task = tokio::spawn(runtime);
+
+        let ip = IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4));
+        let (notifier, waiter) = oneshot::channel();
+        req_sender
+            .send(CacheQueryRequest { ip, notifier })
+            .unwrap();
+
+        let queried = tokio::time::timeout(Duration::from_secs(1), query_receiver.recv())
+            .await
+            .expect("timed out waiting for first query")
+            .expect("query channel closed");
+        assert_eq!(queried, ip);
+
+        rsp_sender
+            .send((Some(ip), IpLocationCacheResponse::empty(10)))
+            .unwrap();
+
+        assert!(
+            waiter.await.is_err(),
+            "empty response with no cache should drop notifiers"
+        );
+
+        let (notifier2, _waiter2) = oneshot::channel();
+        req_sender
+            .send(CacheQueryRequest {
+                ip,
+                notifier: notifier2,
+            })
+            .unwrap();
+
+        let queried_again = tokio::time::timeout(Duration::from_secs(1), query_receiver.recv())
+            .await
+            .expect("timed out waiting for re-query after empty response")
+            .expect("query channel closed");
+        assert_eq!(queried_again, ip);
+
+        drop(req_sender);
+        drop(rsp_sender);
+        let _ = runtime_task.await;
     }
 }

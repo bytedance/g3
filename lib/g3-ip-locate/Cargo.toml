@@ -20,6 +20,9 @@ g3-msgpack = { workspace = true, features = ["geoip"] }
 g3-socket.workspace = true
 g3-yaml = { workspace = true, optional = true }
 
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "time", "sync"] }
+
 [features]
 default = []
 yaml = ["dep:g3-yaml", "dep:yaml-rust"]
