@@ -12,7 +12,7 @@ use anyhow::anyhow;
 use async_recursion::async_recursion;
 use hickory_client::client::{Client, ClientHandle};
 use hickory_proto::BufDnsStreamHandle;
-use hickory_proto::rr::{DNSClass, Name, RData, RecordType};
+use hickory_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use rustls::ClientConfig;
 use rustls_pki_types::ServerName;
 use tokio::sync::mpsc;
@@ -168,46 +168,24 @@ impl HickoryClientJob {
                         }
                     }
 
-                    let mut has_cname = false;
-                    let mut ips = Vec::with_capacity(4);
-                    let mut ttl = 0;
-                    for r in msg.take_answers() {
-                        ttl = r.ttl();
-                        match r.data() {
-                            RData::A(v) => {
-                                if req.rtype == RecordType::A {
-                                    ips.push(IpAddr::V4(v.0));
-                                }
-                            }
-                            RData::AAAA(v) => {
-                                if req.rtype == RecordType::AAAA {
-                                    ips.push(IpAddr::V6(v.0))
-                                }
-                            }
-                            RData::CNAME(v) => {
-                                if name.eq(r.name()) {
-                                    has_cname = true;
-                                    name = v.0.clone();
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                    return if ips.is_empty() {
+                    let (ips, ttl, has_cname, next_name) =
+                        collect_answer_addresses(msg.take_answers(), req.rtype, name);
+                    if ips.is_empty() {
                         if has_cname {
                             self.try_truncated = true;
+                            name = next_name;
                             continue;
                         }
-                        ResolvedRecord::empty(req.domain, self.config.negative_ttl)
+                        return ResolvedRecord::empty(req.domain, self.config.negative_ttl);
                     } else {
-                        ResolvedRecord::resolved(
+                        return ResolvedRecord::resolved(
                             req.domain,
-                            ttl,
+                            ttl.unwrap_or(0),
                             self.config.positive_min_ttl,
                             self.config.positive_max_ttl,
                             ips,
-                        )
-                    };
+                        );
+                    }
                 }
                 Err(e) => {
                     self.state.add_failed();
@@ -222,6 +200,38 @@ impl HickoryClientJob {
             }
         }
     }
+}
+
+/// Collect A/AAAA addresses for `rtype` from the answer section.
+///
+/// TTL is the **minimum** among those address records only (not CNAME / other
+/// RRtypes that may appear later in the answer section).
+fn collect_answer_addresses(
+    answers: impl IntoIterator<Item = Record>,
+    rtype: RecordType,
+    mut name: Name,
+) -> (Vec<IpAddr>, Option<u32>, bool, Name) {
+    let mut has_cname = false;
+    let mut ips = Vec::with_capacity(4);
+    let mut ttl = None;
+    for r in answers {
+        match r.data() {
+            RData::A(v) if rtype == RecordType::A => {
+                ips.push(IpAddr::V4(v.0));
+                ttl = Some(ttl.map_or(r.ttl(), |t: u32| t.min(r.ttl())));
+            }
+            RData::AAAA(v) if rtype == RecordType::AAAA => {
+                ips.push(IpAddr::V6(v.0));
+                ttl = Some(ttl.map_or(r.ttl(), |t: u32| t.min(r.ttl())));
+            }
+            RData::CNAME(v) if name.eq(r.name()) => {
+                has_cname = true;
+                name = v.0.clone();
+            }
+            _ => {}
+        }
+    }
+    (ips, ttl, has_cname, name)
 }
 
 #[derive(Clone)]
@@ -422,5 +432,112 @@ impl HickoryClientConfig {
             .map_err(|e| anyhow!("failed to create h3 async client: {e}"))?;
         tokio::spawn(bg);
         Ok(client)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hickory_proto::rr::rdata::{A, AAAA, CNAME};
+    use std::net::{Ipv4Addr, Ipv6Addr};
+    use std::str::FromStr;
+
+    #[test]
+    fn collect_answer_addresses_min_ttl_of_a_records() {
+        let qname = Name::from_str("www.example.com.").unwrap();
+        let answers = vec![
+            Record::from_rdata(qname.clone(), 300, RData::A(A(Ipv4Addr::new(1, 2, 3, 4)))),
+            Record::from_rdata(qname.clone(), 60, RData::A(A(Ipv4Addr::new(5, 6, 7, 8)))),
+            Record::from_rdata(
+                qname.clone(),
+                120,
+                RData::A(A(Ipv4Addr::new(9, 10, 11, 12))),
+            ),
+        ];
+
+        let (ips, ttl, has_cname, _) = collect_answer_addresses(answers, RecordType::A, qname);
+        assert_eq!(
+            ips,
+            vec![
+                IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4)),
+                IpAddr::V4(Ipv4Addr::new(5, 6, 7, 8)),
+                IpAddr::V4(Ipv4Addr::new(9, 10, 11, 12)),
+            ]
+        );
+        assert_eq!(ttl, Some(60));
+        assert!(!has_cname);
+    }
+
+    #[test]
+    fn collect_answer_addresses_ignores_trailing_cname_ttl() {
+        // Address records first, then a CNAME with a different TTL — old code
+        // would overwrite ttl with the CNAME's value.
+        let qname = Name::from_str("www.example.com.").unwrap();
+        let cname = Name::from_str("cdn.example.net.").unwrap();
+        let answers = vec![
+            Record::from_rdata(qname.clone(), 60, RData::A(A(Ipv4Addr::new(1, 2, 3, 4)))),
+            Record::from_rdata(qname.clone(), 3600, RData::CNAME(CNAME(cname.clone()))),
+        ];
+
+        let (ips, ttl, has_cname, next_name) =
+            collect_answer_addresses(answers, RecordType::A, qname);
+        assert_eq!(ips, vec![IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4))]);
+        assert_eq!(ttl, Some(60));
+        assert!(has_cname);
+        assert_eq!(next_name, cname);
+    }
+
+    #[test]
+    fn collect_answer_addresses_ignores_unrelated_rrtype_ttl() {
+        let qname = Name::from_str("www.example.com.").unwrap();
+        let answers = vec![
+            Record::from_rdata(qname.clone(), 90, RData::A(A(Ipv4Addr::new(1, 2, 3, 4)))),
+            // AAAA while querying A — must not affect TTL
+            Record::from_rdata(qname.clone(), 10, RData::AAAA(AAAA(Ipv6Addr::LOCALHOST))),
+        ];
+
+        let (ips, ttl, has_cname, _) = collect_answer_addresses(answers, RecordType::A, qname);
+        assert_eq!(ips, vec![IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4))]);
+        assert_eq!(ttl, Some(90));
+        assert!(!has_cname);
+    }
+
+    #[test]
+    fn collect_answer_addresses_aaaa_min_ttl() {
+        let qname = Name::from_str("www.example.com.").unwrap();
+        let answers = vec![
+            Record::from_rdata(
+                qname.clone(),
+                200,
+                RData::AAAA(AAAA(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 1))),
+            ),
+            Record::from_rdata(
+                qname.clone(),
+                50,
+                RData::AAAA(AAAA(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 2))),
+            ),
+        ];
+
+        let (ips, ttl, _, _) = collect_answer_addresses(answers, RecordType::AAAA, qname);
+        assert_eq!(ips.len(), 2);
+        assert_eq!(ttl, Some(50));
+    }
+
+    #[test]
+    fn collect_answer_addresses_cname_only() {
+        let qname = Name::from_str("www.example.com.").unwrap();
+        let cname = Name::from_str("cdn.example.net.").unwrap();
+        let answers = vec![Record::from_rdata(
+            qname.clone(),
+            3600,
+            RData::CNAME(CNAME(cname.clone())),
+        )];
+
+        let (ips, ttl, has_cname, next_name) =
+            collect_answer_addresses(answers, RecordType::A, qname);
+        assert!(ips.is_empty());
+        assert_eq!(ttl, None);
+        assert!(has_cname);
+        assert_eq!(next_name, cname);
     }
 }

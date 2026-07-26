@@ -136,10 +136,9 @@ impl ResolvedRecord {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::str::FromStr;
 
-    fn domain() -> DomainName {
-        DomainName::from_str("example.com").unwrap()
+    fn domain() -> Arc<str> {
+        Arc::from("example.com")
     }
 
     #[test]
