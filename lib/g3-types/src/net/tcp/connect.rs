@@ -147,9 +147,11 @@ mod tests {
         let mut config = TcpConnectConfig::default();
         config.set_each_timeout(Duration::from_secs(10));
 
-        let mut other = TcpConnectConfig::default();
+        let other = TcpConnectConfig {
+            each_timeout: Duration::ZERO,
+            ..Default::default()
+        };
         // Simulate a zero timeout that should not clamp us down to immediate failure.
-        other.each_timeout = Duration::ZERO;
         config.limit_to(&other);
         assert_eq!(config.each_timeout(), Duration::from_secs(10));
     }

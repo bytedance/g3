@@ -7,6 +7,7 @@ use atoi::FromRadix16Checked;
 
 use super::HttpLineParseError;
 
+#[derive(Debug)]
 pub struct HttpChunkedLine<'a> {
     pub chunk_size: u64,
     pub extension: Option<&'a str>,

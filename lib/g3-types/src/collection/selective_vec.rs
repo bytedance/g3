@@ -133,7 +133,7 @@ fn ketama_ring_create<T: SelectiveItem>(nodes: &[T]) -> Vec<(usize, u32)> {
     }
 
     // Sort and remove any duplicates.
-    ring.sort_unstable_by(|v1, v2| v1.1.cmp(&v2.1));
+    ring.sort_unstable_by_key(|v| v.1);
     ring.dedup_by(|v1, v2| v1.1 == v2.1);
 
     ring

@@ -169,7 +169,7 @@ fn check_dynamic_users(
     dynamic_users_container: &Arc<ArcSwap<AHashMap<Arc<str>, Arc<User>>>>,
 ) {
     let old_dynamic_users = dynamic_users_container.load();
-    for (_, user) in old_dynamic_users.iter() {
+    for user in old_dynamic_users.values() {
         user.check_expired(datetime_now);
     }
 }
@@ -178,7 +178,7 @@ fn check_static_users(
     datetime_now: &DateTime<Utc>,
     static_users: &Arc<AHashMap<Arc<str>, Arc<User>>>,
 ) {
-    for (_, user) in static_users.iter() {
+    for user in static_users.values() {
         user.check_expired(datetime_now);
     }
 }

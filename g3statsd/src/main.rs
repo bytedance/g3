@@ -27,7 +27,7 @@ fn main() -> anyhow::Result<()> {
         Ok(c) => c,
         Err(e) => {
             g3_daemon::control::upgrade::cancel_old_shutdown();
-            return Err(e.context(format!("failed to load config, opts: {:?}", &proc_args)));
+            return Err(e.context(format!("failed to load config, opts: {proc_args:?}")));
         }
     };
     debug!("loaded config from {}", config_file.display());

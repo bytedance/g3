@@ -6,13 +6,13 @@
 use std::sync::OnceLock;
 
 use chrono::{DateTime, Utc};
-use uuid::{Timestamp, Uuid, v1::Context};
+use uuid::{ContextV1, Timestamp, Uuid};
 
-static UUID_CONTEXT: OnceLock<Context> = OnceLock::new();
+static UUID_CONTEXT: OnceLock<ContextV1> = OnceLock::new();
 static UUID_NODE_ID: OnceLock<[u8; 6]> = OnceLock::new();
 
 pub fn generate_uuid(time: &DateTime<Utc>) -> Uuid {
-    let context = UUID_CONTEXT.get_or_init(|| Context::new(rand::random()));
+    let context = UUID_CONTEXT.get_or_init(|| ContextV1::new(rand::random()));
     let node_id = UUID_NODE_ID.get_or_init(|| {
         let mut bytes = [0u8; 6];
         rand::fill(&mut bytes);

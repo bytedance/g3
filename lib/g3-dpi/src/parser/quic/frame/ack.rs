@@ -144,7 +144,7 @@ mod tests {
         let frame = AckFrame::parse(&data, false).unwrap();
         assert_eq!(frame.largest_ack.value(), 10);
         assert_eq!(frame.ack_ranges.len(), 1);
-        assert_eq!(frame.encoded_len(), data.len());
+        assert_eq!(frame.encoded_len, data.len());
     }
 
     #[test]
