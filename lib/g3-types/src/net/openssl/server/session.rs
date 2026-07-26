@@ -65,10 +65,11 @@ impl Default for SessionCache {
     }
 }
 
+const DEFAULT_EACH_SIZE: NonZeroUsize = NonZeroUsize::new(256).unwrap();
+
 impl SessionCache {
     fn new(each_size: usize) -> Self {
-        let each_size = NonZeroUsize::new(each_size)
-            .unwrap_or_else(|| unsafe { NonZeroUsize::new_unchecked(256) });
+        let each_size = NonZeroUsize::new(each_size).unwrap_or(DEFAULT_EACH_SIZE);
         SessionCache {
             slots: [
                 CacheSlot::new(each_size),

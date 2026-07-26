@@ -27,7 +27,7 @@ impl MemoryExporterConfig {
         MemoryExporterConfig {
             name: NodeName::default(),
             position,
-            store_count: unsafe { NonZeroUsize::new_unchecked(3600) },
+            store_count: NonZeroUsize::new(3600).unwrap(),
         }
     }
 

@@ -9,6 +9,8 @@ use std::sync::Mutex;
 use lru::LruCache;
 use rustls::server::StoresServerSessions;
 
+const DEFAULT_EACH_SIZE: NonZeroUsize = NonZeroUsize::new(256).unwrap();
+
 #[derive(Debug)]
 struct CacheSlot {
     local: Mutex<LruCache<Vec<u8>, Vec<u8>, ahash::RandomState>>,
@@ -35,8 +37,7 @@ impl Default for RustlsServerSessionCache {
 
 impl RustlsServerSessionCache {
     pub fn new(each_size: usize) -> Self {
-        let each_size = NonZeroUsize::new(each_size)
-            .unwrap_or_else(|| unsafe { NonZeroUsize::new_unchecked(256) });
+        let each_size = NonZeroUsize::new(each_size).unwrap_or(DEFAULT_EACH_SIZE);
         RustlsServerSessionCache {
             slots: [
                 CacheSlot::new(each_size),

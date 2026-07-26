@@ -30,7 +30,7 @@ fn test_leaky_bucket(limiter: &RateLimiter<NotKeyed, InMemoryState, DefaultClock
 }
 
 fn test_leaky_bucket_3(limiter: &RateLimiter<NotKeyed, InMemoryState, DefaultClock>) {
-    let _ = limiter.check_n(unsafe { NonZeroU32::new_unchecked(3) });
+    let _ = limiter.check_n(NonZeroU32::new(3).unwrap());
 }
 
 #[bench]
@@ -56,21 +56,21 @@ fn fixed_window_empty(b: &mut Bencher) {
 
 #[bench]
 fn leaky_bucket_ok1(b: &mut Bencher) {
-    let quota = Quota::per_second(unsafe { NonZeroU32::new_unchecked(1024 * 1024 * 1024) });
+    let quota = Quota::per_second(NonZeroU32::new(1024 * 1024 * 1024).unwrap());
     let limiter = RateLimiter::direct(quota);
     b.iter(|| test_leaky_bucket(&limiter));
 }
 
 #[bench]
 fn leaky_bucket_ok3(b: &mut Bencher) {
-    let quota = Quota::per_second(unsafe { NonZeroU32::new_unchecked(1024 * 1024 * 1024) });
+    let quota = Quota::per_second(NonZeroU32::new(1024 * 1024 * 1024).unwrap());
     let limiter = RateLimiter::direct(quota);
     b.iter(|| test_leaky_bucket_3(&limiter));
 }
 
 #[bench]
 fn leaky_bucket_empty(b: &mut Bencher) {
-    let quota = Quota::per_second(unsafe { NonZeroU32::new_unchecked(1024) });
+    let quota = Quota::per_second(NonZeroU32::new(1024).unwrap());
     let limiter = RateLimiter::direct(quota);
     b.iter(|| test_leaky_bucket(&limiter));
 }
