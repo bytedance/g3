@@ -99,15 +99,17 @@ impl OpensslTlcpCertificatePair {
         &self,
         ssl_builder: &mut SslContextBuilder,
     ) -> anyhow::Result<()> {
-        let leaf_cert = X509::from_der(self.sign_leaf_cert.as_slice()).unwrap();
+        let leaf_cert = X509::from_der(self.sign_leaf_cert.as_slice())
+            .map_err(|e| anyhow!("failed to parse sign leaf certificate: {e}"))?;
         ssl_builder
             .set_sign_certificate(&leaf_cert)
             .map_err(|e| anyhow!("failed to set sign certificate: {e}"))?;
 
-        let leaf_cert = X509::from_der(self.enc_leaf_cert.as_slice()).unwrap();
+        let leaf_cert = X509::from_der(self.enc_leaf_cert.as_slice())
+            .map_err(|e| anyhow!("failed to parse enc leaf certificate: {e}"))?;
         ssl_builder
             .set_enc_certificate(&leaf_cert)
-            .map_err(|e| anyhow!("failed to set sign certificate: {e}"))?;
+            .map_err(|e| anyhow!("failed to set enc certificate: {e}"))?;
 
         self.add_to_ssl_context(ssl_builder)
     }
@@ -118,7 +120,8 @@ impl OpensslTlcpCertificatePair {
         ssl_builder: &mut SslContextBuilder,
         id_ctx: &mut OpensslSessionIdContext,
     ) -> anyhow::Result<()> {
-        let leaf_cert = X509::from_der(self.sign_leaf_cert.as_slice()).unwrap();
+        let leaf_cert = X509::from_der(self.sign_leaf_cert.as_slice())
+            .map_err(|e| anyhow!("failed to parse sign leaf certificate: {e}"))?;
         ssl_builder
             .set_sign_certificate(&leaf_cert)
             .map_err(|e| anyhow!("failed to set sign certificate: {e}"))?;
@@ -126,10 +129,11 @@ impl OpensslTlcpCertificatePair {
             .add_cert(&leaf_cert)
             .map_err(|e| anyhow!("failed to add sign cert to session id context: {e}"))?;
 
-        let leaf_cert = X509::from_der(self.enc_leaf_cert.as_slice()).unwrap();
+        let leaf_cert = X509::from_der(self.enc_leaf_cert.as_slice())
+            .map_err(|e| anyhow!("failed to parse enc leaf certificate: {e}"))?;
         ssl_builder
             .set_enc_certificate(&leaf_cert)
-            .map_err(|e| anyhow!("failed to set sign certificate: {e}"))?;
+            .map_err(|e| anyhow!("failed to set enc certificate: {e}"))?;
         id_ctx
             .add_cert(&leaf_cert)
             .map_err(|e| anyhow!("failed to add enc cert to session id context: {e}"))?;
@@ -140,20 +144,23 @@ impl OpensslTlcpCertificatePair {
     #[cfg(tongsuo)]
     fn add_to_ssl_context(&self, ssl_builder: &mut SslContextBuilder) -> anyhow::Result<()> {
         for (i, cert) in self.chain_certs.iter().enumerate() {
-            let chain_cert = X509::from_der(cert.as_slice()).unwrap();
+            let chain_cert = X509::from_der(cert.as_slice())
+                .map_err(|e| anyhow!("failed to parse chain certificate #{i}: {e}"))?;
             ssl_builder
                 .add_extra_chain_cert(chain_cert)
                 .map_err(|e| anyhow!("failed to add chain certificate #{i}: {e}"))?;
         }
 
-        let key = PKey::private_key_from_der(self.sign_key.as_slice()).unwrap();
+        let key = PKey::private_key_from_der(self.sign_key.as_slice())
+            .map_err(|e| anyhow!("failed to parse sign private key: {e}"))?;
         ssl_builder
             .set_sign_private_key(&key)
             .map_err(|e| anyhow!("failed to set sign private key: {e}"))?;
-        let key = PKey::private_key_from_der(self.enc_key.as_slice()).unwrap();
+        let key = PKey::private_key_from_der(self.enc_key.as_slice())
+            .map_err(|e| anyhow!("failed to parse enc private key: {e}"))?;
         ssl_builder
             .set_enc_private_key(&key)
-            .map_err(|e| anyhow!("failed to set private key: {e}"))?;
+            .map_err(|e| anyhow!("failed to set enc private key: {e}"))?;
         Ok(())
     }
 }
