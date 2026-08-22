@@ -47,7 +47,7 @@ impl Value for LtUpstreamAddr<'_> {
         if self.0.is_empty() {
             serializer.emit_none(key)
         } else {
-            serializer.emit_arguments(key, &format_args!("{}", &self.0))
+            serializer.emit_arguments(key, &format_args!("{}", self.0))
         }
     }
 }
