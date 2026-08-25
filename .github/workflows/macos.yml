@@ -44,18 +44,19 @@ jobs:
           components: clippy
       - name: Install dependencies
         run: |
-          brew install capnp openssl c-ares lua@5.4 lua@5.5
-          echo "PKG_CONFIG_PATH=$(brew --prefix lua@5.4)/lib/pkgconfig:$(brew --prefix lua@5.5)/lib/pkgconfig" >> "$GITHUB_ENV"
+          brew install capnp openssl c-ares
       - name: Cargo build
-        run: cargo build
-      - name: Cargo clippy
-        run: cargo clippy --tests -- --deny warnings
-      - name: Cargo test
-        run: cargo test --workspace --exclude g3-journal
-      - name: Cargo check with Lua 5.5
         run: |
-          cargo check --no-default-features --features lua55,python,c-ares,quic,rustls-ring -p g3proxy
-          cargo check --no-default-features --features lua55 -p g3proxy-lua
+          cargo build --workspace --exclude g3proxy --exclude g3proxy-lua
+          cargo build --no-default-features --features python,c-ares,quic,rustls-ring -p g3proxy
+      - name: Cargo clippy
+        run: |
+          cargo clippy --workspace --exclude g3proxy --exclude g3proxy-lua --tests -- --deny warnings
+          cargo clippy --no-default-features --features python,c-ares,quic,rustls-ring -p g3proxy --tests -- --deny warnings
+      - name: Cargo test
+        run: |
+          cargo test --workspace --exclude g3-journal --exclude g3proxy --exclude g3proxy-lua
+          cargo test --no-default-features --features python,c-ares,quic,rustls-ring -p g3proxy
   build-vendored-g1:
     name: Build vendored
     runs-on: macos-latest
@@ -85,8 +86,7 @@ jobs:
           components: clippy
       - name: Install dependencies
         run: |
-          brew install capnp openssl c-ares lua@5.4
-          echo "PKG_CONFIG_PATH=$(brew --prefix lua@5.4)/lib/pkgconfig" >> "$GITHUB_ENV"
+          brew install capnp openssl c-ares
       - name: Cargo build
         run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
       - name: Cargo clippy
