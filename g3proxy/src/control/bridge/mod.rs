@@ -5,5 +5,5 @@
 
 mod reload;
 pub(super) use reload::{
-    reload_auditor, reload_escaper, reload_resolver, reload_server, reload_user_group,
+    reload, reload_auditor, reload_escaper, reload_resolver, reload_server, reload_user_group,
 };
