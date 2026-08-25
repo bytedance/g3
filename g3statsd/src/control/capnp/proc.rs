@@ -32,6 +32,16 @@ impl proc_control::Server for ProcControlImpl {
         Ok(())
     }
 
+    async fn reload(
+        self: Rc<Self>,
+        _params: proc_control::ReloadParams,
+        mut results: proc_control::ReloadResults,
+    ) -> capnp::Result<()> {
+        let r = crate::control::bridge::reload().await;
+        set_operation_result(results.get().init_result(), r);
+        Ok(())
+    }
+
     async fn cancel_shutdown(
         self: Rc<Self>,
         _params: proc_control::CancelShutdownParams,

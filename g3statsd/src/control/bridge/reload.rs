@@ -8,6 +8,14 @@ use anyhow::anyhow;
 use g3_types::metrics::NodeName;
 use g3_yaml::YamlDocPosition;
 
+pub(in crate::control) async fn reload() -> anyhow::Result<()> {
+    g3_daemon::runtime::main_handle()
+        .ok_or(anyhow!("unable to get main runtime handle"))?
+        .spawn(crate::signal::reload())
+        .await
+        .map_err(|e| anyhow!("failed to spawn reload task: {e}"))?
+}
+
 macro_rules! impl_reload {
     ($f:ident, $m:tt) => {
         pub(in crate::control) async fn $f(
