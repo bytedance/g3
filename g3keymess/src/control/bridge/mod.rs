@@ -6,6 +6,10 @@
 use anyhow::anyhow;
 use openssl::pkey::PKey;
 
+pub(crate) async fn reload() -> anyhow::Result<()> {
+    run_in_main_thread(crate::signal::reload()).await
+}
+
 pub(crate) async fn add_key(pem: &str) -> anyhow::Result<()> {
     let key = PKey::private_key_from_pem(pem.as_bytes())
         .map_err(|e| anyhow!("invalid private key content: {e}"))?;
