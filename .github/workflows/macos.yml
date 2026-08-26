@@ -47,11 +47,11 @@ jobs:
           brew install capnp openssl c-ares
       - name: Cargo build
         run: |
-          cargo build --workspace --exclude g3proxy --exclude g3proxy-lua
+          cargo build --workspace --exclude g3-journal --exclude g3proxy --exclude g3proxy-lua
           cargo build --no-default-features --features python,c-ares,quic,rustls-ring -p g3proxy
       - name: Cargo clippy
         run: |
-          cargo clippy --workspace --exclude g3proxy --exclude g3proxy-lua --tests -- --deny warnings
+          cargo clippy --workspace --exclude g3-journal --exclude g3proxy --exclude g3proxy-lua --tests -- --deny warnings
           cargo clippy --no-default-features --features python,c-ares,quic,rustls-ring -p g3proxy --tests -- --deny warnings
       - name: Cargo test
         run: |
