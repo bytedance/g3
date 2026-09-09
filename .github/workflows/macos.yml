@@ -44,13 +44,19 @@ jobs:
           components: clippy
       - name: Install dependencies
         run: |
-          brew install capnp openssl c-ares lua
+          brew install capnp openssl c-ares
       - name: Cargo build
-        run: cargo build
+        run: |
+          cargo build --workspace --exclude g3-journal --exclude g3proxy --exclude g3proxy-lua
+          cargo build --no-default-features --features python,c-ares,quic,rustls-ring -p g3proxy
       - name: Cargo clippy
-        run: cargo clippy --tests -- --deny warnings
+        run: |
+          cargo clippy --workspace --exclude g3-journal --exclude g3proxy --exclude g3proxy-lua --tests -- --deny warnings
+          cargo clippy --no-default-features --features python,c-ares,quic,rustls-ring -p g3proxy --tests -- --deny warnings
       - name: Cargo test
-        run: cargo test --workspace --exclude g3-journal
+        run: |
+          cargo test --workspace --exclude g3-journal --exclude g3proxy --exclude g3proxy-lua
+          cargo test --no-default-features --features python,c-ares,quic,rustls-ring -p g3proxy
   build-vendored-g1:
     name: Build vendored
     runs-on: macos-latest
@@ -80,7 +86,7 @@ jobs:
           components: clippy
       - name: Install dependencies
         run: |
-          brew install capnp openssl c-ares lua
+          brew install capnp openssl c-ares
       - name: Cargo build
         run: cargo build --no-default-features --features ${{ matrix.feature }} -p ${{ matrix.component }}
       - name: Cargo clippy

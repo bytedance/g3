@@ -11,6 +11,7 @@ interface ProcControl {
 
   version @0 () -> (version :Text);
   offline @1 () -> (result :Types.OperationResult);
+  reload @14 () -> (result :Types.OperationResult);
   cancelShutdown @11 () -> (result :Types.OperationResult);
   releaseController @12 () -> (result :Types.OperationResult);
 

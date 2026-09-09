@@ -96,6 +96,12 @@ impl FluentdClientConfig {
                         config.set_flush_interval(interval);
                         Ok(())
                     }
+                    "retry_queue_len" => {
+                        let len = g3_yaml::value::as_usize(v)
+                            .context(format!("invalid usize value for key {k}"))?;
+                        config.set_retry_queue_len(len);
+                        Ok(())
+                    }
                     _ => Err(anyhow!("invalid key {k}")),
                 })?;
 
@@ -144,6 +150,7 @@ mod tests {
                 connect_delay: "1s"
                 write_timeout: "500ms"
                 flush_interval: "100ms"
+                retry_queue_len: 64
             "#
         );
         let config = FluentdClientConfig::parse_yaml(&yaml, None).unwrap();
@@ -171,6 +178,7 @@ mod tests {
         assert_eq!(config.connect_delay, std::time::Duration::from_secs(1));
         assert_eq!(config.write_timeout, std::time::Duration::from_millis(500));
         assert_eq!(config.flush_interval, std::time::Duration::from_millis(100));
+        assert_eq!(config.retry_queue_len, 64);
 
         let yaml = yaml_doc!(
             r#"

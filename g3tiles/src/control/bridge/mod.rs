@@ -4,4 +4,4 @@
  */
 
 mod reload;
-pub(super) use reload::{reload_backend, reload_discover, reload_server};
+pub(super) use reload::{reload, reload_backend, reload_discover, reload_server};
