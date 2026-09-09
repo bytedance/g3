@@ -19,6 +19,7 @@ use crate::common::{parse_fetch_result, parse_operation_result};
 
 pub const COMMAND_VERSION: &str = "version";
 pub const COMMAND_OFFLINE: &str = "offline";
+pub const COMMAND_RELOAD: &str = "reload";
 pub const COMMAND_CANCEL_SHUTDOWN: &str = "cancel-shutdown";
 pub const COMMAND_LIST: &str = "list";
 pub const COMMAND_PUBLISH_KEY: &str = "publish-key";
@@ -40,6 +41,10 @@ pub mod commands {
 
     pub fn offline() -> Command {
         Command::new(COMMAND_OFFLINE).about("Put this daemon into offline mode")
+    }
+
+    pub fn reload() -> Command {
+        Command::new(COMMAND_RELOAD).about("Reload the daemon")
     }
 
     pub fn cancel_shutdown() -> Command {
@@ -88,6 +93,12 @@ pub async fn version(client: &proc_control::Client) -> CommandResult<()> {
 
 pub async fn offline(client: &proc_control::Client) -> CommandResult<()> {
     let req = client.offline_request();
+    let rsp = req.send().promise.await?;
+    parse_operation_result(rsp.get()?.get_result()?)
+}
+
+pub async fn reload(client: &proc_control::Client) -> CommandResult<()> {
+    let req = client.reload_request();
     let rsp = req.send().promise.await?;
     parse_operation_result(rsp.get()?.get_result()?)
 }

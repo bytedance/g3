@@ -21,6 +21,7 @@ fn build_cli_args() -> Command {
         .append_daemon_ctl_args()
         .subcommand(proc::commands::version())
         .subcommand(proc::commands::offline())
+        .subcommand(proc::commands::reload())
         .subcommand(proc::commands::cancel_shutdown())
         .subcommand(proc::commands::force_quit())
         .subcommand(proc::commands::force_quit_all())
@@ -57,6 +58,7 @@ async fn main() -> anyhow::Result<()> {
             match subcommand {
                 proc::COMMAND_VERSION => proc::version(&proc_control).await,
                 proc::COMMAND_OFFLINE => proc::offline(&proc_control).await,
+                proc::COMMAND_RELOAD => proc::reload(&proc_control).await,
                 proc::COMMAND_CANCEL_SHUTDOWN => proc::cancel_shutdown(&proc_control).await,
                 proc::COMMAND_FORCE_QUIT => proc::force_quit(&proc_control, args).await,
                 proc::COMMAND_FORCE_QUIT_ALL => proc::force_quit_all(&proc_control).await,

@@ -4,4 +4,4 @@
  */
 
 mod reload;
-pub(super) use reload::{reload_collector, reload_exporter, reload_importer};
+pub(super) use reload::{reload, reload_collector, reload_exporter, reload_importer};

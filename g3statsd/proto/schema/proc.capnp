@@ -7,6 +7,7 @@ interface ProcControl {
 
   version @0 () -> (version :Text);
   offline @1 () -> (result :Types.OperationResult);
+  reload @10 () -> (result :Types.OperationResult);
   cancelShutdown @2 () -> (result :Types.OperationResult);
   releaseController @3 () -> (result :Types.OperationResult);
 
