@@ -72,12 +72,11 @@ pub(super) fn derive(input: DeriveInput) -> TokenStream {
         let fn_name = v.name;
         let expanded = match v.types.pop() {
             Some(pair) => {
-                let fn_result = pair.into_value();
                 if v.types.is_empty() {
                     if is_async {
-                        derive_async_fn_r(&fn_name, fn_result, &arm_attrs, &arm_idents)
+                        derive_async_fn_r(&fn_name, pair, &arm_attrs, &arm_idents)
                     } else {
-                        derive_fn_r(&fn_name, fn_result, &arm_attrs, &arm_idents)
+                        derive_fn_r(&fn_name, pair, &arm_attrs, &arm_idents)
                     }
                 } else {
                     let param_names = (0..v.types.len())
@@ -96,7 +95,7 @@ pub(super) fn derive(input: DeriveInput) -> TokenStream {
                         derive_async_fn_p_r(
                             &fn_name,
                             fn_params,
-                            fn_result,
+                            pair,
                             &arm_attrs,
                             &arm_idents,
                             call_args,
@@ -105,7 +104,7 @@ pub(super) fn derive(input: DeriveInput) -> TokenStream {
                         derive_fn_p_r(
                             &fn_name,
                             fn_params,
-                            fn_result,
+                            pair,
                             &arm_attrs,
                             &arm_idents,
                             call_args,
