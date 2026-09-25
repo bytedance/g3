@@ -74,6 +74,8 @@ impl KeyStoreConfig for RedisKeyStoreConfig {
     }
 
     async fn load_keys(&self) -> anyhow::Result<()> {
-        unimplemented!()
+        Err(anyhow!(
+            "redis key store is not yet implemented; use local store type instead"
+        ))
     }
 }
